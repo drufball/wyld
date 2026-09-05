@@ -78,6 +78,12 @@ file is down to environment facts and open items. Keep it short; update it whene
   told to both leads: verification runs start server+UI only, scratch DB, explicit PAK_PORT, never
   a wake process. Proper fix (wake refuses/namespaces a second adapter on the same channel) is a
   future Codex unit.
+- **Stale `@wyld/shared` dist crashes the live server on pull** (seen 2026-09-05): the server dev
+  watcher restarts on a `git pull` of the live checkout, but does not rebuild `@wyld/shared`; a
+  merge that adds a shared export (the catch-up engine) crashed it with a missing-export
+  SyntaxError until `pnpm --filter @wyld/shared build` + `tmux respawn-window -k -t wyld:0`.
+  Rule: rebuild shared in the live checkout right after merging anything that touches it. Proper
+  fix (watcher also watches shared, or dev uses source not dist) is a future Codex unit.
 
 ## Seeded data (2026-09-05)
 
