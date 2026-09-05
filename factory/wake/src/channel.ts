@@ -12,6 +12,32 @@ export type ChannelNotification = {
 };
 type Logger = (level: LogLevel, msg: string, context?: LogContext) => void;
 
+export function createDaemonPost(options: {
+  wakeUrl: string;
+  wakeSecret: string;
+  fetch?: typeof fetch;
+  log: Logger;
+}) {
+  const request = options.fetch ?? fetch;
+  let loggedUnauthorized = false;
+  if (options.wakeSecret.length === 0)
+    options.log('error', 'WAKE_SECRET is missing; Wake channel delivery cannot authenticate');
+  return async (path: string, body: unknown) => {
+    const response = await request(`${options.wakeUrl}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Wake-Secret': options.wakeSecret },
+      body: JSON.stringify(body),
+    });
+    const responseBody = response.ok ? '' : await response.text();
+    if (response.status === 401 && !loggedUnauthorized) {
+      loggedUnauthorized = true;
+      options.log('error', 'Wake daemon rejected channel authentication', { path, status: 401 });
+    }
+    if (!response.ok) throw new Error(`${path} returned HTTP ${response.status}: ${responseBody}`);
+    return response;
+  };
+}
+
 export function createStreamLogger(stream: NodeJS.WritableStream): Logger {
   return (level, msg, context = {}) =>
     stream.write(`${JSON.stringify({ ts: new Date().toISOString(), level, msg, ...context })}\n`);
@@ -176,14 +202,14 @@ async function postTool(
     });
     const responseBody = await response.text();
     if (!response.ok) {
-      const detail =
-        missingIsUnimplemented && response.status === 404
-          ? 'The endpoint is not implemented yet.'
-          : responseBody;
-      return textResult(
-        `HTTP ${response.status}: ${detail}${detail === responseBody ? '' : ` ${responseBody}`}`.trim(),
-        true,
-      );
+      if (missingIsUnimplemented && response.status === 404) {
+        const suffix = responseBody.length === 0 ? '' : ` ${responseBody}`;
+        return textResult(
+          `HTTP ${response.status}: The endpoint is not implemented yet.${suffix}`,
+          true,
+        );
+      }
+      return textResult(`HTTP ${response.status}: ${responseBody}`.trim(), true);
     }
     return textResult(responseBody || 'OK');
   } catch (error) {

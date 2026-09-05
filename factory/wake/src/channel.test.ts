@@ -4,6 +4,7 @@ import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  createDaemonPost,
   createDeliveryLoop,
   createStreamLogger,
   notificationFor,
@@ -31,6 +32,25 @@ const earlier: QueuedMessage = {
 };
 
 describe('Wake channel delivery', () => {
+  it('logs missing credentials and only the first unauthorized response at error', async () => {
+    const log = vi.fn();
+    const daemonPost = createDaemonPost({
+      wakeUrl: 'http://wake',
+      wakeSecret: '',
+      fetch: vi.fn(async () => new Response('Unauthorized', { status: 401 })) as typeof fetch,
+      log,
+    });
+    expect(log).toHaveBeenCalledWith('error', expect.stringContaining('WAKE_SECRET'));
+    await expect(daemonPost('/queue/claim', {})).rejects.toThrow('HTTP 401');
+    await expect(daemonPost('/queue/claim', {})).rejects.toThrow('HTTP 401');
+    expect(log.mock.calls.filter(([level]) => level === 'error')).toHaveLength(2);
+    expect(log).toHaveBeenCalledWith(
+      'error',
+      expect.stringContaining('rejected channel authentication'),
+      { path: '/queue/claim', status: 401 },
+    );
+  });
+
   it('replays startup backlog in timestamp order, then acknowledges it', async () => {
     const emitted: string[] = [];
     const emit = vi.fn(async (message: ReturnType<typeof notificationFor>) => {

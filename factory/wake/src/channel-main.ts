@@ -4,6 +4,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import packageMetadata from '../package.json' with { type: 'json' };
 import {
   CHANNEL_INSTRUCTIONS,
+  createDaemonPost,
   createDeliveryLoop,
   createStreamLogger,
   parseClaimResponse,
@@ -25,16 +26,7 @@ const mcp = new Server(
 registerPakTools(mcp, { pakUrl: process.env.PAK_URL ?? 'http://localhost:8787' });
 await mcp.connect(new StdioServerTransport());
 
-const daemonPost = async (path: string, body: unknown) => {
-  const response = await fetch(`${wakeUrl}${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'X-Wake-Secret': wakeSecret },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok)
-    throw new Error(`${path} returned HTTP ${response.status}: ${await response.text()}`);
-  return response;
-};
+const daemonPost = createDaemonPost({ wakeUrl, wakeSecret, log: channelLog });
 
 createDeliveryLoop({
   claim: async () =>

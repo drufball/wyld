@@ -16,5 +16,8 @@ claude --dangerously-load-development-channels server:wake
 ```
 
 With the daemon running, enqueue a test event and display the queue depth with
-`pnpm --filter @wyld/wake dev:emit '{"kind":"github.pr_opened","summary":"PR #99 opened: test","pr":99}'`.
-A bare summary string works too: `pnpm --filter @wyld/wake dev:emit 'Please inspect the queue'`.
+`pnpm --filter @wyld/wake dev:emit '{"kind":"github.pr_opened","title":"test","pr":99}'`.
+This sends a signed GitHub fixture through `/gh`, producing `PR #99 opened: test`. To send a human
+event through `/event`, use
+`pnpm --filter @wyld/wake dev:emit '{"kind":"human.feedback","summary":"Please inspect the queue"}'`.
+A bare summary string is shorthand for a `human.intent` event.
