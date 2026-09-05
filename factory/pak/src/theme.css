@@ -121,6 +121,31 @@
 }
 
 /* --- legacy screen CSS, being deleted screen by screen --- */
+.pak-dim {
+  color: var(--color-muted-foreground);
+}
+
+.today-action {
+  display: block;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--pak-space-4);
+  border: 3px solid;
+  border-color: var(--color-bevel-light) var(--color-bevel-dark) var(--color-bevel-dark)
+    var(--color-bevel-light);
+  border-radius: var(--radius);
+  color: var(--color-foreground);
+  background: var(--color-card);
+  text-decoration: none;
+}
+
+a.today-action:hover,
+a.today-action:focus-visible {
+  border-color: var(--color-accent);
+  outline: 3px solid var(--color-ring);
+  outline-offset: 3px;
+}
+
 .vmu {
   display: grid;
   min-height: 100vh;
