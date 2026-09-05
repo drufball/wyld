@@ -38,7 +38,7 @@ test('opens a filtered quest list and nudges its quest', async ({ page, request 
   await expect(page.getByRole('heading', { name: 'Smoke Quest' })).toBeVisible();
   await expect(page.getByText('Make a trail through the mist.')).toBeVisible();
   await expect(page.getByText('building', { exact: true })).toBeVisible();
-  await expect(page.getByText('Smoke World', { exact: true })).toBeVisible();
+  await expect(page.getByRole('article').getByText('Smoke World', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Nudge' }).click();
 
   await expect
