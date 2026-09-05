@@ -12,7 +12,8 @@ file is down to environment facts and open items. Keep it short; update it whene
 | 1.2 Wake | done | #14 core, #18 channel adapter + `pak_log_event`/`pak_set_next_action`, #21 factory up/down/doctor |
 | 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | done | #23 server worlds/quests/links/notes, #26 nine `pak_*` tools, #27 Worlds screen + Nudge/Park/Ask |
 | 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | done | #33 catchups table + `GET/POST /api/catchup` + mechanical digest, #37 `pak_write_catchup`/`pak_read_catchup`, #38 Catch-Up card + arrival gate + VMU; `skills/write-catchup.md` |
-| 1.5 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
+| 1.5 GitHub loop + Debug Menu health tiles | **in progress** (lead spawned 2026-09-05; e2e harness fix is its first unit, gated on polish #39) | — |
+| 1.6 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
 
