@@ -7,6 +7,7 @@ export const WakeMessage = z.object({
   source: EventSource,
   kind: EventKind,
   quest: Id.optional(),
+  chain: z.number().int().positive().optional(),
   issue: z.number().int().positive().optional(),
   pr: z.number().int().positive().optional(),
   url: z.url().optional(),
