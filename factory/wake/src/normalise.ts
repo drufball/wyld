@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 const QUEST = /<!--\s*quest:\s*([A-Za-z0-9_-]+)\s*-->/;
 const User = z.object({ login: z.string(), type: z.string().optional() }).passthrough();
+const PullRequestReference = z.object({ number: z.number().int().positive() }).passthrough();
 const Item = z
   .object({
     number: z.number().int().positive(),
@@ -46,6 +47,7 @@ const Payload = z
         head_branch: z.string().nullable(),
         updated_at: z.iso.datetime().optional(),
         html_url: z.url().optional(),
+        pull_requests: z.array(PullRequestReference).optional(),
       })
       .passthrough()
       .optional(),
@@ -56,6 +58,7 @@ const Payload = z
         head_branch: z.string(),
         updated_at: z.iso.datetime().optional(),
         html_url: z.url().optional(),
+        pull_requests: z.array(PullRequestReference).optional(),
       })
       .passthrough()
       .optional(),
@@ -92,7 +95,17 @@ function githubMessage(
   timestamp: string | undefined,
   now: Date,
 ): WakeMessageType {
-  return WakeMessage.parse({ source: 'github', ts: timestamp ?? now.toISOString(), ...input });
+  return WakeMessage.parse({
+    source: 'github',
+    ts: timestamp ?? now.toISOString(),
+    ...input,
+    summary: truncate(input.summary),
+  });
+}
+
+export function isBotGithubSender(raw: unknown): boolean {
+  const parsed = Payload.safeParse(raw);
+  return parsed.success && parsed.data.sender?.type?.toLowerCase() === 'bot';
 }
 
 export function normaliseGithub(
@@ -103,7 +116,7 @@ export function normaliseGithub(
   const parsed = Payload.safeParse(raw);
   if (!parsed.success) return undefined;
   const p = parsed.data;
-  if (p.sender?.type?.toLowerCase() === 'bot') return undefined;
+  if (eventType === 'issue_comment' && p.sender?.type?.toLowerCase() === 'bot') return undefined;
   if (eventType === 'issues' && (p.action === 'opened' || p.action === 'closed') && p.issue) {
     const i = p.issue;
     const opened = p.action === 'opened';
@@ -202,6 +215,7 @@ export function normaliseGithub(
     return githubMessage(
       {
         kind: 'github.ci_completed',
+        ...optional('pr', c.pull_requests?.[0]?.number),
         ...optional('url', c.html_url),
         summary: `CI ${c.conclusion ?? 'unknown'} on ${c.head_branch ?? 'unknown'}`,
       },
@@ -214,6 +228,7 @@ export function normaliseGithub(
     return githubMessage(
       {
         kind: 'github.ci_completed',
+        ...optional('pr', w.pull_requests?.[0]?.number),
         ...optional('url', w.html_url),
         summary: `${w.name} ${w.conclusion ?? 'unknown'} on ${w.head_branch}`,
       },

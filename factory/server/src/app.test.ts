@@ -196,4 +196,23 @@ describe('Pak server', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetcher).toHaveBeenCalledOnce();
   });
+
+  it('does not delay or fail event ingestion when Wake is unreachable', async () => {
+    const fetcher = vi.fn<typeof fetch>(() => new Promise(() => undefined));
+    app = createApp({
+      database,
+      logger: silentLogger,
+      wakeUrl: 'http://unreachable.invalid',
+      wakeSecret: 'shared-secret',
+      fetch: fetcher,
+    });
+    const response = await Promise.race([
+      postEvent('human.intent', 'keep going'),
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(() => reject(new Error('event ingestion waited for Wake')), 100),
+      ),
+    ]);
+    expect(response.status).toBe(201);
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+  });
 });

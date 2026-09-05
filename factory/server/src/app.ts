@@ -7,7 +7,6 @@ import {
   NewEvent,
   NextAction,
   Presence,
-  WakeMessage,
   type NewEvent as NewEventType,
 } from '@wyld/shared';
 import { z } from 'zod';

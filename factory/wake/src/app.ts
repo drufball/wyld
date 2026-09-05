@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import { enqueueMessage, type AppDatabase } from './database.js';
 import { log, type LogContext, type LogLevel } from './logger.js';
-import { normaliseEvent, normaliseGithub } from './normalise.js';
+import { isBotGithubSender, normaliseEvent, normaliseGithub } from './normalise.js';
 import { messages } from './schema.js';
 
 const Claim = z.object({ limit: z.number().int().positive().max(100).default(20) }).strict();
@@ -65,6 +65,8 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
     } catch {
       return drop('invalid GitHub body');
     }
+    if (eventType === 'issue_comment' && isBotGithubSender(body))
+      return drop('GitHub issue comment sent by bot');
     const message = normaliseGithub(eventType, body, now());
     if (message === undefined) return drop('unhandled GitHub event');
     enqueueMessage(database, message, now());

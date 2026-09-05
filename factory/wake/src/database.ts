@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import type { WakeMessage } from '@wyld/shared';
 import Database from 'better-sqlite3';
-import { and, eq, gte, isNull } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull } from 'drizzle-orm';
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
@@ -46,7 +46,7 @@ export function enqueueMessage(database: AppDatabase, message: WakeMessage, now:
           gte(messages.updatedAt, cutoff),
         ),
       )
-      .orderBy(messages.updatedAt)
+      .orderBy(desc(messages.updatedAt))
       .get();
     if (existing !== undefined) {
       const count = existing.count + 1;
