@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="WYLD memory card">
+  <rect width="128" height="128" rx="12" fill="#14121f"/>
+  <path fill="#5f5aa2" stroke="#4a4374" stroke-width="6" d="M24 18h80v92H24z"/>
+  <path fill="#302b57" d="M36 30h56v35H36zm8 49h40v19H44z"/>
+  <path fill="#f26722" d="M45 39h38v17H45z"/>
+  <path fill="#ece9f5" d="M51 84h8v8h-8zm18 0h8v8h-8z"/>
+</svg>
