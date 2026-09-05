@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 
 const destinations = [
   { to: '/', label: 'Today', mobileLabel: 'TODAY' },
-  { to: '/worlds', label: 'Worlds', mobileLabel: 'WORLD' },
+  { to: '/quests', label: 'Quests', mobileLabel: 'QUEST' },
   { to: '/demos', label: 'Demos', mobileLabel: 'DEMOS' },
   { to: '/rumble', label: 'Rumble', mobileLabel: 'RMBL' },
   { to: '/debug', label: 'Debug', mobileLabel: 'DEBUG' },
