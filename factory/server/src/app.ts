@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, gt, gte } from 'drizzle-orm';
+import path from 'node:path';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import {
@@ -26,6 +27,9 @@ import { createQuestRoutes, formatIssues } from './quests.js';
 import { createChainRoutes } from './chains.js';
 import { createOpsRoutes, latestOpsReport } from './ops.js';
 import { createRumbleRoutes, listOrderedRumbleRows } from './rumbles.js';
+import { createDemoRoutes } from './demos.js';
+import { DEMO_SLUG, type DemoBuilder } from './builder.js';
+import { resolveStaticFile } from './static.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -78,6 +82,9 @@ export type AppDependencies = {
   fetch?: typeof globalThis.fetch;
   logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
   pakDist?: string;
+  demosDir?: string;
+  feedbackDir?: string;
+  builder?: DemoBuilder;
 };
 
 export function createApp(dependencies: AppDependencies) {
@@ -354,6 +361,20 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
   app.route('/api', createRumbleRoutes({ database: dependencies.database, now, storeEvent }));
+  const builder = dependencies.builder ?? {
+    build: async () => ({ ok: false as const, error: 'Demo builder is not configured' }),
+    isBuilding: () => false,
+  };
+  app.route(
+    '/api',
+    createDemoRoutes({
+      database: dependencies.database,
+      now,
+      storeEvent,
+      config: { feedbackDir: dependencies.feedbackDir ?? '.factory/feedback' },
+      builder,
+    }),
+  );
 
   app.get('/api/health', (c) => c.json(serverHealth()));
 
@@ -442,6 +463,26 @@ export function createApp(dependencies: AppDependencies) {
     );
   });
 
+  app.all('/play/:slug', (c) => {
+    const slug = c.req.param('slug');
+    if (!DEMO_SLUG.test(slug)) return c.json({ error: 'Invalid demo slug' }, 400);
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD')
+      return c.json({ error: 'Not Found' }, 404);
+    return c.redirect(`/play/${slug}/`, 301);
+  });
+  app.all('/play/:slug/*', (c) => {
+    const slug = c.req.param('slug');
+    if (!DEMO_SLUG.test(slug)) return c.json({ error: 'Invalid demo slug' }, 400);
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD')
+      return c.json({ error: 'Not Found' }, 404);
+    const prefix = `/play/${slug}`;
+    const response = resolveStaticFile(
+      path.join(dependencies.demosDir ?? '.factory/demos', slug),
+      c.req.path.slice(prefix.length) || '/',
+      c.req.method,
+    );
+    return response ?? c.json({ error: 'Demo not found' }, 404);
+  });
   if (dependencies.pakDist !== undefined) app.all('*', createStaticHandler(dependencies.pakDist));
   app.notFound((c) => c.json({ error: 'Not Found' }, 404));
 

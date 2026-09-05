@@ -9,14 +9,24 @@ import { createApp } from './app.js';
 import { readConfig } from './config.js';
 import { openDatabase } from './database.js';
 import { log } from './logger.js';
+import { createDemoBuilder } from './builder.js';
 
 const config = readConfig();
 const migrationsFolder = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 const database = openDatabase(config.databasePath, migrationsFolder);
+const builder = createDemoBuilder({
+  repoDir: config.repoDir,
+  demosDir: config.demosDir,
+  worktreesDir: config.worktreesDir,
+  logger: log,
+});
 const app = createApp({
   database,
   version: packageMetadata.version,
   pakDist: config.pakDist,
+  demosDir: config.demosDir,
+  feedbackDir: config.feedbackDir,
+  builder,
   ...(config.wakeUrl === undefined ? {} : { wakeUrl: config.wakeUrl }),
   ...(config.wakeSecret === undefined ? {} : { wakeSecret: config.wakeSecret }),
 });

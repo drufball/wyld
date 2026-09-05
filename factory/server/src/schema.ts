@@ -171,3 +171,27 @@ export const rumbles = sqliteTable(
   },
   (table) => [index('rumbles_chosen_at_idx').on(table.chosenAt)],
 );
+
+export const demos = sqliteTable('demos', {
+  id: text('id').primaryKey(),
+  questId: text('quest_id'),
+  title: text('title').notNull(),
+  ref: text('ref').notNull(),
+  status: text('status', { enum: ['building', 'ready', 'failed'] }).notNull(),
+  builtAt: text('built_at'),
+  error: text('error'),
+});
+
+export const feedback = sqliteTable(
+  'feedback',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    demoId: text('demo_id').notNull(),
+    questId: text('quest_id'),
+    text: text('text').notNull(),
+    state: text('state', { mode: 'json' }).$type<Record<string, unknown>>(),
+    screenshotPath: text('screenshot_path'),
+    created: text('created').notNull(),
+  },
+  (table) => [index('feedback_demo_id_idx').on(table.demoId)],
+);

@@ -57,6 +57,13 @@
       "when": 1788638161290,
       "tag": "0007_cuddly_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788644701047,
+      "tag": "0008_confused_lockheed",
+      "breakpoints": true
     }
   ]
 }
