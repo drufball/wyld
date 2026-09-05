@@ -9,5 +9,7 @@ test('shows a seeded demo disc', async ({ page, request }) => {
     ).ok(),
   ).toBe(true);
   await page.goto('/demos');
-  await expect(page.locator('.demo-card').filter({ hasText: title })).toBeVisible();
+  const card = page.locator('.demo-card').filter({ hasText: title });
+  await expect(card).toBeVisible();
+  await expect(card.getByText("This one didn't build.")).toBeVisible();
 });
