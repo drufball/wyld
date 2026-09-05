@@ -12,7 +12,7 @@ file is down to environment facts and open items. Keep it short; update it whene
 | 1.2 Wake | done | #14 core, #18 channel adapter + `pak_log_event`/`pak_set_next_action`, #21 factory up/down/doctor |
 | 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | done | #23 server worlds/quests/links/notes, #26 nine `pak_*` tools, #27 Worlds screen + Nudge/Park/Ask |
 | 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | done | #33 catchups table + `GET/POST /api/catchup` + mechanical digest, #37 `pak_write_catchup`/`pak_read_catchup`, #38 Catch-Up card + arrival gate + VMU; `skills/write-catchup.md` |
-| 1.5 GitHub loop + Debug Menu health tiles | **in progress** (lead spawned 2026-09-05; e2e harness fix is its first unit, gated on polish #39) | — |
+| 1.5 GitHub loop + Debug Menu health tiles | done | #41 `health` table + `POST /api/health/report` + `GET /api/health/snapshot`, #44 `pak_health_report`/`pak_read_health` + Wake `lastGithubEventAt`, #45 e2e harness isolation, #47 `/debug` live tiles |
 | Quests `question-chains` + `today-glance` (Dru intents 2026-09-05, outside the step plan) | **in progress** — one lead owns both (they share the Today screen). Chains: ephemeral ask/answer/settle cards off Today, one-tap convert to quest, new `human.question` Wake kind. Glance: Today also shows compact cards for quests currently building. | — |
 | 1.6 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
@@ -67,7 +67,6 @@ file is down to environment facts and open items. Keep it short; update it whene
   unless Dru asks sooner.
 - Pak `LiveEventsProvider` still keeps `lastEvent` in provider state (needless re-render per event).
   1.3 consumes events via `subscribe(kind, …)` and never reads `lastEvent` — it can be deleted.
-- `factory/pak/src/words.ts` exports `sentenceCount`, which has no call sites. Dead on arrival in #27.
 - Quest lists are ordered by quest id, so `done` and `idea` quests interleave. Fine for now; revisit
   if a world gets busy.
 - Service-worker registration errored in the sandboxed in-app browser; unconfirmed on a real phone.
@@ -82,25 +81,39 @@ file is down to environment facts and open items. Keep it short; update it whene
   run): the server pushes events to `WAKE_URL` whenever that env var is set, and test servers
   inherit it from a shell that sourced `.factory/env`. Rule: any non-production server or e2e run
   must have `WAKE_URL` unset (it's optional in server config). The tell remains: a surprising
-  human intent that is absent from `pak_read_events` is a leaked test event. Proper fix (wake
-  ingress rejects or namespaces non-production senders) is a future Codex unit.
-- **The Pak e2e harness itself leaks** (confirmed empirically 2026-09-05 by the 1.4 lead): the
-  `webServer.env` in `factory/pak/playwright.config.ts` is *merged* into `process.env`, not a
-  replacement, so the fixture's server inherits `WAKE_URL`/`WAKE_SECRET` and forwards every
-  synthetic `human.intent` to live Wake. Proved by pointing `WAKE_URL` at a local sink and running
-  `e2e/today.spec.ts`: the sink received `POST /event`. This is a harness defect, not shell
-  hygiene — no amount of care at the shell fixes `pnpm test:e2e`. Fix needs both halves: teach
-  `factory/server/src/config.ts` to treat an empty `WAKE_URL`/`WAKE_SECRET` as unset (today an
-  empty string fails `z.url()` and the server refuses to start), then add `WAKE_URL: ''` and
-  `WAKE_SECRET: ''` to the fixture env. Same file has a second defect: `PAK_PORT: '8788'` is
-  Wake's port, so the e2e suite cannot run at all while the factory is up (`EADDRINUSE`) — move it
-  to something unused like 8799.
+  human intent that is absent from `pak_read_events` is a leaked test event. The e2e half of this
+  is fixed (next item); the rule still holds for any ad-hoc local server. Proper fix (wake ingress
+  rejects or namespaces non-production senders) is a future Codex unit.
+- ~~The Pak e2e harness itself leaks~~ **fixed 2026-09-05 in #45.** `factory/server/src/config.ts`
+  now treats an empty or whitespace-only `WAKE_URL`/`WAKE_SECRET` as unset (a non-empty malformed
+  URL still fails startup), and `factory/pak/playwright.config.ts` sets both to `''`, moves the
+  harness to port 8799, and pins `workers: 1` + `fullyParallel: false`. Verified by pointing
+  `WAKE_URL` at a local sink with the factory up: the suite passed on 8799 and the sink received
+  nothing. **`pnpm smoke` is now safe to run while the factory is running.** Two notes: the specs
+  share one server and one SQLite file, so they must stay serial — `catchup.spec.ts` fails under
+  two workers because `today.spec.ts` resets the unseen-event count; and the e2e script is called
+  `smoke` (root `pnpm smoke`, and the CI job), not `test:e2e`.
 - **Stale `@wyld/shared` dist crashes the live server on pull** (seen 2026-09-05): the server dev
   watcher restarts on a `git pull` of the live checkout, but does not rebuild `@wyld/shared`; a
   merge that adds a shared export (the catch-up engine) crashed it with a missing-export
   SyntaxError until `pnpm --filter @wyld/shared build` + `tmux respawn-window -k -t wyld:0`.
   Rule: rebuild shared in the live checkout right after merging anything that touches it. Proper
   fix (watcher also watches shared, or dev uses source not dist) is a future Codex unit.
+- **New Wake tools need a Planner restart** (1.5): #44 added `pak_health_report` and
+  `pak_read_health`, but the channel MCP server is registered when the Claude session starts, so a
+  running Planner cannot see them until `wyld:planner` is respawned. Until then the Debug Menu's
+  Planner tile reads `down` unless something posts `POST /api/health/report` directly. Once
+  restarted, send `pak_health_report` after every batch of actions — `planner_state` plus
+  `current_task` in the same plain English as a since-you-looked line, and `ci_state` /
+  `codex_prs_open` when you know them.
+- `github.ci_completed` arrives **twice** for pushes to `main`: `check_suite` and `workflow_run`
+  both normalise to that kind, and Wake's coalescing keys on `pr`/`issue`/`quest`, which those
+  events do not carry. PR-branch CI events do carry `pr` and do coalesce correctly. Harmless noise
+  today (a push to `main` is informational), but a candidate cleanup — key the coalescer on
+  `head_branch` when there is no PR.
+- The Planner's own GitHub activity comes back as events (its issues as `github.issue_opened`, its
+  review comments as `github.issue_comment` from `drufball`). Expected; PROTOCOL §2 already says to
+  do nothing with your own review, but do not mistake a self-authored comment for Dru.
 
 ## Seeded data (2026-09-05)
 

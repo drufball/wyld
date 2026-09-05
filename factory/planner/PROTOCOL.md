@@ -290,7 +290,9 @@ commit --author="Codex <codex@openai.com>" · push · gh pr create --base main
 4. Never merge red. Never merge without reading the whole diff. Do not nitpick what the linter
    enforces.
 5. After any batch of actions, refresh each affected quest's since-you-looked line (§3) and the
-   single recommended next action (§4).
+   single recommended next action (§4), and send a heartbeat with `pak_health_report`
+   (`planner_state`, `current_task` in plain English, plus `ci_state` / `codex_prs_open` when you
+   know them). The Debug Menu's Planner tile reads `down` after ten minutes of silence.
 
 ### Branch protection (blocked — Rumble pending)
 

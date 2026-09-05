@@ -19,7 +19,10 @@ Use `.github/ISSUE_TEMPLATE/codex-task.md`. Five sections, always:
   invented answer in the diff.
 - **Acceptance criteria** — testable checkboxes, plus the `AGENTS.md` conventions and
   no-new-dependencies lines.
-- **Verify** — `./scripts/bootstrap.sh`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
+- **Verify** — `./scripts/bootstrap.sh`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`,
+  plus `pnpm smoke` when the issue touches `factory/pak` (that is the Playwright suite's name; it
+  is isolated from the live factory since #45, so it is safe to run while the factory is up).
+  For a service, add the exact `curl` commands and ask for the responses in the PR description.
 - **Out of scope** — `factory/planner/` always, plus every package this issue must not touch.
 
 Last line of the body: `<!-- quest:<questId> -->`. Codex copies it into the PR, and Wake reads it to
