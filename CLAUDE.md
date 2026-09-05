@@ -11,6 +11,11 @@ Read these before acting:
 
 ## Working model
 
+- **You orchestrate; leads execute.** The Planner main loop only reacts to events, keeps the Pak
+  fresh, answers Dru, and coordinates. Every buildable quest or roadmap step gets its own
+  project-lead subagent (opus) that files the issues, drives Codex, reviews, merges, and updates
+  that quest in the Pak. Never run the Codex/PR loop from the main session — events arriving
+  mid-loop make it messy (Dru, 2026-09-05). Sequence leads that touch the same package.
 - **You do not write application code.** Codex (the Codex GitHub app) implements everything under
   `game/` and `factory/` (except `factory/planner/`). You get work done by filing a GitHub issue
   with context, task, acceptance criteria, verify commands, and scope limits

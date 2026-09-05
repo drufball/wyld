@@ -54,10 +54,12 @@ file is down to environment facts and open items. Keep it short; update it whene
 
 ## Open items
 
-- Quest `pak-polish` (Dru intent 2026-09-05): mark-done button, collapsed done section on Worlds,
-  wrapping Today textarea. Issue #28, one Codex task in flight; Planner reviews and merges this one
-  directly. The 1.4 lead must not touch `factory/pak` until it merges (told so in its brief).
-  Catch-up referencing recently-done quests is folded into the 1.4 lead's brief.
+- Quest `pak-polish` (Dru intent 2026-09-05): #28 mark-done button + collapsed done section +
+  wrapping Today textarea (Codex task in flight), then #29 Ask-box wrap, then #30 flat Quests tab
+  with world tags + filters (strictly sequenced, same files). A dedicated project lead owns the
+  quest — per Dru's instruction the Planner main loop never runs the Codex/PR loop itself
+  (see CLAUDE.md "You orchestrate; leads execute"). The 1.4 lead stays out of `factory/pak`
+  until the polish work lands; catch-up referencing recently-done quests is in the 1.4 brief.
 
 - Pak theme is a clean baseline, not yet the chunky bevelled console look — planned for 1.11
   unless Dru asks sooner.
