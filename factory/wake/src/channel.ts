@@ -2,19 +2,18 @@ import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import {
   CiState,
-  EVENT_KINDS,
   type HealthReport,
   PlannerState,
   Quest,
   RumbleKind,
-  WakeMessage,
-  type WakeMessage as WakeMessageType,
+  WakeMessageWire,
+  type WakeMessageWire as WakeMessageWireType,
 } from '@wyld/shared';
 import { z } from 'zod';
 
 import type { LogContext, LogLevel } from './logger.js';
 
-export type QueuedMessage = WakeMessageType & { id: number };
+export type QueuedMessage = WakeMessageWireType & { id: number };
 export type ChannelNotification = {
   method: 'notifications/claude/channel';
   params: { content: string; meta: Record<string, string> };
@@ -70,7 +69,7 @@ export function notificationFor(message: QueuedMessage): ChannelNotification {
 }
 
 export function createDeliveryLoop(options: {
-  claim: () => Promise<QueuedMessage[]>;
+  claim: () => Promise<{ messages: QueuedMessage[]; dropped: number[] }>;
   ack: (ids: number[]) => Promise<void>;
   emit: (notification: ChannelNotification) => Promise<void>;
   log: Logger;
@@ -85,11 +84,29 @@ export function createDeliveryLoop(options: {
 
   const tick = async (): Promise<void> => {
     try {
-      const messages = (await options.claim()).sort(
+      const claim = await options.claim();
+      const messages = claim.messages.sort(
         (left, right) => left.ts.localeCompare(right.ts) || left.id - right.id,
       );
-      for (const message of messages) await options.emit(notificationFor(message));
-      if (messages.length > 0) await options.ack(messages.map(({ id }) => id));
+      const emitted: number[] = [];
+      for (const message of messages) {
+        try {
+          await options.emit(notificationFor(message));
+          emitted.push(message.id);
+        } catch (error) {
+          const ids = [...emitted, ...claim.dropped];
+          if (ids.length > 0) {
+            try {
+              await options.ack(ids);
+            } catch {
+              // Preserve the emission error, which is the reason delivery stopped.
+            }
+          }
+          throw error;
+        }
+      }
+      const ids = [...emitted, ...claim.dropped];
+      if (ids.length > 0) await options.ack(ids);
       delay = intervalMs;
     } catch (error) {
       options.log('debug', 'Wake channel delivery failed; retrying', {
@@ -357,12 +374,12 @@ const tools = [
   {
     name: 'pak_read_events',
     description:
-      'Read recent Pak events, newest last, optionally filtered by kind. Use it to pull intents and nudges when the channel is quiet.',
+      'Read recent Pak events, newest last, optionally filtered by event-kind strings. Use it to pull intents and nudges when the channel is quiet.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         since: { type: 'integer', default: 0 },
-        kinds: { type: 'array', items: { type: 'string', enum: EVENT_KINDS } },
+        kinds: { type: 'array', items: { type: 'string' } },
         limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
       },
       additionalProperties: false,
@@ -587,8 +604,6 @@ export function registerPakTools(
       const parsed = LogEventArgs.safeParse(params.arguments);
       if (!parsed.success)
         return textResult(`Invalid arguments: ${z.prettifyError(parsed.error)}`, true);
-      if (!EVENT_KINDS.includes(parsed.data.kind as (typeof EVENT_KINDS)[number]))
-        return textResult(`Invalid kind. Valid kinds: ${EVENT_KINDS.join(', ')}`, true);
       return postTool(request, `${options.pakUrl}/api/events`, {
         source: 'planner',
         kind: parsed.data.kind,
@@ -670,11 +685,6 @@ export function registerPakTools(
     if (params.name === 'pak_read_events') {
       const parsed = ReadEventsArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
-      const invalidKind = parsed.data.kinds?.find(
-        (kind) => !EVENT_KINDS.includes(kind as (typeof EVENT_KINDS)[number]),
-      );
-      if (invalidKind !== undefined)
-        return textResult(`Invalid kind. Valid kinds: ${EVENT_KINDS.join(', ')}`, true);
       const response = await getTool(
         request,
         `${options.pakUrl}/api/events?${new URLSearchParams({ since: String(parsed.data.since), limit: '500' })}`,
@@ -904,8 +914,35 @@ async function requestTool(
   }
 }
 
-export function parseClaimResponse(value: unknown): QueuedMessage[] {
-  return z
-    .object({ messages: z.array(WakeMessage.extend({ id: z.number().int().positive() })) })
-    .parse(value).messages;
+export function parseClaimResponse(
+  value: unknown,
+  log: Logger = () => undefined,
+): { messages: QueuedMessage[]; dropped: number[] } {
+  const envelope = z.object({ messages: z.array(z.unknown()) }).parse(value);
+  const schema = WakeMessageWire.extend({ id: z.number().int().positive() });
+  const messages: QueuedMessage[] = [];
+  const dropped: number[] = [];
+  for (const entry of envelope.messages) {
+    const parsed = schema.safeParse(entry);
+    if (parsed.success) {
+      messages.push(parsed.data);
+      continue;
+    }
+    const id =
+      typeof entry === 'object' &&
+      entry !== null &&
+      'id' in entry &&
+      Number.isInteger(entry.id) &&
+      Number(entry.id) > 0
+        ? Number(entry.id)
+        : undefined;
+    const context = { error: parsed.error.message, ...(id === undefined ? {} : { id }) };
+    if (id === undefined) {
+      log('error', 'Wake channel dropped an unparseable message without a usable id', context);
+    } else {
+      log('warn', 'Wake channel dropped an unparseable message', context);
+      dropped.push(id);
+    }
+  }
+  return { messages, dropped };
 }

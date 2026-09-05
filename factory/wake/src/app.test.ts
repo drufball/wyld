@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createWakeApp } from './app.js';
 import { openDatabase, type AppDatabase } from './database.js';
@@ -131,6 +131,80 @@ describe('Wake app', () => {
       body: '{}',
     });
     expect(await response.json()).toMatchObject({ messages: [{ chain: 7 }] });
+  });
+
+  it('claims unknown kinds and retires malformed stored rows', async () => {
+    const logger = vi.fn();
+    app = createWakeApp({ database, wakeSecret, githubWebhookSecret, logger });
+    const createdAt = '2026-09-05T12:00:00.000Z';
+    database.db
+      .insert(messages)
+      .values([
+        {
+          source: 'future-system',
+          kind: 'human.telepathy',
+          summary: 'A message from the future',
+          ts: createdAt,
+          createdAt,
+          updatedAt: createdAt,
+        },
+        {
+          source: 'human',
+          kind: 'human.intent',
+          summary: '',
+          ts: createdAt,
+          createdAt,
+          updatedAt: createdAt,
+        },
+        {
+          source: 'github',
+          kind: 'github.pr_opened',
+          summary: 'A pending pull request',
+          ts: createdAt,
+          createdAt,
+          updatedAt: createdAt,
+        },
+      ])
+      .run();
+
+    const response = await app.request('/queue/claim', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret },
+      body: JSON.stringify({ limit: 2 }),
+    });
+    expect(await response.json()).toMatchObject({
+      messages: [
+        { source: 'future-system', kind: 'human.telepathy', summary: 'A message from the future' },
+      ],
+    });
+    expect(logger).toHaveBeenCalledWith(
+      'warn',
+      expect.any(String),
+      expect.objectContaining({ id: 2 }),
+    );
+
+    const skipped = database.sqlite
+      .prepare('SELECT delivered_at FROM messages WHERE id = ?')
+      .get(2) as { delivered_at: string | null };
+    expect(skipped.delivered_at).not.toBeNull();
+
+    const secondResponse = await app.request('/queue/claim', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret },
+      body: '{}',
+    });
+    const secondClaim = (await secondResponse.json()) as { messages: Array<{ id: number }> };
+    expect(secondClaim.messages).toMatchObject([
+      { id: 1, summary: 'A message from the future' },
+      { id: 3, summary: 'A pending pull request' },
+    ]);
+
+    await app.request('/queue/ack', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: secondClaim.messages.map(({ id }) => id) }),
+    });
+    expect(await queueDepth()).toBe(0);
   });
 
   it.each([
