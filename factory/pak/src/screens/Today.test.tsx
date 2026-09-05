@@ -47,7 +47,7 @@ describe('Today', () => {
     expect(await screen.findByText('Cranking on one quest.')).not.toBeNull();
   });
 
-  it('posts an intent and clears the field', async () => {
+  it('submits an intent from the textarea on Enter and clears the field', async () => {
     const fetch = vi.fn((_url: string, init?: RequestInit) =>
       init?.method === 'POST' && _url === '/api/events'
         ? jsonResponse({
@@ -62,9 +62,10 @@ describe('Today', () => {
     vi.stubGlobal('fetch', fetch);
     renderToday();
     const field = screen.getByLabelText('What do we make today?');
+    expect(field.tagName).toBe('TEXTAREA');
     fireEvent.change(field, { target: { value: 'build it' } });
-    fireEvent.submit(field.closest('form')!);
-    expect((field as HTMLInputElement).value).toBe('');
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect((field as HTMLTextAreaElement).value).toBe('');
     await waitFor(() => expect(screen.getByText('Got it.')).not.toBeNull());
     expect(fetch).toHaveBeenCalledWith(
       '/api/events',
@@ -76,6 +77,23 @@ describe('Today', () => {
         }),
       }),
     );
+  });
+
+  it('keeps a newline and does not submit on Shift+Enter', async () => {
+    const fetch = vi.fn((url: string) => {
+      void url;
+      return jsonResponse(presence);
+    });
+    vi.stubGlobal('fetch', fetch);
+    renderToday();
+    const field = screen.getByLabelText('What do we make today?');
+    fireEvent.change(field, { target: { value: 'first line' } });
+    fireEvent.keyDown(field, { key: 'Enter', shiftKey: true });
+    fireEvent.change(field, { target: { value: 'first line\nsecond line' } });
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(fetch.mock.calls.filter(([url]) => url === '/api/events')).toHaveLength(0);
+    expect((field as HTMLTextAreaElement).value).toBe('first line\nsecond line');
   });
 
   it('does nothing for whitespace', async () => {
