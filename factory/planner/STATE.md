@@ -19,6 +19,7 @@ step finishes._
 | 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | done | #63 `rumbles` table + `GET/POST /api/rumbles` + `/decide` → `human.decision` + catch-up slot, #71 Wake `pak_request_rumble`/`pak_read_rumbles` (decisions never coalesce), #77 `/rumble` screen + Today "N Rumbles" link + VMU count. Seeded: 14 decided cards (§10 table + the three account jobs already done) and 4 open: Tailscale login (blocks `polish`), ntfy on the phone (blocks `paused`), renew the builder `GH_TOKEN` before ~2026-10-05, GitHub Pro vs public repo for branch protection. **Decided 2026-09-05 ~21:25:** Tailscale login → Done (laptop `macbook-pro-6.taild72c8d.ts.net`, phone on the tailnet); branch protection → "Leave it as my discipline". New open card `tailscale-serve`: Serve is not enabled on the tailnet (`tailscale serve` prints an enable link; only Dru can flip it) — blocks the Pak's HTTPS address and the ntfy card |
 | `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | done | #70 `POST /api/chains` with `author` + Wake `pak_send_message` (no new event kind), #75 one "What's on your mind?" box, every submission opens a chain; PROTOCOL §2/§5a + plan-quest rewritten (1fcf0e7). "Make this a quest" still emits `human.intent` from that explicit tap only |
 | 1.7 Demo Discs: `game/` scaffold, worktree builder, `/play/*`, in-Pak player + feedback | done | #80 doctor fails on a missing tmux window (with the exact `tmux new-window` to recreate it), #81 `game/` = `@wyld/game` (Vite+Three.js, `three` + `@types/three` the only new deps; one low-poly creature, `GAME_BASE` sets Vite `base`, `window.__wyld.getState()`/`screenshot()` with `preserveDrawingBuffer`), #85 `demos`/`feedback` tables + `createDemoBuilder` (fetch → worktree → `pnpm install` → `GAME_BASE=/play/<slug>/ pnpm --filter @wyld/game build` → atomic publish) + `GET/POST /api/demos`, `POST /api/demos/build`, `GET/POST /api/feedback`, `GET /api/feedback/:id/screenshot`, `/play/<slug>/*` via `resolveStaticFile`, #84 Wake `pak_register_demo`/`pak_read_demos`/`pak_read_feedback`, #87 `/demos` grid + `/demos/:id` full-screen iframe player + floating feedback + Today/VMU "N demos ready". `/play/main/` is live and registered. **The Planner must respawn to see the three new tools.** |
+| `wake-hot-reload` (half of quest `unattended-restart`; Dru 2026-09-05 21:20) | done | #90 tolerant claim path (`WakeMessageWire`, per-message drop + ack, `/queue/claim` retires unserialisable rows, `pak_read_events`/`pak_log_event` unfrozen, `.claude/settings.json` checked in), #93 tool hot reload (swappable registry + `reload.ts`: `fs.watch` on `dist/` and `SIGHUP`, `notifications/tools/list_changed`). Claude Code **does** honour `list_changed` — verified live. The quest stays `parked`: the launch-warning keypress still needs Dru |
 | 1.8 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -63,7 +64,10 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
    a `human.decision` event carries the choice — record it and unpark what it unblocks (§2).
 4. **1.7 Demo Discs is done** (#80/#81/#84/#85/#87). The Planner deferred its respawn
    (2026-09-05 22:45) until the `wake-hot-reload` lead lands, so there is one restart instead of
-   two; until then rebuild/register discs with the `curl` in Open items. Two leads are running in
+   two; until then rebuild/register discs with the `curl` in Open items. **`wake-hot-reload` has now
+   landed (#90/#93), so take that one respawn** — the running adapter predates the hot-reload code
+   and cannot load itself; after the respawn, the demo tools are there and new `pak_*` tools arrive
+   live (see the struck "New Wake tools need a Planner restart" item). Two leads are running in
    parallel: `pak-theme` (only `factory/pak`) and `wake-hot-reload` (`factory/wake` +
    `factory/shared` + `.claude/settings.json`). `improved-chains` starts after both. If this
    session was just respawned and those leads are gone, check `gh pr list` / `gh issue list` for
@@ -75,19 +79,14 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
 
 ## Open items
 
-- **Queued lead (start when the 1.7 lead is done — it shares `factory/wake` and `factory/shared`):
-  `wake-hot-reload`.** Dru asked (2026-09-05 21:20) to stop the Planner getting stuck on the
-  startup prompt when he's away. The prompt is Claude Code's development-channels warning (not
-  the `.mcp.json` approval, which `.claude/settings.local.json` already grants); the auto-mode
-  classifier refused to let the Planner script a keypress through it, so quest
-  `unattended-restart` is **parked** until Dru allows a launcher script in his Claude settings and
-  says so. The half we can do alone: make restarts rare. Codex unit: (a) `WakeMessage.kind` becomes
-  a plain string at the queue boundary and unparseable messages are dropped, not retried forever
-  (the frozen-channel bug below); (b) the channel adapter advertises new `pak_*` tools via MCP
-  `notifications/tools/list_changed` after a `@wyld/shared`/wake rebuild, verified empirically
-  against the running Planner — if Claude Code ignores it, say so in STATE.md and stop there.
-  Also check in `.claude/settings.json` with `enabledMcpjsonServers: ["wake"]` so a fresh clone
-  never hits the MCP approval.
+- **`wake-hot-reload` is done (2026-09-05 ~23:20)** — #88/#90 (tolerant claim path) and #92/#93
+  (tool hot reload). Quest `unattended-restart` stays **parked**: the half that needs Dru is
+  unchanged — Claude Code's development-channels warning at launch, which the auto-mode classifier
+  will not let the Planner (or a lead) script a keypress through. A lead hit the same refusal again
+  on 2026-09-05 while probing, so treat it as settled: it needs Dru to allow a launcher script in
+  his Claude settings and say so. What shipped instead, and what is now true, is in the two struck
+  items below. `.claude/settings.json` (`{"enabledMcpjsonServers": ["wake"]}`) is now checked in, so
+  a fresh clone never sees the `.mcp.json` approval prompt.
 - **Queued lead (right after the 1.7 lead; touches only `factory/pak`, so it may run alongside
   `wake-hot-reload` but must finish before `improved-chains` starts): quest `pak-theme` "Dracula
   console look"** (Dru, 2026-09-05 21:43, verbatim: "I really like the retro card style of debug
@@ -202,11 +201,31 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
   SyntaxError until `pnpm --filter @wyld/shared build` + `tmux respawn-window -k -t wyld:0`.
   Rule: rebuild shared in the live checkout right after merging anything that touches it. Proper
   fix (watcher also watches shared, or dev uses source not dist) is a future Codex unit.
-- **New Wake tools need a Planner restart** (1.5): #44 added `pak_health_report` and
-  `pak_read_health`, but the channel MCP server is registered when the Claude session starts, so a
-  running Planner cannot see them until `wyld:planner` is respawned. Until then the Debug Menu's
-  Planner tile reads `down` unless something posts `POST /api/health/report` directly. Once
-  restarted, send `pak_health_report` after every batch of actions — `planner_state` plus
+- ~~**New Wake tools need a Planner restart**~~ **fixed 2026-09-05 in #93 — and Claude Code does
+  honour it.** The channel adapter now declares `tools: { listChanged: true }`, keeps its tool list
+  behind a swappable registry (`createToolRegistry` / `registerPakTools(...).swap` in
+  `factory/wake/src/channel.ts`), and `factory/wake/src/reload.ts` re-imports the built
+  `dist/channel.js` with a cache-busting `?reload=<ts>` query, swaps the registry and sends
+  `notifications/tools/list_changed`. Two triggers: a debounced (750ms) `fs.watch` on its own
+  `dist/` — so a plain `pnpm --filter @wyld/wake build` is enough — and `SIGHUP`
+  (`kill -HUP <pid>`; the adapter logs its pid at startup as `wake channel hot reload armed`).
+  Each reload logs `wake channel reloaded its tools` with `added`/`removed`/`toolCount`.
+  **Empirical result (lead, 2026-09-05 ~23:16):** a real Claude Code session (v2.1.261) with the
+  adapter as an MCP server listed 23 `pak_*` tools; a new tool was then written into its `dist` and
+  the watcher fired; the session's MCP log recorded `Received tools/list_changed notification,
+  refreshing tools`, and the very next turn listed 24 tools including the new one — **no restart**.
+  Caveat: that probe session ran without `--dangerously-load-development-channels` (the classifier
+  blocks scripting a keypress through that launch warning), so the tool refresh is verified on the
+  ordinary MCP path; the channels flag only gates channel *notification* delivery
+  (`Channel notifications skipped: server wake not in --channels list`), which is a different code
+  path. Limitation: re-importing `channel.js` does not evict `@wyld/shared` from Node's cache, so a
+  tool whose schema lives in `@wyld/shared` still needs a restart to change shape; adding or
+  removing a `pak_*` tool in `channel.ts` does not.
+  **One-time catch:** the currently running adapter predates #93, so it cannot reload itself. The
+  Planner should respawn `wyld:planner` **once** to pick up the new adapter (that also loads
+  `pak_register_demo`, `pak_read_demos`, `pak_read_feedback` from #84). After that respawn, new
+  `pak_*` tools should appear live and no further restarts should be needed for tools.
+  Keep sending `pak_health_report` after every batch of actions — `planner_state` plus
   `current_task` in the same plain English as a since-you-looked line, and `ci_state` /
   `codex_prs_open` when you know them.
 - `github.ci_completed` arrives **twice** for pushes to `main`: `check_suite` and `workflow_run`
@@ -217,20 +236,26 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
 - The Planner's own GitHub activity comes back as events (its issues as `github.issue_opened`, its
   review comments as `github.issue_comment` from `drufball`). Expected; PROTOCOL §2 already says to
   do nothing with your own review, but do not mistake a self-authored comment for Dru.
-- **A new event kind silently freezes the whole channel until the Planner restarts** (found
-  2026-09-05 by the question-chains lead, and it is biting right now). The channel adapter
-  (`factory/wake/dist/channel-main.js`) is an MCP child of the Planner's Claude session, so it holds
-  the `@wyld/shared` it loaded at session start. `parseClaimResponse` validates every claimed
-  message with `WakeMessage`, whose `kind` is a `z.enum`. The first message carrying a kind the old
-  enum has never heard of makes `claim()` throw, the delivery loop backs off and retries the same
-  batch forever, and **nothing behind it is ever delivered** — GitHub events included. The tell:
-  `GET :8788/health` shows a climbing `queueDepth` with a `lastDeliveryAt` frozen a minute before
-  `oldestPendingTs`, and the oldest pending message uses the new kind. Rebuilding
-  `@wyld/shared` does not fix it; only respawning `wyld:planner` (which restarts the MCP child)
-  does. **Rule: after merging anything that adds an `EVENT_KINDS` entry, respawn the Planner window
-  — same reflex as rebuilding shared for the server.** Proper fix (make `WakeMessage.kind` a plain
-  string at the queue boundary, or drop unparseable messages instead of throwing the batch) is a
-  future Codex unit; it should also cover `pak_read_events`' kind filter.
+- ~~**A new event kind silently freezes the whole channel until the Planner restarts**~~
+  **fixed 2026-09-05 in #90.** The old failure: `parseClaimResponse` validated every claimed message
+  with `WakeMessage` (a `z.enum` kind), so one message with a kind the adapter's copy of
+  `EVENT_KINDS` had never heard of made `claim()` throw and the loop retried the same batch forever
+  — nothing behind it was ever delivered. Now: `@wyld/shared` exports `WakeMessageWire` (any
+  non-empty `kind`/`source` string, everything else unchanged); `parseClaimResponse` parses per
+  message and returns `{ messages, dropped }`; the delivery loop acks delivered **and** dropped ids
+  (and acks what it already emitted before re-throwing an `emit` failure, so a retry cannot
+  double-deliver); `POST /queue/claim` serialises rows with the same tolerant schema and **marks a
+  row it cannot serialise as delivered**, so a poison row leaves the queue instead of sitting in the
+  oldest-20 claim window forever. `pak_read_events`' `kinds` filter and `pak_log_event` no longer
+  gate on the adapter's stale `EVENT_KINDS` (the server still validates what it stores).
+  `EVENT_KINDS` remains the documented vocabulary for **ingress** (`POST /event`, `POST /gh`),
+  unchanged. **The old "respawn the Planner after adding an `EVENT_KINDS` entry" rule is retired.**
+  Verified by the lead on a scratch daemon (throwaway `FACTORY_DIR`, own port, no `WAKE_URL`) seeded
+  with an unknown kind, an unknown source, a malformed row and a good message behind them: the old
+  adapter delivered nothing (`queueDepth` stuck at 5, `lastDeliveryAt: null`, back-off doubling),
+  the new one delivered all four good messages in timestamp order and drained `queueDepth` to 0 with
+  one logged warning. The old tell (`GET :8788/health` showing a climbing `queueDepth` with a frozen
+  `lastDeliveryAt`) is still the right thing to look at if delivery ever stops for another reason.
 
 ## Seeded data (2026-09-05)
 
