@@ -113,22 +113,40 @@ check_health 'Pak server' "http://localhost:${PAK_PORT}/api/health" pak
 check_health 'Wake' "http://localhost:${WAKE_PORT}/health" wake
 
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t wyld 2>/dev/null; then
+  expected_windows=(
+    "server|'pnpm --filter @wyld/server dev'"
+    "wake|'pnpm --filter @wyld/wake dev'"
+    "ops|'pnpm --filter @wyld/ops dev'"
+    "webhook|\"until gh webhook forward --repo drufball/wyld --events '*' --url 'http://localhost:${WAKE_PORT}/gh' --secret \\\"\\\$GH_WEBHOOK_SECRET\\\"; do echo 'webhook forward exited; restarting in 5s'; sleep 5; done\""
+    "planner|'claude --dangerously-load-development-channels server:wake'"
+  )
+  if [[ -d factory/pak ]]; then
+    expected_windows+=("pak|'pnpm --filter @wyld/pak dev'")
+  fi
+  if [[ "$(uname -s)" == Darwin ]]; then
+    expected_windows+=("caffeinate|'caffeinate -s'")
+  fi
+
   windows="$(tmux list-windows -t wyld -F '#{window_name}' | paste -sd, -)"
   dead="$(tmux list-panes -t wyld -a -F '#{session_name}:#{window_name} #{pane_dead}' | awk '$1 ~ /^wyld:/ && $2 == 1 {sub(/^wyld:/, "", $1); print $1}' | paste -sd, -)"
+  ok "tmux session wyld is running with windows: $windows"
   if [[ -n "$dead" ]]; then
     fail "tmux session wyld has exited windows ($dead); run pnpm factory:down && pnpm factory:up"
-  else
-    ok "tmux session wyld is running with windows: $windows"
   fi
-  webhook_dead="$(tmux list-panes -t wyld:webhook -F '#{pane_dead}' 2>/dev/null || true)"
-  if [[ -n "$webhook_dead" && "$webhook_dead" != *1* ]]; then
-    ok 'webhook window is alive'
-  else
-    fail 'webhook window is missing or exited; run pnpm factory:up'
-  fi
+  for window_spec in "${expected_windows[@]}"; do
+    window_name="${window_spec%%|*}"
+    window_command="${window_spec#*|}"
+    if ! tmux list-windows -t wyld -F '#{window_name}' | grep -Fxq "$window_name"; then
+      fail "tmux window $window_name is missing; run \`set -a; . .factory/env; set +a; tmux new-window -d -t wyld -n $window_name -c \"\$PWD\" $window_command\`"
+      continue
+    fi
+
+    if [[ ",$dead," != *",$window_name,"* ]]; then
+      ok "tmux window $window_name is alive"
+    fi
+  done
 else
   fail 'tmux session wyld is not running; run pnpm factory:up'
-  fail 'webhook window is not running; run pnpm factory:up'
 fi
 
 if [[ "$(uname -s)" == Darwin ]]; then
