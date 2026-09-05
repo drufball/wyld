@@ -233,10 +233,18 @@ describe('Today', () => {
   });
 
   it('renders no signals at zero and caps visible counts', () => {
-    const { container, rerender } = render(<Signals rumbles={0} demos={0} memory={null} />);
+    const { container, rerender } = render(
+      <MemoryRouter>
+        <Signals rumbles={0} demos={0} memory={null} />
+      </MemoryRouter>,
+    );
     expect(container.innerHTML).toBe('');
-    rerender(<Signals rumbles={12} demos={1} memory={null} />);
-    expect(screen.getByText('9+ Rumbles')).not.toBeNull();
+    rerender(
+      <MemoryRouter>
+        <Signals rumbles={12} demos={1} memory={null} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: '9+ Rumbles' }).getAttribute('href')).toBe('/rumble');
     expect(screen.getByText('1 demos ready')).not.toBeNull();
   });
 });
