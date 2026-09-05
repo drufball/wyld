@@ -153,3 +153,21 @@ export const chainMessages = sqliteTable(
   },
   (table) => [index('chain_messages_chain_id_idx').on(table.chainId)],
 );
+
+export const rumbles = sqliteTable(
+  'rumbles',
+  {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    context: text('context').notNull(),
+    options: text('options', { mode: 'json' }).notNull().$type<string[]>(),
+    chosen: text('chosen'),
+    chosenAt: text('chosen_at'),
+    blockingQuestIds: text('blocking_quest_ids', { mode: 'json' }).notNull().$type<string[]>(),
+    kind: text('kind', {
+      enum: ['account', 'money', 'model', 'taste', 'scope', 'outage'],
+    }).notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [index('rumbles_chosen_at_idx').on(table.chosenAt)],
+);

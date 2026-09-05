@@ -10,6 +10,7 @@ export type CatchupQuest = {
 export function mechanicalDigest(input: {
   events: Event[];
   quests: CatchupQuest[];
+  openRumbles?: { id: string; title: string }[];
 }): CatchupDigest {
   const quests = new Map(input.quests.map((quest) => [quest.id, quest]));
   const seen = {
@@ -19,6 +20,9 @@ export function mechanicalDigest(input: {
     building: new Set<string>(),
   };
   const digest: CatchupDigest = { rumbles: [], demos: [], shipped: [], fyi: [] };
+  digest.rumbles = (input.openRumbles ?? [])
+    .slice(0, 8)
+    .map(({ title }) => ({ text: title, deepLink: '/rumble' }));
   const paused: string[] = [];
   const resumed: string[] = [];
   const parked: string[] = [];
