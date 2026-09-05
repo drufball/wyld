@@ -89,15 +89,24 @@ function AskThread({ questId }: { questId: string }) {
 
 export function QuestCard({ quest, onChange }: { quest: Quest; onChange: (quest: Quest) => void }) {
   const [asking, setAsking] = useState(false);
+  const [nudged, setNudged] = useState(false);
   const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
   const previousStatus = useRef<QuestStatus>('building');
-  const act = (action: () => Promise<Quest | QuestNote>) => {
+  const nudgeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const act = (action: () => Promise<Quest | QuestNote>, onSuccess?: () => void) => {
     setFailedAction(null);
     void action()
       .then((result) => {
         if ('progress' in result) onChange(result);
+        onSuccess?.();
       })
-      .catch(() => setFailedAction(() => () => act(action)));
+      .catch(() => setFailedAction(() => () => act(action, onSuccess)));
+  };
+  useEffect(() => () => clearTimeout(nudgeTimer.current), []);
+  const acknowledgeNudge = () => {
+    setNudged(true);
+    clearTimeout(nudgeTimer.current);
+    nudgeTimer.current = setTimeout(() => setNudged(false), 3000);
   };
   const parked = quest.status === 'parked';
   const togglePark = () => {
@@ -124,17 +133,20 @@ export function QuestCard({ quest, onChange }: { quest: Quest; onChange: (quest:
       >
         <span style={{ width: `${quest.progress * 100}%` }} />
       </div>
-      {(quest.sinceYouLooked || quest.lastNote) && (
+      {(quest.sinceYouLooked || (quest.lastNote && quest.lastNote.toLowerCase() !== 'nudge')) && (
         <div className="quest-context">
           {quest.sinceYouLooked && <p>{quest.sinceYouLooked}</p>}
-          {quest.lastNote && <p>{quest.lastNote}</p>}
+          {quest.lastNote && quest.lastNote.toLowerCase() !== 'nudge' && <p>{quest.lastNote}</p>}
         </div>
       )}
       <div className="quest-actions">
         <button
           type="button"
           onClick={() =>
-            act(() => postQuestNote(quest.id, { author: 'human', text: 'Nudge', intent: 'nudge' }))
+            act(
+              () => postQuestNote(quest.id, { author: 'human', text: 'Nudge', intent: 'nudge' }),
+              acknowledgeNudge,
+            )
           }
         >
           Nudge
@@ -152,6 +164,11 @@ export function QuestCard({ quest, onChange }: { quest: Quest; onChange: (quest:
           <small>not yet</small>
         </span>
       </div>
+      {nudged && (
+        <p className="today-ack" aria-live="polite">
+          Nudged. Fable's on it.
+        </p>
+      )}
       {failedAction !== null && (
         <p className="quest-retry">
           That didn't go through. <button onClick={failedAction}>Retry</button>
@@ -176,9 +193,16 @@ export function WorldQuests() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const { subscribe } = useLiveEvents();
   const replaceQuest = useCallback(
-    (quest: Quest) =>
-      setQuests((current) => current.map((item) => (item.id === quest.id ? quest : item))),
-    [],
+    (quest: Quest) => {
+      setQuests((current) => {
+        const exists = current.some((item) => item.id === quest.id);
+        if (quest.worldId !== id)
+          return exists ? current.filter((item) => item.id !== quest.id) : current;
+        if (exists) return current.map((item) => (item.id === quest.id ? quest : item));
+        return [...current, quest].sort((left, right) => left.id.localeCompare(right.id));
+      });
+    },
+    [id],
   );
   const refreshQuest = useCallback(
     (event: Event) => {

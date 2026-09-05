@@ -27,11 +27,7 @@ export function countInWords(value: number): string {
   if (count < 20) return small[count]!;
   if (count < 100)
     return `${tens[Math.floor(count / 10)]}${count % 10 ? `-${small[count % 10]}` : ''}`;
-  if (count < 1000)
-    return `${small[Math.floor(count / 100)]} hundred${count % 100 ? ` ${countInWords(count % 100)}` : ''}`;
-  if (count < 1_000_000)
-    return `${countInWords(Math.floor(count / 1000))} thousand${count % 1000 ? ` ${countInWords(count % 1000)}` : ''}`;
-  return 'many';
+  return String(count);
 }
 
 export function sentenceCount(value: number): string {

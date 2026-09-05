@@ -98,6 +98,42 @@ describe('World quests', () => {
         }),
       ),
     );
+    expect(screen.getByText("Nudged. Fable's on it.")).not.toBeNull();
+  });
+
+  it('does not show a nudge as the latest note', async () => {
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      url === '/api/quests?world=wyld'
+        ? response([{ ...quest, sinceYouLooked: '', lastNote: 'nUdGe' }])
+        : baseFetch(url, init),
+    );
+    const { container } = renderScreen(fetch);
+    expect(await screen.findByText(quest.title)).not.toBeNull();
+    expect(container.querySelector('.quest-context')).toBeNull();
+  });
+
+  it('adds an unknown quest in this world when the planner updates it', async () => {
+    const newQuest = { ...quest, id: 'raise-bridge', title: 'Raise the bridge' };
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      url === '/api/quests/raise-bridge' ? response(newQuest) : baseFetch(url, init),
+    );
+    renderScreen(fetch);
+    expect(await screen.findByText(quest.title)).not.toBeNull();
+
+    liveListener?.(
+      new MessageEvent('event', {
+        data: JSON.stringify({
+          id: 8,
+          ts: '2026-09-05T12:00:00.000Z',
+          source: 'planner',
+          kind: 'planner.quest_updated',
+          questId: newQuest.id,
+          payload: {},
+        }),
+      }),
+    );
+
+    expect(await screen.findByText(newQuest.title)).not.toBeNull();
   });
 
   it('parks and unparks with a human source', async () => {
