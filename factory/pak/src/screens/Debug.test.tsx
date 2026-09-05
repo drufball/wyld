@@ -20,7 +20,7 @@ const snapshot: HealthSnapshot = {
     lastGithubEventAt: new Date().toISOString(),
   },
   server: { ok: true, db: 'ok', uptimeSeconds: 8040, version: '1.2.3', eventsToday: 17 },
-  github: { ciState: 'pass', codexPrsOpen: 3 },
+  github: { ciState: 'pass', codexPrsOpen: 3, source: 'ops' },
   costToday: 12.34,
 };
 
@@ -54,7 +54,7 @@ describe('Debug', () => {
     vi.mocked(getHealthSnapshot).mockResolvedValue({
       ...snapshot,
       costToday: undefined,
-      github: { ciState: 'pass' },
+      github: { ciState: 'pass', source: 'ops' },
     });
     render(<Debug />);
 
