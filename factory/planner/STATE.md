@@ -76,8 +76,12 @@ file is down to environment facts and open items. Keep it short; update it whene
   intents ("Dru: first line second line" was a lead testing the textarea, absent from the prod
   event store — cross-check `pak_read_events` before acting on a surprising intent). Interim rule,
   told to both leads: verification runs start server+UI only, scratch DB, explicit PAK_PORT, never
-  a wake process. Proper fix (wake refuses/namespaces a second adapter on the same channel) is a
-  future Codex unit.
+  a wake process. Root cause (found after a second leak — 25 fake "later N" intents from an e2e
+  run): the server pushes events to `WAKE_URL` whenever that env var is set, and test servers
+  inherit it from a shell that sourced `.factory/env`. Rule: any non-production server or e2e run
+  must have `WAKE_URL` unset (it's optional in server config). The tell remains: a surprising
+  human intent that is absent from `pak_read_events` is a leaked test event. Proper fix (wake
+  ingress rejects or namespaces non-production senders) is a future Codex unit.
 - **Stale `@wyld/shared` dist crashes the live server on pull** (seen 2026-09-05): the server dev
   watcher restarts on a `git pull` of the live checkout, but does not rebuild `@wyld/shared`; a
   merge that adds a shared export (the catch-up engine) crashed it with a missing-export
