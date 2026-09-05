@@ -637,3 +637,49 @@ a.today-action:focus-visible {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.quest-filters {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.quest-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.quest-filter strong {
+  min-width: 4rem;
+  text-transform: uppercase;
+}
+
+.quest-filter button,
+.world-tag {
+  border: 1px solid var(--pak-bevel-light);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 0.25rem 0.65rem;
+  font: inherit;
+}
+
+.quest-filter button[aria-pressed='true'] {
+  border-color: var(--pak-jewel-blue);
+  background: var(--pak-jewel-blue);
+  color: var(--pak-black);
+}
+
+.quest-card__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.world-tag {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}

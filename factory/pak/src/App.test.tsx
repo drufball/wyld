@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { App } from './App.js';
 
@@ -21,11 +21,56 @@ const placeholders = [
 ] as const;
 
 describe('Pak shell', () => {
+  it.each([
+    ['/worlds', 'All'],
+    ['/worlds/wyld', 'WYLD'],
+  ])('redirects %s to the Quests screen', async (path, selectedWorld) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              url === '/api/worlds'
+                ? [
+                    {
+                      id: 'wyld',
+                      name: 'WYLD',
+                      kind: 'game',
+                      order: 0,
+                      icon: 'tree',
+                      questCounts: {
+                        idea: 0,
+                        planning: 0,
+                        building: 0,
+                        demo: 0,
+                        done: 0,
+                        parked: 0,
+                      },
+                    },
+                  ]
+                : [],
+            ),
+        } as Response),
+      ),
+    );
+    renderAt(path);
+
+    expect(await screen.findByRole('heading', { name: 'Quests' })).not.toBeNull();
+    if (selectedWorld === 'WYLD') {
+      expect(screen.getByRole('button', { name: 'WYLD' }).getAttribute('aria-pressed')).toBe(
+        'true',
+      );
+    }
+    vi.unstubAllGlobals();
+  });
+
   it('renders Today and all six tab destinations at the root', async () => {
     renderAt('/');
 
     expect(await screen.findByText('What do we make today?')).not.toBeNull();
-    for (const label of ['Today', 'Worlds', 'Demos', 'Rumble', 'Debug', 'Memory']) {
+    for (const label of ['Today', 'Quests', 'Demos', 'Rumble', 'Debug', 'Memory']) {
       expect(screen.getByRole('link', { name: label })).not.toBeNull();
     }
   });
@@ -41,7 +86,7 @@ describe('Pak shell', () => {
 
     expect(mobileLabels.map(({ textContent }) => textContent)).toEqual([
       'TODAY',
-      'WORLD',
+      'QUEST',
       'DEMOS',
       'RMBL',
       'DEBUG',
@@ -49,7 +94,7 @@ describe('Pak shell', () => {
     ]);
     expect(desktopLabels.map(({ textContent }) => textContent)).toEqual([
       'TODAY',
-      'WORLDS',
+      'QUESTS',
       'DEMOS',
       'RUMBLE',
       'DEBUG',
@@ -68,11 +113,11 @@ describe('Pak shell', () => {
     expect(screen.getByText(purpose)).not.toBeNull();
   });
 
-  it('navigates to the Worlds hub', async () => {
+  it('navigates to Quests', async () => {
     renderAt('/');
     await screen.findByText('What do we make today?');
-    fireEvent.click(screen.getByRole('link', { name: 'Worlds' }));
-    expect(screen.getByRole('heading', { name: 'Worlds' })).not.toBeNull();
+    fireEvent.click(screen.getByRole('link', { name: 'Quests' }));
+    expect(screen.getByRole('heading', { name: 'Quests' })).not.toBeNull();
   });
 
   it('renders the VMU without shell navigation', () => {

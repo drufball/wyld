@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('opens a world and nudges its quest', async ({ page, request }) => {
+test('opens a filtered quest list and nudges its quest', async ({ page, request }) => {
   const suffix = Date.now().toString();
   const worldId = `smoke-world-${suffix}`;
   const questId = `smoke-quest-${suffix}`;
@@ -33,11 +33,12 @@ test('opens a world and nudges its quest', async ({ page, request }) => {
     ).ok(),
   ).toBe(true);
 
-  await page.goto('/worlds');
-  await page.getByRole('link', { name: /Smoke World/ }).click();
+  await page.goto(`/worlds/${worldId}`);
+  await expect(page).toHaveURL(`/quests?world=${worldId}`);
   await expect(page.getByRole('heading', { name: 'Smoke Quest' })).toBeVisible();
   await expect(page.getByText('Make a trail through the mist.')).toBeVisible();
   await expect(page.getByText('building', { exact: true })).toBeVisible();
+  await expect(page.getByText('Smoke World', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Nudge' }).click();
 
   await expect

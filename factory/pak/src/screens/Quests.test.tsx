@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
-import { WorldQuests } from './WorldQuests.js';
+import { Quests } from './Quests.js';
 
 const quest = {
   id: 'make-map',
@@ -45,13 +45,13 @@ const response = (value: unknown, ok = true) =>
     json: () => Promise.resolve(value),
     text: () => Promise.resolve('nope'),
   } as Response);
-function renderScreen(fetch: ReturnType<typeof vi.fn>) {
+function renderScreen(fetch: ReturnType<typeof vi.fn>, path = '/quests?world=wyld') {
   vi.stubGlobal('fetch', fetch);
   return render(
-    <MemoryRouter initialEntries={['/worlds/wyld']}>
+    <MemoryRouter initialEntries={[path]}>
       <LiveEventsProvider eventSourceFactory={source}>
         <Routes>
-          <Route path="/worlds/:id" element={<WorldQuests />} />
+          <Route path="/quests" element={<Quests />} />
         </Routes>
       </LiveEventsProvider>
     </MemoryRouter>,
@@ -59,7 +59,7 @@ function renderScreen(fetch: ReturnType<typeof vi.fn>) {
 }
 function baseFetch(url: string, init?: RequestInit) {
   if (url === '/api/worlds') return response([world]);
-  if (url === '/api/quests?world=wyld') return response([quest]);
+  if (url === '/api/quests') return response([quest]);
   if (url.endsWith('/notes') && init?.method !== 'POST') return response([note]);
   return response(quest);
 }
@@ -69,7 +69,46 @@ afterEach(() => {
   liveListener = undefined;
 });
 
-describe('World quests', () => {
+describe('Quests', () => {
+  it('renders world tags and combines world and status filters', async () => {
+    const pak = { ...world, id: 'pak', name: 'Expansion Pak', order: 1 };
+    const idea = { ...quest, id: 'new-path', title: 'New path', status: 'idea' as const };
+    const pakIdea = { ...idea, id: 'pak-idea', worldId: 'pak', title: 'Pak idea' };
+    const fetch = vi.fn((url: string) => {
+      if (url === '/api/worlds') return response([world, pak]);
+      if (url === '/api/quests') return response([quest, idea, pakIdea]);
+      return response([]);
+    });
+    renderScreen(fetch, '/quests');
+
+    expect((await screen.findAllByText('Expansion Pak')).length).toBeGreaterThan(1);
+    expect(screen.getAllByText('WYLD').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Ideas' }));
+    expect(screen.queryByText(quest.title)).toBeNull();
+    expect(screen.getByText(idea.title)).not.toBeNull();
+    expect(screen.getByText(pakIdea.title)).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expansion Pak' }));
+    expect(screen.queryByText(idea.title)).toBeNull();
+    expect(screen.getByText(pakIdea.title)).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Expansion Pak' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+  });
+
+  it('shows completed quests expanded when Done is selected', async () => {
+    const finished = { ...quest, id: 'finished', title: 'Finished', status: 'done' as const };
+    renderScreen(
+      vi.fn((url: string, init?: RequestInit) =>
+        url === '/api/quests' ? response([quest, finished]) : baseFetch(url, init),
+      ),
+    );
+    expect(await screen.findByRole('button', { name: 'Done (1)' })).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Done', pressed: false }));
+    expect(screen.getByText(finished.title)).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Done (1)' })).toBeNull();
+  });
+
   it('renders quest details without private forge references', async () => {
     const { container } = renderScreen(vi.fn(baseFetch));
     expect(await screen.findByText(quest.title)).not.toBeNull();
@@ -103,7 +142,7 @@ describe('World quests', () => {
 
   it('does not show a nudge as the latest note', async () => {
     const fetch = vi.fn((url: string, init?: RequestInit) =>
-      url === '/api/quests?world=wyld'
+      url === '/api/quests'
         ? response([{ ...quest, sinceYouLooked: '', lastNote: 'nUdGe' }])
         : baseFetch(url, init),
     );
@@ -162,7 +201,7 @@ describe('World quests', () => {
     const finishedQuest = { ...quest, id: 'plant-trees', title: 'Plant the trees', status: 'done' };
     const parkedQuest = { ...quest, id: 'dig-cave', title: 'Dig a cave', status: 'parked' };
     const fetch = vi.fn((url: string, init?: RequestInit) => {
-      if (url === '/api/quests?world=wyld') return response([quest, parkedQuest, finishedQuest]);
+      if (url === '/api/quests') return response([quest, parkedQuest, finishedQuest]);
       if (url === '/api/quests/make-map' && init?.method === 'PATCH') {
         return response({ ...quest, status: 'done' });
       }
@@ -172,12 +211,14 @@ describe('World quests', () => {
 
     expect(await screen.findByText(quest.title)).not.toBeNull();
     expect(screen.queryByText(finishedQuest.title)).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Done' })).toHaveLength(1);
+    expect(document.querySelectorAll('.quest-actions button')).not.toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Done (1)' }).getAttribute('aria-expanded')).toBe(
       'false',
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    fireEvent.click(
+      document.querySelector<HTMLButtonElement>('.quest-actions button:nth-child(3)')!,
+    );
     await waitFor(() => expect(screen.queryByText(quest.title)).toBeNull());
     expect(fetch).toHaveBeenCalledWith(
       '/api/quests/make-map',
@@ -193,7 +234,11 @@ describe('World quests', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByText(quest.title)).not.toBeNull();
     expect(screen.getByText(finishedQuest.title)).not.toBeNull();
-    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+    expect(
+      Array.from(document.querySelectorAll('.quest-actions button')).some(
+        (button) => button.textContent === 'Done',
+      ),
+    ).toBe(false);
   });
 
   it('posts an Ask from the textarea on Enter and renders a planner note arriving live', async () => {
