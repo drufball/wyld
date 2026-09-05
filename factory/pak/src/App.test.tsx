@@ -14,12 +14,17 @@ function renderAt(path: string) {
 }
 
 const placeholders = [
-  ['Demos', 'Demo Discs — builds you can try right now.'],
   ['Rumble', 'Decisions only you can make.'],
   ['Memory', 'Save files — retros, stats, achievements.'],
 ] as const;
 
 describe('Pak shell', () => {
+  it('navigates to Demo Discs', async () => {
+    renderAt('/');
+    await screen.findByText("What's on your mind?");
+    fireEvent.click(screen.getByRole('link', { name: 'Demos' }));
+    expect(screen.getByRole('heading', { name: 'Demo Discs' })).not.toBeNull();
+  });
   it.each([
     ['/worlds', 'All'],
     ['/worlds/wyld', 'WYLD'],
