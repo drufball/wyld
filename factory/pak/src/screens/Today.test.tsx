@@ -96,6 +96,18 @@ describe('Today', () => {
     expect((field as HTMLTextAreaElement).value).toBe('first line\nsecond line');
   });
 
+  it('grows for long text and includes the vertical border width', () => {
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse(presence)));
+    renderToday();
+    const field = screen.getByLabelText('What do we make today?') as HTMLTextAreaElement;
+    Object.defineProperty(field, 'scrollHeight', { configurable: true, value: 88 });
+    Object.defineProperty(field, 'clientHeight', { configurable: true, value: 86 });
+    Object.defineProperty(field, 'offsetHeight', { configurable: true, value: 88 });
+    fireEvent.change(field, { target: { value: 'A long intent that wraps onto another line.' } });
+
+    expect(field.style.height).toBe('90px');
+  });
+
   it('does nothing for whitespace', async () => {
     const fetch = vi.fn((...args: Parameters<typeof globalThis.fetch>) => {
       void args;

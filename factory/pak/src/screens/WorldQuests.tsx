@@ -1,5 +1,5 @@
 import { type Event, type Quest, type QuestNote, type QuestStatus } from '@wyld/shared';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   getQuest,
@@ -21,6 +21,7 @@ function AskThread({ questId }: { questId: string }) {
   const [notes, setNotes] = useState<QuestNote[]>([]);
   const [text, setText] = useState('');
   const [failedText, setFailedText] = useState<string | null>(null);
+  const askField = useRef<HTMLTextAreaElement>(null);
   const { subscribe } = useLiveEvents();
   const load = useCallback(
     () =>
@@ -36,6 +37,12 @@ function AskThread({ questId }: { questId: string }) {
       if (event.questId === questId) load();
     });
   }, [load, questId, subscribe]);
+  useLayoutEffect(() => {
+    const field = askField.current;
+    if (!field) return;
+    field.style.height = 'auto';
+    field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
+  }, [text]);
 
   const send = (noteText: string) => {
     setFailedText(null);
@@ -67,10 +74,18 @@ function AskThread({ questId }: { questId: string }) {
       <form onSubmit={submit}>
         <label htmlFor={`ask-${questId}`}>Ask about this quest</label>
         <span className="ask-thread__input">
-          <input
+          <textarea
+            ref={askField}
             id={`ask-${questId}`}
+            rows={1}
             value={text}
             onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
           />
           <button type="submit">Send</button>
         </span>
