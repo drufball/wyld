@@ -6,15 +6,22 @@ import { relativeTime } from '../words.js';
 
 type Tone = 'ok' | 'warn' | 'bad';
 
-function titleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
 function uptime(seconds: number) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   return `up ${hours > 0 ? `${hours}h ` : ''}${minutes}m`;
 }
+
+export function compactCount(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  })
+    .format(value)
+    .replace('K', 'k');
+}
+
+const groupedNumber = new Intl.NumberFormat('en-US');
 
 function Tile({
   label,
@@ -45,76 +52,143 @@ function Tiles({ snapshot }: { snapshot: HealthSnapshot }) {
     : 'never heard from';
   const queue = snapshot.wake.queueDepth ?? 0;
   const wakeDetail = `${queue === 0 ? 'Nothing waiting' : `${queue} waiting`}${snapshot.wake.oldestPendingTs ? ` · oldest ${relativeTime(snapshot.wake.oldestPendingTs, now)}` : ''}`;
+  const oldestPendingAt = snapshot.wake.oldestPendingTs
+    ? new Date(snapshot.wake.oldestPendingTs)
+    : null;
+  const lastDeliveryAt = snapshot.wake.lastDeliveryAt
+    ? new Date(snapshot.wake.lastDeliveryAt)
+    : null;
+  const channelStuck =
+    snapshot.wake.reachable &&
+    queue > 0 &&
+    oldestPendingAt !== null &&
+    lastDeliveryAt !== null &&
+    lastDeliveryAt < oldestPendingAt &&
+    now.getTime() - oldestPendingAt.getTime() > 2 * 60 * 1000;
+  const channelValue = !snapshot.wake.reachable ? 'No' : channelStuck ? 'Stuck' : 'Yes';
+  const stuckAge = snapshot.wake.oldestPendingTs
+    ? relativeTime(snapshot.wake.oldestPendingTs, now)
+    : '';
+  const channelDetail = !snapshot.wake.reachable
+    ? 'the message channel is down'
+    : channelStuck && oldestPendingAt
+      ? `${queue} waiting, nothing delivered since ${stuckAge} — the channel is jammed`
+      : wakeDetail;
   const githubAge = snapshot.wake.lastGithubEventAt
     ? relativeTime(snapshot.wake.lastGithubEventAt, now)
     : null;
-  const webhookLive =
-    snapshot.wake.reachable && snapshot.wake.lastGithubEventAt
-      ? now.getTime() - new Date(snapshot.wake.lastGithubEventAt).getTime() <= 60 * 60 * 1000
-      : false;
-  const webhookValue =
+  const githubValue =
     !snapshot.wake.reachable || !snapshot.wake.lastGithubEventAt
       ? 'No signal'
-      : webhookLive
-        ? 'Live'
-        : 'Quiet';
-  const webhookTone: Tone =
-    webhookValue === 'Live' ? 'ok' : webhookValue === 'Quiet' ? 'warn' : 'bad';
+      : now.getTime() - new Date(snapshot.wake.lastGithubEventAt).getTime() > 60 * 60 * 1000
+        ? 'Quiet'
+        : 'Yes';
+  const githubTone: Tone = githubValue === 'Yes' ? 'ok' : githubValue === 'Quiet' ? 'warn' : 'bad';
   const serverUp = snapshot.server.ok && snapshot.server.db === 'ok';
-  const checksTone: Tone =
+  const testsValue =
+    snapshot.github.ciState === 'pass'
+      ? 'Yes'
+      : snapshot.github.ciState === 'fail'
+        ? 'No'
+        : snapshot.github.ciState === 'pending'
+          ? 'Still running'
+          : "Don't know";
+  const testsTone: Tone | undefined =
     snapshot.github.ciState === 'pass'
       ? 'ok'
       : snapshot.github.ciState === 'pending'
         ? 'warn'
-        : 'bad';
+        : snapshot.github.ciState === 'fail'
+          ? 'bad'
+          : undefined;
+  const rateDetail =
+    snapshot.github.rateRemaining === undefined
+      ? 'not measured yet'
+      : snapshot.github.rateLimit === undefined
+        ? 'requests left this hour'
+        : `of ${groupedNumber.format(snapshot.github.rateLimit)} requests this hour`;
 
   return (
     <div className="debug-grid">
       <Tile
-        label="Planner"
-        value={titleCase(snapshot.planner.state)}
+        label="Am I awake?"
+        value={
+          snapshot.planner.state === 'down'
+            ? 'Asleep'
+            : `${snapshot.planner.state.charAt(0).toUpperCase()}${snapshot.planner.state.slice(1)}`
+        }
         detail={`${snapshot.planner.currentTask ?? 'Nothing in flight'} · ${plannerReport}`}
         tone={plannerTone}
       />
       <Tile
-        label="Wake"
-        value={snapshot.wake.reachable ? 'Up' : 'Down'}
-        detail={wakeDetail}
-        tone={snapshot.wake.reachable ? 'ok' : 'bad'}
+        label="Are my messages getting through?"
+        value={channelValue}
+        detail={channelDetail}
+        tone={channelValue === 'Yes' ? 'ok' : 'bad'}
       />
       <Tile
-        label="Webhook feed"
-        value={webhookValue}
+        label="Is GitHub talking to me?"
+        value={githubValue}
         detail={githubAge ? `last heard ${githubAge}` : 'nothing yet'}
-        tone={webhookTone}
+        tone={githubTone}
       />
       <Tile
-        label="Server"
-        value={serverUp ? 'Up' : 'Down'}
+        label="Is the factory running?"
+        value={serverUp ? 'Yes' : 'No'}
         detail={`${uptime(snapshot.server.uptimeSeconds)} · ${snapshot.server.version}`}
         tone={serverUp ? 'ok' : 'bad'}
       />
-      <Tile label="Events today" value={snapshot.server.eventsToday} detail="since midnight UTC" />
       <Tile
-        label="Checks"
-        value={titleCase(snapshot.github.ciState)}
-        detail="last reported by the Planner"
-        tone={checksTone}
+        label="Things that happened today"
+        value={groupedNumber.format(snapshot.server.eventsToday)}
+        detail="since midnight"
       />
       <Tile
-        label="Work in flight"
+        label="Are the tests passing?"
+        value={testsValue}
+        detail={snapshot.github.ciDetail ?? 'nothing measured yet'}
+        tone={testsTone}
+      />
+      <Tile
+        label="Waiting on the robot"
         value={snapshot.github.codexPrsOpen ?? '—'}
-        detail="jobs the builder has open"
+        detail={snapshot.github.codexPrsOpen === 0 ? 'no jobs open' : 'jobs the robot has open'}
       />
-      {snapshot.costToday !== undefined && (
-        <Tile
-          label="Spend today"
-          value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-            snapshot.costToday,
-          )}
-          detail="informational — nothing is capped"
-        />
-      )}
+      <Tile
+        label="Room left with GitHub"
+        value={
+          snapshot.github.rateRemaining === undefined
+            ? '—'
+            : groupedNumber.format(snapshot.github.rateRemaining)
+        }
+        detail={rateDetail}
+      />
+      <Tile
+        label="Thinking done today"
+        value={
+          snapshot.tokensToday === undefined ? 'Not measured' : compactCount(snapshot.tokensToday)
+        }
+        detail={
+          snapshot.tokensToday === undefined
+            ? 'no session logs to read'
+            : "tokens used across today's sessions"
+        }
+      />
+      <Tile
+        label="Spent today"
+        value={
+          snapshot.costToday === undefined
+            ? 'Not measured'
+            : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                snapshot.costToday,
+              )
+        }
+        detail={
+          snapshot.costToday === undefined
+            ? 'no honest dollar figure to read yet — nothing is capped'
+            : 'informational — nothing is capped'
+        }
+      />
     </div>
   );
 }
