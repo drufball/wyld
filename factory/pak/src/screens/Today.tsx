@@ -1,4 +1,4 @@
-import { NewEvent, type NextAction } from '@wyld/shared';
+import { NewEvent, type Chain, type NextAction } from '@wyld/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { getPresence, postChain, postEvent } from '../api/client.js';
@@ -29,15 +29,13 @@ export function Today({
   signals?: TodaySignals;
 }) {
   const [text, setText] = useState('');
-  const [mode, setMode] = useState<'intent' | 'question'>('intent');
   const [failedSubmission, setFailedSubmission] = useState<{
     text: string;
-    mode: 'intent' | 'question';
+    action: 'chain' | 'intent';
   } | null>(null);
-  const [acknowledged, setAcknowledged] = useState(false);
+  const [addedChain, setAddedChain] = useState<Chain | null>(null);
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const intentField = useRef<HTMLTextAreaElement>(null);
-  const acknowledgementTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { subscribe } = useLiveEvents();
 
   const loadPresence = useCallback(
@@ -51,7 +49,6 @@ export function Today({
     loadPresence();
     return subscribe('planner.next_action', loadPresence);
   }, [loadPresence, subscribe]);
-  useEffect(() => () => clearTimeout(acknowledgementTimer.current), []);
   useLayoutEffect(() => {
     const field = intentField.current;
     if (!field) return;
@@ -59,42 +56,34 @@ export function Today({
     field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
   }, [text]);
 
-  const send = (submission: string, submissionMode = mode) => {
+  const sendChain = (submission: string) => {
     setFailedSubmission(null);
-    if (submissionMode === 'question') setAcknowledged(false);
-    const request =
-      submissionMode === 'question'
-        ? postChain(submission)
-        : postEvent(
-            NewEvent.parse({
-              source: 'human',
-              kind: 'human.intent',
-              payload: { text: submission },
-            }),
-          );
-    void request
-      .then(() => {
-        if (submissionMode === 'question') return;
-        setAcknowledged(true);
-        clearTimeout(acknowledgementTimer.current);
-        acknowledgementTimer.current = setTimeout(() => setAcknowledged(false), 3000);
-      })
-      .catch(() => setFailedSubmission({ text: submission, mode: submissionMode }));
+    void postChain(submission)
+      .then(setAddedChain)
+      .catch(() => setFailedSubmission({ text: submission, action: 'chain' }));
+  };
+  const sendIntent = (submission: string) => {
+    setFailedSubmission(null);
+    void postEvent(
+      NewEvent.parse({
+        source: 'human',
+        kind: 'human.intent',
+        payload: { text: submission },
+      }),
+    ).catch(() => setFailedSubmission({ text: submission, action: 'intent' }));
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const intent = text.trim();
     if (!intent) return;
     setText('');
-    send(intent, mode);
+    sendChain(intent);
   };
 
   return (
     <div className="today">
       <form className="today-prompt" onSubmit={submit}>
-        <label htmlFor="today-intent">
-          {mode === 'intent' ? 'What do we make today?' : 'What do you want to know?'}
-        </label>
+        <label htmlFor="today-intent">What's on your mind?</label>
         <span className="today-input-line">
           <span aria-hidden="true">&gt;</span>
           <textarea
@@ -113,27 +102,21 @@ export function Today({
             autoComplete="off"
           />
         </span>
-        <button
-          className="today-mode-toggle"
-          type="button"
-          aria-pressed={mode === 'question'}
-          onClick={() => setMode((current) => (current === 'intent' ? 'question' : 'intent'))}
-        >
-          {mode === 'intent' ? 'Just asking?' : 'Make something instead'}
-        </button>
         <div className="today-response" aria-live="polite">
           {failedSubmission !== null ? (
             <span>
               That didn't go through.{' '}
               <button
                 type="button"
-                onClick={() => send(failedSubmission.text, failedSubmission.mode)}
+                onClick={() =>
+                  failedSubmission.action === 'chain'
+                    ? sendChain(failedSubmission.text)
+                    : sendIntent(failedSubmission.text)
+                }
               >
                 Retry
               </button>
             </span>
-          ) : acknowledged ? (
-            <span className="today-ack">Got it.</span>
           ) : null}
         </div>
       </form>
@@ -145,13 +128,7 @@ export function Today({
         ) : (
           <div className="today-action">{nextAction.text}</div>
         ))}
-      <ChainList
-        onConvert={(question) => {
-          setMode('intent');
-          setText(question);
-          requestAnimationFrame(() => intentField.current?.focus());
-        }}
-      />
+      <ChainList addedChain={addedChain} onConvert={sendIntent} />
       <InFlight />
       <Signals {...signals} />
     </div>

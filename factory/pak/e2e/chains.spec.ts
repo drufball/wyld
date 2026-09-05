@@ -3,8 +3,7 @@ import { expect, test } from '@playwright/test';
 test('asks, receives a live answer, and settles a chain', async ({ page, request }) => {
   const question = `What grows in the Wyld? ${Date.now()}`;
   await page.goto('/');
-  await page.getByRole('button', { name: 'Just asking?' }).click();
-  const field = page.getByLabel('What do you want to know?');
+  const field = page.getByLabel("What's on your mind?");
   await field.fill(question);
   await field.press('Enter');
   const card = page.locator('.chain-card').filter({ hasText: question });

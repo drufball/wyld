@@ -134,22 +134,6 @@ p {
   text-decoration: underline;
   cursor: pointer;
 }
-.today-mode-toggle {
-  justify-self: start;
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  padding: var(--pak-space-2) 0;
-  color: var(--pak-ink-dim);
-  background: transparent;
-  font-family: var(--pak-body);
-  font-size: 13px;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.today-mode-toggle:focus-visible {
-  outline: 3px solid var(--pak-orange);
-}
 .today-ack {
   animation: acknowledgement 3s ease-out forwards;
 }

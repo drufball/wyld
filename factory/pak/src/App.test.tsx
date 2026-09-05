@@ -68,7 +68,7 @@ describe('Pak shell', () => {
   it('renders Today and all six tab destinations at the root', async () => {
     renderAt('/');
 
-    expect(await screen.findByText('What do we make today?')).not.toBeNull();
+    expect(await screen.findByText("What's on your mind?")).not.toBeNull();
     for (const label of ['Today', 'Quests', 'Demos', 'Rumble', 'Debug', 'Memory']) {
       expect(screen.getByRole('link', { name: label })).not.toBeNull();
     }
@@ -104,7 +104,7 @@ describe('Pak shell', () => {
   it.each(placeholders)('navigates to %s and renders its purpose', async (name, purpose) => {
     renderAt('/');
 
-    await screen.findByText('What do we make today?');
+    await screen.findByText("What's on your mind?");
 
     fireEvent.click(screen.getByRole('link', { name }));
 
@@ -114,14 +114,14 @@ describe('Pak shell', () => {
 
   it('navigates to Quests', async () => {
     renderAt('/');
-    await screen.findByText('What do we make today?');
+    await screen.findByText("What's on your mind?");
     fireEvent.click(screen.getByRole('link', { name: 'Quests' }));
     expect(screen.getByRole('heading', { name: 'Quests' })).not.toBeNull();
   });
 
   it('navigates to the Debug Menu', async () => {
     renderAt('/');
-    await screen.findByText('What do we make today?');
+    await screen.findByText("What's on your mind?");
     fireEvent.click(screen.getByRole('link', { name: 'Debug' }));
     expect(screen.getByRole('heading', { name: 'Debug Menu' })).not.toBeNull();
     expect(screen.getByText('Reading the factory…')).not.toBeNull();
@@ -137,6 +137,6 @@ describe('Pak shell', () => {
   it('redirects unknown paths to Today', async () => {
     renderAt('/lost-save');
 
-    await waitFor(() => expect(screen.getByText('What do we make today?')).not.toBeNull());
+    await waitFor(() => expect(screen.getByText("What's on your mind?")).not.toBeNull());
   });
 });

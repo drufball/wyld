@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-test('submits an intent from Today', async ({ page, request }) => {
-  const intent = 'add a field guide screen';
+test('submits a message from Today', async ({ page, request }) => {
+  const message = 'add a field guide screen';
   await page.goto('/');
-  await expect(page.getByText('What do we make today?')).toBeVisible();
-  const field = page.getByLabel('What do we make today?');
-  await field.fill(intent);
+  await expect(page.getByText("What's on your mind?")).toBeVisible();
+  const field = page.getByLabel("What's on your mind?");
+  await field.fill(message);
   await field.press('Enter');
   await expect(field).toHaveValue('');
-  await expect(page.getByText('Got it.')).toBeVisible();
+  await expect(page.locator('.chain-card').filter({ hasText: message })).toBeVisible();
   const response = await request.get('/api/events');
   expect(response.ok()).toBe(true);
   const events = (await response.json()) as Array<{
@@ -17,7 +17,11 @@ test('submits an intent from Today', async ({ page, request }) => {
     payload: unknown;
   }>;
   expect(events).toContainEqual(
-    expect.objectContaining({ source: 'human', kind: 'human.intent', payload: { text: intent } }),
+    expect.objectContaining({
+      source: 'human',
+      kind: 'human.question',
+      payload: expect.objectContaining({ text: message, chainId: expect.any(Number) }),
+    }),
   );
 });
 
