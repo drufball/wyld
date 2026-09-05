@@ -8,6 +8,7 @@ import {
   createDeliveryLoop,
   createStreamLogger,
   notificationFor,
+  parseClaimResponse,
   registerPakTools,
   type QueuedMessage,
 } from './channel.js';
@@ -59,7 +60,7 @@ describe('Wake channel delivery', () => {
     });
     const ack = vi.fn(async () => undefined);
     const loop = createDeliveryLoop({
-      claim: async () => [later, earlier],
+      claim: async () => ({ messages: [later, earlier], dropped: [] }),
       ack,
       emit,
       log: vi.fn(),
@@ -91,7 +92,12 @@ describe('Wake channel delivery', () => {
   it('re-emits messages after an acknowledgement failure', async () => {
     const emit = vi.fn(async () => undefined);
     const ack = vi.fn().mockRejectedValueOnce(new Error('ack down')).mockResolvedValue(undefined);
-    const loop = createDeliveryLoop({ claim: async () => [earlier], ack, emit, log: vi.fn() });
+    const loop = createDeliveryLoop({
+      claim: async () => ({ messages: [earlier], dropped: [] }),
+      ack,
+      emit,
+      log: vi.fn(),
+    });
     await loop.tick();
     await loop.tick();
     expect(emit).toHaveBeenCalledTimes(2);
@@ -100,7 +106,10 @@ describe('Wake channel delivery', () => {
 
   it('logs daemon failures without rejecting and can retry', async () => {
     const log = vi.fn();
-    const claim = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue([]);
+    const claim = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ messages: [], dropped: [] });
     const loop = createDeliveryLoop({ claim, ack: vi.fn(), emit: vi.fn(), log });
     await expect(loop.tick()).resolves.toBeUndefined();
     await expect(loop.tick()).resolves.toBeUndefined();
@@ -118,6 +127,97 @@ describe('Wake channel delivery', () => {
     stderr.on('data', (chunk) => (output += String(chunk)));
     createStreamLogger(stderr)('debug', 'retry');
     expect(output).toContain('"msg":"retry"');
+  });
+
+  it('delivers an event kind unknown to this build', async () => {
+    const parsed = parseClaimResponse({
+      messages: [{ ...earlier, kind: 'human.telepathy', summary: 'Read my mind' }],
+    });
+    const emit = vi.fn(async () => undefined);
+    const loop = createDeliveryLoop({
+      claim: async () => parsed,
+      ack: vi.fn(async () => undefined),
+      emit,
+      log: vi.fn(),
+    });
+    await loop.tick();
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          content: 'Read my mind',
+          meta: expect.objectContaining({ kind: 'human.telepathy' }),
+        }),
+      }),
+    );
+  });
+
+  it('drops malformed entries while delivering and acknowledging the rest', async () => {
+    const log = vi.fn();
+    const parsed = parseClaimResponse(
+      { messages: [{ ...later, id: 3 }, { id: 2, source: 'human' }, earlier] },
+      log,
+    );
+    const emitted: string[] = [];
+    const ack = vi.fn(async () => undefined);
+    const loop = createDeliveryLoop({
+      claim: async () => parsed,
+      ack,
+      emit: async (notification) => void emitted.push(notification.params.content),
+      log,
+    });
+    await loop.tick();
+    expect(emitted).toEqual(['earlier', 'later']);
+    expect(log).toHaveBeenCalledWith(
+      'warn',
+      expect.any(String),
+      expect.objectContaining({ id: 2 }),
+    );
+    expect(ack).toHaveBeenCalledWith([1, 3, 2]);
+  });
+
+  it('logs malformed entries without usable ids and does not acknowledge them', async () => {
+    const log = vi.fn();
+    const parsed = parseClaimResponse({ messages: [{ source: 'human' }, earlier] }, log);
+    const ack = vi.fn(async () => undefined);
+    const loop = createDeliveryLoop({
+      claim: async () => parsed,
+      ack,
+      emit: vi.fn(async () => undefined),
+      log,
+    });
+    await loop.tick();
+    expect(log).toHaveBeenCalledWith(
+      'error',
+      expect.any(String),
+      expect.not.objectContaining({ id: expect.anything() }),
+    );
+    expect(ack).toHaveBeenCalledWith([1]);
+  });
+
+  it.each([{}, { messages: 'nope' }])('rejects a malformed claim envelope', (envelope) => {
+    expect(() => parseClaimResponse(envelope)).toThrow();
+  });
+
+  it('acknowledges emitted and dropped ids when a later emission fails', async () => {
+    const log = vi.fn();
+    const ack = vi.fn(async () => undefined);
+    const emit = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('closed'));
+    const loop = createDeliveryLoop({
+      claim: async () => ({ messages: [earlier, later], dropped: [3] }),
+      ack,
+      emit,
+      log,
+    });
+    await loop.tick();
+    expect(ack).toHaveBeenCalledWith([1, 3]);
+    expect(log).toHaveBeenCalledWith(
+      'debug',
+      expect.any(String),
+      expect.objectContaining({ error: 'closed', retryMs: 2000 }),
+    );
   });
 });
 
@@ -206,7 +306,7 @@ describe('Pak tools', () => {
     });
   });
 
-  it('posts a valid event and rejects an invalid kind', async () => {
+  it('posts event kinds without gating them against the adapter vocabulary', async () => {
     const fetch = vi.fn(async () => new Response('', { status: 200 }));
     const [, call] = handlers(fetch as typeof globalThis.fetch);
     const success = await call!({
@@ -227,11 +327,10 @@ describe('Pak tools', () => {
         }),
       }),
     );
-    const invalid = await call!({
+    const future = await call!({
       params: { name: 'pak_log_event', arguments: { kind: 'nope', summary: 'bad' } },
     });
-    expect(invalid).toMatchObject({ isError: true });
-    expect(invalid.content?.[0]?.text).toContain('Valid kinds');
+    expect(future.isError).toBeUndefined();
   });
 
   it('returns a non-fatal tool error when next-action is not implemented', async () => {
@@ -365,8 +464,11 @@ describe('Pak tools', () => {
     });
     expect(JSON.parse(result.content![0]!.text)).toEqual([{ kind: 'human.ask', id: 3 }]);
     expect(
-      await call!({ params: { name: 'pak_read_events', arguments: { kinds: ['invalid'] } } }),
-    ).toMatchObject({ isError: true });
+      JSON.parse(
+        (await call!({ params: { name: 'pak_read_events', arguments: { kinds: ['invalid'] } } }))
+          .content![0]!.text,
+      ),
+    ).toEqual([]);
   });
 
   it('writes a Catch-Up digest with camelCase deep links and omitted default range', async () => {

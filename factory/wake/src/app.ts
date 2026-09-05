@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-import { Event, WakeMessage } from '@wyld/shared';
+import { Event, WakeMessageWire } from '@wyld/shared';
 import { and, asc, inArray, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -110,22 +110,28 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
       .orderBy(asc(messages.ts), asc(messages.id))
       .limit(parsed.data.limit)
       .all();
-    return c.json({
-      messages: rows.map((row) => ({
-        id: row.id,
-        ...WakeMessage.parse({
-          source: row.source,
-          kind: row.kind,
-          ...optional('quest', row.quest),
-          ...optional('issue', row.issue),
-          ...optional('pr', row.pr),
-          ...optional('chain', row.chain),
-          ...optional('url', row.url),
-          summary: row.summary,
-          ts: row.ts,
-        }),
-      })),
+    const claimed = rows.flatMap((row) => {
+      const message = WakeMessageWire.safeParse({
+        source: row.source,
+        kind: row.kind,
+        ...optional('quest', row.quest),
+        ...optional('issue', row.issue),
+        ...optional('pr', row.pr),
+        ...optional('chain', row.chain),
+        ...optional('url', row.url),
+        summary: row.summary,
+        ts: row.ts,
+      });
+      if (!message.success) {
+        logger('warn', 'Wake queue skipped an unparseable message', {
+          id: row.id,
+          error: message.error.message,
+        });
+        return [];
+      }
+      return [{ id: row.id, ...message.data }];
     });
+    return c.json({ messages: claimed });
   });
 
   app.post('/queue/ack', async (c) => {

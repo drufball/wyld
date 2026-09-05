@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createWakeApp } from './app.js';
 import { openDatabase, type AppDatabase } from './database.js';
@@ -131,6 +131,49 @@ describe('Wake app', () => {
       body: '{}',
     });
     expect(await response.json()).toMatchObject({ messages: [{ chain: 7 }] });
+  });
+
+  it('claims unknown kinds and skips malformed stored rows', async () => {
+    const logger = vi.fn();
+    app = createWakeApp({ database, wakeSecret, githubWebhookSecret, logger });
+    const createdAt = '2026-09-05T12:00:00.000Z';
+    database.db
+      .insert(messages)
+      .values([
+        {
+          source: 'future-system',
+          kind: 'human.telepathy',
+          summary: 'A message from the future',
+          ts: createdAt,
+          createdAt,
+          updatedAt: createdAt,
+        },
+        {
+          source: 'human',
+          kind: 'human.intent',
+          summary: '',
+          ts: createdAt,
+          createdAt,
+          updatedAt: createdAt,
+        },
+      ])
+      .run();
+
+    const response = await app.request('/queue/claim', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret },
+      body: '{}',
+    });
+    expect(await response.json()).toMatchObject({
+      messages: [
+        { source: 'future-system', kind: 'human.telepathy', summary: 'A message from the future' },
+      ],
+    });
+    expect(logger).toHaveBeenCalledWith(
+      'warn',
+      expect.any(String),
+      expect.objectContaining({ id: 2 }),
+    );
   });
 
   it.each([

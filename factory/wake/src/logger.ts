@@ -1,5 +1,5 @@
 export type LogContext = Record<string, unknown>;
-export type LogLevel = 'debug' | 'info' | 'error';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export function log(
   level: LogLevel,

@@ -30,7 +30,7 @@ const daemonPost = createDaemonPost({ wakeUrl, wakeSecret, log: channelLog });
 
 createDeliveryLoop({
   claim: async () =>
-    parseClaimResponse(await (await daemonPost('/queue/claim', { limit: 20 })).json()),
+    parseClaimResponse(await (await daemonPost('/queue/claim', { limit: 20 })).json(), channelLog),
   ack: async (ids) => void (await daemonPost('/queue/ack', { ids })),
   emit: async (notification) => void (await mcp.notification(notification)),
   log: channelLog,
