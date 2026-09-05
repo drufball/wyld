@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Catchup, CatchupView, Event, Presence } from '@wyld/shared';
+import { Catchup, CatchupView, Event, HealthSnapshot, Presence } from '@wyld/shared';
 import { z } from 'zod';
 
 import { createApp } from './app.js';
@@ -36,6 +36,107 @@ describe('Pak server', () => {
       body: JSON.stringify({ source: 'human', kind, payload: { text } }),
     });
   }
+
+  async function postHealth(body: unknown) {
+    return app.request('/api/health/report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('round-trips Planner health without creating an event', async () => {
+    const response = await postHealth({
+      plannerState: 'working',
+      currentTask: 'reviewing a pull request',
+      wakeQueueDepth: 2,
+      ghRateRemaining: 42,
+      ciState: 'pass',
+      costToday: 1.5,
+      codexPrsOpen: 1,
+      pausedReason: 'briefly',
+    });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ plannerState: 'working', wakeQueueDepth: 2 });
+
+    const snapshot = HealthSnapshot.parse(await (await app.request('/api/health/snapshot')).json());
+    expect(snapshot).toMatchObject({
+      planner: { state: 'working', currentTask: 'reviewing a pull request' },
+      wake: { reachable: false },
+      github: { ciState: 'pass', rateRemaining: 42, codexPrsOpen: 1 },
+      costToday: 1.5,
+      pausedReason: 'briefly',
+    });
+    expect(await (await app.request('/api/events')).json()).toEqual([]);
+  });
+
+  it('reports the Planner down with no report or a stale report', async () => {
+    expect(await (await app.request('/api/health/snapshot')).json()).toMatchObject({
+      planner: { state: 'down' },
+    });
+    await postHealth({ plannerState: 'online', currentTask: 'old task' });
+    database.sqlite
+      .prepare('UPDATE health SET ts = ?')
+      .run(new Date(Date.now() - 601_000).toISOString());
+    const snapshot = HealthSnapshot.parse(await (await app.request('/api/health/snapshot')).json());
+    expect(snapshot).toMatchObject({ planner: { state: 'down' } });
+    expect(snapshot.planner).not.toHaveProperty('currentTask');
+  });
+
+  it('rejects an invalid health report', async () => {
+    const response = await postHealth({ plannerState: 'sleeping', wakeQueueDepth: -1 });
+    expect(response.status).toBe(400);
+    expect(JSON.stringify(await response.json())).toContain('plannerState');
+  });
+
+  it('keeps snapshots available when Wake rejects', async () => {
+    app = createApp({
+      database,
+      wakeUrl: 'http://wake.test',
+      fetch: vi.fn().mockRejectedValue(new Error('offline')),
+      logger: silentLogger,
+    });
+    expect(await (await app.request('/api/health/snapshot')).json()).toMatchObject({
+      wake: { reachable: false },
+    });
+  });
+
+  it('copies valid optional Wake health fields', async () => {
+    for (const body of [
+      { queueDepth: 3, oldestPendingTs: 'old', lastDeliveryAt: 'delivery' },
+      { queueDepth: 1, lastGithubEventAt: 'github' },
+      { queueDepth: 'invalid', lastDeliveryAt: 'valid' },
+    ]) {
+      app = createApp({
+        database,
+        wakeUrl: 'http://wake.test/base',
+        fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify(body))),
+        logger: silentLogger,
+      });
+      const snapshot = HealthSnapshot.parse(
+        await (await app.request('/api/health/snapshot')).json(),
+      );
+      expect(snapshot.wake.reachable).toBe(true);
+      if (typeof body.queueDepth === 'number')
+        expect(snapshot.wake.queueDepth).toBe(body.queueDepth);
+      else expect(snapshot.wake).not.toHaveProperty('queueDepth');
+      if (body.lastDeliveryAt !== undefined)
+        expect(snapshot.wake.lastDeliveryAt).toBe(body.lastDeliveryAt);
+      if (body.oldestPendingTs !== undefined)
+        expect(snapshot.wake.oldestPendingTs).toBe(body.oldestPendingTs);
+      if (body.lastGithubEventAt !== undefined)
+        expect(snapshot.wake.lastGithubEventAt).toBe(body.lastGithubEventAt);
+    }
+  });
+
+  it('counts only events from the current UTC day', async () => {
+    await postEvent('human.intent', 'today');
+    database.sqlite
+      .prepare('INSERT INTO events (ts, source, kind, payload) VALUES (?, ?, ?, ?)')
+      .run('2000-01-01T00:00:00.000Z', 'human', 'human.intent', '{}');
+    const snapshot = HealthSnapshot.parse(await (await app.request('/api/health/snapshot')).json());
+    expect(snapshot.server.eventsToday).toBe(1);
+  });
 
   it('stores a server-identified and timestamped event', async () => {
     const response = await postEvent('human.intent', 'hello');

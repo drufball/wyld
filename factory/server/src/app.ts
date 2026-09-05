@@ -1,9 +1,11 @@
-import { and, asc, desc, eq, gt } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, gte } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import {
   Event,
   EventId,
+  HealthReport,
+  HealthSnapshot,
   Catchup,
   CatchupDigest,
   CatchupView,
@@ -16,7 +18,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { log, type LogContext } from './logger.js';
-import { catchups, events, presence, quests } from './schema.js';
+import { catchups, events, healthReports, presence, quests } from './schema.js';
 import { mechanicalDigest } from './catchup.js';
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder } from './forwarder.js';
@@ -50,6 +52,16 @@ const CatchupPost = z
 
 export const CATCHUP_AWAY_SECONDS = 7200;
 export const CATCHUP_UNSEEN_EVENTS = 20;
+export const PLANNER_STALE_SECONDS = 600;
+
+const WakeHealth = z
+  .object({
+    queueDepth: z.number().int().min(0).optional().catch(undefined),
+    oldestPendingTs: z.string().optional().catch(undefined),
+    lastDeliveryAt: z.string().optional().catch(undefined),
+    lastGithubEventAt: z.string().optional().catch(undefined),
+  })
+  .passthrough();
 
 type Subscriber = (event: Event) => Promise<void>;
 
@@ -71,6 +83,21 @@ export function createApp(dependencies: AppDependencies) {
   const subscribers = new Set<Subscriber>();
   const startedAt = Date.now();
   const app = new Hono();
+
+  const serverHealth = () => {
+    let databaseStatus: 'ok' | 'error' = 'ok';
+    try {
+      sqlite.prepare('SELECT 1').get();
+    } catch {
+      databaseStatus = 'error';
+    }
+    return {
+      ok: databaseStatus === 'ok',
+      db: databaseStatus,
+      uptimeSeconds: (Date.now() - startedAt) / 1000,
+      version: dependencies.version ?? '0.0.0',
+    };
+  };
 
   const listEvents = (since: number, limit?: number): Event[] => {
     const query = db.select().from(events).where(gt(events.id, since)).orderBy(asc(events.id));
@@ -317,19 +344,66 @@ export function createApp(dependencies: AppDependencies) {
 
   app.route('/api', createQuestRoutes({ database: dependencies.database, now, storeEvent }));
 
-  app.get('/api/health', (c) => {
-    let databaseStatus: 'ok' | 'error' = 'ok';
-    try {
-      sqlite.prepare('SELECT 1').get();
-    } catch {
-      databaseStatus = 'error';
+  app.get('/api/health', (c) => c.json(serverHealth()));
+
+  app.post('/api/health/report', async (c) => {
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const parsed = HealthReport.safeParse(body);
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    const [row] = db
+      .insert(healthReports)
+      .values({ ts: now().toISOString(), ...parsed.data })
+      .returning()
+      .all();
+    if (row === undefined) throw new Error('Health report insert did not return a row');
+    return c.json(row, 201);
+  });
+
+  app.get('/api/health/snapshot', async (c) => {
+    const current = now();
+    const latest = db.select().from(healthReports).orderBy(desc(healthReports.ts)).get();
+    const stale =
+      latest === undefined ||
+      current.getTime() - new Date(latest.ts).getTime() > PLANNER_STALE_SECONDS * 1000;
+    let wake: z.infer<typeof HealthSnapshot>['wake'] = { reachable: false };
+    if (dependencies.wakeUrl !== undefined) {
+      try {
+        const response = await (dependencies.fetch ?? globalThis.fetch)(
+          new URL('/health', dependencies.wakeUrl),
+          { signal: AbortSignal.timeout(1000) },
+        );
+        if (!response.ok) throw new Error(`Wake health returned ${response.status}`);
+        const parsed = WakeHealth.safeParse(await response.json());
+        if (!parsed.success) throw new Error('Wake health returned an invalid body');
+        wake = { reachable: true, ...parsed.data };
+      } catch (error: unknown) {
+        logger('error', 'failed to read Wake health', { error: String(error) });
+      }
     }
-    return c.json({
-      ok: databaseStatus === 'ok',
-      db: databaseStatus,
-      uptimeSeconds: (Date.now() - startedAt) / 1000,
-      version: dependencies.version ?? '0.0.0',
-    });
+    const dayStart = new Date(
+      Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate()),
+    ).toISOString();
+    const eventsToday =
+      db.select({ value: count() }).from(events).where(gte(events.ts, dayStart)).get()?.value ?? 0;
+    return c.json(
+      HealthSnapshot.parse({
+        ts: current.toISOString(),
+        planner: {
+          state: stale ? 'down' : latest?.plannerState,
+          ...(!stale && latest?.currentTask !== null ? { currentTask: latest?.currentTask } : {}),
+          ...(latest === undefined ? {} : { lastReportAt: latest.ts }),
+        },
+        server: { ...serverHealth(), eventsToday },
+        wake,
+        github: {
+          ciState: latest?.ciState ?? 'unknown',
+          ...(latest?.ghRateRemaining == null ? {} : { rateRemaining: latest.ghRateRemaining }),
+          ...(latest?.codexPrsOpen == null ? {} : { codexPrsOpen: latest.codexPrsOpen }),
+        },
+        ...(latest?.costToday == null ? {} : { costToday: latest.costToday }),
+        ...(latest?.pausedReason == null ? {} : { pausedReason: latest.pausedReason }),
+      }),
+    );
   });
 
   if (dependencies.pakDist !== undefined) app.all('*', createStaticHandler(dependencies.pakDist));

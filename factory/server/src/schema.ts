@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const events = sqliteTable(
   'events',
@@ -11,6 +11,23 @@ export const events = sqliteTable(
     questId: text('quest_id'),
   },
   (table) => [index('events_ts_idx').on(table.ts), index('events_quest_id_idx').on(table.questId)],
+);
+
+export const healthReports = sqliteTable(
+  'health',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    ts: text('ts').notNull(),
+    plannerState: text('planner_state').notNull(),
+    currentTask: text('current_task'),
+    wakeQueueDepth: integer('wake_queue_depth'),
+    ghRateRemaining: integer('gh_rate_remaining'),
+    ciState: text('ci_state'),
+    costToday: real('cost_today'),
+    codexPrsOpen: integer('codex_prs_open'),
+    pausedReason: text('paused_reason'),
+  },
+  (table) => [index('health_ts_idx').on(table.ts)],
 );
 
 export const presence = sqliteTable('presence', {

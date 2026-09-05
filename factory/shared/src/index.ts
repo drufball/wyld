@@ -1,5 +1,6 @@
 export * from './demo.js';
 export * from './event.js';
+export * from './health.js';
 export * from './ids.js';
 export * from './ops.js';
 export * from './presence.js';
