@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getCatchup, listQuests } from '../api/client.js';
+import { getCatchup, listQuests, listRumbles } from '../api/client.js';
 import { countInWords } from '../words.js';
 
 export function Vmu() {
   const [catchup, setCatchup] = useState<Awaited<ReturnType<typeof getCatchup>> | null>(null);
   const [buildingCount, setBuildingCount] = useState<number | null>(null);
+  const [rumbleCount, setRumbleCount] = useState<number | null>(null);
 
   useEffect(() => {
     void getCatchup()
@@ -14,16 +15,24 @@ export function Vmu() {
     void listQuests({ status: 'building' })
       .then((quests) => setBuildingCount(quests.length))
       .catch(() => setBuildingCount(0));
+    void listRumbles({ status: 'open' })
+      .then((rumbles) => setRumbleCount(rumbles.length))
+      .catch(() => setRumbleCount(0));
   }, []);
 
   const nextAction = catchup?.nextAction ?? null;
-  const quiet = catchup !== null && buildingCount === 0 && nextAction === null;
+  const quiet = catchup !== null && buildingCount === 0 && rumbleCount === 0 && nextAction === null;
   return (
     <main className="vmu">
       <h1>VMU</h1>
       {catchup?.show && (
         <Link className="vmu-catchup" to="/catch-up">
           Catch-Up ready
+        </Link>
+      )}
+      {rumbleCount !== null && rumbleCount > 0 && (
+        <Link className="vmu-rumbles" to="/rumble">
+          {countInWords(rumbleCount)} Rumbles
         </Link>
       )}
       {nextAction !== null &&

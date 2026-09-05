@@ -7,6 +7,7 @@ import {
   Presence,
   Quest,
   QuestNote,
+  Rumble,
   WorldWithQuestCounts,
   type NewEvent as NewEventType,
   type QuestStatus,
@@ -123,6 +124,21 @@ export async function closeChain(id: number, reason: 'settled' | 'converted'): P
       `/api/chains/${id}/close`,
       json('POST', { reason, source: 'human' }),
       'Closing chain',
+    ),
+  );
+}
+
+export async function listRumbles(options: { status?: 'open' | 'decided' } = {}) {
+  const query = options.status ? `?status=${options.status}` : '';
+  return Rumble.array().parse(await request(`/api/rumbles${query}`, {}, 'Loading rumbles'));
+}
+
+export async function decideRumble(id: string, chosen: string) {
+  return Rumble.parse(
+    await request(
+      `/api/rumbles/${encodeURIComponent(id)}/decide`,
+      json('POST', { chosen }),
+      'Deciding rumble',
     ),
   );
 }

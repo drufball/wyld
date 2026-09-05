@@ -1,7 +1,7 @@
 import { NewEvent, type Chain, type NextAction } from '@wyld/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { getPresence, postChain, postEvent } from '../api/client.js';
+import { getPresence, listRumbles, postChain, postEvent } from '../api/client.js';
 import { ChainList } from '../components/ChainList.js';
 import { InFlight } from '../components/InFlight.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
@@ -16,7 +16,7 @@ export function Signals({ rumbles, demos, memory }: TodaySignals) {
   if (rumbles <= 0 && demos <= 0 && memory === null) return null;
   return (
     <section className="today-signals" aria-label="Signals">
-      {rumbles > 0 && <p>{compactCount(rumbles)} Rumbles</p>}
+      {rumbles > 0 && <a href="/rumble">{compactCount(rumbles)} Rumbles</a>}
       {demos > 0 && <p>{compactCount(demos)} demos ready</p>}
       {memory !== null && <p>{memory}</p>}
     </section>
@@ -35,6 +35,7 @@ export function Today({
   } | null>(null);
   const [addedChain, setAddedChain] = useState<Chain | null>(null);
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
+  const [rumbleCount, setRumbleCount] = useState(signals.rumbles);
   const intentField = useRef<HTMLTextAreaElement>(null);
   const { subscribe } = useLiveEvents();
 
@@ -49,6 +50,21 @@ export function Today({
     loadPresence();
     return subscribe('planner.next_action', loadPresence);
   }, [loadPresence, subscribe]);
+  const loadRumbles = useCallback(
+    () =>
+      void listRumbles({ status: 'open' })
+        .then((items) => setRumbleCount(items.length))
+        .catch(() => undefined),
+    [],
+  );
+  useEffect(() => {
+    loadRumbles();
+    const stops = [
+      subscribe('human.decision', loadRumbles),
+      subscribe('planner.next_action', loadRumbles),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, [loadRumbles, subscribe]);
   useLayoutEffect(() => {
     const field = intentField.current;
     if (!field) return;
@@ -130,7 +146,7 @@ export function Today({
         ))}
       <ChainList addedChain={addedChain} onConvert={sendIntent} />
       <InFlight />
-      <Signals {...signals} />
+      <Signals {...signals} rumbles={rumbleCount} />
     </div>
   );
 }

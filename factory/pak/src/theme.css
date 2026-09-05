@@ -858,3 +858,104 @@ a.today-action:focus-visible {
   font-size: 0.7rem;
   text-transform: uppercase;
 }
+
+.rumble-screen {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.rumble-list {
+  display: grid;
+  gap: var(--pak-space-4);
+}
+
+.rumble-card {
+  display: grid;
+  gap: var(--pak-space-3);
+  padding: var(--pak-space-4);
+  border: 3px solid;
+  border-color: var(--pak-bevel-light) var(--pak-bevel-dark) var(--pak-bevel-dark)
+    var(--pak-bevel-light);
+  border-radius: var(--pak-radius);
+  background: var(--pak-panel);
+}
+
+.rumble-card--outage {
+  border-top-color: var(--pak-orange);
+}
+.rumble-card h2,
+.rumble-card p {
+  margin: 0;
+}
+.rumble-card h2 {
+  font-size: 20px;
+}
+.rumble-kind {
+  justify-self: start;
+  padding: var(--pak-space-1) var(--pak-space-2);
+  border: 1px solid var(--pak-bevel-light);
+  border-radius: 999px;
+  color: var(--pak-ink-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.rumble-context {
+  white-space: pre-line;
+}
+.rumble-options,
+.rumble-question {
+  display: grid;
+  gap: var(--pak-space-2);
+}
+.rumble-card button,
+.rumble-card textarea {
+  min-height: 44px;
+  border: 2px solid var(--pak-bevel-light);
+  padding: var(--pak-space-2) var(--pak-space-3);
+  color: var(--pak-ink);
+  background: var(--pak-panel-raised);
+  font: inherit;
+}
+.rumble-card button {
+  cursor: pointer;
+}
+.rumble-card button:disabled {
+  color: var(--pak-ink-dim);
+  cursor: not-allowed;
+}
+.rumble-card button:focus-visible,
+.rumble-card textarea:focus-visible {
+  outline: 3px solid var(--pak-orange);
+}
+.rumble-ask {
+  justify-self: stretch;
+  color: var(--pak-ink-dim) !important;
+  background: transparent !important;
+}
+.rumble-question textarea {
+  width: 100%;
+  resize: vertical;
+}
+.rumble-retry {
+  color: var(--pak-ink-dim);
+}
+.rumble-decided {
+  margin-top: var(--pak-space-5);
+}
+.rumble-decided summary {
+  min-height: 44px;
+  padding-block: var(--pak-space-2);
+  cursor: pointer;
+}
+.rumble-decided[open] summary {
+  margin-bottom: var(--pak-space-3);
+}
+
+.vmu-rumbles {
+  padding: var(--pak-space-3);
+  border: 2px solid var(--pak-orange);
+  color: var(--pak-orange) !important;
+  font-family: var(--pak-display);
+  font-size: 12px;
+  text-decoration: none;
+}

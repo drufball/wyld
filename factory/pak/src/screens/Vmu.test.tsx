@@ -2,9 +2,13 @@ import type { CatchupView } from '@wyld/shared';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getCatchup, listQuests } from '../api/client.js';
+import { getCatchup, listQuests, listRumbles } from '../api/client.js';
 import { Vmu } from './Vmu.js';
-vi.mock('../api/client.js', () => ({ getCatchup: vi.fn(), listQuests: vi.fn() }));
+vi.mock('../api/client.js', () => ({
+  getCatchup: vi.fn(),
+  listQuests: vi.fn(),
+  listRumbles: vi.fn(),
+}));
 const view: CatchupView = {
   show: true,
   awaySeconds: 0,
@@ -41,6 +45,7 @@ describe('VMU', () => {
   it('shows catch-up, the next action, and cranking work', async () => {
     vi.mocked(getCatchup).mockResolvedValue(view);
     vi.mocked(listQuests).mockResolvedValue([quest]);
+    vi.mocked(listRumbles).mockResolvedValue([]);
     renderScreen();
     expect((await screen.findByRole('link', { name: 'Catch-Up ready' })).getAttribute('href')).toBe(
       '/catch-up',
@@ -51,6 +56,7 @@ describe('VMU', () => {
   it('omits catch-up when not due', async () => {
     vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false });
     vi.mocked(listQuests).mockResolvedValue([quest]);
+    vi.mocked(listRumbles).mockResolvedValue([]);
     renderScreen();
     await screen.findByText('Cranking on one quest.');
     expect(screen.queryByText('Catch-Up ready')).toBeNull();
@@ -58,6 +64,7 @@ describe('VMU', () => {
   it('shows the quiet state when nothing needs attention', async () => {
     vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
     vi.mocked(listQuests).mockResolvedValue([]);
+    vi.mocked(listRumbles).mockResolvedValue([]);
     renderScreen();
     expect(await screen.findByText("Controller's quiet.")).not.toBeNull();
   });
