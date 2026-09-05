@@ -318,13 +318,27 @@ describe('Pak tools', () => {
     const result = await call!({
       params: { name: 'pak_read_events', arguments: { since: 4, kinds: ['human.ask'], limit: 1 } },
     });
-    expect(fetch).toHaveBeenCalledWith('http://pak/api/events?since=4', {
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/events?since=4&limit=500', {
       method: 'GET',
       headers: {},
     });
-    expect(JSON.parse(result.content![0]!.text)).toEqual([{ kind: 'human.ask', id: 1 }]);
+    expect(JSON.parse(result.content![0]!.text)).toEqual([{ kind: 'human.ask', id: 3 }]);
     expect(
       await call!({ params: { name: 'pak_read_events', arguments: { kinds: ['invalid'] } } }),
     ).toMatchObject({ isError: true });
+  });
+
+  it('does not let the Planner author human notes', async () => {
+    const fetch = vi.fn(async () => new Response('', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    expect(
+      await call!({
+        params: {
+          name: 'pak_post_note',
+          arguments: { quest: 'q1', text: 'Not from Dru', author: 'human' },
+        },
+      }),
+    ).toMatchObject({ isError: true });
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

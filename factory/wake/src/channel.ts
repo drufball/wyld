@@ -145,7 +145,6 @@ const PostNoteArgs = z
   .object({
     quest: z.string(),
     text: z.string(),
-    author: z.enum(['planner', 'human']).default('planner'),
   })
   .strict();
 const ReadQuestsArgs = z
@@ -191,7 +190,8 @@ const tools = [
   },
   {
     name: 'pak_upsert_quest',
-    description: 'Create or update a quest when the Planner needs to persist its current details.',
+    description:
+      'Create a quest, or update its world, title or pitch. Omitted fields keep their current values.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -209,7 +209,8 @@ const tools = [
   },
   {
     name: 'pak_set_quest_status',
-    description: 'Change a quest status when its stage in the Planner workflow changes.',
+    description:
+      'Move a quest along the lifecycle (idea → planning → building → demo → done, or parked).',
     inputSchema: {
       type: 'object' as const,
       properties: { quest: { type: 'string' }, status: statusSchema },
@@ -219,7 +220,8 @@ const tools = [
   },
   {
     name: 'pak_set_since_you_looked',
-    description: 'Update a quest catch-up summary when the human needs a fresh progress recap.',
+    description:
+      "Set a quest's one-sentence 'since you looked' line; refresh it after every batch of actions that touched the quest.",
     inputSchema: {
       type: 'object' as const,
       properties: { quest: { type: 'string' }, text: { type: 'string' } },
@@ -230,7 +232,7 @@ const tools = [
   {
     name: 'pak_link_issue',
     description:
-      'Attach a private GitHub issue, pull request, or branch reference when tracking quest implementation.',
+      'Record a private GitHub issue/PR/branch against a quest so its progress bar stays honest. Never shown in the Pak.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -256,13 +258,13 @@ const tools = [
   },
   {
     name: 'pak_post_note',
-    description: 'Add a quest note when the Planner or human has durable context to record.',
+    description:
+      'Write a plain-English note on a quest as the Planner; use it to answer a Nudge or an Ask in the same turn it arrives.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         quest: { type: 'string' },
         text: { type: 'string' },
-        author: { type: 'string', enum: ['planner', 'human'], default: 'planner' },
       },
       required: ['quest', 'text'],
       additionalProperties: false,
@@ -271,7 +273,7 @@ const tools = [
   {
     name: 'pak_read_quests',
     description:
-      'Read quests, optionally filtered by world or status, when the Planner needs current quest state.',
+      'List quests with their current status, progress and notes; use it before planning to see what already exists.',
     inputSchema: {
       type: 'object' as const,
       properties: { world: { type: 'string' }, status: statusSchema },
@@ -281,7 +283,7 @@ const tools = [
   {
     name: 'pak_read_events',
     description:
-      'Read recent Pak events, optionally filtered by kind, when the Planner needs event-stream context.',
+      'Read recent Pak events, newest last, optionally filtered by kind. Use it to pull intents and nudges when the channel is quiet.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -377,7 +379,7 @@ export function registerPakTools(
       if (!parsed.success) return invalidArguments(parsed.error);
       return postTool(request, `${questUrl(options.pakUrl, parsed.data.quest)}/notes`, {
         text: parsed.data.text,
-        author: parsed.data.author,
+        author: 'planner',
       });
     }
     if (params.name === 'pak_read_quests') {
@@ -399,7 +401,7 @@ export function registerPakTools(
         return textResult(`Invalid kind. Valid kinds: ${EVENT_KINDS.join(', ')}`, true);
       const response = await getTool(
         request,
-        `${options.pakUrl}/api/events?${new URLSearchParams({ since: String(parsed.data.since) })}`,
+        `${options.pakUrl}/api/events?${new URLSearchParams({ since: String(parsed.data.since), limit: '500' })}`,
       );
       if (response.isError) return response;
       try {
@@ -409,7 +411,7 @@ export function registerPakTools(
         const selected = parsed.data.kinds
           ? events.filter(({ kind }) => parsed.data.kinds!.includes(kind))
           : events;
-        return textResult(JSON.stringify(selected.slice(0, parsed.data.limit)));
+        return textResult(JSON.stringify(selected.slice(-parsed.data.limit)));
       } catch (error) {
         return textResult(
           `Invalid Pak response: ${error instanceof Error ? error.message : String(error)}`,

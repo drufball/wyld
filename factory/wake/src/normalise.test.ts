@@ -333,4 +333,23 @@ describe('normaliseEvent', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('does not repeat the default nudge button text', () => {
+    expect(
+      normaliseEvent({
+        id: 1,
+        ts: timestamp,
+        source: 'human',
+        kind: 'human.nudge',
+        payload: { text: '  NuDgE  ' },
+        questId: 'wake-24',
+      }),
+    ).toEqual({
+      source: 'human',
+      kind: 'human.nudge',
+      summary: 'Nudge on wake-24',
+      quest: 'wake-24',
+      ts: timestamp,
+    });
+  });
 });

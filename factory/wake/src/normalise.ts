@@ -265,7 +265,7 @@ export function normaliseEvent(raw: unknown): WakeMessageType | undefined {
     summary = `Feedback on ${typeof event.payload['demo'] === 'string' ? event.payload['demo'] : 'a demo'}: ${text}`;
   else if (event.kind === 'human.decision') summary = `Decision: ${text}`;
   else if (event.kind === 'human.nudge')
-    summary = `Nudge on ${event.questId ?? 'a quest'}: ${text}`;
+    summary = `Nudge on ${event.questId ?? 'a quest'}${cleanLine(text).toLowerCase() === 'nudge' ? '' : `: ${text}`}`;
   else if (event.kind === 'human.ask') summary = `Ask on ${event.questId ?? 'a quest'}: ${text}`;
   else if (event.kind === 'human.park') summary = text;
   else return undefined;
