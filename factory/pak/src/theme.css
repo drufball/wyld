@@ -77,6 +77,98 @@ p {
   padding-bottom: calc(88px + env(safe-area-inset-bottom));
 }
 
+.today {
+  display: grid;
+  max-width: 760px;
+  gap: var(--pak-space-5);
+  padding-top: clamp(48px, 12vh, 120px);
+}
+
+.today-prompt {
+  display: grid;
+  gap: var(--pak-space-3);
+  font-family: var(--pak-display);
+  font-size: clamp(12px, 2vw, 18px);
+  line-height: 1.8;
+}
+
+.today-input-line {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--pak-space-2);
+  align-items: center;
+  color: var(--pak-orange);
+}
+
+.today-input-line input {
+  width: 100%;
+  border: 0;
+  border-bottom: 2px solid var(--pak-bevel-light);
+  outline: none;
+  color: var(--pak-ink);
+  background: transparent;
+  caret-color: var(--pak-orange);
+  font: inherit;
+  animation: terminal-caret 1s steps(2, jump-none) infinite;
+}
+
+.today-input-line input:focus {
+  border-bottom-color: var(--pak-orange);
+}
+.today-response {
+  min-height: 2em;
+  color: var(--pak-ink-dim);
+  font-family: var(--pak-body);
+  font-size: 14px;
+}
+.today-response button {
+  border: 0;
+  padding: 0;
+  color: var(--pak-ink);
+  background: none;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.today-ack {
+  animation: acknowledgement 3s ease-out forwards;
+}
+.today-action {
+  display: block;
+  padding: var(--pak-space-4);
+  border: 2px solid var(--pak-bevel-light);
+  color: var(--pak-ink);
+  background: var(--pak-panel);
+  text-decoration: none;
+}
+a.today-action:hover,
+a.today-action:focus-visible {
+  border-color: var(--pak-orange);
+}
+.today-signals {
+  display: grid;
+  gap: var(--pak-space-2);
+  color: var(--pak-ink-dim);
+}
+.today-signals p {
+  margin: 0;
+}
+
+@keyframes terminal-caret {
+  50% {
+    caret-color: transparent;
+  }
+}
+@keyframes acknowledgement {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .pak-nav {
   position: fixed;
   z-index: 10;

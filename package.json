@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
+    "smoke": "pnpm --filter @wyld/pak smoke",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

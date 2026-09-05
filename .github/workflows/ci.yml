@@ -32,3 +32,7 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      - name: Install Playwright browsers
+        run: pnpm --filter @wyld/pak exec playwright install --with-deps chromium
+      - name: Smoke
+        run: pnpm smoke

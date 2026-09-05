@@ -22,6 +22,8 @@ describe('presence schemas', () => {
       deepLink: '/demos/1',
     });
     expect(NextAction.parse({ text: 'Play demo' })).toEqual({ text: 'Play demo' });
+    expect(NextAction.parse({ text: 'Demos', deepLink: '/demos' }).deepLink).toBe('/demos');
+    expect(NextAction.parse({ text: 'Home', deepLink: '/' }).deepLink).toBe('/');
   });
 
   it('rejects invalid next actions', () => {
@@ -29,6 +31,7 @@ describe('presence schemas', () => {
     expect(NextAction.safeParse({ text: 'Leave', deepLink: 'https://example.com' }).success).toBe(
       false,
     );
+    expect(NextAction.safeParse({ text: 'Leave', deepLink: '//example.com' }).success).toBe(false);
   });
 
   it('accepts a presence without a next action yet', () => {

@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { App } from './App.js';
 
+const inertEventSource = () => ({ addEventListener() {}, removeEventListener() {}, close() {} });
+
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <App />
+      <App eventSourceFactory={inertEventSource} />
     </MemoryRouter>,
   );
 }
@@ -23,7 +25,7 @@ describe('Pak shell', () => {
   it('renders Today and all six tab destinations at the root', () => {
     renderAt('/');
 
-    expect(screen.getByRole('heading', { name: 'Today' })).not.toBeNull();
+    expect(screen.getByText('What do we make today?')).not.toBeNull();
     for (const label of ['Today', 'Worlds', 'Demos', 'Rumble', 'Debug', 'Memory']) {
       expect(screen.getByRole('link', { name: label })).not.toBeNull();
     }
@@ -75,6 +77,6 @@ describe('Pak shell', () => {
   it('redirects unknown paths to Today', async () => {
     renderAt('/lost-save');
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Today' })).not.toBeNull());
+    await waitFor(() => expect(screen.getByText('What do we make today?')).not.toBeNull());
   });
 });
