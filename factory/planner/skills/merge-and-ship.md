@@ -15,14 +15,23 @@ There is no branch protection on this repo — nothing server-side will stop you
 If CI is red instead: read the failing job's log, then run **one** fix round on the branch
 (`review-pr.md` step 5). Do not start a second Codex task for the issue.
 
-## 2. Clean up
+## 2. Deploy to the live factory
+
+Merging is not shipping — Dru sees the *built* Pak, not `main`. In the live checkout
+(`/Users/drufball/code/wyld`), after every merge:
 
 ```bash
-git -C <repo> pull
-git worktree remove <scratchpad>/wt-<slug>     # if you made one
+git -C /Users/drufball/code/wyld pull
+# touched @wyld/shared?  → rebuild it or the live server crashes on its watcher restart:
+pnpm --filter @wyld/shared build
+# touched factory/pak?   → rebuild the served bundle or Dru keeps seeing the old UI:
+pnpm --filter @wyld/pak build
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:8787/api/events?limit=1"   # expect 200
 ```
 
-The issue closes itself via `Closes #N` in the PR body. If it did not, close it by hand.
+Skipping the Pak rebuild is how "the flatten merged but Dru still saw the Worlds tab" happened
+(2026-09-05). Then clean up: `git worktree remove <scratchpad>/wt-<slug>` if you made one. The
+issue closes itself via `Closes #N` in the PR body; if it did not, close it by hand.
 
 ## 3. Update the quest
 
