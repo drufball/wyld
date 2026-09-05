@@ -20,6 +20,7 @@ step finishes._
 | `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | done | #70 `POST /api/chains` with `author` + Wake `pak_send_message` (no new event kind), #75 one "What's on your mind?" box, every submission opens a chain; PROTOCOL §2/§5a + plan-quest rewritten (1fcf0e7). "Make this a quest" still emits `human.intent` from that explicit tap only |
 | 1.7 Demo Discs: `game/` scaffold, worktree builder, `/play/*`, in-Pak player + feedback | done | #80 doctor fails on a missing tmux window (with the exact `tmux new-window` to recreate it), #81 `game/` = `@wyld/game` (Vite+Three.js, `three` + `@types/three` the only new deps; one low-poly creature, `GAME_BASE` sets Vite `base`, `window.__wyld.getState()`/`screenshot()` with `preserveDrawingBuffer`), #85 `demos`/`feedback` tables + `createDemoBuilder` (fetch → worktree → `pnpm install` → `GAME_BASE=/play/<slug>/ pnpm --filter @wyld/game build` → atomic publish) + `GET/POST /api/demos`, `POST /api/demos/build`, `GET/POST /api/feedback`, `GET /api/feedback/:id/screenshot`, `/play/<slug>/*` via `resolveStaticFile`, #84 Wake `pak_register_demo`/`pak_read_demos`/`pak_read_feedback`, #87 `/demos` grid + `/demos/:id` full-screen iframe player + floating feedback + Today/VMU "N demos ready". `/play/main/` is live and registered. **The Planner must respawn to see the three new tools.** |
 | `wake-hot-reload` (half of quest `unattended-restart`; Dru 2026-09-05 21:20) | done | #90 tolerant claim path (`WakeMessageWire`, per-message drop + ack, `/queue/claim` retires unserialisable rows, `pak_read_events`/`pak_log_event` unfrozen, `.claude/settings.json` checked in), #93 tool hot reload (swappable registry + `reload.ts`: `fs.watch` on `dist/` and `SIGHUP`, `notifications/tools/list_changed`). Claude Code **does** honour `list_changed` — verified live. The quest stays `parked`: the launch-warning keypress still needs Dru |
+| `pak-theme` unit 1 (Dru 2026-09-05 21:43: "Dracula console look") | done | #89 / PR #91 — Tailwind v4 via `@tailwindcss/vite` (no `tailwind.config.js`, CSS-first `@theme`), Dracula tokens + shadcn token names in `theme.css`, shadcn primitives hand-copied into `factory/pak/src/components/ui/` (`button`/`card`/`badge`/`input`/`textarea`) + `src/lib/utils.ts` `cn()`, `Panel` reimplemented over `Card variant="bevel"` (`Panel.css` deleted), app shell + `Nav` + `Today` + `ChainList` + `InFlight` migrated, body in the system mono stack and the pixel font on headings/badges/labels only. Two fix rounds. Units 2 and 3 are written and ready to file: `factory/planner/queued/pak-theme-unit-2.md` and `-unit-3.md` |
 | 1.8 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -74,6 +75,10 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
    their open work and re-spawn each lead with "continue from the open issues/PRs" in its brief
    (`wake-hot-reload`, `pak-theme`, `improved-chains`). `human.feedback` now really arrives — the
    PROTOCOL §2 row for it is live, not reserved.
+4b. **`pak-theme` unit 1 landed** (#89 / PR #91) — Today wears the new look and the live
+   Pak is rebuilt. Units 2 and 3 are written and ready to file verbatim from
+   `factory/planner/queued/pak-theme-unit-2.md` then `-unit-3.md`, one lead at a time.
+
 5. Use `pak_send_message` for heads-ups Dru can reply to; `pak_post_note` only for the quest card's
    own line. Keep this file and the Pak quests in sync as steps finish.
 
@@ -87,19 +92,43 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
   his Claude settings and say so. What shipped instead, and what is now true, is in the two struck
   items below. `.claude/settings.json` (`{"enabledMcpjsonServers": ["wake"]}`) is now checked in, so
   a fresh clone never sees the `.mcp.json` approval prompt.
-- **Queued lead (right after the 1.7 lead; touches only `factory/pak`, so it may run alongside
-  `wake-hot-reload` but must finish before `improved-chains` starts): quest `pak-theme` "Dracula
-  console look"** (Dru, 2026-09-05 21:43, verbatim: "I really like the retro card style of debug
-  page, and I like that it only uses game font for headings/accents. Redesign the home page and all
-  the other pages to use a shared shadcn design system and make it look a bit more code editor
-  Dracula theme, with retro game accents."). Taste is decided — do not re-ask. Plan: unit 1 =
-  foundation (Tailwind + shadcn/ui install in `factory/pak`, Dracula palette as CSS tokens replacing
-  `theme.css` values, keep `--pak-space-*`, 44px touch targets, the Debug Menu's card treatment
-  lifted into a shared `Card`/`Tile`, fonts: game font headings/accents only, body in a mono/UI
-  face); units 2–3 = migrate screens (Today + Quests + Rumble, then Catch-Up/VMU/Debug/Demo Discs),
-  each verified with `pnpm smoke` and phone-width screenshots. This supersedes the 1.11 "theme
-  pass" and folds in the `pak-polish` leftovers (37px chips, raw `rem`). shadcn/Tailwind/Radix are
-  new deps by Dru's explicit ask — fine; nothing else new.
+- **Quest `pak-theme` "Dracula console look" — unit 1 landed 2026-09-05 ~23:26 (#89 / PR #91).
+  Units 2 and 3 still to go; the next lead files them verbatim from
+  `factory/planner/queued/pak-theme-unit-2.md` and `factory/planner/queued/pak-theme-unit-3.md`,
+  in that order, one at a time (both touch `factory/pak`).** Dru's ask, verbatim: "I really like
+  the retro card style of debug page, and I like that it only uses game font for headings/accents.
+  Redesign the home page and all the other pages to use a shared shadcn design system and make it
+  look a bit more code editor Dracula theme, with retro game accents." Taste is decided — never
+  re-ask. This supersedes the 1.11 "theme pass" and folds in the `pak-polish` leftovers (the filter
+  chips, now 34px, and the raw `rem` rules) — unit 2 fixes both.
+  - **Unit 2** = Quests + Rumble + Catch-Up onto the primitives, filter chips to 44px, their CSS
+    deleted. **Unit 3** = VMU + Debug (keep the look, just move it onto the primitives) + Demo
+    Discs grid/player chrome, `theme.css` reduced to tokens/base/keyframes, and the optional
+    `lastEvent` removal from `LiveEvents.tsx`.
+  - **Deps are settled** (Dru's explicit ask, nothing else new): `tailwindcss` + `@tailwindcss/vite`
+    (v4, dev), `class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/react-slot` (prod),
+    all pinned exact. `lucide-react` was allowed but deliberately not added — nothing needed an icon.
+  - Sharp edges found the hard way in unit 1, all four of which cost a fix round:
+    1. **pnpm 11 blocks postinstall scripts.** A new dep with a build step fails CI at
+       `pnpm install --frozen-lockfile` with `ERR_PNPM_IGNORED_BUILDS`. Add it to `allowBuilds:` in
+       the root `pnpm-workspace.yaml` (`'@tailwindcss/oxide': true` is now there).
+    2. **`pnpm lint` lints the `.tsc` declaration output** that `pnpm typecheck` emits, and CI runs
+       them in that order — a non-exported `cva` const in a `.tsx` fails lint via its `.d.ts`.
+       Fixed properly: `'**/.tsc/**'` is now in `eslint.config.js`'s `ignores`.
+    3. **Class names are a test contract.** The Playwright specs and `App.test.tsx` select on
+       `.chain-card`, `.today-quest`, `.quest-card`, `.rumble-card`, `.demo-card`,
+       `.pak-nav__label--mobile` / `--desktop`. A migration that drops them fails 4+ specs. Keep
+       the class name on the migrated element alongside its Tailwind classes; never edit a spec.
+    4. **A deleted CSS rule with a live `className` is silent** — nothing catches it. `.pak-dim` and
+       `.today-action` were both deleted while still used, and the Catch-Up card's next action
+       became plain text. Grep `src/**/*.tsx` against `theme.css` before pushing.
+  - Also: `overflow-anywhere` is not a Tailwind class — v4.1's utility is `wrap-anywhere`. And
+    Tailwind v4's preflight resets the whole app, including un-migrated screens, so every unit must
+    look at every screen at both widths, not just the ones it touched.
+  - Verified by eye at 375×812 and 1280×900 on the built Pak against a scratch server: no
+    horizontal scroll anywhere, every control on the migrated screens ≥44px, the Debug Menu still
+    reads as the reference (its tile labels must stay in the *body* face — a blanket
+    `h1, h2 { font-family: display }` in `@layer base` broke that and had to be narrowed to `h1`).
 - **Queued lead (after `wake-hot-reload`, same packages): quest `improved-chains` "Better
   chains"** (Dru, 2026-09-05 21:41, verbatim: "rumbles should also be a chain of type rumble. Can
   also be tagged with a quest at the same time. All chains should be snoozable"). Design to state
