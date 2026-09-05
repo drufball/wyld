@@ -59,9 +59,9 @@ describe('Pak shell', () => {
 
     expect(await screen.findByRole('heading', { name: 'Quests' })).not.toBeNull();
     if (selectedWorld === 'WYLD') {
-      expect(screen.getByRole('button', { name: 'WYLD' }).getAttribute('aria-pressed')).toBe(
-        'true',
-      );
+      expect(
+        (await screen.findByRole('button', { name: 'WYLD' })).getAttribute('aria-pressed'),
+      ).toBe('true');
     }
     vi.unstubAllGlobals();
   });
