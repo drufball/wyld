@@ -18,6 +18,8 @@ type EventSourceLike = {
 };
 export type EventSourceFactory = (url: string) => EventSourceLike;
 
+const defaultEventSourceFactory: EventSourceFactory = (url) => new EventSource(url);
+
 type LiveEventsValue = {
   connected: boolean;
   lastEvent: WyldEvent | null;
@@ -28,7 +30,7 @@ const LiveEventsContext = createContext<LiveEventsValue | null>(null);
 
 export function LiveEventsProvider({
   children,
-  eventSourceFactory = (url) => new EventSource(url),
+  eventSourceFactory = defaultEventSourceFactory,
 }: {
   children: ReactNode;
   eventSourceFactory?: EventSourceFactory;
@@ -48,8 +50,13 @@ export function LiveEventsProvider({
 
   useEffect(() => {
     const source = eventSourceFactory('/api/events/stream');
-    const open = () => setConnected(true);
-    const error = () => setConnected(false);
+    const updateConnected = (nextConnected: boolean) => {
+      setConnected((currentConnected) =>
+        currentConnected === nextConnected ? currentConnected : nextConnected,
+      );
+    };
+    const open = () => updateConnected(true);
+    const error = () => updateConnected(false);
     const receive = (message: globalThis.Event) => {
       if (!(message instanceof MessageEvent)) return;
       let payload: unknown;
