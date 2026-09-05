@@ -141,7 +141,10 @@ export function QuestCard({
     <article className="quest-card">
       <header>
         <div>
-          <div className="quest-card__heading"><h2>{quest.title}</h2><span className="world-tag">{worldName}</span></div>
+          <div className="quest-card__heading">
+            <h2>{quest.title}</h2>
+            <span className="world-tag">{worldName}</span>
+          </div>
           <p>{quest.pitch}</p>
         </div>
         <span className={`quest-status quest-status--${quest.status}`}>{quest.status}</span>
@@ -240,13 +243,23 @@ export function Quests() {
       return [...current, quest].sort((left, right) => left.id.localeCompare(right.id));
     });
   }, []);
-  const refreshQuest = useCallback((event: Event) => {
-    if (event.questId) void getQuest(event.questId).then(replaceQuest).catch(() => undefined);
-  }, [replaceQuest]);
+  const refreshQuest = useCallback(
+    (event: Event) => {
+      if (event.questId)
+        void getQuest(event.questId)
+          .then(replaceQuest)
+          .catch(() => undefined);
+    },
+    [replaceQuest],
+  );
 
   useEffect(() => {
-    void listWorlds().then(setWorlds).catch(() => setWorlds([]));
-    void listQuests().then(setQuests).catch(() => setQuests([]));
+    void listWorlds()
+      .then(setWorlds)
+      .catch(() => setWorlds([]));
+    void listQuests()
+      .then(setQuests)
+      .catch(() => setQuests([]));
   }, []);
   useEffect(() => {
     const unsubscribes = liveKinds.map((kind) => subscribe(kind, refreshQuest));
@@ -259,7 +272,8 @@ export function Quests() {
       (selectedWorld === 'all' || quest.worldId === selectedWorld) &&
       (!selectedStatuses || selectedStatuses.includes(quest.status)),
   );
-  const activeQuests = status === 'all' ? filtered.filter((quest) => quest.status !== 'done') : filtered;
+  const activeQuests =
+    status === 'all' ? filtered.filter((quest) => quest.status !== 'done') : filtered;
   const doneQuests = status === 'all' ? filtered.filter((quest) => quest.status === 'done') : [];
   const worldNames = new Map(worlds.map((world) => [world.id, world.name]));
   const chooseWorld = (worldId: string) => {
@@ -274,26 +288,61 @@ export function Quests() {
         <div className="quest-filter" aria-label="World filter">
           <strong>World</strong>
           {[{ id: 'all', name: 'All' }, ...worlds].map((world) => (
-            <button key={world.id} type="button" aria-pressed={selectedWorld === world.id} onClick={() => chooseWorld(world.id)}>{world.name}</button>
+            <button
+              key={world.id}
+              type="button"
+              aria-pressed={selectedWorld === world.id}
+              onClick={() => chooseWorld(world.id)}
+            >
+              {world.name}
+            </button>
           ))}
         </div>
         <div className="quest-filter" aria-label="Status filter">
           <strong>Status</strong>
           {statusFilters.map((filter) => (
-            <button key={filter.id} type="button" aria-pressed={status === filter.id} onClick={() => { setStatus(filter.id); setDoneExpanded(false); }}>{filter.label}</button>
+            <button
+              key={filter.id}
+              type="button"
+              aria-pressed={status === filter.id}
+              onClick={() => {
+                setStatus(filter.id);
+                setDoneExpanded(false);
+              }}
+            >
+              {filter.label}
+            </button>
           ))}
         </div>
       </div>
       <div className="quest-list">
         {activeQuests.map((quest) => (
-          <QuestCard key={quest.id} quest={quest} worldName={worldNames.get(quest.worldId) ?? quest.worldId} onChange={replaceQuest} />
+          <QuestCard
+            key={quest.id}
+            quest={quest}
+            worldName={worldNames.get(quest.worldId) ?? quest.worldId}
+            onChange={replaceQuest}
+          />
         ))}
         {doneQuests.length > 0 && (
           <section className="done-quests">
-            <button className="done-quests__toggle" type="button" aria-expanded={doneExpanded} onClick={() => setDoneExpanded((expanded) => !expanded)}>Done ({doneQuests.length})</button>
-            {doneExpanded && doneQuests.map((quest) => (
-              <QuestCard key={quest.id} quest={quest} worldName={worldNames.get(quest.worldId) ?? quest.worldId} onChange={replaceQuest} />
-            ))}
+            <button
+              className="done-quests__toggle"
+              type="button"
+              aria-expanded={doneExpanded}
+              onClick={() => setDoneExpanded((expanded) => !expanded)}
+            >
+              Done ({doneQuests.length})
+            </button>
+            {doneExpanded &&
+              doneQuests.map((quest) => (
+                <QuestCard
+                  key={quest.id}
+                  quest={quest}
+                  worldName={worldNames.get(quest.worldId) ?? quest.worldId}
+                  onChange={replaceQuest}
+                />
+              ))}
           </section>
         )}
       </div>
