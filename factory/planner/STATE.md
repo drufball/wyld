@@ -1,7 +1,8 @@
 # Planner state — read this first on every new session
 
-_Last updated 2026-09-05 by the 1.3 project lead. Quests in the Pak now carry the live state; this
-file is down to environment facts and open items. Keep it short; update it whenever a step finishes._
+_Last updated 2026-09-05 ~19:45 by the Planner (respawned session). Quests in the Pak carry the live
+state; this file is down to environment facts and open items. Keep it short; update it whenever a
+step finishes._
 
 ## Where we are
 
@@ -13,8 +14,10 @@ file is down to environment facts and open items. Keep it short; update it whene
 | 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | done | #23 server worlds/quests/links/notes, #26 nine `pak_*` tools, #27 Worlds screen + Nudge/Park/Ask |
 | 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | done | #33 catchups table + `GET/POST /api/catchup` + mechanical digest, #37 `pak_write_catchup`/`pak_read_catchup`, #38 Catch-Up card + arrival gate + VMU; `skills/write-catchup.md` |
 | 1.5 GitHub loop + Debug Menu health tiles | done | #41 `health` table + `POST /api/health/report` + `GET /api/health/snapshot`, #44 `pak_health_report`/`pak_read_health` + Wake `lastGithubEventAt`, #45 e2e harness isolation, #47 `/debug` live tiles |
-| Quests `question-chains` + `today-glance` (Dru intents 2026-09-05, outside the step plan) | **in progress** — one lead owns both (they share the Today screen). Chains: ephemeral ask/answer/settle cards off Today, one-tap convert to quest, new `human.question` Wake kind. Glance: Today also shows compact cards for quests currently building. | — |
-| 1.6 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
+| Quests `question-chains` + `today-glance` (Dru intents 2026-09-05, outside the step plan) | done | #49 server chains, #53 Wake `human.question`/`human.chain_closed` + `pak_read_chains`/`pak_answer_chain`/`pak_close_chain`, #54 Today chain cards, #57 quest Ask → chains, #59 in-flight quest cards on Today |
+| `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | **in progress** — own lead, spawned 19:41 | — |
+| 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | **in progress** — own lead, spawned 19:41; told to do server/shared + Wake units first and not touch `factory/pak` until `debug-menu` is done | — |
+| 1.7 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
 
@@ -46,22 +49,18 @@ file is down to environment facts and open items. Keep it short; update it whene
 
 ## First actions for the on-duty Planner (tmux session)
 
-_Rewritten 2026-09-05 ~18:10 by the outgoing session, which respawned itself to clear the
-unknown-kind channel freeze (see Open items) and to load the newer wake tools._
+_Rewritten 2026-09-05 ~19:45 by the respawned Planner after draining the queue._
 
-1. A backlog of channel events should arrive as the queue drains — you are NOT behind; every
-   GitHub event in it was already handled (links recorded, PRs merged by leads). Cross-check with
-   `pak_read_events` if unsure. Two stuck messages are lead tests labelled "LEAD CHECK (not Dru)":
-   close those chains (`pak_close_chain`), do not answer them as Dru.
-2. Load the tools this session can now see (ToolSearch): `pak_read_chains` / `pak_answer_chain` /
-   `pak_close_chain`, `pak_health_report` / `pak_read_health`, `pak_write_catchup` /
-   `pak_read_catchup`. Post a heartbeat; PROTOCOL §6 now requires one after every batch.
-3. `pak_read_chains` — answer any real open chain immediately; chains are live for Dru now
-   (`human.question` events; PROTOCOL §5a has the model).
-4. You orchestrate; leads execute (CLAUDE.md). Spawn next: the step 1.6 lead (Rumble screen,
-   factory-spec §11), and give it (or a small second lead, sequenced on `factory/pak`) the
-   reopened `debug-menu` follow-up — feed the empty gauges (queue depth, CI state, cost, GH rate
-   via real reporters), plain-English tile labels.
+1. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`), `pak_read_chains` and answer any open
+   chain immediately (PROTOCOL §5a), then `pak_health_report` — the Planner tile reads `down` after
+   ten minutes of silence, and the outgoing session's last heartbeat is the tell for when it died.
+2. Two leads are (or were) running from the previous session — `debug-menu` follow-up and 1.6
+   Rumble. If you are a fresh session they are gone with it: check `gh pr list`, `gh issue list`
+   and `pak_read_quests` for where they got to, and respawn a lead per unfinished quest with the
+   same sequencing rule (Rumble lead does not touch `factory/pak` until `debug-menu` is done).
+3. When the Rumble lead's Wake unit merges (new `pak_request_rumble`/`pak_read_rumbles` tools), the
+   Planner must respawn `wyld:planner` to see them — same as after #44. Rewrite this section first.
+4. Then 1.7 Demo Discs (factory-spec §11), one lead.
 5. Keep this file and the Pak quests in sync as steps finish.
 
 ## Open items
