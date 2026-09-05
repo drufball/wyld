@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 import { Quest, QuestLink, World, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
@@ -49,7 +49,7 @@ const NoteCreate = z
       });
   });
 const NoteQuery = z.object({ limit: z.coerce.number().int().positive().max(200).default(50) });
-const statuses = ['idea', 'planning', 'building', 'demo', 'done', 'parked'] as const;
+const statuses = QuestStatus.options;
 
 type Dependencies = {
   database: AppDatabase;
@@ -57,7 +57,7 @@ type Dependencies = {
   storeEvent: (event: NewEvent) => Promise<unknown>;
 };
 
-function formatIssues(error: z.ZodError) {
+export function formatIssues(error: z.ZodError) {
   return { error: 'Invalid request', issues: error.issues };
 }
 
@@ -122,7 +122,33 @@ export function createQuestRoutes({ database: { db }, now, storeEvent }: Depende
       .where(clauses.length === 0 ? undefined : and(...clauses))
       .orderBy(asc(quests.id))
       .all();
-    return c.json(rows.map((row) => readQuest(row.id)!));
+    const linksByQuest = new Map<string, QuestLink[]>();
+    if (rows.length > 0) {
+      const links = db
+        .select()
+        .from(questLinks)
+        .where(
+          inArray(
+            questLinks.questId,
+            rows.map((row) => row.id),
+          ),
+        )
+        .all();
+      for (const link of links) {
+        const parsedLink = QuestLink.parse(link);
+        const grouped = linksByQuest.get(link.questId) ?? [];
+        grouped.push(parsedLink);
+        linksByQuest.set(link.questId, grouped);
+      }
+    }
+    return c.json(
+      rows.map((row) =>
+        Quest.parse({
+          ...row,
+          progress: deriveProgress(row.status, linksByQuest.get(row.id) ?? []),
+        }),
+      ),
+    );
   });
 
   app.get('/quests/:id', (c) => {
@@ -141,14 +167,19 @@ export function createQuestRoutes({ database: { db }, now, storeEvent }: Depende
       sinceYouLooked: parsed.data.sinceYouLooked ?? '',
       lastNote: parsed.data.lastNote ?? '',
     };
-    db.insert(quests).values(value).onConflictDoUpdate({ target: quests.id, set: value }).run();
+    db.insert(quests)
+      .values(value)
+      .onConflictDoUpdate({ target: quests.id, set: parsed.data })
+      .run();
+    const updated = readQuest(value.id);
+    if (updated === undefined) throw new Error('Quest upsert did not return a quest');
     await storeEvent({
       source: 'planner',
       kind: 'planner.quest_updated',
-      questId: value.id,
-      payload: { summary: `Quest "${value.title}" is now ${value.status}`, ...value },
+      questId: updated.id,
+      payload: { summary: `Quest "${updated.title}" is now ${updated.status}`, ...updated },
     });
-    return c.json(readQuest(value.id)!);
+    return c.json(updated);
   });
 
   app.patch('/quests/:id', async (c) => {

@@ -16,7 +16,7 @@ import { log, type LogContext } from './logger.js';
 import { events, presence } from './schema.js';
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder } from './forwarder.js';
-import { createQuestRoutes } from './quests.js';
+import { createQuestRoutes, formatIssues } from './quests.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -39,10 +39,6 @@ export type AppDependencies = {
   logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
   pakDist?: string;
 };
-
-function formatIssues(error: z.ZodError) {
-  return { error: 'Invalid request', issues: error.issues };
-}
 
 export function createApp(dependencies: AppDependencies) {
   const { db, sqlite } = dependencies.database;

@@ -298,6 +298,29 @@ describe('quest API', () => {
     ).toMatchObject({ status: 'building' });
   });
 
+  it('preserves Planner state when partially upserting an existing quest', async () => {
+    await createWorldAndQuest();
+    await send('/api/quests/catch-up', 'PATCH', {
+      status: 'building',
+      sinceYouLooked: 'Server side is done.',
+      lastNote: 'Keep the current state',
+    });
+
+    await send('/api/quests', 'POST', {
+      id: 'catch-up',
+      worldId: 'game',
+      title: 'Updated title',
+      pitch: 'See recent work',
+    });
+
+    expect(await (await app.request('/api/quests/catch-up')).json()).toMatchObject({
+      title: 'Updated title',
+      status: 'building',
+      sinceYouLooked: 'Server side is done.',
+      lastNote: 'Keep the current state',
+    });
+  });
+
   it('keeps links private while deriving progress and emitting sanitized events', async () => {
     await createWorldAndQuest();
     expect(
@@ -361,6 +384,10 @@ describe('quest API', () => {
         intent: 'nudge',
       })
     ).json();
+    await send('/api/quests/catch-up/notes', 'POST', {
+      author: 'human',
+      text: 'Question',
+    });
     const second = await (
       await send('/api/quests/catch-up/notes', 'POST', { author: 'planner', text: 'Second' })
     ).json();
@@ -368,6 +395,16 @@ describe('quest API', () => {
       second,
     ]);
     expect(first).toMatchObject({ id: 1, questId: 'catch-up', ts: '2026-01-02T03:04:05.000Z' });
+    const events = (await (await app.request('/api/events')).json()) as Array<{
+      kind: string;
+      questId?: string;
+      payload: unknown;
+    }>;
+    expect(events.slice(-3)).toMatchObject([
+      { kind: 'human.nudge', questId: 'catch-up', payload: { text: 'First' } },
+      { kind: 'human.ask', questId: 'catch-up', payload: { text: 'Question' } },
+      { kind: 'planner.note', questId: 'catch-up', payload: { text: 'Second' } },
+    ]);
     expect(await (await app.request('/api/quests/catch-up')).json()).toMatchObject({
       lastNote: 'Second',
     });
