@@ -21,7 +21,12 @@ describe('Pak server', () => {
   beforeEach(() => {
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'wyld-server-'));
     database = openDatabase(path.join(directory, 'pak.sqlite'), migrationsFolder);
-    app = createApp({ database, logger: silentLogger });
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      logger: silentLogger,
+    });
   });
 
   afterEach(() => {
@@ -55,7 +60,13 @@ describe('Pak server', () => {
 
   it('prefers fresh ops measurements without changing Planner state', async () => {
     let clock = new Date('2026-09-05T12:00:00.000Z');
-    app = createApp({ database, now: () => clock, logger: silentLogger });
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      now: () => clock,
+      logger: silentLogger,
+    });
     await postHealth({
       plannerState: 'working',
       currentTask: 'ship issue 60',
@@ -92,7 +103,13 @@ describe('Pak server', () => {
 
   it('falls back to a Planner heartbeat when the newest ops report is stale', async () => {
     let clock = new Date('2026-09-05T12:00:00.000Z');
-    app = createApp({ database, now: () => clock, logger: silentLogger });
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      now: () => clock,
+      logger: silentLogger,
+    });
     await postOps({ ciState: 'pass', codexPrsOpen: 2, tokensToday: 123 });
     clock = new Date(clock.getTime() + 601_000);
     await postHealth({
@@ -168,6 +185,8 @@ describe('Pak server', () => {
   it('keeps snapshots available when Wake rejects', async () => {
     app = createApp({
       database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
       wakeUrl: 'http://wake.test',
       fetch: vi.fn().mockRejectedValue(new Error('offline')),
       logger: silentLogger,
@@ -185,6 +204,8 @@ describe('Pak server', () => {
     ]) {
       app = createApp({
         database,
+        demosDir: path.join(directory, 'demos'),
+        feedbackDir: path.join(directory, 'feedback'),
         wakeUrl: 'http://wake.test/base',
         fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify(body))),
         logger: silentLogger,
@@ -382,6 +403,8 @@ describe('Pak server', () => {
   it('keeps APIs available when the Pak build is absent', async () => {
     const appWithStatic = createApp({
       database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
       logger: silentLogger,
       pakDist: path.join(directory, 'missing-pak'),
     });
@@ -397,10 +420,21 @@ describe('Pak server', () => {
     });
   });
 
+  it('does not let encoded play paths escape a demo directory', async () => {
+    fs.mkdirSync(path.join(directory, 'demos/main'), { recursive: true });
+    fs.writeFileSync(path.join(directory, 'demos/main/index.html'), 'game');
+    fs.writeFileSync(path.join(directory, 'demos/secret.txt'), 'secret');
+    const response = await app.request('/play/main/%2e%2e%2fsecret.txt');
+    expect(response.status).toBe(403);
+    expect(await response.text()).not.toContain('secret');
+  });
+
   it('forwards full human events with the Wake secret but ignores seen events', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
     app = createApp({
       database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
       logger: silentLogger,
       wakeUrl: 'http://localhost:8788/something',
       wakeSecret: 'shared-secret',
@@ -428,6 +462,8 @@ describe('Pak server', () => {
     const fetcher = vi.fn<typeof fetch>(() => new Promise(() => undefined));
     app = createApp({
       database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
       logger: silentLogger,
       wakeUrl: 'http://unreachable.invalid',
       wakeSecret: 'shared-secret',
@@ -454,6 +490,8 @@ describe('quest API', () => {
     database = openDatabase(path.join(directory, 'pak.sqlite'), migrationsFolder);
     app = createApp({
       database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
       logger: silentLogger,
       now: () => new Date('2026-01-02T03:04:05.000Z'),
     });

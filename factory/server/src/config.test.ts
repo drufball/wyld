@@ -9,6 +9,7 @@ describe('readConfig', () => {
     expect(
       readConfig({
         FACTORY_DIR: '/tmp/factory',
+        REPO_DIR: '/tmp/repo',
         PAK_PORT: '9000',
         PAK_DIST: '/tmp/pak-dist',
         WAKE_URL: 'http://localhost:8788/event',
@@ -17,6 +18,10 @@ describe('readConfig', () => {
     ).toEqual({
       factoryDir: '/tmp/factory',
       databasePath: path.join('/tmp/factory', 'pak.sqlite'),
+      repoDir: '/tmp/repo',
+      demosDir: '/tmp/factory/demos',
+      worktreesDir: '/tmp/factory/worktrees',
+      feedbackDir: '/tmp/factory/feedback',
       port: 9000,
       pakDist: '/tmp/pak-dist',
       wakeUrl: 'http://localhost:8788/event',

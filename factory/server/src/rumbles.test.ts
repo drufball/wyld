@@ -21,7 +21,13 @@ describe('rumble routes', () => {
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'wyld-rumbles-'));
     database = openDatabase(path.join(directory, 'pak.sqlite'), migrations);
     clock = new Date('2026-09-05T12:00:00.000Z');
-    app = createApp({ database, now: () => clock, logger: () => undefined });
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      now: () => clock,
+      logger: () => undefined,
+    });
   });
 
   afterEach(() => {
