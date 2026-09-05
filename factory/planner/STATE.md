@@ -81,12 +81,14 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
   against the running Planner — if Claude Code ignores it, say so in STATE.md and stop there.
   Also check in `.claude/settings.json` with `enabledMcpjsonServers: ["wake"]` so a fresh clone
   never hits the MCP approval.
-- **Tailscale (2026-09-05 ~21:28):** logged in; `tailscale serve --bg 8787` fails with "Serve is
-  not enabled on your tailnet" and prints an enable link — filed as Rumble `tailscale-serve`
-  (blocks `polish`, `paused`). On its `human.decision` → Done: rerun `tailscale serve --bg 8787`
-  (with `.factory/env` sourced), confirm `tailscale serve status`, then `curl -sI
-  https://macbook-pro-6.taild72c8d.ts.net/` and put that address on the `ntfy-phone` card once the
-  ntfy server exists (1.8). The Serve command blocks while not enabled — run it with a timeout.
+- **Tailscale Serve is on (2026-09-05 ~21:30):** Dru enabled Serve on the tailnet; `tailscale serve
+  --bg 8787` now proxies `https://macbook-pro-6.taild72c8d.ts.net/` → `127.0.0.1:8787` (tailnet
+  only, persists across restarts; `tailscale serve status` to check, `tailscale serve --https=443
+  off` to stop). Verified: `/` returns 200 with the Pak title and `/api/health/snapshot` answers.
+  The 1.11 "Tailscale Serve" item is therefore done by hand; 1.11 should make `factory:up`/doctor
+  check it rather than set it up. ntfy (1.8) still needs its own address on that host — pick a path
+  under Serve (`tailscale serve --bg --set-path /ntfy <port>`) rather than a second hostname.
+  macOS has no `timeout`; the Serve command blocks while Serve is disabled on the tailnet.
 
 - **Rumbles API facts (1.6):** rumble ids are stable slugs, so re-filing one updates it in place;
   filing with `chosen` records a past decision **without** an event, while `/decide` always emits
