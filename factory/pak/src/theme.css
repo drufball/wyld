@@ -177,6 +177,53 @@ a.today-action:focus-visible {
   display: grid;
   gap: var(--pak-space-3);
 }
+.today-inflight {
+  display: grid;
+  gap: var(--pak-space-3);
+}
+.today-inflight > h2 {
+  margin: 0;
+  font-family: var(--pak-display);
+  font-size: clamp(12px, 2vw, 18px);
+  line-height: 1.8;
+}
+.today-inflight__list {
+  display: grid;
+  gap: var(--pak-space-2);
+}
+.today-quest {
+  min-width: 0;
+  padding: var(--pak-space-3);
+  border: 1px solid var(--pak-bevel-light);
+  border-radius: var(--pak-radius);
+  color: var(--pak-ink);
+  background: var(--pak-panel);
+  text-decoration: none;
+}
+.today-quest:hover,
+.today-quest:focus-visible {
+  border-color: var(--pak-orange);
+  background: var(--pak-panel-raised);
+  outline: none;
+}
+.today-quest header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--pak-space-2);
+}
+.today-quest h3 {
+  margin: 0;
+  font-family: var(--pak-body);
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.today-quest p {
+  margin: 0 0 var(--pak-space-2);
+  color: var(--pak-ink-dim);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .chain-card {
   display: grid;
   min-width: 0;
