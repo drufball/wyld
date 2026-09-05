@@ -53,4 +53,18 @@ describe('enqueueMessage', () => {
     );
     expect(database.db.select().from(messages).all()).toHaveLength(2);
   });
+
+  it.each([undefined, 'wake-24'])('never coalesces questions with quest %s', (quest) => {
+    const question: WakeMessage = {
+      source: 'human',
+      kind: 'human.question',
+      summary: 'Dru asks: What next?',
+      ts: '2026-01-01T00:00:00.000Z',
+      ...(quest === undefined ? {} : { quest }),
+    };
+    enqueueMessage(database, question, new Date('2026-01-01T00:00:00.000Z'));
+    enqueueMessage(database, question, new Date('2026-01-01T00:00:05.000Z'));
+
+    expect(database.db.select().from(messages).all()).toHaveLength(2);
+  });
 });

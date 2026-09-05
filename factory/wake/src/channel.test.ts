@@ -21,6 +21,7 @@ const later: QueuedMessage = {
   quest: 'wake',
   issue: 17,
   pr: 99,
+  chain: 7,
   url: 'https://example.com/pr/99',
 };
 const earlier: QueuedMessage = {
@@ -75,6 +76,7 @@ describe('Wake channel delivery', () => {
       quest: 'wake',
       issue: '17',
       pr: '99',
+      chain: '7',
       url: 'https://example.com/pr/99',
     });
     expect(Object.keys(notification.params.meta).every((key) => /^[A-Za-z0-9_]+$/.test(key))).toBe(
@@ -162,6 +164,9 @@ describe('Pak tools', () => {
       'pak_read_catchup',
       'pak_health_report',
       'pak_read_health',
+      'pak_read_chains',
+      'pak_answer_chain',
+      'pak_close_chain',
     ]);
     expect(result.tools?.every(({ description }) => description.length > 10)).toBe(true);
     expect(
@@ -464,6 +469,58 @@ describe('Pak tools', () => {
     expect(result.content?.[0]?.text).toBe(body);
     expect(result.isError).toBeUndefined();
   });
+
+  it.each([
+    [
+      'pak_read_chains',
+      { quest: 'wake & queue' },
+      'http://pak/api/chains?quest=wake+%26+queue',
+      'GET',
+      undefined,
+    ],
+    [
+      'pak_answer_chain',
+      { chain: 7, text: 'Wake delivers each question to me.' },
+      'http://pak/api/chains/7/messages',
+      'POST',
+      { author: 'planner', text: 'Wake delivers each question to me.' },
+    ],
+    [
+      'pak_close_chain',
+      { chain: 7 },
+      'http://pak/api/chains/7/close',
+      'POST',
+      { reason: 'settled', source: 'planner' },
+    ],
+  ] as const)('calls the chain API for %s', async (name, args, url, method, body) => {
+    const fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    expect((await call!({ params: { name, arguments: args } })).isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith(url, {
+      method,
+      headers: body === undefined ? {} : { 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  });
+
+  it.each(['pak_read_chains', 'pak_answer_chain', 'pak_close_chain'])(
+    'reports an HTTP failure for %s',
+    async (name) => {
+      const fetch = vi.fn(async () => new Response('unavailable', { status: 503 }));
+      const [, call] = handlers(fetch as typeof globalThis.fetch);
+      const arguments_ =
+        name === 'pak_read_chains'
+          ? {}
+          : name === 'pak_answer_chain'
+            ? { chain: 7, text: 'Answer' }
+            : { chain: 7 };
+
+      const result = await call!({ params: { name, arguments: arguments_ } });
+      expect(result).toMatchObject({ isError: true });
+      expect(result.content?.[0]?.text).toContain('HTTP 503');
+    },
+  );
 
   it('does not let the Planner author human notes', async () => {
     const fetch = vi.fn(async () => new Response('', { status: 200 }));

@@ -10,6 +10,7 @@ export const messages = sqliteTable(
     quest: text('quest'),
     issue: integer('issue'),
     pr: integer('pr'),
+    chain: integer('chain'),
     url: text('url'),
     summary: text('summary').notNull(),
     count: integer('count').notNull().default(1),
