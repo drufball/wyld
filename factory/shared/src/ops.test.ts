@@ -30,7 +30,7 @@ describe('operations schemas', () => {
     expect(
       Retro.parse({
         id: 'retro-1',
-        date: ts,
+        date: '2026-09-05',
         wins: ['Shipped'],
         misses: [],
         factoryImprovements: ['quest-3'],

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { Id, Timestamp } from './ids.js';
+import { EventId, Id, Timestamp } from './ids.js';
 
 export const EventSource = z.enum(['human', 'github', 'planner', 'sleep', 'system']);
 export type EventSource = z.infer<typeof EventSource>;
@@ -29,7 +29,7 @@ export type EventKind = z.infer<typeof EventKind>;
 
 export const Event = z
   .object({
-    id: Id,
+    id: EventId,
     ts: Timestamp,
     source: EventSource,
     kind: EventKind,

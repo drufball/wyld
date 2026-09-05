@@ -10,22 +10,23 @@ const newEvent = {
 
 describe('Event', () => {
   it('parses events and client-created events', () => {
-    expect(Event.parse({ id: 'event-1', ts: '2026-09-05T12:30:00Z', ...newEvent })).toMatchObject(
-      newEvent,
-    );
+    expect(Event.parse({ id: 1, ts: '2026-09-05T12:30:00Z', ...newEvent })).toMatchObject(newEvent);
     expect(NewEvent.parse(newEvent)).toEqual(newEvent);
   });
 
   it('rejects invalid kinds and server-assigned fields on new events', () => {
     expect(
       Event.safeParse({
-        id: 'event-1',
+        id: 1,
         ts: '2026-09-05T12:30:00Z',
         ...newEvent,
         kind: 'human.nope',
       }).success,
     ).toBe(false);
-    expect(NewEvent.safeParse({ ...newEvent, id: 'event-1' }).success).toBe(false);
+    expect(
+      Event.safeParse({ id: 'event-1', ts: '2026-09-05T12:30:00Z', ...newEvent }).success,
+    ).toBe(false);
+    expect(NewEvent.safeParse({ ...newEvent, id: 1 }).success).toBe(false);
     expect(NewEvent.safeParse({ ...newEvent, ts: '2026-09-05T12:30:00Z' }).success).toBe(false);
   });
 

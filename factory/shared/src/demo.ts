@@ -9,7 +9,7 @@ export const Demo = z.object({
   url: z.url(),
   builtAt: Timestamp,
   status: z.string().min(1),
-  screenshot: z.string().min(1),
+  screenshot: z.string().min(1).optional(),
 });
 export type Demo = z.infer<typeof Demo>;
 

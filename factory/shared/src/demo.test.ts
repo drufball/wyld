@@ -9,7 +9,6 @@ const demo = {
   url: 'https://example.com/demo',
   builtAt: '2026-09-05T12:30:00Z',
   status: 'ready',
-  screenshot: '/shots/demo.png',
 };
 const feedback = {
   id: 'feedback-1',
@@ -21,6 +20,9 @@ const feedback = {
 describe('demo schemas', () => {
   it('parses demos and feedback', () => {
     expect(Demo.parse(demo)).toEqual(demo);
+    expect(Demo.parse({ ...demo, screenshot: '/shots/demo.png' })).toMatchObject({
+      screenshot: '/shots/demo.png',
+    });
     expect(Feedback.parse(feedback)).toEqual(feedback);
   });
   it('rejects malformed demos and feedback', () => {

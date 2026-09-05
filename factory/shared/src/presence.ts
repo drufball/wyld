@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { Id, Timestamp } from './ids.js';
+import { EventId, Id, Timestamp } from './ids.js';
 
 export const NextAction = z.object({
   text: z.string().min(1),
@@ -10,7 +10,7 @@ export type NextAction = z.infer<typeof NextAction>;
 
 export const Presence = z.object({
   lastSeenAt: Timestamp,
-  lastCatchupEventId: Id,
+  lastCatchupEventId: EventId.nullable(),
   nextAction: NextAction,
 });
 export type Presence = z.infer<typeof Presence>;
@@ -25,8 +25,8 @@ export type CatchupDigest = z.infer<typeof CatchupDigest>;
 
 export const Catchup = z.object({
   id: Id,
-  fromEventId: Id,
-  toEventId: Id,
+  fromEventId: EventId,
+  toEventId: EventId,
   digest: CatchupDigest,
   generatedBy: z.enum(['planner', 'mechanical']),
 });

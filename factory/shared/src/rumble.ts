@@ -7,8 +7,8 @@ export const Rumble = z.object({
   title: z.string().min(1),
   context: z.string().min(1),
   options: z.array(z.string().min(1)),
-  chosen: z.string().min(1),
-  chosenAt: Timestamp,
+  chosen: z.string().min(1).nullable(),
+  chosenAt: Timestamp.nullable(),
   blockingQuestIds: z.array(Id),
   kind: z.enum(['account', 'money', 'model', 'taste', 'scope', 'outage']),
 });

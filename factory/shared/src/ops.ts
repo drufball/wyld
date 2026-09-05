@@ -26,7 +26,7 @@ export type SleepRun = z.infer<typeof SleepRun>;
 
 export const Retro = z.object({
   id: Id,
-  date: Timestamp,
+  date: z.iso.date(),
   wins: z.array(z.string()),
   misses: z.array(z.string()),
   factoryImprovements: z.array(Id),
