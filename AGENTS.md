@@ -53,6 +53,27 @@ All four of `typecheck`, `lint`, `test`, `build` must pass before a PR is ready.
   worktrees) and is gitignored. Never commit secrets, tokens, or `.env` files.
 - Never force-push `main`. Never edit CI to make a failing check pass.
 
+## Publishing your work (required)
+
+The sandbox has no git remote and no GitHub auth by default. A `GH_TOKEN` secret (scoped to this
+repo: Contents + Pull requests read/write) is provided in the environment. Use it to publish:
+
+```bash
+git checkout -b codex/<short-slug>        # skip if you are already on a codex/* branch
+git remote get-url origin >/dev/null 2>&1 || \
+  git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/drufball/wyld.git"
+git push -u origin HEAD
+gh pr create --base main --title "<title>" --body "<PR description in the format below>"
+```
+
+- One PR per issue. Put `Closes #<issue>` in the PR body.
+- When addressing review comments on an existing PR, commit and `git push` to the same branch;
+  do not open a second PR.
+- If `gh` is unavailable, create the PR with `curl -X POST -H "Authorization: Bearer $GH_TOKEN"
+  https://api.github.com/repos/drufball/wyld/pulls` and a JSON body of `{title, head, base, body}`.
+- If `GH_TOKEN` is missing or the push fails, say so explicitly in your final summary. Never
+  claim a PR exists that you did not verify with `gh pr view` or the API response.
+
 ## PR description format
 
 ```
