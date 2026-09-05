@@ -69,7 +69,7 @@ export function ChainCard({
   const waiting = chain.messages.at(-1)?.author === 'human';
 
   return (
-    <Card className="grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
+    <Card className="chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
       {showQuestChip && chain.questId !== null && (
         <Badge variant="tone" data-tone="accent">
           {questName ?? chain.questId}
@@ -77,7 +77,7 @@ export function ChainCard({
       )}
       <div className="grid gap-2" aria-live="polite">
         {chain.messages.map((message) => (
-          <p className="m-0 overflow-anywhere whitespace-pre-wrap bg-muted p-2" key={message.id}>
+          <p className="m-0 wrap-anywhere whitespace-pre-wrap bg-muted p-2" key={message.id}>
             <strong>{message.author === 'planner' ? 'Fable' : 'You'}</strong>{' '}
             <span className="text-muted-foreground">· {noteDate(message.ts)}</span>
             <br />

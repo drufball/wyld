@@ -126,7 +126,9 @@ export function Today({
   return (
     <div className="grid gap-8 pt-[clamp(48px,12vh,120px)]">
       <form className="grid gap-3" onSubmit={submit}>
-        <label htmlFor="today-intent">What's on your mind?</label>
+        <label className="font-display text-[11px] leading-loose" htmlFor="today-intent">
+          What's on your mind?
+        </label>
         <span className="grid grid-cols-[auto_1fr] items-center gap-2 font-display text-[11px] leading-loose">
           <span className="text-accent" aria-hidden="true">
             &gt;
@@ -169,13 +171,21 @@ export function Today({
       </form>
       {nextAction !== null &&
         (nextAction.deepLink ? (
-          <Button
-            asChild
-            variant="retro"
-            className="h-auto min-h-11 justify-start whitespace-normal py-3"
-          >
-            <Link to={nextAction.deepLink}>{nextAction.text}</Link>
-          </Button>
+          <Card variant="bevel" className="p-0">
+            <Link
+              aria-label={nextAction.text}
+              className="block min-h-11 p-3 font-mono text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              to={nextAction.deepLink}
+            >
+              <span
+                className="mb-1 block font-display text-[9px] leading-relaxed text-muted-foreground"
+                aria-hidden="true"
+              >
+                NEXT
+              </span>
+              {nextAction.text}
+            </Link>
+          </Card>
         ) : (
           <Card variant="flat" className="p-5">
             {nextAction.text}

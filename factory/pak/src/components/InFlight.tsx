@@ -38,11 +38,11 @@ export function InFlight() {
         {quests.map((quest) => (
           <Card variant="bevel" className="p-0" key={quest.id}>
             <Link
-              className="block min-h-11 min-w-0 p-3 text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="today-quest block min-h-11 min-w-0 p-3 text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
               to={`/quests?quest=${encodeURIComponent(quest.id)}`}
             >
               <header className="flex items-start justify-between gap-2">
-                <h3 className="m-0 overflow-anywhere text-base">{quest.title}</h3>
+                <h3 className="m-0 wrap-anywhere text-base">{quest.title}</h3>
                 <Badge variant="tone" data-tone={quest.status === 'demo' ? 'ok' : 'accent'}>
                   {quest.status}
                 </Badge>
@@ -57,7 +57,7 @@ export function InFlight() {
               >
                 <span style={{ width: `${quest.progress * 100}%` }} />
               </div>
-              <p className="my-2 overflow-anywhere whitespace-pre-wrap text-muted-foreground">
+              <p className="my-2 wrap-anywhere whitespace-pre-wrap text-muted-foreground">
                 {quest.sinceYouLooked || quest.pitch}
               </p>
               <Badge variant="outline">{worldNames.get(quest.worldId) ?? quest.worldId}</Badge>

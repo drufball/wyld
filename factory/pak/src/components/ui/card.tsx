@@ -3,7 +3,7 @@ import type { HTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils.js';
 
-const cardVariants = cva('rounded-[var(--radius)] bg-card text-card-foreground', {
+export const cardVariants = cva('rounded-[var(--radius)] bg-card text-card-foreground', {
   variants: {
     variant: {
       flat: 'border border-border',
