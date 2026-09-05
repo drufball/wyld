@@ -13,10 +13,13 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run src"
   },
   "devDependencies": {
     "typescript": "6.0.3",
     "vitest": "5.0.0"
+  },
+  "dependencies": {
+    "zod": "^4.5.4"
   }
 }
