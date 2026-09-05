@@ -16,6 +16,7 @@ import type { AppDatabase } from './database.js';
 import { log, type LogContext } from './logger.js';
 import { events, presence } from './schema.js';
 import { createStaticHandler } from './static.js';
+import { createWakeForwarder } from './forwarder.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -32,6 +33,7 @@ export type AppDependencies = {
   database: AppDatabase;
   version?: string;
   wakeUrl?: string;
+  wakeSecret?: string;
   now?: () => Date;
   fetch?: typeof globalThis.fetch;
   logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
@@ -45,7 +47,6 @@ function formatIssues(error: z.ZodError) {
 export function createApp(dependencies: AppDependencies) {
   const { db, sqlite } = dependencies.database;
   const now = dependencies.now ?? (() => new Date());
-  const fetcher = dependencies.fetch ?? globalThis.fetch;
   const logger = dependencies.logger ?? log;
   const subscribers = new Set<Subscriber>();
   const startedAt = Date.now();
@@ -66,36 +67,12 @@ export function createApp(dependencies: AppDependencies) {
     );
   };
 
-  const forwardToWake = (event: Event): void => {
-    if (event.source !== 'human') return;
-    const wakeUrl = dependencies.wakeUrl;
-    if (wakeUrl === undefined) {
-      logger('info', 'would forward to Wake', { eventId: event.id, kind: event.kind });
-      return;
-    }
-    const text = event.payload['summary'] ?? event.payload['text'];
-    const message = WakeMessage.parse({
-      source: event.source,
-      kind: event.kind,
-      ...(event.questId === undefined ? {} : { quest: event.questId }),
-      summary: typeof text === 'string' && text.length > 0 ? text : event.kind,
-      ts: event.ts,
-    });
-    void Promise.resolve()
-      .then(() =>
-        fetcher(wakeUrl, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(message),
-        }),
-      )
-      .then((response) => {
-        if (!response.ok) throw new Error(`Wake returned HTTP ${response.status}`);
-      })
-      .catch((error: unknown) => {
-        logger('error', 'failed to forward to Wake', { eventId: event.id, error: String(error) });
-      });
-  };
+  const forwardToWake = createWakeForwarder({
+    wakeUrl: dependencies.wakeUrl,
+    wakeSecret: dependencies.wakeSecret,
+    fetch: dependencies.fetch,
+    logger,
+  });
 
   const storeEvent = async (newEvent: NewEventType): Promise<Event> => {
     const ts = now().toISOString();

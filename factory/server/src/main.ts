@@ -18,6 +18,7 @@ const app = createApp({
   version: packageMetadata.version,
   pakDist: config.pakDist,
   ...(config.wakeUrl === undefined ? {} : { wakeUrl: config.wakeUrl }),
+  ...(config.wakeSecret === undefined ? {} : { wakeSecret: config.wakeSecret }),
 });
 
 log(

@@ -38,4 +38,16 @@ describe('Event', () => {
       expect(verb).toMatch(/^[a-z]+(?:_[a-z]+)*$/);
     }
   });
+
+  it('includes Wake GitHub event kinds', () => {
+    expect(EVENT_KINDS).toEqual(
+      expect.arrayContaining([
+        'github.issue_opened',
+        'github.issue_closed',
+        'github.pr_closed',
+        'github.pr_review',
+        'github.push',
+      ]),
+    );
+  });
 });

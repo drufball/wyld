@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Event, Presence } from '@wyld/shared';
 import { z } from 'zod';
 
@@ -168,5 +168,32 @@ describe('Pak server', () => {
       error: 'Pak build not found',
       hint: 'pnpm --filter @wyld/pak build',
     });
+  });
+
+  it('forwards full human events with the Wake secret but ignores seen events', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    app = createApp({
+      database,
+      logger: silentLogger,
+      wakeUrl: 'http://localhost:8788/something',
+      wakeSecret: 'shared-secret',
+      fetch: fetcher,
+    });
+    const response = await postEvent('human.intent', 'wake up');
+    const event = await response.json();
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+    expect(fetcher).toHaveBeenCalledWith(
+      'http://localhost:8788/event',
+      expect.objectContaining({
+        headers: {
+          'content-type': 'application/json',
+          'X-Wake-Secret': 'shared-secret',
+        },
+        body: JSON.stringify(event),
+      }),
+    );
+    await app.request('/api/presence/seen', { method: 'POST' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetcher).toHaveBeenCalledOnce();
   });
 });
