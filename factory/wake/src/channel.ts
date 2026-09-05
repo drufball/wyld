@@ -157,6 +157,20 @@ const ReadEventsArgs = z
     limit: z.number().int().min(1).max(200).default(50),
   })
   .strict();
+const CatchupLineArg = z
+  .object({ text: z.string().min(1), deep_link: z.string().optional() })
+  .strict();
+const WriteCatchupArgs = z
+  .object({
+    rumbles: z.array(CatchupLineArg).default([]),
+    demos: z.array(CatchupLineArg).default([]),
+    shipped: z.array(CatchupLineArg).default([]),
+    fyi: z.array(z.string().min(1)).default([]),
+    from_event_id: z.number().int().min(0).optional(),
+    to_event_id: z.number().int().min(0).optional(),
+  })
+  .strict();
+const ReadCatchupArgs = z.object({}).strict();
 
 const statusSchema = { type: 'string' as const, enum: QuestStatus.options };
 
@@ -294,6 +308,60 @@ const tools = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'pak_write_catchup',
+    description:
+      "Write the Catch-Up briefing Dru sees when he returns: what's waiting, what shipped, and anything worth knowing. Plain English, no GitHub references.",
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        rumbles: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { text: { type: 'string', minLength: 1 }, deep_link: { type: 'string' } },
+            required: ['text'],
+            additionalProperties: false,
+          },
+          default: [],
+        },
+        demos: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { text: { type: 'string', minLength: 1 }, deep_link: { type: 'string' } },
+            required: ['text'],
+            additionalProperties: false,
+          },
+          default: [],
+        },
+        shipped: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { text: { type: 'string', minLength: 1 }, deep_link: { type: 'string' } },
+            required: ['text'],
+            additionalProperties: false,
+          },
+          default: [],
+        },
+        fyi: { type: 'array', items: { type: 'string', minLength: 1 }, default: [] },
+        from_event_id: { type: 'integer', minimum: 0 },
+        to_event_id: { type: 'integer', minimum: 0 },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_catchup',
+    description:
+      'Read the Catch-Up the Pak would show right now — whether it would show, how much has happened since Dru last looked, and the current digest. Use it before writing a better one.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+      additionalProperties: false,
+    },
+  },
 ];
 
 function textResult(text: string, isError = false) {
@@ -418,6 +486,31 @@ export function registerPakTools(
           true,
         );
       }
+    }
+    if (params.name === 'pak_write_catchup') {
+      const parsed = WriteCatchupArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const { from_event_id, to_event_id, ...digest } = parsed.data;
+      const mapLines = (lines: z.infer<typeof CatchupLineArg>[]) =>
+        lines.map(({ text, deep_link }) => ({
+          text,
+          ...(deep_link === undefined ? {} : { deepLink: deep_link }),
+        }));
+      return postTool(request, `${options.pakUrl}/api/catchup`, {
+        digest: {
+          rumbles: mapLines(digest.rumbles),
+          demos: mapLines(digest.demos),
+          shipped: mapLines(digest.shipped),
+          fyi: digest.fyi,
+        },
+        ...(from_event_id === undefined ? {} : { fromEventId: from_event_id }),
+        ...(to_event_id === undefined ? {} : { toEventId: to_event_id }),
+      });
+    }
+    if (params.name === 'pak_read_catchup') {
+      const parsed = ReadCatchupArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return getTool(request, `${options.pakUrl}/api/catchup`);
     }
     return textResult(`Unknown tool: ${params.name}`, true);
   });

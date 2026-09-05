@@ -158,6 +158,8 @@ describe('Pak tools', () => {
       'pak_post_note',
       'pak_read_quests',
       'pak_read_events',
+      'pak_write_catchup',
+      'pak_read_catchup',
     ]);
     expect(result.tools?.every(({ description }) => description.length > 10)).toBe(true);
     expect(
@@ -326,6 +328,81 @@ describe('Pak tools', () => {
     expect(
       await call!({ params: { name: 'pak_read_events', arguments: { kinds: ['invalid'] } } }),
     ).toMatchObject({ isError: true });
+  });
+
+  it('writes a Catch-Up digest with camelCase deep links and omitted default range', async () => {
+    const fetch = vi.fn(async () => new Response('{"id":1}', { status: 201 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const result = await call!({
+      params: {
+        name: 'pak_write_catchup',
+        arguments: {
+          rumbles: [{ text: 'A choice is waiting', deep_link: '/quests/choice' }],
+          demos: [{ text: 'Try the new controls' }],
+          shipped: [{ text: 'Wake now reconnects' }],
+          fyi: ['Nothing needs attention'],
+        },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/catchup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        digest: {
+          rumbles: [{ text: 'A choice is waiting', deepLink: '/quests/choice' }],
+          demos: [{ text: 'Try the new controls' }],
+          shipped: [{ text: 'Wake now reconnects' }],
+          fyi: ['Nothing needs attention'],
+        },
+      }),
+    });
+  });
+
+  it('writes an explicit Catch-Up event range', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    fetch.mockResolvedValue(new Response('', { status: 201 }));
+    const [, call] = handlers(fetch);
+    await call!({
+      params: {
+        name: 'pak_write_catchup',
+        arguments: { from_event_id: 12, to_event_id: 34 },
+      },
+    });
+
+    const request = fetch.mock.calls[0]![1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toEqual({
+      digest: { rumbles: [], demos: [], shipped: [], fyi: [] },
+      fromEventId: 12,
+      toEventId: 34,
+    });
+  });
+
+  it.each([{ unknown: true }, { fyi: [42] }])(
+    'rejects invalid Catch-Up arguments without an HTTP call: %j',
+    async (arguments_) => {
+      const fetch = vi.fn<typeof globalThis.fetch>();
+      const [, call] = handlers(fetch);
+      const result = await call!({
+        params: { name: 'pak_write_catchup', arguments: arguments_ },
+      });
+
+      expect(result).toMatchObject({ isError: true });
+      expect(result.content?.[0]?.text).toContain('Invalid arguments');
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reads the current Catch-Up response verbatim', async () => {
+    const body = JSON.stringify({ show: true, unseenCount: 3, catchup: { id: 1 } });
+    const fetch = vi.fn(async () => new Response(body, { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const result = await call!({ params: { name: 'pak_read_catchup', arguments: {} } });
+
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/catchup', { method: 'GET', headers: {} });
+    expect(result.content?.[0]?.text).toBe(body);
+    expect(result.isError).toBeUndefined();
   });
 
   it('does not let the Planner author human notes', async () => {
