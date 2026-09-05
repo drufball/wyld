@@ -213,6 +213,16 @@ const RequestRumbleArgs = z
     }
   });
 const ReadRumblesArgs = z.object({ status: z.enum(['open', 'decided']).optional() }).strict();
+const RegisterDemoArgs = z
+  .object({
+    slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+    ref: z.string(),
+    quest: z.string().optional(),
+    title: z.string().optional(),
+  })
+  .strict();
+const ReadDemosArgs = z.object({}).strict();
+const ReadFeedbackArgs = z.object({ demo: z.string().optional() }).strict();
 const ReadChainsArgs = z.object({ quest: z.string().optional() }).strict();
 const SendMessageArgs = z
   .object({ text: z.string().min(1), quest: z.string().optional() })
@@ -476,6 +486,45 @@ const tools = [
     },
   },
   {
+    name: 'pak_register_demo',
+    description:
+      'Register a build Dru can try against a quest, or as the main build, and start building it. The slug becomes the URL. Registering a demo is what moves its quest to demo, and calling this again for the same slug rebuilds it.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        slug: {
+          type: 'string',
+          pattern: '^[a-z0-9][a-z0-9-]{0,63}$',
+          description: 'The URL segment, for example main or demo-discs.',
+        },
+        ref: { type: 'string', description: 'The git ref to build.' },
+        quest: { type: 'string', description: 'The quest this demo belongs to.' },
+        title: { type: 'string', description: 'An optional display label.' },
+      },
+      required: ['slug', 'ref'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_demos',
+    description: 'Read the builds Dru can try right now and whether each one built cleanly.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_feedback',
+    description:
+      'Read what Dru said about a Demo Disc, so a human.feedback event can be answered with the detail rather than just the summary line.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: { demo: { type: 'string', description: 'Optional Demo Disc slug.' } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'pak_read_chains',
     description:
       "Read the open chains — Dru's messages and yours, their chain ids, and the quest each one is about if any. Closed chains are never returned.",
@@ -718,6 +767,30 @@ export function registerPakTools(
           ? ''
           : `?${new URLSearchParams({ status: parsed.data.status }).toString()}`;
       return getTool(request, `${options.pakUrl}/api/rumbles${suffix}`);
+    }
+    if (params.name === 'pak_register_demo') {
+      const parsed = RegisterDemoArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/demos`, {
+        id: parsed.data.slug,
+        ref: parsed.data.ref,
+        ...(parsed.data.quest === undefined ? {} : { questId: parsed.data.quest }),
+        ...(parsed.data.title === undefined ? {} : { title: parsed.data.title }),
+      });
+    }
+    if (params.name === 'pak_read_demos') {
+      const parsed = ReadDemosArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return getTool(request, `${options.pakUrl}/api/demos`);
+    }
+    if (params.name === 'pak_read_feedback') {
+      const parsed = ReadFeedbackArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const suffix =
+        parsed.data.demo === undefined
+          ? ''
+          : `?${new URLSearchParams({ demo: parsed.data.demo }).toString()}`;
+      return getTool(request, `${options.pakUrl}/api/feedback${suffix}`);
     }
     if (params.name === 'pak_read_chains') {
       const parsed = ReadChainsArgs.safeParse(params.arguments);

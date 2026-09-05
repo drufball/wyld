@@ -128,7 +128,11 @@ describe('Pak tools', () => {
     tools?: Array<{
       name: string;
       description: string;
-      inputSchema: { additionalProperties?: boolean };
+      inputSchema: {
+        properties?: Record<string, Record<string, unknown>>;
+        required?: string[];
+        additionalProperties?: boolean;
+      };
     }>;
     content?: Array<{ text: string }>;
     isError?: boolean;
@@ -166,6 +170,9 @@ describe('Pak tools', () => {
       'pak_read_health',
       'pak_request_rumble',
       'pak_read_rumbles',
+      'pak_register_demo',
+      'pak_read_demos',
+      'pak_read_feedback',
       'pak_read_chains',
       'pak_send_message',
       'pak_answer_chain',
@@ -175,6 +182,28 @@ describe('Pak tools', () => {
     expect(
       result.tools?.every(({ inputSchema }) => inputSchema.additionalProperties === false),
     ).toBe(true);
+    expect(
+      result.tools?.find(({ name }) => name === 'pak_register_demo')?.inputSchema,
+    ).toMatchObject({
+      properties: {
+        slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,63}$' },
+        ref: { type: 'string' },
+        quest: { type: 'string' },
+        title: { type: 'string' },
+      },
+      required: ['slug', 'ref'],
+      additionalProperties: false,
+    });
+    expect(result.tools?.find(({ name }) => name === 'pak_read_demos')?.inputSchema).toMatchObject({
+      properties: {},
+      additionalProperties: false,
+    });
+    expect(
+      result.tools?.find(({ name }) => name === 'pak_read_feedback')?.inputSchema,
+    ).toMatchObject({
+      properties: { demo: { type: 'string' } },
+      additionalProperties: false,
+    });
   });
 
   it('posts a valid event and rejects an invalid kind', async () => {
@@ -625,6 +654,94 @@ describe('Pak tools', () => {
     expect(result.isError).toBeUndefined();
     expect(fetch).toHaveBeenCalledWith(url, { method: 'GET', headers: {} });
   });
+
+  it('registers a Demo Disc with mapped arguments and omitted optionals', async () => {
+    const fetch = vi.fn(async () => new Response('{"id":"demo-discs"}', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    const result = await call!({
+      params: {
+        name: 'pak_register_demo',
+        arguments: {
+          slug: 'demo-discs',
+          ref: 'codex/wake-demo-tools',
+          quest: 'demo-discs',
+        },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/demos', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: 'demo-discs',
+        ref: 'codex/wake-demo-tools',
+        questId: 'demo-discs',
+      }),
+    });
+  });
+
+  it('registers a titled main Demo Disc without a quest', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () => new Response('{"id":"main"}', { status: 200 }),
+    );
+    const [, call] = handlers(fetch);
+
+    await call!({
+      params: {
+        name: 'pak_register_demo',
+        arguments: { slug: 'main', ref: 'main', title: 'Main build' },
+      },
+    });
+
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
+      id: 'main',
+      ref: 'main',
+      title: 'Main build',
+    });
+  });
+
+  it.each([
+    { slug: 'Bad Slug', ref: 'main' },
+    { slug: 'main', ref: 'main', unknown: true },
+  ])('rejects invalid Demo Disc registration without an HTTP call: %j', async (arguments_) => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const [, call] = handlers(fetch);
+
+    const result = await call!({ params: { name: 'pak_register_demo', arguments: arguments_ } });
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content?.[0]?.text).toContain('Invalid arguments');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['pak_read_demos', {}, 'http://pak/api/demos'],
+    ['pak_read_feedback', {}, 'http://pak/api/feedback'],
+    ['pak_read_feedback', { demo: 'demo discs' }, 'http://pak/api/feedback?demo=demo+discs'],
+  ] as const)('reads Demo Disc data with %s', async (name, arguments_, url) => {
+    const fetch = vi.fn(async () => new Response('[]', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    const result = await call!({ params: { name, arguments: arguments_ } });
+
+    expect(result.isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith(url, { method: 'GET', headers: {} });
+  });
+
+  it.each(['pak_read_demos', 'pak_read_feedback'])(
+    'rejects unknown properties for %s without an HTTP call',
+    async (name) => {
+      const fetch = vi.fn<typeof globalThis.fetch>();
+      const [, call] = handlers(fetch);
+
+      expect(await call!({ params: { name, arguments: { unknown: true } } })).toMatchObject({
+        isError: true,
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(['pak_read_chains', 'pak_answer_chain', 'pak_close_chain'])(
     'reports an HTTP failure for %s',
