@@ -2,3 +2,8 @@
 **/node_modules/**
 .factory/**
 pnpm-lock.yaml
+AGENTS.md
+CLAUDE.md
+factory/planner/**
+.github/ISSUE_TEMPLATE/**
+*-spec.md

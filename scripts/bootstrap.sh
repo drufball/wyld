@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 if ! corepack enable; then
   echo 'warning: corepack enable failed; continuing only if the pinned pnpm is already available' >&2
 fi
