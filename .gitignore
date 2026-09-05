@@ -2,3 +2,5 @@ node_modules/
 dist/
 .factory/
 .DS_Store
+*.log
+.vitest/
