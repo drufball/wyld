@@ -25,6 +25,7 @@ import { createWakeForwarder } from './forwarder.js';
 import { createQuestRoutes, formatIssues } from './quests.js';
 import { createChainRoutes } from './chains.js';
 import { createOpsRoutes, latestOpsReport } from './ops.js';
+import { createRumbleRoutes, listOrderedRumbleRows } from './rumbles.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -259,6 +260,10 @@ export function createApp(dependencies: AppDependencies) {
           })
           .from(quests)
           .all(),
+        openRumbles: listOrderedRumbleRows(dependencies.database, 'open').map(({ id, title }) => ({
+          id,
+          title,
+        })),
       });
       [row] = db
         .insert(catchups)
@@ -348,6 +353,7 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', createQuestRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
+  app.route('/api', createRumbleRoutes({ database: dependencies.database, now, storeEvent }));
 
   app.get('/api/health', (c) => c.json(serverHealth()));
 

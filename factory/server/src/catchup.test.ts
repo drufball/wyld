@@ -62,4 +62,14 @@ describe('mechanicalDigest', () => {
     events.push(event(21, 'planner.quest_updated', 'deleted', { status: 'done' }));
     expect(mechanicalDigest({ events, quests }).shipped).toHaveLength(8);
   });
+
+  it('includes up to eight open rumbles in the supplied order', () => {
+    const openRumbles = Array.from({ length: 10 }, (_, id) => ({
+      id: String(id),
+      title: `Rumble ${id}`,
+    }));
+    expect(mechanicalDigest({ events: [], quests: [], openRumbles }).rumbles).toEqual(
+      openRumbles.slice(0, 8).map(({ title }) => ({ text: title, deepLink: '/rumble' })),
+    );
+  });
 });
