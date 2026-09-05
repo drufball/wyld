@@ -123,7 +123,11 @@ describe('Pak tools', () => {
   type CapturedHandler = (request: {
     params?: { name: string; arguments?: Record<string, unknown> };
   }) => Promise<{
-    tools?: Array<{ name: string; description: string }>;
+    tools?: Array<{
+      name: string;
+      description: string;
+      inputSchema: { additionalProperties?: boolean };
+    }>;
     content?: Array<{ text: string }>;
     isError?: boolean;
   }>;
@@ -140,11 +144,25 @@ describe('Pak tools', () => {
     return registered;
   }
 
-  it('lists exactly the two Planner tools with descriptions', async () => {
+  it('lists all Planner tools with descriptions and closed schemas', async () => {
     const [list] = handlers(vi.fn());
     const result = await list!({});
-    expect(result.tools?.map(({ name }) => name)).toEqual(['pak_log_event', 'pak_set_next_action']);
+    expect(result.tools?.map(({ name }) => name)).toEqual([
+      'pak_log_event',
+      'pak_set_next_action',
+      'pak_upsert_quest',
+      'pak_set_quest_status',
+      'pak_set_since_you_looked',
+      'pak_link_issue',
+      'pak_read_quest_links',
+      'pak_post_note',
+      'pak_read_quests',
+      'pak_read_events',
+    ]);
     expect(result.tools?.every(({ description }) => description.length > 10)).toBe(true);
+    expect(
+      result.tools?.every(({ inputSchema }) => inputSchema.additionalProperties === false),
+    ).toBe(true);
   });
 
   it('posts a valid event and rejects an invalid kind', async () => {
@@ -185,5 +203,128 @@ describe('Pak tools', () => {
     expect(result).toMatchObject({ isError: true });
     expect(result.content?.[0]?.text).toContain('HTTP 404');
     expect(result.content?.[0]?.text).toContain('not implemented yet');
+  });
+
+  it.each([
+    [
+      'pak_upsert_quest',
+      {
+        id: 'q1',
+        world: 'factory',
+        title: 'Tools',
+        pitch: 'Drive API',
+        status: 'building',
+        since_you_looked: 'New',
+        last_note: 'Note',
+      },
+      {},
+      'http://pak/api/quests',
+      'POST',
+      {
+        id: 'q1',
+        worldId: 'factory',
+        title: 'Tools',
+        pitch: 'Drive API',
+        status: 'building',
+        sinceYouLooked: 'New',
+        lastNote: 'Note',
+      },
+      { 'content-type': 'application/json' },
+    ],
+    [
+      'pak_set_quest_status',
+      { quest: 'q1', status: 'done' },
+      {},
+      'http://pak/api/quests/q1',
+      'PATCH',
+      { status: 'done', source: 'planner' },
+      { 'content-type': 'application/json' },
+    ],
+    [
+      'pak_set_since_you_looked',
+      { quest: 'q1', text: 'Fresh' },
+      {},
+      'http://pak/api/quests/q1',
+      'PATCH',
+      { sinceYouLooked: 'Fresh', source: 'planner' },
+      { 'content-type': 'application/json' },
+    ],
+    [
+      'pak_link_issue',
+      { quest: 'q1', gh_kind: 'pr', gh_ref: '24', state: 'open' },
+      {},
+      'http://pak/api/quests/q1/links',
+      'POST',
+      { ghKind: 'pr', ghRef: '24', state: 'open' },
+      { 'content-type': 'application/json' },
+    ],
+    [
+      'pak_read_quest_links',
+      { quest: 'q1' },
+      {},
+      'http://pak/api/quests/q1/links',
+      'GET',
+      undefined,
+      { 'X-Planner': '1' },
+    ],
+    [
+      'pak_post_note',
+      { quest: 'q1', text: 'Done' },
+      {},
+      'http://pak/api/quests/q1/notes',
+      'POST',
+      { text: 'Done', author: 'planner' },
+      { 'content-type': 'application/json' },
+    ],
+    [
+      'pak_read_quests',
+      { world: 'factory', status: 'building' },
+      { status: 'invalid' },
+      'http://pak/api/quests?world=factory&status=building',
+      'GET',
+      undefined,
+      {},
+    ],
+  ] as const)(
+    'calls the API for %s and rejects invalid arguments',
+    async (name, args, invalidArgs, url, method, body, headers) => {
+      const fetch = vi.fn<typeof globalThis.fetch>();
+      fetch.mockResolvedValue(new Response('{"ok":true}', { status: 200 }));
+      const [, call] = handlers(fetch as typeof globalThis.fetch);
+      expect((await call!({ params: { name, arguments: args } })).isError).toBeUndefined();
+      expect(fetch).toHaveBeenCalledWith(url, {
+        method,
+        headers,
+        ...(body === undefined ? {} : { body: expect.any(String) }),
+      });
+      if (body !== undefined) {
+        const request = fetch.mock.calls[0]![1] as RequestInit;
+        expect(JSON.parse(String(request.body))).toEqual(body);
+      }
+      expect(await call!({ params: { name, arguments: invalidArgs } })).toMatchObject({
+        isError: true,
+      });
+    },
+  );
+
+  it('reads events, filters kinds client-side, and applies the limit', async () => {
+    const events = [
+      { kind: 'human.ask', id: 1 },
+      { kind: 'planner.note', id: 2 },
+      { kind: 'human.ask', id: 3 },
+    ];
+    const fetch = vi.fn(async () => new Response(JSON.stringify(events), { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const result = await call!({
+      params: { name: 'pak_read_events', arguments: { since: 4, kinds: ['human.ask'], limit: 1 } },
+    });
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/events?since=4', {
+      method: 'GET',
+      headers: {},
+    });
+    expect(JSON.parse(result.content![0]!.text)).toEqual([{ kind: 'human.ask', id: 1 }]);
+    expect(
+      await call!({ params: { name: 'pak_read_events', arguments: { kinds: ['invalid'] } } }),
+    ).toMatchObject({ isError: true });
   });
 });
