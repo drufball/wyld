@@ -1,0 +1,59 @@
+# Skill — review a PR
+
+Use on `github.pr_opened` and `github.pr_synced`. You review every PR; Dru never does.
+
+## 1. Read the whole diff
+
+```bash
+gh pr view <n> --json title,body,headRefName
+gh pr diff <n>
+```
+
+The whole diff, not Codex's summary — including on a `pr_synced` fix round, since bursts are
+coalesced into one event.
+
+## 2. Check CI — it is the truth
+
+```bash
+gh pr checks <n>
+```
+
+**Codex's self-reported checks have been wrong repeatedly**: missing tests, shell bugs, UI that
+overflows a phone, SSE that opened hundreds of connections. Believe `gh pr checks` and what you ran
+yourself. *No checks at all* means a merge conflict, not a slow queue — rebase, don't wait.
+
+## 3. Run what it ships
+
+A diff cannot show behaviour. Pull the branch into a worktree under the scratchpad dir and run it —
+`git worktree add <scratchpad>/wt-<slug> codex/<slug>`. Services: start it and curl the new routes,
+checking shapes and status codes. UI: build it and open it at 375×812 **and** 1280×900. Remove the
+worktree once the PR merges (`git worktree remove`).
+
+## 4. Judge it
+
+- Every acceptance criterion from the issue is actually met — check them one by one.
+- No new globals. No secrets. Nothing under `.factory/`.
+- No issue/PR numbers or GitHub links leaking into anything the Pak renders.
+- Idiomatic for this codebase; reuses what exists instead of reinventing it.
+- Not over-engineered for what the issue asked. No speculative abstraction layers.
+- Do not nitpick what the linter and formatter already enforce.
+
+## 5. Request changes, or merge
+
+```bash
+gh pr review <n> --request-changes -b "<the review, specific and ordered>"
+npx -y @openai/codex@latest cloud exec \
+  --env 6a9be268ad288191b44bbdefcbe977ee --branch codex/<slug> \
+  "Address the review on PR #<n> of drufball/wyld: <feedback verbatim>. Commit and push to the same \
+branch; do not open a new PR."
+```
+
+`--branch` reads the branch as it exists on GitHub **now** — push anything you applied locally
+first, or Codex works from a stale branch.
+
+Green and correct → `merge-and-ship.md`.
+
+## 6. Keep the Pak honest
+
+Post a note only when the state actually changed in a way Dru would care about. Refresh the quest's
+since-you-looked line (`PROTOCOL.md` §3) — in plain English, with no PR number in it.

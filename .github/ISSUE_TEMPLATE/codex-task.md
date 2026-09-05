@@ -8,8 +8,6 @@ assignees: []
 
 <!-- quest: -->
 
-@codex please implement this.
-
 ## Context
 
 Why this exists and what already landed that it builds on. Link prior PRs if relevant.
