@@ -1,7 +1,7 @@
 import { NewEvent, type NextAction } from '@wyld/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { getPresence, listQuests, postEvent, postSeen } from '../api/client.js';
+import { getPresence, listQuests, postEvent } from '../api/client.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { countInWords } from '../words.js';
 
@@ -32,7 +32,6 @@ export function Today({
   const [acknowledged, setAcknowledged] = useState(false);
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const [buildingCount, setBuildingCount] = useState(0);
-  const seen = useRef(false);
   const intentField = useRef<HTMLTextAreaElement>(null);
   const acknowledgementTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { subscribe } = useLiveEvents();
@@ -60,11 +59,6 @@ export function Today({
     loadBuildingCount();
     return subscribe('planner.quest_updated', loadBuildingCount);
   }, [loadBuildingCount, subscribe]);
-  useEffect(() => {
-    if (seen.current) return;
-    seen.current = true;
-    void postSeen().catch(() => undefined);
-  }, []);
   useEffect(() => () => clearTimeout(acknowledgementTimer.current), []);
   useLayoutEffect(() => {
     const field = intentField.current;

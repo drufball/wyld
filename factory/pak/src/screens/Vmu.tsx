@@ -1,8 +1,45 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { getCatchup, listQuests } from '../api/client.js';
+import { countInWords } from '../words.js';
+
 export function Vmu() {
+  const [catchup, setCatchup] = useState<Awaited<ReturnType<typeof getCatchup>> | null>(null);
+  const [buildingCount, setBuildingCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    void getCatchup()
+      .then(setCatchup)
+      .catch(() => setCatchup(null));
+    void listQuests({ status: 'building' })
+      .then((quests) => setBuildingCount(quests.length))
+      .catch(() => setBuildingCount(0));
+  }, []);
+
+  const nextAction = catchup?.nextAction ?? null;
+  const quiet = catchup !== null && buildingCount === 0 && nextAction === null;
   return (
     <main className="vmu">
       <h1>VMU</h1>
-      <p>The phone-glance view: what's paused, what's next.</p>
+      {catchup?.show && (
+        <Link className="vmu-catchup" to="/catch-up">
+          Catch-Up ready
+        </Link>
+      )}
+      {nextAction !== null &&
+        (nextAction.deepLink ? (
+          <Link className="vmu-action" to={nextAction.deepLink}>
+            {nextAction.text}
+          </Link>
+        ) : (
+          <p className="vmu-action">{nextAction.text}</p>
+        ))}
+      {buildingCount !== null && buildingCount > 0 && (
+        <Link className="vmu-cranking" to="/worlds">
+          Cranking on {countInWords(buildingCount)} {buildingCount === 1 ? 'quest' : 'quests'}.
+        </Link>
+      )}
+      {quiet && <p className="vmu-quiet">Controller's quiet.</p>}
     </main>
   );
 }

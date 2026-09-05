@@ -1,4 +1,5 @@
 import {
+  CatchupView,
   Event,
   NewEvent,
   Presence,
@@ -37,6 +38,10 @@ export async function getPresence() {
 
 export async function postSeen() {
   return Presence.parse(await request('/api/presence/seen', { method: 'POST' }, 'Recording visit'));
+}
+
+export async function getCatchup() {
+  return CatchupView.parse(await request('/api/catchup', {}, 'Loading catch-up'));
 }
 
 export async function listWorlds() {

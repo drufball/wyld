@@ -1,5 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { Nav } from './components/Nav.js';
+import { CatchUpGate } from './CatchUpGate.js';
+import { CatchUp } from './screens/CatchUp.js';
 import { Debug } from './screens/Debug.js';
 import { Demos } from './screens/Demos.js';
 import { Memory } from './screens/Memory.js';
@@ -15,7 +17,9 @@ function Shell() {
     <div className="pak-shell">
       <Nav />
       <main className="pak-content">
-        <Outlet />
+        <CatchUpGate>
+          <Outlet />
+        </CatchUpGate>
       </main>
     </div>
   );
@@ -28,6 +32,7 @@ export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFa
         <Route path="/vmu" element={<Vmu />} />
         <Route element={<Shell />}>
           <Route index element={<Today />} />
+          <Route path="catch-up" element={<CatchUp />} />
           <Route path="worlds" element={<Worlds />} />
           <Route path="worlds/:id" element={<WorldQuests />} />
           <Route path="demos" element={<Demos />} />
