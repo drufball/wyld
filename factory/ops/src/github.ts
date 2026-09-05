@@ -24,6 +24,7 @@ const PullRequest = z.object({
 });
 const PullRequests = z.array(
   PullRequest.extend({
+    createdAt: z.string(),
     statusCheckRollup: z.array(
       z.object({
         __typename: z.string(),
@@ -64,6 +65,7 @@ function reportReadError(source: string, error: unknown): void {
 export async function readGithubStatus(
   repo: string,
   run: CommandRunner = runCommand,
+  now: Date = new Date(),
 ): Promise<GithubStatus> {
   const calls = await Promise.allSettled([
     run('gh', [
@@ -88,7 +90,7 @@ export async function readGithubStatus(
       '--limit',
       '50',
       '--json',
-      'number,headRefName,isDraft,statusCheckRollup',
+      'number,headRefName,isDraft,createdAt,statusCheckRollup',
     ]),
     run('gh', ['api', 'rate_limit']),
   ]);
@@ -148,7 +150,12 @@ export async function readGithubStatus(
   }
 
   const robotStates = robots?.map<State>((pr) => {
-    if (pr.statusCheckRollup.length === 0) return 'fail';
+    if (pr.statusCheckRollup.length === 0) {
+      const createdAt = new Date(pr.createdAt);
+      return !Number.isNaN(createdAt.getTime()) && now.getTime() - createdAt.getTime() < 5 * 60_000
+        ? 'pending'
+        : 'fail';
+    }
     if (pr.statusCheckRollup.some((check) => check.status !== 'COMPLETED')) return 'pending';
     return pr.statusCheckRollup.some((check) =>
       ['FAILURE', 'TIMED_OUT', 'CANCELLED', 'STARTUP_FAILURE', 'ACTION_REQUIRED'].includes(
