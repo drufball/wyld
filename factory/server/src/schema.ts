@@ -30,6 +30,21 @@ export const healthReports = sqliteTable(
   (table) => [index('health_ts_idx').on(table.ts)],
 );
 
+export const opsReports = sqliteTable(
+  'ops_reports',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    ts: text('ts').notNull(),
+    ciState: text('ci_state').notNull(),
+    ciDetail: text('ci_detail'),
+    codexPrsOpen: integer('codex_prs_open').notNull(),
+    ghRateRemaining: integer('gh_rate_remaining'),
+    ghRateLimit: integer('gh_rate_limit'),
+    tokensToday: integer('tokens_today'),
+  },
+  (table) => [index('ops_reports_ts_idx').on(table.ts)],
+);
+
 export const presence = sqliteTable('presence', {
   id: integer('id').primaryKey(),
   lastSeenAt: text('last_seen_at').notNull(),

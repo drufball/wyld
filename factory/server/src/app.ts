@@ -24,6 +24,7 @@ import { createStaticHandler } from './static.js';
 import { createWakeForwarder } from './forwarder.js';
 import { createQuestRoutes, formatIssues } from './quests.js';
 import { createChainRoutes } from './chains.js';
+import { createOpsRoutes, latestOpsReport } from './ops.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -54,6 +55,7 @@ const CatchupPost = z
 export const CATCHUP_AWAY_SECONDS = 7200;
 export const CATCHUP_UNSEEN_EVENTS = 20;
 export const PLANNER_STALE_SECONDS = 600;
+export const OPS_STALE_SECONDS = 600;
 
 const WakeHealth = z
   .object({
@@ -345,6 +347,7 @@ export function createApp(dependencies: AppDependencies) {
 
   app.route('/api', createQuestRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
+  app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
 
   app.get('/api/health', (c) => c.json(serverHealth()));
 
@@ -364,6 +367,10 @@ export function createApp(dependencies: AppDependencies) {
   app.get('/api/health/snapshot', async (c) => {
     const current = now();
     const latest = db.select().from(healthReports).orderBy(desc(healthReports.ts)).get();
+    const latestOps = latestOpsReport(dependencies.database);
+    const opsFresh =
+      latestOps !== undefined &&
+      current.getTime() - new Date(latestOps.ts).getTime() <= OPS_STALE_SECONDS * 1000;
     const stale =
       latest === undefined ||
       current.getTime() - new Date(latest.ts).getTime() > PLANNER_STALE_SECONDS * 1000;
@@ -397,11 +404,32 @@ export function createApp(dependencies: AppDependencies) {
         },
         server: { ...serverHealth(), eventsToday },
         wake,
-        github: {
-          ciState: latest?.ciState ?? 'unknown',
-          ...(latest?.ghRateRemaining == null ? {} : { rateRemaining: latest.ghRateRemaining }),
-          ...(latest?.codexPrsOpen == null ? {} : { codexPrsOpen: latest.codexPrsOpen }),
-        },
+        github: opsFresh
+          ? {
+              ciState: latestOps.ciState,
+              ...(latestOps.ciDetail === null ? {} : { ciDetail: latestOps.ciDetail }),
+              ...(latestOps.ghRateRemaining === null
+                ? {}
+                : { rateRemaining: latestOps.ghRateRemaining }),
+              ...(latestOps.ghRateLimit === null ? {} : { rateLimit: latestOps.ghRateLimit }),
+              codexPrsOpen: latestOps.codexPrsOpen,
+              reportedAt: latestOps.ts,
+              source: 'ops',
+            }
+          : latest === undefined
+            ? { ciState: 'unknown', source: 'none' }
+            : {
+                ciState: latest.ciState ?? 'unknown',
+                ...(latest.ghRateRemaining === null
+                  ? {}
+                  : { rateRemaining: latest.ghRateRemaining }),
+                ...(latest.codexPrsOpen === null ? {} : { codexPrsOpen: latest.codexPrsOpen }),
+                reportedAt: latest.ts,
+                source: 'planner',
+              },
+        ...(opsFresh && latestOps.tokensToday !== null
+          ? { tokensToday: latestOps.tokensToday }
+          : {}),
         ...(latest?.costToday == null ? {} : { costToday: latest.costToday }),
         ...(latest?.pausedReason == null ? {} : { pausedReason: latest.pausedReason }),
       }),

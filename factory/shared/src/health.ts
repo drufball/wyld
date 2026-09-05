@@ -20,6 +20,18 @@ export const HealthReport = z
   .strict();
 export type HealthReport = z.infer<typeof HealthReport>;
 
+export const OpsReport = z
+  .object({
+    ciState: CiState,
+    ciDetail: z.string().max(200).optional(),
+    codexPrsOpen: z.number().int().min(0),
+    ghRateRemaining: z.number().int().min(0).optional(),
+    ghRateLimit: z.number().int().min(0).optional(),
+    tokensToday: z.number().int().min(0).optional(),
+  })
+  .strict();
+export type OpsReport = z.infer<typeof OpsReport>;
+
 export const HealthSnapshot = z
   .object({
     ts: z.iso.datetime(),
@@ -44,9 +56,14 @@ export const HealthSnapshot = z
     }),
     github: z.object({
       ciState: CiState,
+      ciDetail: z.string().optional(),
       rateRemaining: z.number().int().min(0).optional(),
+      rateLimit: z.number().int().min(0).optional(),
       codexPrsOpen: z.number().int().min(0).optional(),
+      reportedAt: z.iso.datetime().optional(),
+      source: z.enum(['ops', 'planner', 'none']),
     }),
+    tokensToday: z.number().int().min(0).optional(),
     costToday: z.number().min(0).optional(),
     pausedReason: z.string().optional(),
   })

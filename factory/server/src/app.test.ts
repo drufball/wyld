@@ -45,6 +45,82 @@ describe('Pak server', () => {
     });
   }
 
+  async function postOps(body: unknown) {
+    return app.request('/api/ops/report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('prefers fresh ops measurements without changing Planner state', async () => {
+    let clock = new Date('2026-09-05T12:00:00.000Z');
+    app = createApp({ database, now: () => clock, logger: silentLogger });
+    await postHealth({
+      plannerState: 'working',
+      currentTask: 'ship issue 60',
+      ciState: 'fail',
+      codexPrsOpen: 9,
+      ghRateRemaining: 10,
+      costToday: 2.5,
+    });
+    await postOps({
+      ciState: 'pass',
+      ciDetail: 'main is green',
+      codexPrsOpen: 2,
+      ghRateRemaining: 4987,
+      ghRateLimit: 5000,
+      tokensToday: 1234567,
+    });
+    clock = new Date(clock.getTime() + 1000);
+    await postHealth({ plannerState: 'idle', currentTask: 'waiting', ciState: 'pending' });
+
+    expect(await (await app.request('/api/health/snapshot')).json()).toMatchObject({
+      planner: { state: 'idle', currentTask: 'waiting' },
+      github: {
+        ciState: 'pass',
+        ciDetail: 'main is green',
+        codexPrsOpen: 2,
+        rateRemaining: 4987,
+        rateLimit: 5000,
+        reportedAt: '2026-09-05T12:00:00.000Z',
+        source: 'ops',
+      },
+      tokensToday: 1234567,
+    });
+  });
+
+  it('falls back to a Planner heartbeat when the newest ops report is stale', async () => {
+    let clock = new Date('2026-09-05T12:00:00.000Z');
+    app = createApp({ database, now: () => clock, logger: silentLogger });
+    await postOps({ ciState: 'pass', codexPrsOpen: 2, tokensToday: 123 });
+    clock = new Date(clock.getTime() + 601_000);
+    await postHealth({
+      plannerState: 'online',
+      ciState: 'pending',
+      codexPrsOpen: 4,
+      ghRateRemaining: 90,
+    });
+
+    const snapshot = await (await app.request('/api/health/snapshot')).json();
+    expect(snapshot).toMatchObject({
+      github: {
+        ciState: 'pending',
+        codexPrsOpen: 4,
+        rateRemaining: 90,
+        reportedAt: clock.toISOString(),
+        source: 'planner',
+      },
+    });
+    expect(snapshot).not.toHaveProperty('tokensToday');
+  });
+
+  it('reports an unknown github state and no source when nothing was reported', async () => {
+    expect(await (await app.request('/api/health/snapshot')).json()).toMatchObject({
+      github: { ciState: 'unknown', source: 'none' },
+    });
+  });
+
   it('round-trips Planner health without creating an event', async () => {
     const response = await postHealth({
       plannerState: 'working',
