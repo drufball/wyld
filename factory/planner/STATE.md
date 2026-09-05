@@ -61,8 +61,13 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
    labelled "LEAD CHECK (not Dru)" is a lead's test, ignore it.
 3. `pak_read_rumbles`: four real cards are open (see the 1.6 row). Nothing to do until Dru decides;
    a `human.decision` event carries the choice — record it and unpark what it unblocks (§2).
-4. **1.7 Demo Discs is done** (#80/#81/#84/#85/#87). Respawn to load `pak_register_demo`,
-   `pak_read_demos` and `pak_read_feedback`, then pick up the queued leads in Open items
+4. **1.7 Demo Discs is done** (#80/#81/#84/#85/#87). The Planner deferred its respawn
+   (2026-09-05 22:45) until the `wake-hot-reload` lead lands, so there is one restart instead of
+   two; until then rebuild/register discs with the `curl` in Open items. Two leads are running in
+   parallel: `pak-theme` (only `factory/pak`) and `wake-hot-reload` (`factory/wake` +
+   `factory/shared` + `.claude/settings.json`). `improved-chains` starts after both. If this
+   session was just respawned and those leads are gone, check `gh pr list` / `gh issue list` for
+   their open work and re-spawn each lead with "continue from the open issues/PRs" in its brief
    (`wake-hot-reload`, `pak-theme`, `improved-chains`). `human.feedback` now really arrives — the
    PROTOCOL §2 row for it is live, not reserved.
 5. Use `pak_send_message` for heads-ups Dru can reply to; `pak_post_note` only for the quest card's
