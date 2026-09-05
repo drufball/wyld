@@ -346,3 +346,4 @@ Short playbooks for the four things you do most. Read the one that matches befor
 | `skills/file-codex-issue.md` | A quest is planned and needs its first (or next) unit of work. |
 | `skills/review-pr.md` | `github.pr_opened` or `github.pr_synced`. |
 | `skills/merge-and-ship.md` | `github.ci_completed` green on a reviewed PR. |
+| `skills/write-catchup.md` | Dru is about to come back after a while away — after a batch of merges, or at the end of Sleep Mode. |
