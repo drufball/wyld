@@ -14,6 +14,7 @@ const Environment = z.object({
   PAK_PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   PAK_DIST: z.string().min(1).default(defaultPakDist),
   WAKE_URL: z.url().optional(),
+  WAKE_SECRET: z.string().optional(),
 });
 
 export type Config = {
@@ -22,6 +23,7 @@ export type Config = {
   port: number;
   pakDist: string;
   wakeUrl?: string;
+  wakeSecret?: string;
 };
 
 export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config {
@@ -35,5 +37,6 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     port: result.data.PAK_PORT,
     pakDist: result.data.PAK_DIST,
     ...(result.data.WAKE_URL === undefined ? {} : { wakeUrl: result.data.WAKE_URL }),
+    ...(result.data.WAKE_SECRET === undefined ? {} : { wakeSecret: result.data.WAKE_SECRET }),
   };
 }

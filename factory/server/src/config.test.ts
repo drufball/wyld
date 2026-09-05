@@ -12,6 +12,7 @@ describe('readConfig', () => {
         PAK_PORT: '9000',
         PAK_DIST: '/tmp/pak-dist',
         WAKE_URL: 'http://localhost:8788/event',
+        WAKE_SECRET: 'shared-secret',
       }),
     ).toEqual({
       factoryDir: '/tmp/factory',
@@ -19,6 +20,7 @@ describe('readConfig', () => {
       port: 9000,
       pakDist: '/tmp/pak-dist',
       wakeUrl: 'http://localhost:8788/event',
+      wakeSecret: 'shared-secret',
     });
   });
 
