@@ -1,5 +1,5 @@
 import { NewEvent, type NextAction } from '@wyld/shared';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { getPresence, listQuests, postEvent, postSeen } from '../api/client.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
@@ -33,6 +33,7 @@ export function Today({
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const [buildingCount, setBuildingCount] = useState(0);
   const seen = useRef(false);
+  const intentField = useRef<HTMLTextAreaElement>(null);
   const acknowledgementTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { subscribe } = useLiveEvents();
 
@@ -65,6 +66,12 @@ export function Today({
     void postSeen().catch(() => undefined);
   }, []);
   useEffect(() => () => clearTimeout(acknowledgementTimer.current), []);
+  useLayoutEffect(() => {
+    const field = intentField.current;
+    if (!field) return;
+    field.style.height = 'auto';
+    field.style.height = `${field.scrollHeight}px`;
+  }, [text]);
 
   const send = (intent: string) => {
     setFailedText(null);
@@ -92,11 +99,19 @@ export function Today({
         <label htmlFor="today-intent">What do we make today?</label>
         <span className="today-input-line">
           <span aria-hidden="true">&gt;</span>
-          <input
+          <textarea
+            ref={intentField}
             id="today-intent"
+            rows={1}
             autoFocus
             value={text}
             onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
             autoComplete="off"
           />
         </span>

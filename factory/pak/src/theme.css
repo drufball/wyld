@@ -100,8 +100,10 @@ p {
   color: var(--pak-orange);
 }
 
-.today-input-line input {
+.today-input-line textarea {
+  min-height: 1.8em;
   width: 100%;
+  box-sizing: border-box;
   border: 0;
   border-bottom: 2px solid var(--pak-bevel-light);
   outline: none;
@@ -109,10 +111,12 @@ p {
   background: transparent;
   caret-color: var(--pak-orange);
   font: inherit;
+  overflow: hidden;
+  resize: none;
   animation: terminal-caret 1s steps(2, jump-none) infinite;
 }
 
-.today-input-line input:focus {
+.today-input-line textarea:focus {
   border-bottom-color: var(--pak-orange);
 }
 .today-response {
@@ -379,6 +383,24 @@ a.today-action:focus-visible {
 .quest-list {
   display: grid;
   gap: var(--pak-space-4);
+}
+.done-quests {
+  display: grid;
+  gap: var(--pak-space-4);
+}
+.done-quests__toggle {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 2px solid var(--pak-bevel-light);
+  color: var(--pak-ink);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.done-quests__toggle:focus-visible {
+  outline: 3px solid var(--pak-orange);
+  outline-offset: 3px;
 }
 .quest-card {
   min-width: 0;

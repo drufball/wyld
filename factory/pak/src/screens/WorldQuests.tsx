@@ -154,6 +154,11 @@ export function QuestCard({ quest, onChange }: { quest: Quest; onChange: (quest:
         <button type="button" onClick={() => act(togglePark)}>
           {parked ? 'Unpark' : 'Park'}
         </button>
+        {quest.status !== 'done' && !parked && (
+          <button type="button" onClick={() => act(() => patchQuestStatus(quest.id, 'done'))}>
+            Done
+          </button>
+        )}
         <button type="button" aria-expanded={asking} onClick={() => setAsking((value) => !value)}>
           Ask
         </button>
@@ -191,6 +196,7 @@ export function WorldQuests() {
   const { id = '' } = useParams();
   const [name, setName] = useState('World');
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [doneExpanded, setDoneExpanded] = useState(false);
   const { subscribe } = useLiveEvents();
   const replaceQuest = useCallback(
     (quest: Quest) => {
@@ -215,6 +221,7 @@ export function WorldQuests() {
   );
 
   useEffect(() => {
+    setDoneExpanded(false);
     void listWorlds()
       .then((worlds) => setName(worlds.find((world) => world.id === id)?.name ?? 'World'))
       .catch(() => undefined);
@@ -227,13 +234,32 @@ export function WorldQuests() {
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }, [refreshQuest, subscribe]);
 
+  const activeQuests = quests.filter((quest) => quest.status !== 'done');
+  const doneQuests = quests.filter((quest) => quest.status === 'done');
+
   return (
     <section className="world-quests">
       <h1>{name}</h1>
       <div className="quest-list">
-        {quests.map((quest) => (
+        {activeQuests.map((quest) => (
           <QuestCard key={quest.id} quest={quest} onChange={replaceQuest} />
         ))}
+        {doneQuests.length > 0 && (
+          <section className="done-quests">
+            <button
+              className="done-quests__toggle"
+              type="button"
+              aria-expanded={doneExpanded}
+              onClick={() => setDoneExpanded((expanded) => !expanded)}
+            >
+              Done ({doneQuests.length})
+            </button>
+            {doneExpanded &&
+              doneQuests.map((quest) => (
+                <QuestCard key={quest.id} quest={quest} onChange={replaceQuest} />
+              ))}
+          </section>
+        )}
       </div>
       {quests.length === 0 && <p className="pak-dim">No quests are stirring here.</p>}
     </section>

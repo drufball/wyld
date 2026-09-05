@@ -158,6 +158,44 @@ describe('World quests', () => {
     );
   });
 
+  it('moves active quests into the collapsed done section and toggles it', async () => {
+    const finishedQuest = { ...quest, id: 'plant-trees', title: 'Plant the trees', status: 'done' };
+    const parkedQuest = { ...quest, id: 'dig-cave', title: 'Dig a cave', status: 'parked' };
+    const fetch = vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/quests?world=wyld') return response([quest, parkedQuest, finishedQuest]);
+      if (url === '/api/quests/make-map' && init?.method === 'PATCH') {
+        return response({ ...quest, status: 'done' });
+      }
+      return baseFetch(url, init);
+    });
+    renderScreen(fetch);
+
+    expect(await screen.findByText(quest.title)).not.toBeNull();
+    expect(screen.queryByText(finishedQuest.title)).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Done' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Done (1)' }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByText(quest.title)).toBeNull());
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/quests/make-map',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'done', source: 'human' }),
+      }),
+    );
+
+    const toggle = screen.getByRole('button', { name: 'Done (2)' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText(quest.title)).not.toBeNull();
+    expect(screen.getByText(finishedQuest.title)).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+  });
+
   it('posts an Ask and renders a planner note arriving live', async () => {
     let notes = [note];
     const plannerNote = { ...note, id: 2, author: 'planner', text: 'Follow the lanterns.' };
