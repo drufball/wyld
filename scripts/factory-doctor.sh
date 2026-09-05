@@ -11,6 +11,15 @@ ok() { echo "ok: $*"; ok_count=$((ok_count + 1)); }
 warn() { echo "warn: $*"; warn_count=$((warn_count + 1)); }
 fail() { echo "fail: $*"; fail_count=$((fail_count + 1)); }
 
+if [[ -f .factory/env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .factory/env
+  set +a
+fi
+PAK_PORT="${PAK_PORT:-8787}"
+WAKE_PORT="${WAKE_PORT:-8788}"
+
 for tool in tmux gh claude node pnpm; do
   if command -v "$tool" >/dev/null 2>&1; then
     ok "$tool is installed"
@@ -65,7 +74,7 @@ else
   done
 fi
 
-for port in 8787 8788; do
+for port in "$PAK_PORT" "$WAKE_PORT"; do
   if command -v lsof >/dev/null 2>&1; then
     listeners="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $1 "(pid " $2 ")"}' | sort -u | paste -sd, - || true)"
     if [[ -n "$listeners" ]]; then
@@ -100,8 +109,8 @@ check_health() {
   fi
 }
 
-check_health 'Pak server' 'http://localhost:8787/api/health' pak
-check_health 'Wake' 'http://localhost:8788/health' wake
+check_health 'Pak server' "http://localhost:${PAK_PORT}/api/health" pak
+check_health 'Wake' "http://localhost:${WAKE_PORT}/health" wake
 
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t wyld 2>/dev/null; then
   windows="$(tmux list-windows -t wyld -F '#{window_name}' | paste -sd, -)"

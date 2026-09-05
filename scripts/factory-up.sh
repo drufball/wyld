@@ -13,6 +13,8 @@ set -a
 source .factory/env
 set +a
 
+WAKE_PORT="${WAKE_PORT:-8788}"
+
 if ! command -v tmux >/dev/null 2>&1; then
   echo 'error: tmux is not installed' >&2
   exit 1
@@ -44,10 +46,10 @@ else
 fi
 
 tmux new-window -d -t wyld -n webhook -c "$PWD" \
-  'gh webhook forward --repo drufball/wyld --events '\''*'\'' --url http://localhost:8788/gh --secret "$GH_WEBHOOK_SECRET"'
+  "until gh webhook forward --repo drufball/wyld --events '*' --url 'http://localhost:${WAKE_PORT}/gh' --secret \"\$GH_WEBHOOK_SECRET\"; do echo 'webhook forward exited; restarting in 5s'; sleep 5; done"
 started+=(webhook)
 
-if pnpm --filter @wyld/wake build; then
+if pnpm --filter @wyld/wake... build; then
   tmux new-window -d -t wyld -n planner -c "$PWD" \
     'claude --dangerously-load-development-channels server:wake'
   started+=(planner)

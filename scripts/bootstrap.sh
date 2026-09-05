@@ -8,6 +8,7 @@ if ! corepack enable; then
 fi
 
 pnpm install --frozen-lockfile
+pnpm build
 mkdir -p .factory/{logs,demos,worktrees}
 
 if [[ -f .factory/env ]]; then
