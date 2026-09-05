@@ -666,6 +666,70 @@ a.today-action:focus-visible {
   font: inherit;
 }
 
+.debug-menu {
+  min-width: 0;
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--pak-space-3);
+}
+
+.debug-tile {
+  min-width: 0;
+  border-top-color: var(--pak-ink-dim);
+}
+
+.debug-tile[data-tone='ok'] {
+  border-top-color: var(--pak-jewel-green);
+}
+
+.debug-tile[data-tone='warn'] {
+  border-top-color: var(--pak-jewel-yellow);
+}
+
+.debug-tile[data-tone='bad'] {
+  border-top-color: var(--pak-jewel-red);
+}
+
+.debug-tile h2,
+.debug-tile p {
+  margin: 0;
+}
+
+.debug-tile h2 {
+  color: var(--pak-ink-dim);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.debug-tile__value {
+  display: block;
+  margin-block: var(--pak-space-2);
+  font-family: var(--pak-display);
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.debug-tile p,
+.debug-error {
+  color: var(--pak-ink-dim);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.debug-pause {
+  margin-bottom: var(--pak-space-3);
+  border-top-color: var(--pak-jewel-yellow);
+}
+
+@media (max-width: 480px) {
+  .debug-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .quest-filter button[aria-pressed='true'] {
   border-color: var(--pak-jewel-blue);
   background: var(--pak-jewel-blue);

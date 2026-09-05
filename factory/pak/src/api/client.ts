@@ -1,6 +1,7 @@
 import {
   CatchupView,
   Event,
+  HealthSnapshot,
   NewEvent,
   Presence,
   Quest,
@@ -34,6 +35,10 @@ export async function postEvent(newEvent: NewEventType) {
 
 export async function getPresence() {
   return Presence.parse(await request('/api/presence', {}, 'Loading presence'));
+}
+
+export async function getHealthSnapshot() {
+  return HealthSnapshot.parse(await request('/api/health/snapshot', {}, 'Loading factory health'));
 }
 
 export async function postSeen() {
