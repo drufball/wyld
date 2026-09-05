@@ -15,6 +15,13 @@
       "when": 1788612477498,
       "tag": "0001_busy_mac_gargan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788617238224,
+      "tag": "0002_open_rattler",
+      "breakpoints": true
     }
   ]
 }

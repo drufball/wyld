@@ -216,3 +216,176 @@ describe('Pak server', () => {
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
   });
 });
+
+describe('quest API', () => {
+  let directory: string;
+  let database: AppDatabase;
+  let app: ReturnType<typeof createApp>;
+
+  beforeEach(() => {
+    directory = fs.mkdtempSync(path.join(os.tmpdir(), 'wyld-quests-'));
+    database = openDatabase(path.join(directory, 'pak.sqlite'), migrationsFolder);
+    app = createApp({
+      database,
+      logger: silentLogger,
+      now: () => new Date('2026-01-02T03:04:05.000Z'),
+    });
+  });
+
+  afterEach(() => {
+    database.sqlite.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+
+  const send = (url: string, method: string, body: unknown, headers?: Record<string, string>) =>
+    app.request(url, {
+      method,
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    });
+
+  async function createWorldAndQuest() {
+    await send('/api/worlds', 'POST', {
+      id: 'game',
+      name: 'Game',
+      kind: 'game',
+      order: 1,
+      icon: '🎮',
+    });
+    return send('/api/quests', 'POST', {
+      id: 'catch-up',
+      worldId: 'game',
+      title: 'Catch-Up',
+      pitch: 'See recent work',
+    });
+  }
+
+  it('upserts and lists worlds with complete quest counts', async () => {
+    expect((await createWorldAndQuest()).status).toBe(200);
+    const worlds = await (await app.request('/api/worlds')).json();
+    expect(worlds).toEqual([
+      {
+        id: 'game',
+        name: 'Game',
+        kind: 'game',
+        order: 1,
+        icon: '🎮',
+        questCounts: { idea: 1, planning: 0, building: 0, demo: 0, done: 0, parked: 0 },
+      },
+    ]);
+    expect((await send('/api/worlds', 'POST', { id: '', name: '', kind: 'bad' })).status).toBe(400);
+  });
+
+  it('creates, filters, patches, and rejects invalid or unknown quests', async () => {
+    const created = await createWorldAndQuest();
+    expect(await created.json()).toMatchObject({
+      id: 'catch-up',
+      status: 'idea',
+      progress: 0,
+      sinceYouLooked: '',
+      lastNote: '',
+    });
+    expect(await (await app.request('/api/quests?world=game&status=idea')).json()).toHaveLength(1);
+    expect((await app.request('/api/quests?world=missing')).status).toBe(404);
+    expect((await app.request('/api/quests/missing')).status).toBe(404);
+    expect(
+      (await send('/api/quests', 'POST', { id: 'x', worldId: 'missing', title: 'X', pitch: 'X' }))
+        .status,
+    ).toBe(404);
+    expect((await send('/api/quests/catch-up', 'PATCH', {})).status).toBe(400);
+    expect(
+      await (await send('/api/quests/catch-up', 'PATCH', { status: 'building' })).json(),
+    ).toMatchObject({ status: 'building' });
+  });
+
+  it('keeps links private while deriving progress and emitting sanitized events', async () => {
+    await createWorldAndQuest();
+    expect(
+      (
+        await send('/api/quests/catch-up/links', 'POST', {
+          ghKind: 'issue',
+          ghRef: '22',
+          state: 'closed',
+        })
+      ).status,
+    ).toBe(200);
+    expect((await app.request('/api/quests/catch-up/links')).status).toBe(404);
+    expect(
+      await (
+        await app.request('/api/quests/catch-up/links', { headers: { 'X-Planner': '1' } })
+      ).json(),
+    ).toEqual([{ questId: 'catch-up', ghKind: 'issue', ghRef: '22', state: 'closed' }]);
+    const listText = JSON.stringify(await (await app.request('/api/quests')).json());
+    const itemText = JSON.stringify(await (await app.request('/api/quests/catch-up')).json());
+    const eventText = JSON.stringify(await (await app.request('/api/events')).json());
+    expect(listText).not.toContain('ghRef');
+    expect(itemText).not.toContain('ghRef');
+    expect(eventText).not.toContain('ghRef');
+    expect(eventText).not.toContain('22');
+    expect(JSON.parse(itemText)).toMatchObject({ progress: 1 });
+    expect(
+      (
+        await send('/api/quests/catch-up/links', 'POST', {
+          ghKind: 'nope',
+          ghRef: '1',
+          state: 'open',
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await send('/api/quests/missing/links', 'POST', {
+          ghKind: 'issue',
+          ghRef: '1',
+          state: 'open',
+        })
+      ).status,
+    ).toBe(404);
+  });
+
+  it('appends notes, updates lastNote, validates intent, and limits recent notes oldest-first', async () => {
+    await createWorldAndQuest();
+    expect(
+      (
+        await send('/api/quests/catch-up/notes', 'POST', {
+          author: 'planner',
+          text: 'First',
+          intent: 'ask',
+        })
+      ).status,
+    ).toBe(400);
+    const first = await (
+      await send('/api/quests/catch-up/notes', 'POST', {
+        author: 'human',
+        text: 'First',
+        intent: 'nudge',
+      })
+    ).json();
+    const second = await (
+      await send('/api/quests/catch-up/notes', 'POST', { author: 'planner', text: 'Second' })
+    ).json();
+    expect(await (await app.request('/api/quests/catch-up/notes?limit=1')).json()).toEqual([
+      second,
+    ]);
+    expect(first).toMatchObject({ id: 1, questId: 'catch-up', ts: '2026-01-02T03:04:05.000Z' });
+    expect(await (await app.request('/api/quests/catch-up')).json()).toMatchObject({
+      lastNote: 'Second',
+    });
+    expect((await app.request('/api/quests/catch-up/notes?limit=201')).status).toBe(400);
+    expect((await app.request('/api/quests/missing/notes')).status).toBe(404);
+  });
+
+  it('emits park and unpark events for human status changes', async () => {
+    await createWorldAndQuest();
+    await send('/api/quests/catch-up', 'PATCH', { status: 'parked', source: 'human' });
+    await send('/api/quests/catch-up', 'PATCH', { status: 'building', source: 'human' });
+    const events = (await (await app.request('/api/events')).json()) as Array<{
+      kind: string;
+      payload: unknown;
+    }>;
+    expect(events.slice(-2)).toMatchObject([
+      { kind: 'human.park', payload: { text: 'Park: Catch-Up' } },
+      { kind: 'human.park', payload: { text: 'Unpark: Catch-Up' } },
+    ]);
+  });
+});
