@@ -306,6 +306,32 @@ describe('Pak tools', () => {
     });
   });
 
+  it('routes list and call requests through a swapped registry', async () => {
+    const registered: CapturedHandler[] = [];
+    const registration = registerPakTools(
+      {
+        setRequestHandler: (_schema: unknown, handler: unknown) =>
+          registered.push(handler as CapturedHandler),
+      } as unknown as Server,
+      { pakUrl: 'http://pak', fetch: vi.fn() as typeof globalThis.fetch },
+    );
+    const callTool = vi.fn(async () => ({ content: [{ type: 'text' as const, text: 'swapped' }] }));
+    const swapped = {
+      ...registration.current(),
+      tools: [{ ...registration.current().tools[0]!, name: 'pak_swapped' }],
+      callTool,
+    } as ReturnType<typeof registration.current>;
+    registration.swap(swapped);
+
+    await expect(registered[0]!({})).resolves.toMatchObject({
+      tools: [{ name: 'pak_swapped' }],
+    });
+    await expect(registered[1]!({ params: { name: 'pak_swapped' } })).resolves.toMatchObject({
+      content: [{ text: 'swapped' }],
+    });
+    expect(callTool).toHaveBeenCalledWith({ name: 'pak_swapped' });
+  });
+
   it('posts event kinds without gating them against the adapter vocabulary', async () => {
     const fetch = vi.fn(async () => new Response('', { status: 200 }));
     const [, call] = handlers(fetch as typeof globalThis.fetch);

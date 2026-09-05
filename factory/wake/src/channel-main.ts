@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
@@ -10,6 +13,7 @@ import {
   parseClaimResponse,
   registerPakTools,
 } from './channel.js';
+import { createToolReloader } from './reload.js';
 
 const wakePort = process.env.WAKE_PORT ?? '8788';
 const wakeSecret = process.env.WAKE_SECRET ?? '';
@@ -19,12 +23,25 @@ const channelLog = createStreamLogger(process.stderr);
 const mcp = new Server(
   { name: 'wake', version: packageMetadata.version },
   {
-    capabilities: { experimental: { 'claude/channel': {} }, tools: {} },
+    capabilities: { experimental: { 'claude/channel': {} }, tools: { listChanged: true } },
     instructions: CHANNEL_INSTRUCTIONS,
   },
 );
-registerPakTools(mcp, { pakUrl: process.env.PAK_URL ?? 'http://localhost:8787' });
+const registerOptions = { pakUrl: process.env.PAK_URL ?? 'http://localhost:8787' };
+const registry = registerPakTools(mcp, registerOptions);
 await mcp.connect(new StdioServerTransport());
+
+const watching = path.dirname(fileURLToPath(import.meta.url));
+const reloader = createToolReloader({
+  moduleUrl: new URL('./channel.js', import.meta.url).href,
+  registerOptions,
+  swap: registry.swap,
+  notify: () => mcp.sendToolListChanged(),
+  log: channelLog,
+});
+reloader.watch(watching);
+process.on('SIGHUP', () => void reloader.reload('SIGHUP'));
+channelLog('info', 'wake channel hot reload armed', { pid: process.pid, watching });
 
 const daemonPost = createDaemonPost({ wakeUrl, wakeSecret, log: channelLog });
 
