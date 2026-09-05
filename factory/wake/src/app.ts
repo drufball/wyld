@@ -110,6 +110,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
       .orderBy(asc(messages.ts), asc(messages.id))
       .limit(parsed.data.limit)
       .all();
+    const skipped: number[] = [];
     const claimed = rows.flatMap((row) => {
       const message = WakeMessageWire.safeParse({
         source: row.source,
@@ -123,6 +124,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
         ts: row.ts,
       });
       if (!message.success) {
+        skipped.push(row.id);
         logger('warn', 'Wake queue skipped an unparseable message', {
           id: row.id,
           error: message.error.message,
@@ -131,6 +133,13 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
       }
       return [{ id: row.id, ...message.data }];
     });
+    if (skipped.length > 0) {
+      database.db
+        .update(messages)
+        .set({ deliveredAt: now().toISOString() })
+        .where(and(inArray(messages.id, skipped), isNull(messages.deliveredAt)))
+        .run();
+    }
     return c.json({ messages: claimed });
   });
 

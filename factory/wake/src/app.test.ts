@@ -133,7 +133,7 @@ describe('Wake app', () => {
     expect(await response.json()).toMatchObject({ messages: [{ chain: 7 }] });
   });
 
-  it('claims unknown kinds and skips malformed stored rows', async () => {
+  it('claims unknown kinds and retires malformed stored rows', async () => {
     const logger = vi.fn();
     app = createWakeApp({ database, wakeSecret, githubWebhookSecret, logger });
     const createdAt = '2026-09-05T12:00:00.000Z';
@@ -156,13 +156,21 @@ describe('Wake app', () => {
           createdAt,
           updatedAt: createdAt,
         },
+        {
+          source: 'github',
+          kind: 'github.pr_opened',
+          summary: 'A pending pull request',
+          ts: createdAt,
+          createdAt,
+          updatedAt: createdAt,
+        },
       ])
       .run();
 
     const response = await app.request('/queue/claim', {
       method: 'POST',
       headers: { 'X-Wake-Secret': wakeSecret },
-      body: '{}',
+      body: JSON.stringify({ limit: 2 }),
     });
     expect(await response.json()).toMatchObject({
       messages: [
@@ -174,6 +182,29 @@ describe('Wake app', () => {
       expect.any(String),
       expect.objectContaining({ id: 2 }),
     );
+
+    const skipped = database.sqlite
+      .prepare('SELECT delivered_at FROM messages WHERE id = ?')
+      .get(2) as { delivered_at: string | null };
+    expect(skipped.delivered_at).not.toBeNull();
+
+    const secondResponse = await app.request('/queue/claim', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret },
+      body: '{}',
+    });
+    const secondClaim = (await secondResponse.json()) as { messages: Array<{ id: number }> };
+    expect(secondClaim.messages).toMatchObject([
+      { id: 1, summary: 'A message from the future' },
+      { id: 3, summary: 'A pending pull request' },
+    ]);
+
+    await app.request('/queue/ack', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: secondClaim.messages.map(({ id }) => id) }),
+    });
+    expect(await queueDepth()).toBe(0);
   });
 
   it.each([
