@@ -12,6 +12,9 @@
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build",
     "smoke": "pnpm --filter @wyld/pak smoke",
+    "factory:up": "./scripts/factory-up.sh",
+    "factory:down": "./scripts/factory-down.sh",
+    "factory:doctor": "./scripts/factory-doctor.sh",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
