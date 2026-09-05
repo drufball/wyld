@@ -71,6 +71,13 @@ file is down to environment facts and open items. Keep it short; update it whene
 - Service-worker registration errored in the sandboxed in-app browser; unconfirmed on a real phone.
 - Upstream channel bugs: notifications may not reach an idle session (anthropics/claude-code
   #36827, #45563, #61797). If nothing arrives after an intent, suspect that first.
+- **Wake channel is not test-isolated** (seen 2026-09-05): a lead's local verification stack ran a
+  wake adapter, which forwarded its test events to the live Planner channel labeled as human
+  intents ("Dru: first line second line" was a lead testing the textarea, absent from the prod
+  event store — cross-check `pak_read_events` before acting on a surprising intent). Interim rule,
+  told to both leads: verification runs start server+UI only, scratch DB, explicit PAK_PORT, never
+  a wake process. Proper fix (wake refuses/namespaces a second adapter on the same channel) is a
+  future Codex unit.
 
 ## Seeded data (2026-09-05)
 
