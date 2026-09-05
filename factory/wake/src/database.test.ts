@@ -67,4 +67,18 @@ describe('enqueueMessage', () => {
 
     expect(database.db.select().from(messages).all()).toHaveLength(2);
   });
+
+  it('never coalesces decisions that unblock the same quest', () => {
+    const decision: WakeMessage = {
+      source: 'human',
+      kind: 'human.decision',
+      quest: 'rumble',
+      summary: 'Dru chose the focused scope.',
+      ts: '2026-01-01T00:00:00.000Z',
+    };
+    enqueueMessage(database, decision, new Date('2026-01-01T00:00:00.000Z'));
+    enqueueMessage(database, decision, new Date('2026-01-01T00:00:05.000Z'));
+
+    expect(database.db.select().from(messages).all()).toHaveLength(2);
+  });
 });

@@ -6,6 +6,7 @@ import {
   type HealthReport,
   PlannerState,
   Quest,
+  RumbleKind,
   WakeMessage,
   type WakeMessage as WakeMessageType,
 } from '@wyld/shared';
@@ -191,6 +192,27 @@ const HealthReportArgs = z
   })
   .strict();
 const ReadHealthArgs = z.object({}).strict();
+const RequestRumbleArgs = z
+  .object({
+    title: z.string().min(1).max(120),
+    context: z.string().min(1).max(400),
+    options: z.array(z.string().min(1)).min(1).max(4),
+    kind: RumbleKind,
+    blocking_quests: z.array(z.string()).default([]),
+    id: z.string().optional(),
+    chosen: z.string().optional(),
+  })
+  .strict()
+  .superRefine((rumble, context) => {
+    if (rumble.chosen !== undefined && !rumble.options.includes(rumble.chosen)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['chosen'],
+        message: `chosen must be one of: ${rumble.options.join(', ')}`,
+      });
+    }
+  });
+const ReadRumblesArgs = z.object({ status: z.enum(['open', 'decided']).optional() }).strict();
 const ReadChainsArgs = z.object({ quest: z.string().optional() }).strict();
 const SendMessageArgs = z
   .object({ text: z.string().min(1), quest: z.string().optional() })
@@ -420,6 +442,40 @@ const tools = [
     },
   },
   {
+    name: 'pak_request_rumble',
+    description:
+      'Raise a decision only Dru can make — accounts, money, model, taste, scope, or an outage — as a card on the Rumble screen. Give two sentences of context and 2–4 concrete options. For an account job Dru must do himself, put the exact steps in the context and give a single Done option. Rumbles never expire.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', minLength: 1, maxLength: 120 },
+        context: { type: 'string', minLength: 1, maxLength: 400 },
+        options: {
+          type: 'array',
+          items: { type: 'string', minLength: 1 },
+          minItems: 1,
+          maxItems: 4,
+        },
+        kind: { type: 'string', enum: RumbleKind.options },
+        blocking_quests: { type: 'array', items: { type: 'string' }, default: [] },
+        id: { type: 'string' },
+        chosen: { type: 'string' },
+      },
+      required: ['title', 'context', 'options', 'kind'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_rumbles',
+    description:
+      'Read the decision cards and what Dru chose, so a human.decision event can be acted on and an open Rumble is not raised twice.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: { status: { type: 'string', enum: ['open', 'decided'] } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'pak_read_chains',
     description:
       "Read the open chains — Dru's messages and yours, their chain ids, and the quest each one is about if any. Closed chains are never returned.",
@@ -642,6 +698,26 @@ export function registerPakTools(
       const parsed = ReadHealthArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
       return getTool(request, `${options.pakUrl}/api/health/snapshot`);
+    }
+    if (params.name === 'pak_request_rumble') {
+      const parsed = RequestRumbleArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const { blocking_quests, id, chosen, ...rumble } = parsed.data;
+      return postTool(request, `${options.pakUrl}/api/rumbles`, {
+        ...rumble,
+        blockingQuestIds: blocking_quests,
+        ...(id === undefined ? {} : { id }),
+        ...(chosen === undefined ? {} : { chosen }),
+      });
+    }
+    if (params.name === 'pak_read_rumbles') {
+      const parsed = ReadRumblesArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const suffix =
+        parsed.data.status === undefined
+          ? ''
+          : `?${new URLSearchParams({ status: parsed.data.status }).toString()}`;
+      return getTool(request, `${options.pakUrl}/api/rumbles${suffix}`);
     }
     if (params.name === 'pak_read_chains') {
       const parsed = ReadChainsArgs.safeParse(params.arguments);
