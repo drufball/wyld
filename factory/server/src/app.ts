@@ -28,6 +28,7 @@ type Subscriber = (event: Event) => Promise<void>;
 
 export type AppDependencies = {
   database: AppDatabase;
+  version?: string;
   wakeUrl?: string;
   now?: () => Date;
   fetch?: typeof globalThis.fetch;
@@ -108,7 +109,16 @@ export function createApp(dependencies: AppDependencies) {
       .all();
     if (row === undefined) throw new Error('Event insert did not return a row');
     const event = Event.parse({ ...newEvent, id: row.id, ts });
-    await Promise.all([...subscribers].map((subscriber) => subscriber(event)));
+    for (const subscriber of subscribers) {
+      void Promise.resolve()
+        .then(() => subscriber(event))
+        .catch((error: unknown) => {
+          logger('error', 'failed to send event to SSE subscriber', {
+            eventId: event.id,
+            error: String(error),
+          });
+        });
+    }
     forwardToWake(event);
     return event;
   };
@@ -194,7 +204,7 @@ export function createApp(dependencies: AppDependencies) {
       ok: databaseStatus === 'ok',
       db: databaseStatus,
       uptimeSeconds: (Date.now() - startedAt) / 1000,
-      version: '0.0.0',
+      version: dependencies.version ?? '0.0.0',
     });
   });
 
