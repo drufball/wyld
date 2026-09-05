@@ -1,6 +1,6 @@
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { EVENT_KINDS, WakeMessage, type WakeMessage as WakeMessageType } from '@wyld/shared';
+import { EVENT_KINDS, Quest, WakeMessage, type WakeMessage as WakeMessageType } from '@wyld/shared';
 import { z } from 'zod';
 
 import type { LogContext, LogLevel } from './logger.js';
@@ -118,6 +118,47 @@ const LogEventArgs = z.object({
   quest: z.string().optional(),
 });
 const NextActionArgs = z.object({ text: z.string(), deep_link: z.string().default('/') });
+const QuestStatus = Quest.shape.status;
+const UpsertQuestArgs = z
+  .object({
+    id: z.string(),
+    world: z.string(),
+    title: z.string(),
+    pitch: z.string(),
+    status: QuestStatus.optional(),
+    since_you_looked: z.string().optional(),
+    last_note: z.string().optional(),
+  })
+  .strict();
+const SetQuestStatusArgs = z.object({ quest: z.string(), status: QuestStatus }).strict();
+const SetSinceYouLookedArgs = z.object({ quest: z.string(), text: z.string() }).strict();
+const LinkIssueArgs = z
+  .object({
+    quest: z.string(),
+    gh_kind: z.enum(['issue', 'pr', 'branch']),
+    gh_ref: z.string(),
+    state: z.string(),
+  })
+  .strict();
+const QuestArg = z.object({ quest: z.string() }).strict();
+const PostNoteArgs = z
+  .object({
+    quest: z.string(),
+    text: z.string(),
+  })
+  .strict();
+const ReadQuestsArgs = z
+  .object({ world: z.string().optional(), status: QuestStatus.optional() })
+  .strict();
+const ReadEventsArgs = z
+  .object({
+    since: z.number().int().default(0),
+    kinds: z.array(z.string()).optional(),
+    limit: z.number().int().min(1).max(200).default(50),
+  })
+  .strict();
+
+const statusSchema = { type: 'string' as const, enum: QuestStatus.options };
 
 const tools = [
   {
@@ -144,6 +185,112 @@ const tools = [
         deep_link: { type: 'string', description: 'Optional Pak deep link; defaults to /.' },
       },
       required: ['text'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_upsert_quest',
+    description:
+      'Create a quest, or update its world, title or pitch. Omitted fields keep their current values.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' },
+        world: { type: 'string' },
+        title: { type: 'string' },
+        pitch: { type: 'string' },
+        status: statusSchema,
+        since_you_looked: { type: 'string' },
+        last_note: { type: 'string' },
+      },
+      required: ['id', 'world', 'title', 'pitch'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_set_quest_status',
+    description:
+      'Move a quest along the lifecycle (idea → planning → building → demo → done, or parked).',
+    inputSchema: {
+      type: 'object' as const,
+      properties: { quest: { type: 'string' }, status: statusSchema },
+      required: ['quest', 'status'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_set_since_you_looked',
+    description:
+      "Set a quest's one-sentence 'since you looked' line; refresh it after every batch of actions that touched the quest.",
+    inputSchema: {
+      type: 'object' as const,
+      properties: { quest: { type: 'string' }, text: { type: 'string' } },
+      required: ['quest', 'text'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_link_issue',
+    description:
+      'Record a private GitHub issue/PR/branch against a quest so its progress bar stays honest. Never shown in the Pak.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        quest: { type: 'string' },
+        gh_kind: { type: 'string', enum: ['issue', 'pr', 'branch'] },
+        gh_ref: { type: 'string' },
+        state: { type: 'string' },
+      },
+      required: ['quest', 'gh_kind', 'gh_ref', 'state'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_quest_links',
+    description:
+      'Read Planner-only private GitHub refs when coordinating a quest; never show returned refs in the Pak or write them into a note.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: { quest: { type: 'string' } },
+      required: ['quest'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_post_note',
+    description:
+      'Write a plain-English note on a quest as the Planner; use it to answer a Nudge or an Ask in the same turn it arrives.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        quest: { type: 'string' },
+        text: { type: 'string' },
+      },
+      required: ['quest', 'text'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_quests',
+    description:
+      'List quests with their current status, progress and notes; use it before planning to see what already exists.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: { world: { type: 'string' }, status: statusSchema },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_events',
+    description:
+      'Read recent Pak events, newest last, optionally filtered by kind. Use it to pull intents and nudges when the channel is quiet.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        since: { type: 'integer', default: 0 },
+        kinds: { type: 'array', items: { type: 'string', enum: EVENT_KINDS } },
+        limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+      },
       additionalProperties: false,
     },
   },
@@ -184,8 +331,104 @@ export function registerPakTools(
         true,
       );
     }
+    if (params.name === 'pak_upsert_quest') {
+      const parsed = UpsertQuestArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const { world, since_you_looked, last_note, ...rest } = parsed.data;
+      return postTool(request, `${options.pakUrl}/api/quests`, {
+        ...rest,
+        worldId: world,
+        ...(since_you_looked === undefined ? {} : { sinceYouLooked: since_you_looked }),
+        ...(last_note === undefined ? {} : { lastNote: last_note }),
+      });
+    }
+    if (params.name === 'pak_set_quest_status') {
+      const parsed = SetQuestStatusArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return patchTool(request, questUrl(options.pakUrl, parsed.data.quest), {
+        status: parsed.data.status,
+        source: 'planner',
+      });
+    }
+    if (params.name === 'pak_set_since_you_looked') {
+      const parsed = SetSinceYouLookedArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return patchTool(request, questUrl(options.pakUrl, parsed.data.quest), {
+        sinceYouLooked: parsed.data.text,
+        source: 'planner',
+      });
+    }
+    if (params.name === 'pak_link_issue') {
+      const parsed = LinkIssueArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${questUrl(options.pakUrl, parsed.data.quest)}/links`, {
+        ghKind: parsed.data.gh_kind,
+        ghRef: parsed.data.gh_ref,
+        state: parsed.data.state,
+      });
+    }
+    if (params.name === 'pak_read_quest_links') {
+      const parsed = QuestArg.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return getTool(request, `${questUrl(options.pakUrl, parsed.data.quest)}/links`, {
+        'X-Planner': '1',
+      });
+    }
+    if (params.name === 'pak_post_note') {
+      const parsed = PostNoteArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${questUrl(options.pakUrl, parsed.data.quest)}/notes`, {
+        text: parsed.data.text,
+        author: 'planner',
+      });
+    }
+    if (params.name === 'pak_read_quests') {
+      const parsed = ReadQuestsArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const query = new URLSearchParams();
+      if (parsed.data.world !== undefined) query.set('world', parsed.data.world);
+      if (parsed.data.status !== undefined) query.set('status', parsed.data.status);
+      const suffix = query.size === 0 ? '' : `?${query.toString()}`;
+      return getTool(request, `${options.pakUrl}/api/quests${suffix}`);
+    }
+    if (params.name === 'pak_read_events') {
+      const parsed = ReadEventsArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const invalidKind = parsed.data.kinds?.find(
+        (kind) => !EVENT_KINDS.includes(kind as (typeof EVENT_KINDS)[number]),
+      );
+      if (invalidKind !== undefined)
+        return textResult(`Invalid kind. Valid kinds: ${EVENT_KINDS.join(', ')}`, true);
+      const response = await getTool(
+        request,
+        `${options.pakUrl}/api/events?${new URLSearchParams({ since: String(parsed.data.since), limit: '500' })}`,
+      );
+      if (response.isError) return response;
+      try {
+        const events = z
+          .array(z.object({ kind: z.string() }).passthrough())
+          .parse(JSON.parse(response.content[0]!.text));
+        const selected = parsed.data.kinds
+          ? events.filter(({ kind }) => parsed.data.kinds!.includes(kind))
+          : events;
+        return textResult(JSON.stringify(selected.slice(-parsed.data.limit)));
+      } catch (error) {
+        return textResult(
+          `Invalid Pak response: ${error instanceof Error ? error.message : String(error)}`,
+          true,
+        );
+      }
+    }
     return textResult(`Unknown tool: ${params.name}`, true);
   });
+}
+
+function invalidArguments(error: z.ZodError) {
+  return textResult(`Invalid arguments: ${z.prettifyError(error)}`, true);
+}
+
+function questUrl(pakUrl: string, quest: string): string {
+  return `${pakUrl}/api/quests/${encodeURIComponent(quest)}`;
 }
 
 async function postTool(
@@ -211,6 +454,40 @@ async function postTool(
       }
       return textResult(`HTTP ${response.status}: ${responseBody}`.trim(), true);
     }
+    return textResult(responseBody || 'OK');
+  } catch (error) {
+    return textResult(
+      `HTTP request failed: ${error instanceof Error ? error.message : String(error)}`,
+      true,
+    );
+  }
+}
+
+async function patchTool(request: typeof fetch, url: string, body: unknown) {
+  return requestTool(request, url, { method: 'PATCH', body });
+}
+
+async function getTool(request: typeof fetch, url: string, headers: Record<string, string> = {}) {
+  return requestTool(request, url, { method: 'GET', headers });
+}
+
+async function requestTool(
+  request: typeof fetch,
+  url: string,
+  options: { method: 'GET' | 'PATCH'; body?: unknown; headers?: Record<string, string> },
+) {
+  try {
+    const headers =
+      options.body === undefined
+        ? (options.headers ?? {})
+        : { 'content-type': 'application/json', ...(options.headers ?? {}) };
+    const response = await request(url, {
+      method: options.method,
+      headers,
+      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+    });
+    const responseBody = await response.text();
+    if (!response.ok) return textResult(`HTTP ${response.status}: ${responseBody}`.trim(), true);
     return textResult(responseBody || 'OK');
   } catch (error) {
     return textResult(

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normaliseGithub } from './normalise.js';
+import { normaliseEvent, normaliseGithub } from './normalise.js';
 
 const now = new Date('2026-02-01T00:00:00.000Z');
 const timestamp = '2026-01-01T00:00:00.000Z';
@@ -300,5 +300,56 @@ describe('normaliseGithub', () => {
     );
     expect(result!.summary.length).toBeLessThanOrEqual(280);
     expect(result?.summary.endsWith('…')).toBe(true);
+  });
+});
+
+describe('normaliseEvent', () => {
+  it.each([
+    ['human.nudge', 'Keep moving', 'Nudge on wake-24: Keep moving'],
+    ['human.ask', 'What is next?', 'Ask on wake-24: What is next?'],
+    ['human.park', 'Park: Wake tools', 'Park: Wake tools'],
+  ] as const)('routes %s to its quest', (kind, text, summary) => {
+    expect(
+      normaliseEvent({
+        id: 1,
+        ts: timestamp,
+        source: 'human',
+        kind,
+        payload: { text },
+        questId: 'wake-24',
+      }),
+    ).toEqual({ source: 'human', kind, summary, quest: 'wake-24', ts: timestamp });
+  });
+
+  it('still drops a text-less nudge', () => {
+    expect(
+      normaliseEvent({
+        id: 1,
+        ts: timestamp,
+        source: 'human',
+        kind: 'human.nudge',
+        payload: {},
+        questId: 'wake-24',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('does not repeat the default nudge button text', () => {
+    expect(
+      normaliseEvent({
+        id: 1,
+        ts: timestamp,
+        source: 'human',
+        kind: 'human.nudge',
+        payload: { text: '  NuDgE  ' },
+        questId: 'wake-24',
+      }),
+    ).toEqual({
+      source: 'human',
+      kind: 'human.nudge',
+      summary: 'Nudge on wake-24',
+      quest: 'wake-24',
+      ts: timestamp,
+    });
   });
 });
