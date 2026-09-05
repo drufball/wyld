@@ -144,4 +144,26 @@ describe('ChainList', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Settled' }));
     await waitFor(() => expect(screen.queryByText('Why?')).toBeNull());
   });
+
+  it('suppresses the quest chip when requested', async () => {
+    const targeted = { ...question, questId: 'quest-one' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url.startsWith('/api/chains') ? [targeted] : [])),
+    );
+    const { container } = render(
+      <LiveEventsProvider
+        eventSourceFactory={() => ({
+          addEventListener() {},
+          removeEventListener() {},
+          close() {},
+        })}
+      >
+        <ChainList quest="quest-one" showQuestChip={false} />
+      </LiveEventsProvider>,
+    );
+    expect(await screen.findByText('Why?')).not.toBeNull();
+    expect(container.querySelector('.chain-card .world-tag')).toBeNull();
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/chains?quest=quest-one', {});
+  });
 });
