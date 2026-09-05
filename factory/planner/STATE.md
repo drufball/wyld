@@ -18,7 +18,8 @@ step finishes._
 | `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | done | #62 `POST /api/ops/report` + `ops_reports` (measured health kept apart from the Planner heartbeat), #67 `@wyld/ops` reporter (gh runs/PRs/rate + Claude session JSONL tokens, every 2 min, `ops` tmux window via `factory:up`), #68 ten plain-English tiles + stuck-channel tell, #73 no-checks-yet reads pending. `Spent today` is honestly "Not measured" (flat subscription, no cost source) |
 | 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | done | #63 `rumbles` table + `GET/POST /api/rumbles` + `/decide` → `human.decision` + catch-up slot, #71 Wake `pak_request_rumble`/`pak_read_rumbles` (decisions never coalesce), #77 `/rumble` screen + Today "N Rumbles" link + VMU count. Seeded: 14 decided cards (§10 table + the three account jobs already done) and 4 open: Tailscale login (blocks `polish`), ntfy on the phone (blocks `paused`), renew the builder `GH_TOKEN` before ~2026-10-05, GitHub Pro vs public repo for branch protection. **Decided 2026-09-05 ~21:25:** Tailscale login → Done (laptop `macbook-pro-6.taild72c8d.ts.net`, phone on the tailnet); branch protection → "Leave it as my discipline". New open card `tailscale-serve`: Serve is not enabled on the tailnet (`tailscale serve` prints an enable link; only Dru can flip it) — blocks the Pak's HTTPS address and the ntfy card |
 | `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | done | #70 `POST /api/chains` with `author` + Wake `pak_send_message` (no new event kind), #75 one "What's on your mind?" box, every submission opens a chain; PROTOCOL §2/§5a + plan-quest rewritten (1fcf0e7). "Make this a quest" still emits `human.intent` from that explicit tap only |
-| 1.7 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
+| 1.7 Demo Discs: `game/` scaffold, worktree builder, `/play/*`, in-Pak player + feedback | done | #80 doctor fails on a missing tmux window (with the exact `tmux new-window` to recreate it), #81 `game/` = `@wyld/game` (Vite+Three.js, `three` + `@types/three` the only new deps; one low-poly creature, `GAME_BASE` sets Vite `base`, `window.__wyld.getState()`/`screenshot()` with `preserveDrawingBuffer`), #85 `demos`/`feedback` tables + `createDemoBuilder` (fetch → worktree → `pnpm install` → `GAME_BASE=/play/<slug>/ pnpm --filter @wyld/game build` → atomic publish) + `GET/POST /api/demos`, `POST /api/demos/build`, `GET/POST /api/feedback`, `GET /api/feedback/:id/screenshot`, `/play/<slug>/*` via `resolveStaticFile`, #84 Wake `pak_register_demo`/`pak_read_demos`/`pak_read_feedback`, #87 `/demos` grid + `/demos/:id` full-screen iframe player + floating feedback + Today/VMU "N demos ready". `/play/main/` is live and registered. **The Planner must respawn to see the three new tools.** |
+| 1.8 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
 
@@ -60,9 +61,10 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
    labelled "LEAD CHECK (not Dru)" is a lead's test, ignore it.
 3. `pak_read_rumbles`: four real cards are open (see the 1.6 row). Nothing to do until Dru decides;
    a `human.decision` event carries the choice — record it and unpark what it unblocks (§2).
-4. Spawn the **1.7 Demo Discs** lead (factory-spec §11: PR-head worktree builds, `/play/*`, in-Pak
-   iframe, feedback button; `human.feedback` already exists in `EVENT_KINDS`). One lead. Also give
-   it, or a small sequenced lead, the doctor check for the six tmux windows (Open items).
+4. **1.7 Demo Discs is done** (#80/#81/#84/#85/#87). Respawn to load `pak_register_demo`,
+   `pak_read_demos` and `pak_read_feedback`, then pick up the queued leads in Open items
+   (`wake-hot-reload`, `pak-theme`, `improved-chains`). `human.feedback` now really arrives — the
+   PROTOCOL §2 row for it is live, not reserved.
 5. Use `pak_send_message` for heads-ups Dru can reply to; `pak_post_note` only for the quest card's
    own line. Keep this file and the Pak quests in sync as steps finish.
 
@@ -118,10 +120,27 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
   `human.decision` — never seed history through `/decide`. There is no delete endpoint; a test card
   has to be removed with sqlite3.
 
+- **Demo Disc builds (1.7) run inside the Pak server process.** `REPO_DIR` (default: the repo root)
+  is fetched and worktree'd into `$FACTORY_DIR/worktrees/<slug>`, built, and published to
+  `$FACTORY_DIR/demos/<slug>`; a warm pnpm store makes the whole thing ~15-20s. Rebuild main after
+  any merge with `curl -XPOST localhost:8787/api/demos/build -d '{}' -H 'content-type: application/json'`
+  (or `pak_register_demo` once the Planner has respawned). Sharp edges found the hard way:
+  **any non-production server that has the demo routes must set `REPO_DIR` to a throwaway
+  directory**, or a test run does a real `git fetch` + `pnpm install` and registers a worktree in
+  the live checkout — `playwright.config.ts` now does exactly that, which is what keeps `pnpm smoke`
+  safe to run while the factory is up. And **the Pak's service worker will hijack anything served
+  outside the Pak**: `workbox.navigateFallback: '/index.html'` answered the player's iframe with the
+  Pak's own shell, so the game never loaded and every piece of feedback was silently text-only.
+  `navigateFallbackDenylist: [/^\/play\//, /^\/api\//]` in `factory/pak/vite.config.ts` fixes it
+  and `vite.config.test.ts` pins it. Add any future non-Pak route to that denylist **and** to the
+  Vite dev `server.proxy`. None of this is visible to typecheck, lint, unit tests or CI — it only
+  shows up in a real browser against the built Pak.
+
 - **`gh pr review --request-changes` fails on Codex PRs** ("Can not request changes on your own pull
   request" — Codex pushes as drufball). Use `gh pr comment` for the record, then
-  `codex cloud exec --branch codex/<slug>`. PROTOCOL/skills still say `--request-changes`; fix when
-  next touched.
+  `codex cloud exec --branch codex/<slug>`. ~~PROTOCOL/skills still say `--request-changes`~~
+  **fixed 2026-09-05 by the 1.7 lead** — PROTOCOL §2/§6 and `skills/review-pr.md` now say
+  `gh pr comment`.
 - **tmux windows `wyld:0` (server) and `wyld:1` (wake) vanished mid-session 2026-09-05 ~20:19** —
   gone, not crashed-and-restarted. The debug-menu lead recreated them
   (`set -a; . .factory/env; tmux new-window -t wyld:0 ...`). Cause unknown; possibly a lead's

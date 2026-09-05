@@ -41,7 +41,7 @@ worktree once the PR merges (`git worktree remove`).
 ## 5. Request changes, or merge
 
 ```bash
-gh pr review <n> --request-changes -b "<the review, specific and ordered>"
+gh pr comment <n> --body-file <the review, specific and ordered>
 npx -y @openai/codex@latest cloud exec \
   --env 6a9be268ad288191b44bbdefcbe977ee --branch codex/<slug> \
   "Address the review on PR #<n> of drufball/wyld: <feedback verbatim>. Commit and push to the same \

@@ -54,11 +54,11 @@ normalised and sender-gated. Act on them directly; never parse raw GitHub JSON.
 | `human.chain_closed` | Dru settled a chain, or tapped "Make this a quest" on one. | Informational. Stop thinking about that chain. If the reason is `converted`, a `human.intent` carrying the same text is right behind it — make the quest from that, not from this event, so you don't make it twice. |
 | `human.ask` | **Legacy.** The old per-quest Ask thread. Superseded by `human.question` on a quest-targeted chain; it may still arrive from an old client. | Answer it with `pak_post_note` on that quest, same turn, plain English. Prefer the chain path for anything new. |
 | `human.park` | Dru parked or unparked a quest. | Parked: stop work on it immediately. Convert its open PRs to drafts (`gh pr ready --undo <n>`), leave its issues open, and `pak_post_note` one sentence — why it's parked and what would unpark it. Unparked: return it to its previous status and pick the work back up. Either way, refresh the next action so it points somewhere useful. |
-| `human.feedback` | Feedback on a Demo Disc. **Reserved for 1.7** — not yet emitted. | Ack on the quest, then turn it into work on that quest or a follow-up quest. |
+| `human.feedback` | Feedback on a Demo Disc. **Live since 1.7.** The payload carries `demoId`, `feedbackId`, `hasScreenshot` and the game's `state` dump; `pak_read_feedback` gives you the full row and `GET /api/feedback/<id>/screenshot` the picture. | Ack on the quest, then turn it into work on that quest or a follow-up quest. |
 | `human.decision` | A Rumble was answered. **1.6.** | Record it, unpark whatever it unblocked, resume. |
 | `github.pr_opened` | Codex opened a PR. | Review it: `gh pr diff`, whole diff, plus `gh pr checks`. See `skills/review-pr.md`. If CI is still running, review the diff now and wait for `github.ci_completed` before merging. |
 | `github.pr_synced` | Codex pushed to an open PR — usually a fix round. | Re-review the diff (`gh pr diff`), confirm the requested changes actually landed, wait for CI. Coalesced bursts arrive as one event; re-read the whole diff, not the delta. |
-| `github.ci_completed` | A check suite finished. | Green **and** the review passed → `gh pr merge --squash --delete-branch`, then `skills/merge-and-ship.md`. Red → read the failing job's log, and start one fix round (`gh pr review --request-changes` + `codex cloud exec --branch codex/<slug>`). Never merge red. |
+| `github.ci_completed` | A check suite finished. | Green **and** the review passed → `gh pr merge --squash --delete-branch`, then `skills/merge-and-ship.md`. Red → read the failing job's log, and start one fix round (`gh pr comment` + `codex cloud exec --branch codex/<slug>`). Never merge red. |
 | `github.issue_comment` | Someone commented on an issue. Bot comments are dropped upstream. | Read it. If it's Codex reporting a blocker (missing token, ambiguous spec), unblock it: answer in the issue and start a fix round on the branch. If it's Dru, treat it as `human.ask`. Otherwise: nothing. |
 | `github.issue_opened` / `issue_closed` | Usually your own issue lifecycle. | Update the quest's links (`pak_link_issue`) so progress stays honest. No note unless the quest just finished. |
 | `github.pr_closed` | Merged or abandoned. | Update the link state, refresh since-you-looked, advance the quest if that was the last unit. |
@@ -194,7 +194,7 @@ task state. Typical latency: 4–8 min for an implementation, 3–4 min for a fi
 Planner reviews the whole diff on the PR as a senior engineer; `gh pr checks` is the truth,
 not Codex's self-report
         │
-        ├── changes needed ──► gh pr review <n> --request-changes -b "<feedback>"
+        ├── changes needed ──► gh pr comment <n> -b "<feedback>"
         │                      codex cloud exec --env <id> --branch codex/<slug> "<feedback>"
         │                      (loops back to "wait for the PR")
         │
@@ -259,7 +259,7 @@ not Codex's self-report
 5. **Fix round**, when changes are needed:
 
    ```bash
-   gh pr review <n> --request-changes -b "<review, verbatim>"
+   gh pr comment <n> --body-file <review>
    codex cloud exec --env 6a9be268ad288191b44bbdefcbe977ee --branch codex/<slug> \
      "Address the review on PR #M of drufball/wyld: <feedback verbatim>. Commit and push to the \
    same branch; do not open a new PR."
@@ -286,7 +286,7 @@ not Codex's self-report
 | `... cloud list --json --limit <n>` | Recent tasks: `id`, `status`, `summary.files_changed`, `environment_label`. |
 | `gh pr list --json number,headRefName,body` | Poll target for "has Codex opened the PR yet." |
 | `gh pr checks <n>` | CI state — the source of truth, not Codex's summary. |
-| `gh pr review <n> --request-changes -b "<text>"` | Posts the fix-round review onto the PR. |
+| `gh pr comment <n> --body-file <path>` | Posts the fix-round review onto the PR. `gh pr review --request-changes` **fails** on a Codex PR ("Can not request changes on your own pull request" — Codex pushes as drufball), so always comment. |
 | `gh pr merge <n> --squash --delete-branch` | Merges once green and reviewed. |
 
 ### Fallback when Codex cannot publish
