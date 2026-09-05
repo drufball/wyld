@@ -118,7 +118,16 @@ describe('rumble routes', () => {
     const rumble = await create('Pick');
     const invalid = await post(`/api/rumbles/${rumble.id}/decide`, { chosen: 'Maybe' });
     expect(invalid.status).toBe(400);
-    expect(await invalid.json()).toHaveProperty('issues');
+    expect(await invalid.json()).toEqual({
+      error: 'Invalid request',
+      issues: [
+        {
+          code: 'custom',
+          path: ['chosen'],
+          message: 'chosen must be one of: Yes, No',
+        },
+      ],
+    });
     expect((await post('/api/rumbles/missing/decide', { chosen: 'Yes' })).status).toBe(404);
     expect(Event.array().parse(await (await app.request('/api/events')).json())).toEqual([]);
   });

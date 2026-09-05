@@ -121,10 +121,19 @@ export function createRumbleRoutes({ database, now, storeEvent }: Dependencies) 
     const parsed = RumbleDecision.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
     if (!rumble.options.includes(parsed.data.chosen)) {
-      const invalid = z
-        .object({ chosen: z.enum(rumble.options as [string, ...string[]]) })
-        .safeParse(parsed.data);
-      if (!invalid.success) return c.json(formatIssues(invalid.error), 400);
+      return c.json(
+        {
+          error: 'Invalid request',
+          issues: [
+            {
+              code: 'custom',
+              path: ['chosen'],
+              message: `chosen must be one of: ${rumble.options.join(', ')}`,
+            },
+          ],
+        },
+        400,
+      );
     }
     const chosenAt = now().toISOString();
     db.update(rumbles)
