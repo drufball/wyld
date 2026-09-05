@@ -196,7 +196,7 @@ describe('World quests', () => {
     expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
   });
 
-  it('posts an Ask and renders a planner note arriving live', async () => {
+  it('posts an Ask from the textarea on Enter and renders a planner note arriving live', async () => {
     let notes = [note];
     const plannerNote = { ...note, id: 2, author: 'planner', text: 'Follow the lanterns.' };
     const fetch = vi.fn((url: string, init?: RequestInit) => {
@@ -208,8 +208,10 @@ describe('World quests', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Ask' }));
     expect(await screen.findByText('Where next?')).not.toBeNull();
     const field = screen.getByLabelText('Ask about this quest');
+    expect(field.tagName).toBe('TEXTAREA');
+    expect(field.id).toBe(`ask-${quest.id}`);
     fireEvent.change(field, { target: { value: 'Where next?' } });
-    fireEvent.submit(field.closest('form')!);
+    fireEvent.keyDown(field, { key: 'Enter' });
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
         '/api/quests/make-map/notes',
@@ -234,5 +236,42 @@ describe('World quests', () => {
     );
     expect(await screen.findByText(plannerNote.text)).not.toBeNull();
     expect(screen.getByText('Fable')).not.toBeNull();
+  });
+
+  it('keeps a newline and does not submit an Ask on Shift+Enter', async () => {
+    const fetch = vi.fn(baseFetch);
+    renderScreen(fetch);
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask' }));
+    const field = screen.getByLabelText('Ask about this quest');
+    fireEvent.change(field, { target: { value: 'first line' } });
+    fireEvent.keyDown(field, { key: 'Enter', shiftKey: true });
+    fireEvent.change(field, { target: { value: 'first line\nsecond line' } });
+
+    expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+    expect((field as HTMLTextAreaElement).value).toBe('first line\nsecond line');
+  });
+
+  it('grows for long text and still submits it on Enter', async () => {
+    const longText = 'How should the winding trail through the ancient forest reach the mountain?';
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      url.endsWith('/notes') && init?.method === 'POST' ? response(note) : baseFetch(url, init),
+    );
+    renderScreen(fetch);
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask' }));
+    const field = screen.getByLabelText('Ask about this quest') as HTMLTextAreaElement;
+    Object.defineProperty(field, 'scrollHeight', { configurable: true, value: 88 });
+    fireEvent.change(field, { target: { value: longText } });
+
+    expect(field.style.height).toBe('88px');
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/quests/make-map/notes',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ author: 'human', text: longText, intent: 'ask' }),
+        }),
+      ),
+    );
   });
 });

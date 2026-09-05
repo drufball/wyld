@@ -518,15 +518,18 @@ a.today-action:focus-visible {
   flex-wrap: wrap;
   gap: var(--pak-space-2);
 }
-.ask-thread input {
+.ask-thread textarea {
   min-width: 0;
   min-height: 44px;
   flex: 1 1 190px;
+  box-sizing: border-box;
   border: 2px solid var(--pak-bevel-light);
   padding: var(--pak-space-2);
   color: var(--pak-ink);
   background: var(--pak-bg);
   font: inherit;
+  overflow: hidden;
+  resize: none;
 }
 .quest-retry {
   color: var(--pak-ink-dim);
