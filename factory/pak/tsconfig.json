@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "types": ["node", "vite/client"],
+    "emitDeclarationOnly": true,
+    "outDir": ".tsc",
+    "tsBuildInfoFile": "${configDir}/.tsc/tsconfig.tsbuildinfo",
+    "resolveJsonModule": true
+  },
+  "include": ["src", "vite.config.ts"],
+  "references": [{ "path": "../shared" }]
+}

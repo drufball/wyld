@@ -1,4 +1,14 @@
 {
   "files": [],
-  "references": [{ "path": "./factory/shared" }, { "path": "./factory/server" }]
+  "references": [
+    {
+      "path": "./factory/shared"
+    },
+    {
+      "path": "./factory/server"
+    },
+    {
+      "path": "./factory/pak"
+    }
+  ]
 }
