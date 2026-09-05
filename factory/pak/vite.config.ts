@@ -8,7 +8,11 @@ const config = defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: { enabled: false },
-      workbox: { navigateFallback: '/index.html' },
+      workbox: {
+        navigateFallback: '/index.html',
+        skipWaiting: true,
+        clientsClaim: true,
+      },
       manifest: {
         name: 'WYLD — Expansion Pak',
         short_name: 'Pak',
