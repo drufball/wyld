@@ -165,6 +165,7 @@ describe('Pak tools', () => {
       'pak_health_report',
       'pak_read_health',
       'pak_read_chains',
+      'pak_send_message',
       'pak_answer_chain',
       'pak_close_chain',
     ]);
@@ -479,6 +480,20 @@ describe('Pak tools', () => {
       undefined,
     ],
     [
+      'pak_send_message',
+      { text: 'A proactive update', quest: 'wake' },
+      'http://pak/api/chains',
+      'POST',
+      { text: 'A proactive update', author: 'planner', questId: 'wake' },
+    ],
+    [
+      'pak_send_message',
+      { text: 'An open update' },
+      'http://pak/api/chains',
+      'POST',
+      { text: 'An open update', author: 'planner' },
+    ],
+    [
       'pak_answer_chain',
       { chain: 7, text: 'Wake delivers each question to me.' },
       'http://pak/api/chains/7/messages',
@@ -502,6 +517,16 @@ describe('Pak tools', () => {
       headers: body === undefined ? {} : { 'content-type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
+  });
+
+  it.each([{}, { text: '' }])('rejects invalid pak_send_message arguments: %j', async (args) => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const [, call] = handlers(fetch);
+
+    expect(await call!({ params: { name: 'pak_send_message', arguments: args } })).toMatchObject({
+      isError: true,
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it.each(['pak_read_chains', 'pak_answer_chain', 'pak_close_chain'])(

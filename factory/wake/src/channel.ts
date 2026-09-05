@@ -192,6 +192,9 @@ const HealthReportArgs = z
   .strict();
 const ReadHealthArgs = z.object({}).strict();
 const ReadChainsArgs = z.object({ quest: z.string().optional() }).strict();
+const SendMessageArgs = z
+  .object({ text: z.string().min(1), quest: z.string().optional() })
+  .strict();
 const AnswerChainArgs = z
   .object({ chain: z.number().int().positive(), text: z.string().min(1) })
   .strict();
@@ -419,10 +422,21 @@ const tools = [
   {
     name: 'pak_read_chains',
     description:
-      "Read the question chains that are open right now — Dru's questions, your answers so far, their chain ids, and the quest each one is about if any. Closed chains are never returned.",
+      "Read the open chains — Dru's messages and yours, their chain ids, and the quest each one is about if any. Closed chains are never returned.",
     inputSchema: {
       type: 'object' as const,
       properties: { quest: { type: 'string' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_send_message',
+    description:
+      "Start a message to Dru in a new chain — an update, a heads-up, a question of your own. Give it a quest to attach it to one, or leave it off for an open message; either way it appears on Today as a card he can reply to. Plain English, two or three sentences. Use pak_answer_chain to reply inside a chain that already exists, and pak_post_note for a quest's own one-way line.",
+    inputSchema: {
+      type: 'object' as const,
+      properties: { text: { type: 'string', minLength: 1 }, quest: { type: 'string' } },
+      required: ['text'],
       additionalProperties: false,
     },
   },
@@ -637,6 +651,15 @@ export function registerPakTools(
           ? ''
           : `?${new URLSearchParams({ quest: parsed.data.quest }).toString()}`;
       return getTool(request, `${options.pakUrl}/api/chains${suffix}`);
+    }
+    if (params.name === 'pak_send_message') {
+      const parsed = SendMessageArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/chains`, {
+        text: parsed.data.text,
+        author: 'planner',
+        ...(parsed.data.quest === undefined ? {} : { questId: parsed.data.quest }),
+      });
     }
     if (params.name === 'pak_answer_chain') {
       const parsed = AnswerChainArgs.safeParse(params.arguments);
