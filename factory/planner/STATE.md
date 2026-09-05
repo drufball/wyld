@@ -17,7 +17,7 @@ step finishes._
 | Quests `question-chains` + `today-glance` (Dru intents 2026-09-05, outside the step plan) | done | #49 server chains, #53 Wake `human.question`/`human.chain_closed` + `pak_read_chains`/`pak_answer_chain`/`pak_close_chain`, #54 Today chain cards, #57 quest Ask → chains, #59 in-flight quest cards on Today |
 | `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | done | #62 `POST /api/ops/report` + `ops_reports` (measured health kept apart from the Planner heartbeat), #67 `@wyld/ops` reporter (gh runs/PRs/rate + Claude session JSONL tokens, every 2 min, `ops` tmux window via `factory:up`), #68 ten plain-English tiles + stuck-channel tell, #73 no-checks-yet reads pending. `Spent today` is honestly "Not measured" (flat subscription, no cost source) |
 | 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | **in progress** — own lead; #63 server (table, API, decide → `human.decision`, digest slot) and #71 Wake tools merged; Pak screen waits on `debug-menu` and `one-box` | — |
-| `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | **in progress** — own lead; #70 Planner-started chains merged; Today unit waits on `debug-menu` | — |
+| `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | done | #70 `POST /api/chains` with `author` + Wake `pak_send_message` (no new event kind), #75 one "What's on your mind?" box, every submission opens a chain; PROTOCOL §2/§5a + plan-quest rewritten (1fcf0e7). "Make this a quest" still emits `human.intent` from that explicit tap only |
 | 1.7 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -77,6 +77,9 @@ _Rewritten 2026-09-05 ~19:45 by the respawned Planner after draining the queue._
   (`set -a; . .factory/env; tmux new-window -t wyld:0 ...`). Cause unknown; possibly a lead's
   `respawn-window`/`kill-window` against the wrong index. A doctor check that all six windows exist
   is a cheap Codex unit. Leads: never `kill-window`; `respawn-window -k` only on the server window.
+- **Scratch servers need `FACTORY_DIR=<tmp>`** — `PAK_DB` is not a thing, and `PAK_PORT` alone still
+  opens the live `.factory/pak.sqlite`. `playwright.config.ts` owns port 8799; never park a
+  verification server there.
 - Leads picking scratch ports collided (8791/8792/8796 all taken at once). Pick a free port
   programmatically in verification runs.
 
