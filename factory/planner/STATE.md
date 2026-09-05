@@ -11,7 +11,7 @@ file is down to environment facts and open items. Keep it short; update it whene
 | 1.1 Pak shell + Today | done | #13 next-action + static hosting, #15 shell/theme, #20 Today + SSE + Playwright smoke |
 | 1.2 Wake | done | #14 core, #18 channel adapter + `pak_log_event`/`pak_set_next_action`, #21 factory up/down/doctor |
 | 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | done | #23 server worlds/quests/links/notes, #26 nine `pak_*` tools, #27 Worlds screen + Nudge/Park/Ask |
-| 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | **next** | — |
+| 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | **in progress** (lead spawned 2026-09-05) | — |
 | 1.5 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -53,6 +53,11 @@ file is down to environment facts and open items. Keep it short; update it whene
 4. Keep this file and the Pak quests in sync as steps finish.
 
 ## Open items
+
+- Quest `pak-polish` (Dru intent 2026-09-05): mark-done button, collapsed done section on Worlds,
+  wrapping Today textarea. Issue #28, one Codex task in flight; Planner reviews and merges this one
+  directly. The 1.4 lead must not touch `factory/pak` until it merges (told so in its brief).
+  Catch-up referencing recently-done quests is folded into the 1.4 lead's brief.
 
 - Pak theme is a clean baseline, not yet the chunky bevelled console look — planned for 1.11
   unless Dru asks sooner.
