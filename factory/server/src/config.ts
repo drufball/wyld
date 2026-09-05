@@ -9,12 +9,15 @@ const defaultFactoryDir = path.resolve(
 );
 const defaultPakDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../pak/dist');
 
+const emptyStringAsUndefined = (value: unknown): unknown =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
 const Environment = z.object({
   FACTORY_DIR: z.string().min(1).default(defaultFactoryDir),
   PAK_PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   PAK_DIST: z.string().min(1).default(defaultPakDist),
-  WAKE_URL: z.url().optional(),
-  WAKE_SECRET: z.string().optional(),
+  WAKE_URL: z.preprocess(emptyStringAsUndefined, z.url().optional()),
+  WAKE_SECRET: z.preprocess(emptyStringAsUndefined, z.string().optional()),
 });
 
 export type Config = {
