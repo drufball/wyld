@@ -92,7 +92,9 @@ file is down to environment facts and open items. Keep it short; update it whene
   nothing. **`pnpm smoke` is now safe to run while the factory is running.** Two notes: the specs
   share one server and one SQLite file, so they must stay serial — `catchup.spec.ts` fails under
   two workers because `today.spec.ts` resets the unseen-event count; and the e2e script is called
-  `smoke` (root `pnpm smoke`, and the CI job), not `test:e2e`.
+  `smoke` (root `pnpm smoke`, and the CI job), not `test:e2e`. `smoke` runs the **built** server
+  (`factory/server/dist/main.js`), so run `pnpm build` first — a stale dist in the live checkout
+  fails with the old config error even though the merge is in.
 - **Stale `@wyld/shared` dist crashes the live server on pull** (seen 2026-09-05): the server dev
   watcher restarts on a `git pull` of the live checkout, but does not rebuild `@wyld/shared`; a
   merge that adds a shared export (the catch-up engine) crashed it with a missing-export
