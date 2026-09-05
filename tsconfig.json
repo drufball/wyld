@@ -1,0 +1,4 @@
+{
+  "files": [],
+  "references": [{ "path": "./factory/shared" }, { "path": "./factory/server" }]
+}
