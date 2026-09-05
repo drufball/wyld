@@ -65,6 +65,34 @@ describe('rumble routes', () => {
     });
   });
 
+  it('creates an already-decided rumble silently and includes it in decided results', async () => {
+    const decided = await create('Seeded choice', { chosen: 'Yes' });
+    expect(decided).toMatchObject({
+      chosen: 'Yes',
+      chosenAt: '2026-09-05T12:00:00.000Z',
+    });
+    expect(Event.array().parse(await (await app.request('/api/events')).json())).toEqual([]);
+    expect(
+      Rumble.array()
+        .parse(await (await app.request('/api/rumbles?status=decided')).json())
+        .map(({ id }) => id),
+    ).toEqual([decided.id]);
+  });
+
+  it('rejects an initial choice outside the available options', async () => {
+    const response = await post('/api/rumbles', {
+      title: 'Bad seed',
+      context: 'Context',
+      options: ['Yes', 'No'],
+      kind: 'taste',
+      chosen: 'Maybe',
+    });
+    expect(response.status).toBe(400);
+    expect((await response.json()) as { issues: { path: string[] }[] }).toMatchObject({
+      issues: [{ path: ['chosen'] }],
+    });
+  });
+
   it('orders and filters open and decided rumbles by the shared rules', async () => {
     const older = await create('older', { id: 'z-older' });
     const tied = await create('tied', { id: 'a-tied' });

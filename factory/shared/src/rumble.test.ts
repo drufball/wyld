@@ -36,6 +36,10 @@ describe('Rumble', () => {
     const input = { title: 'Choose', context: 'A decision', options: ['Done'], kind: 'account' };
     expect(NewRumble.parse(input)).toEqual({ ...input, blockingQuestIds: [] });
     expect(NewRumble.parse({ ...input, id: 'account-choice' }).id).toBe('account-choice');
+    expect(NewRumble.parse({ ...input, chosen: 'Done' }).chosen).toBe('Done');
+    expect(NewRumble.safeParse({ ...input, chosen: 'Later' }).error?.issues[0]?.path).toEqual([
+      'chosen',
+    ]);
   });
   it('parses strict decisions', () => {
     expect(RumbleDecision.parse({ chosen: 'Done' })).toEqual({ chosen: 'Done' });

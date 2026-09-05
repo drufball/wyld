@@ -87,12 +87,14 @@ export function createRumbleRoutes({ database, now, storeEvent }: Dependencies) 
     }
     const existing = db.select().from(rumbles).where(eq(rumbles.id, id)).get();
     if (existing === undefined) {
+      const chosenAt =
+        parsed.data.chosen === undefined ? null : (parsed.data.chosenAt ?? now().toISOString());
       db.insert(rumbles)
         .values({
           ...parsed.data,
           id,
-          chosen: null,
-          chosenAt: null,
+          chosen: parsed.data.chosen ?? null,
+          chosenAt,
           createdAt: now().toISOString(),
         })
         .run();
@@ -104,6 +106,12 @@ export function createRumbleRoutes({ database, now, storeEvent }: Dependencies) 
           options: parsed.data.options,
           kind: parsed.data.kind,
           blockingQuestIds: parsed.data.blockingQuestIds,
+          ...(parsed.data.chosen === undefined
+            ? {}
+            : {
+                chosen: parsed.data.chosen,
+                chosenAt: parsed.data.chosenAt ?? now().toISOString(),
+              }),
         })
         .where(eq(rumbles.id, id))
         .run();

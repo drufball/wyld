@@ -17,8 +17,22 @@ export const Rumble = z.object({
 export type Rumble = z.infer<typeof Rumble>;
 
 export const NewRumble = Rumble.omit({ id: true, chosen: true, chosenAt: true })
-  .extend({ id: Id.optional(), blockingQuestIds: z.array(Id).default([]) })
-  .strict();
+  .extend({
+    id: Id.optional(),
+    chosen: z.string().min(1).optional(),
+    chosenAt: Timestamp.optional(),
+    blockingQuestIds: z.array(Id).default([]),
+  })
+  .strict()
+  .superRefine((rumble, context) => {
+    if (rumble.chosen !== undefined && !rumble.options.includes(rumble.chosen)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['chosen'],
+        message: `chosen must be one of: ${rumble.options.join(', ')}`,
+      });
+    }
+  });
 export type NewRumble = z.infer<typeof NewRumble>;
 
 export const RumbleDecision = z.object({ chosen: z.string().min(1) }).strict();
