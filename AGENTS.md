@@ -55,13 +55,28 @@ All four of `typecheck`, `lint`, `test`, `build` must pass before a PR is ready.
 
 ## Publishing your work (required)
 
-The sandbox has no git remote and no GitHub auth by default. A `GH_TOKEN` secret (scoped to this
-repo: Contents + Pull requests read/write) is provided in the environment. Use it to publish:
+A `GH_TOKEN` secret (scoped to this repo: Contents + Pull requests read/write) is provided in your
+environment. The sandbox may or may not already have an `origin` remote, and if it does, that remote
+is **unauthenticated** — pushing to it fails with `Invalid username or token`. So always overwrite
+the remote URL with the token-bearing one. Do not use `git remote add`; it is a no-op when `origin`
+already exists.
 
 ```bash
+# 0. Fail fast and loudly if the token is not actually present.
+if [ -z "${GH_TOKEN:-}" ]; then
+  echo "FATAL: GH_TOKEN is empty or unset — cannot publish." >&2
+  exit 1
+fi
+echo "GH_TOKEN is present (${#GH_TOKEN} chars)"   # never print the token itself
+
+# 1. Branch.
 git checkout -b codex/<short-slug>        # skip if you are already on a codex/* branch
-git remote get-url origin >/dev/null 2>&1 || \
-  git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/drufball/wyld.git"
+
+# 2. Point origin at the authenticated URL (set-url if it exists, add if it does not).
+git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/drufball/wyld.git" \
+  || git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/drufball/wyld.git"
+
+# 3. Push and open the PR.
 git push -u origin HEAD
 gh pr create --base main --title "<title>" --body "<PR description in the format below>"
 ```
@@ -69,10 +84,16 @@ gh pr create --base main --title "<title>" --body "<PR description in the format
 - One PR per issue. Put `Closes #<issue>` in the PR body.
 - When addressing review comments on an existing PR, commit and `git push` to the same branch;
   do not open a second PR.
-- If `gh` is unavailable, create the PR with `curl -X POST -H "Authorization: Bearer $GH_TOKEN"
-  https://api.github.com/repos/drufball/wyld/pulls` and a JSON body of `{title, head, base, body}`.
-- If `GH_TOKEN` is missing or the push fails, say so explicitly in your final summary. Never
-  claim a PR exists that you did not verify with `gh pr view` or the API response.
+- If `gh` is unavailable or unauthenticated, create the PR with the API instead:
+  ```bash
+  curl -sS -X POST -H "Authorization: Bearer $GH_TOKEN" \
+    https://api.github.com/repos/drufball/wyld/pulls \
+    -d '{"title":"...","head":"codex/<short-slug>","base":"main","body":"..."}'
+  ```
+- Never print, echo, or commit the token value. Only its length, as above.
+- If the push still fails, report in your final summary: whether `GH_TOKEN` was present and its
+  length, the exact command, and the exact error output. Never claim a PR exists that you did not
+  verify with `gh pr view` or an API response.
 
 ## PR description format
 
