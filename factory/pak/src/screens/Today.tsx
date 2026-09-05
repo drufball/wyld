@@ -1,8 +1,9 @@
 import { NewEvent, type NextAction } from '@wyld/shared';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { getPresence, postEvent, postSeen } from '../api/client.js';
+import { getPresence, listQuests, postEvent, postSeen } from '../api/client.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
+import { countInWords } from '../words.js';
 
 export type TodaySignals = { rumbles: number; demos: number; memory: string | null };
 
@@ -30,9 +31,18 @@ export function Today({
   const [failedText, setFailedText] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
+  const [buildingCount, setBuildingCount] = useState(0);
   const seen = useRef(false);
   const acknowledgementTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { subscribe } = useLiveEvents();
+
+  const loadBuildingCount = useCallback(
+    () =>
+      void listQuests({ status: 'building' })
+        .then((quests) => setBuildingCount(quests.length))
+        .catch(() => undefined),
+    [],
+  );
 
   const loadPresence = useCallback(
     () =>
@@ -45,6 +55,10 @@ export function Today({
     loadPresence();
     return subscribe('planner.next_action', loadPresence);
   }, [loadPresence, subscribe]);
+  useEffect(() => {
+    loadBuildingCount();
+    return subscribe('planner.quest_updated', loadBuildingCount);
+  }, [loadBuildingCount, subscribe]);
   useEffect(() => {
     if (seen.current) return;
     seen.current = true;
@@ -107,6 +121,11 @@ export function Today({
         ) : (
           <div className="today-action">{nextAction.text}</div>
         ))}
+      {buildingCount > 0 && (
+        <p className="today-cranking">
+          Cranking on {countInWords(buildingCount)} {buildingCount === 1 ? 'quest' : 'quests'}.
+        </p>
+      )}
       <Signals {...signals} />
     </div>
   );
