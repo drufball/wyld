@@ -160,6 +160,8 @@ describe('Pak tools', () => {
       'pak_read_events',
       'pak_write_catchup',
       'pak_read_catchup',
+      'pak_health_report',
+      'pak_read_health',
     ]);
     expect(result.tools?.every(({ description }) => description.length > 10)).toBe(true);
     expect(
@@ -401,6 +403,64 @@ describe('Pak tools', () => {
     const result = await call!({ params: { name: 'pak_read_catchup', arguments: {} } });
 
     expect(fetch).toHaveBeenCalledWith('http://pak/api/catchup', { method: 'GET', headers: {} });
+    expect(result.content?.[0]?.text).toBe(body);
+    expect(result.isError).toBeUndefined();
+  });
+
+  it('posts a health report with camelCase fields and omits absent fields', async () => {
+    const fetch = vi.fn(async () => new Response('', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const result = await call!({
+      params: {
+        name: 'pak_health_report',
+        arguments: {
+          planner_state: 'working',
+          current_task: 'Implement health tools',
+          gh_rate_remaining: 123,
+          ci_state: 'pass',
+          cost_today: 4.5,
+          codex_prs_open: 2,
+        },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/health/report', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        plannerState: 'working',
+        currentTask: 'Implement health tools',
+        ghRateRemaining: 123,
+        ciState: 'pass',
+        costToday: 4.5,
+        codexPrsOpen: 2,
+      }),
+    });
+  });
+
+  it('rejects an invalid Planner state without posting a health report', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const [, call] = handlers(fetch);
+
+    expect(
+      await call!({
+        params: { name: 'pak_health_report', arguments: { planner_state: 'sleeping' } },
+      }),
+    ).toMatchObject({ isError: true });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('reads the current health snapshot', async () => {
+    const body = JSON.stringify({ ts: '2026-09-05T10:00:00.000Z' });
+    const fetch = vi.fn(async () => new Response(body, { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const result = await call!({ params: { name: 'pak_read_health', arguments: {} } });
+
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/health/snapshot', {
+      method: 'GET',
+      headers: {},
+    });
     expect(result.content?.[0]?.text).toBe(body);
     expect(result.isError).toBeUndefined();
   });

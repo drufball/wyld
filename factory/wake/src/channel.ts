@@ -1,6 +1,14 @@
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { EVENT_KINDS, Quest, WakeMessage, type WakeMessage as WakeMessageType } from '@wyld/shared';
+import {
+  CiState,
+  EVENT_KINDS,
+  type HealthReport,
+  PlannerState,
+  Quest,
+  WakeMessage,
+  type WakeMessage as WakeMessageType,
+} from '@wyld/shared';
 import { z } from 'zod';
 
 import type { LogContext, LogLevel } from './logger.js';
@@ -171,6 +179,18 @@ const WriteCatchupArgs = z
   })
   .strict();
 const ReadCatchupArgs = z.object({}).strict();
+const HealthReportArgs = z
+  .object({
+    planner_state: PlannerState,
+    current_task: z.string().max(200).optional(),
+    gh_rate_remaining: z.number().int().min(0).optional(),
+    ci_state: CiState.optional(),
+    cost_today: z.number().min(0).optional(),
+    codex_prs_open: z.number().int().min(0).optional(),
+    paused_reason: z.string().max(280).optional(),
+  })
+  .strict();
+const ReadHealthArgs = z.object({}).strict();
 
 const statusSchema = { type: 'string' as const, enum: QuestStatus.options };
 
@@ -362,6 +382,35 @@ const tools = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'pak_health_report',
+    description:
+      'Send a heartbeat so the Debug Menu can show whether the factory is alive and what the Planner is doing right now. Send one every few minutes and after every batch of actions.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        planner_state: { type: 'string', enum: PlannerState.options },
+        current_task: { type: 'string', maxLength: 200 },
+        gh_rate_remaining: { type: 'integer', minimum: 0 },
+        ci_state: { type: 'string', enum: CiState.options },
+        cost_today: { type: 'number', minimum: 0 },
+        codex_prs_open: { type: 'integer', minimum: 0 },
+        paused_reason: { type: 'string', maxLength: 280 },
+      },
+      required: ['planner_state'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_health',
+    description:
+      'Read the current factory health snapshot — Planner state, Wake queue, webhook feed, and server — so the Planner can answer "is everything up?" without shelling out.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {},
+      additionalProperties: false,
+    },
+  },
 ];
 
 function textResult(text: string, isError = false) {
@@ -511,6 +560,34 @@ export function registerPakTools(
       const parsed = ReadCatchupArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
       return getTool(request, `${options.pakUrl}/api/catchup`);
+    }
+    if (params.name === 'pak_health_report') {
+      const parsed = HealthReportArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const {
+        planner_state,
+        current_task,
+        gh_rate_remaining,
+        ci_state,
+        cost_today,
+        codex_prs_open,
+        paused_reason,
+      } = parsed.data;
+      const body: HealthReport = {
+        plannerState: planner_state,
+        ...(current_task === undefined ? {} : { currentTask: current_task }),
+        ...(gh_rate_remaining === undefined ? {} : { ghRateRemaining: gh_rate_remaining }),
+        ...(ci_state === undefined ? {} : { ciState: ci_state }),
+        ...(cost_today === undefined ? {} : { costToday: cost_today }),
+        ...(codex_prs_open === undefined ? {} : { codexPrsOpen: codex_prs_open }),
+        ...(paused_reason === undefined ? {} : { pausedReason: paused_reason }),
+      };
+      return postTool(request, `${options.pakUrl}/api/health/report`, body);
+    }
+    if (params.name === 'pak_read_health') {
+      const parsed = ReadHealthArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return getTool(request, `${options.pakUrl}/api/health/snapshot`);
     }
     return textResult(`Unknown tool: ${params.name}`, true);
   });
