@@ -22,6 +22,13 @@
       "when": 1788617238224,
       "tag": "0002_open_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788622900884,
+      "tag": "0003_plain_korath",
+      "breakpoints": true
     }
   ]
 }

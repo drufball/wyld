@@ -21,6 +21,25 @@ export const presence = sqliteTable('presence', {
   nextActionLink: text('next_action_link'),
 });
 
+export const catchups = sqliteTable(
+  'catchups',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    fromEventId: integer('from_event_id').notNull(),
+    toEventId: integer('to_event_id').notNull(),
+    digest: text('digest', { mode: 'json' }).notNull(),
+    generatedBy: text('generated_by', { enum: ['planner', 'mechanical'] }).notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('catchups_range_generated_by_unique').on(
+      table.fromEventId,
+      table.toEventId,
+      table.generatedBy,
+    ),
+  ],
+);
+
 export const worlds = sqliteTable('worlds', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Event, Presence } from '@wyld/shared';
+import { Catchup, CatchupView, Event, Presence } from '@wyld/shared';
 import { z } from 'zod';
 
 import { createApp } from './app.js';
@@ -107,6 +107,56 @@ describe('Pak server', () => {
     expect(Date.parse(after.lastSeenAt)).toBeGreaterThanOrEqual(Date.parse(before.lastSeenAt));
     const events = z.array(Event).parse(await (await app.request('/api/events')).json());
     expect(events).toMatchObject([{ source: 'human', kind: 'human.seen' }]);
+    expect(after.lastCatchupEventId).toBe(events.at(-1)?.id);
+    expect(CatchupView.parse(await (await app.request('/api/catchup')).json()).unseenCount).toBe(0);
+  });
+
+  it('serves and caches an empty mechanical catch-up on a fresh database', async () => {
+    const first = CatchupView.parse(await (await app.request('/api/catchup')).json());
+    const second = CatchupView.parse(await (await app.request('/api/catchup')).json());
+    expect(first).toMatchObject({
+      show: false,
+      unseenCount: 0,
+      catchup: {
+        generatedBy: 'mechanical',
+        digest: { rumbles: [], demos: [], shipped: [], fyi: [] },
+      },
+    });
+    expect(second.catchup.id).toBe(first.catchup.id);
+    await postEvent('human.intent', 'new');
+    const changed = CatchupView.parse(await (await app.request('/api/catchup')).json());
+    expect(changed.catchup.id).not.toBe(first.catchup.id);
+  });
+
+  it('shows catch-up after two hours away or more than twenty unseen events', async () => {
+    database.sqlite
+      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
+      .run('2000-01-01T00:00:00Z');
+    expect(CatchupView.parse(await (await app.request('/api/catchup')).json()).show).toBe(true);
+    database.sqlite
+      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
+      .run(new Date().toISOString());
+    for (let index = 0; index < 21; index += 1) await postEvent('human.intent', String(index));
+    expect(CatchupView.parse(await (await app.request('/api/catchup')).json()).show).toBe(true);
+  });
+
+  it('upserts Planner catch-ups and prefers them for the current range', async () => {
+    const post = (text: string) =>
+      app.request('/api/catchup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ digest: { rumbles: [], demos: [], shipped: [{ text }], fyi: [] } }),
+      });
+    const first = Catchup.parse(await (await post('First')).json());
+    const secondResponse = await post('Replacement');
+    expect(secondResponse.status).toBe(201);
+    const second = Catchup.parse(await secondResponse.json());
+    expect(second.id).toBe(first.id);
+    const view = CatchupView.parse(await (await app.request('/api/catchup')).json());
+    expect(view.catchup).toMatchObject({
+      generatedBy: 'planner',
+      digest: { shipped: [{ text: 'Replacement' }] },
+    });
   });
 
   it('starts with no next action', async () => {
@@ -259,6 +309,32 @@ describe('quest API', () => {
       pitch: 'See recent work',
     });
   }
+
+  it('includes human and Planner completions but excludes quests no longer done', async () => {
+    await createWorldAndQuest();
+    await send('/api/quests', 'POST', {
+      id: 'planner-done',
+      worldId: 'game',
+      title: 'Planner Done',
+      pitch: 'Ship it',
+    });
+    await send('/api/quests', 'POST', {
+      id: 'reverted',
+      worldId: 'game',
+      title: 'Reverted',
+      pitch: 'Not yet',
+    });
+    await send('/api/quests/catch-up', 'PATCH', { status: 'done', source: 'human' });
+    await send('/api/quests/planner-done', 'PATCH', { status: 'done', source: 'planner' });
+    await send('/api/quests/reverted', 'PATCH', { status: 'done', source: 'planner' });
+    await send('/api/quests/reverted', 'PATCH', { status: 'building', source: 'planner' });
+
+    const view = CatchupView.parse(await (await app.request('/api/catchup')).json());
+    expect(view.catchup.digest.shipped).toEqual([
+      { text: 'Catch-Up', deepLink: '/worlds/game' },
+      { text: 'Planner Done', deepLink: '/worlds/game' },
+    ]);
+  });
 
   it('upserts and lists worlds with complete quest counts', async () => {
     expect((await createWorldAndQuest()).status).toBe(200);

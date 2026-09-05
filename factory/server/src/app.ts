@@ -1,9 +1,12 @@
-import { asc, eq, gt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import {
   Event,
   EventId,
+  Catchup,
+  CatchupDigest,
+  CatchupView,
   NewEvent,
   NextAction,
   Presence,
@@ -13,7 +16,8 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { log, type LogContext } from './logger.js';
-import { events, presence } from './schema.js';
+import { catchups, events, presence, quests } from './schema.js';
+import { mechanicalDigest } from './catchup.js';
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder } from './forwarder.js';
 import { createQuestRoutes, formatIssues } from './quests.js';
@@ -26,6 +30,26 @@ const EventQuery = z.object({
 const ReplayQuery = z.object({
   since: z.coerce.number().int().min(0).optional(),
 });
+
+const CatchupPost = z
+  .object({
+    digest: CatchupDigest,
+    fromEventId: z.number().int().min(0).optional(),
+    toEventId: z.number().int().min(0).optional(),
+  })
+  .refine(
+    (value) =>
+      value.fromEventId === undefined ||
+      value.toEventId === undefined ||
+      value.toEventId >= value.fromEventId,
+    {
+      message: 'toEventId must be greater than or equal to fromEventId',
+      path: ['toEventId'],
+    },
+  );
+
+export const CATCHUP_AWAY_SECONDS = 7200;
+export const CATCHUP_UNSEEN_EVENTS = 20;
 
 type Subscriber = (event: Event) => Promise<void>;
 
@@ -168,6 +192,103 @@ export function createApp(dependencies: AppDependencies) {
 
   app.get('/api/presence', (c) => c.json(readPresence()));
 
+  const eventRange = () => {
+    const currentPresence = readPresence();
+    const from = currentPresence.lastCatchupEventId ?? 0;
+    const to = db.select({ id: events.id }).from(events).orderBy(desc(events.id)).get()?.id ?? 0;
+    return { currentPresence, from, to };
+  };
+
+  const parseCatchup = (row: typeof catchups.$inferSelect) => Catchup.parse(row);
+
+  app.get('/api/catchup', (c) => {
+    const { currentPresence, from, to } = eventRange();
+    const matching = (generatedBy: 'planner' | 'mechanical') =>
+      db
+        .select()
+        .from(catchups)
+        .where(
+          and(
+            eq(catchups.fromEventId, from),
+            eq(catchups.toEventId, to),
+            eq(catchups.generatedBy, generatedBy),
+          ),
+        )
+        .get();
+    let row = matching('planner') ?? matching('mechanical');
+    const unseenEvents = listEvents(from);
+    if (row === undefined) {
+      const digest = mechanicalDigest({
+        events: unseenEvents,
+        quests: db
+          .select({
+            id: quests.id,
+            worldId: quests.worldId,
+            title: quests.title,
+            status: quests.status,
+          })
+          .from(quests)
+          .all(),
+      });
+      [row] = db
+        .insert(catchups)
+        .values({
+          fromEventId: from,
+          toEventId: to,
+          digest,
+          generatedBy: 'mechanical',
+          createdAt: now().toISOString(),
+        })
+        .returning()
+        .all();
+    }
+    if (row === undefined) throw new Error('Catch-up insert did not return a row');
+    const awaySeconds = Math.max(
+      0,
+      Math.floor((now().getTime() - new Date(currentPresence.lastSeenAt).getTime()) / 1000),
+    );
+    return c.json(
+      CatchupView.parse({
+        show: awaySeconds > CATCHUP_AWAY_SECONDS || unseenEvents.length > CATCHUP_UNSEEN_EVENTS,
+        awaySeconds,
+        unseenCount: unseenEvents.length,
+        catchup: parseCatchup(row),
+        nextAction: currentPresence.nextAction,
+      }),
+    );
+  });
+
+  app.post('/api/catchup', async (c) => {
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const parsed = CatchupPost.safeParse(body);
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    const range = eventRange();
+    const fromEventId = parsed.data.fromEventId ?? range.from;
+    const toEventId = parsed.data.toEventId ?? range.to;
+    if (toEventId < fromEventId) {
+      const error = CatchupPost.safeParse({ ...parsed.data, fromEventId, toEventId });
+      if (!error.success) return c.json(formatIssues(error.error), 400);
+    }
+    const createdAt = now().toISOString();
+    const [row] = db
+      .insert(catchups)
+      .values({
+        fromEventId,
+        toEventId,
+        digest: parsed.data.digest,
+        generatedBy: 'planner',
+        createdAt,
+      })
+      .onConflictDoUpdate({
+        target: [catchups.fromEventId, catchups.toEventId, catchups.generatedBy],
+        set: { digest: parsed.data.digest, createdAt },
+      })
+      .returning()
+      .all();
+    if (row === undefined) throw new Error('Catch-up upsert did not return a row');
+    return c.json(parseCatchup(row), 201);
+  });
+
   app.post('/api/presence/next-action', async (c) => {
     const body: unknown = await c.req.json().catch(() => undefined);
     const parsed = NextAction.safeParse(body);
@@ -188,6 +309,9 @@ export function createApp(dependencies: AppDependencies) {
     const seenAt = now().toISOString();
     db.update(presence).set({ lastSeenAt: seenAt }).where(eq(presence.id, 1)).run();
     await storeEvent({ source: 'human', kind: 'human.seen', payload: {} });
+    const latestEventId =
+      db.select({ id: events.id }).from(events).orderBy(desc(events.id)).get()?.id ?? null;
+    db.update(presence).set({ lastCatchupEventId: latestEventId }).where(eq(presence.id, 1)).run();
     return c.json(readPresence());
   });
 
