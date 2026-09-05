@@ -81,6 +81,19 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
   against the running Planner — if Claude Code ignores it, say so in STATE.md and stop there.
   Also check in `.claude/settings.json` with `enabledMcpjsonServers: ["wake"]` so a fresh clone
   never hits the MCP approval.
+- **Queued lead (right after the 1.7 lead; touches only `factory/pak`, so it may run alongside
+  `wake-hot-reload` but must finish before `improved-chains` starts): quest `pak-theme` "Dracula
+  console look"** (Dru, 2026-09-05 21:43, verbatim: "I really like the retro card style of debug
+  page, and I like that it only uses game font for headings/accents. Redesign the home page and all
+  the other pages to use a shared shadcn design system and make it look a bit more code editor
+  Dracula theme, with retro game accents."). Taste is decided — do not re-ask. Plan: unit 1 =
+  foundation (Tailwind + shadcn/ui install in `factory/pak`, Dracula palette as CSS tokens replacing
+  `theme.css` values, keep `--pak-space-*`, 44px touch targets, the Debug Menu's card treatment
+  lifted into a shared `Card`/`Tile`, fonts: game font headings/accents only, body in a mono/UI
+  face); units 2–3 = migrate screens (Today + Quests + Rumble, then Catch-Up/VMU/Debug/Demo Discs),
+  each verified with `pnpm smoke` and phone-width screenshots. This supersedes the 1.11 "theme
+  pass" and folds in the `pak-polish` leftovers (37px chips, raw `rem`). shadcn/Tailwind/Radix are
+  new deps by Dru's explicit ask — fine; nothing else new.
 - **Queued lead (after `wake-hot-reload`, same packages): quest `improved-chains` "Better
   chains"** (Dru, 2026-09-05 21:41, verbatim: "rumbles should also be a chain of type rumble. Can
   also be tagged with a quest at the same time. All chains should be snoozable"). Design to state
