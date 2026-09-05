@@ -71,6 +71,23 @@ afterEach(() => {
 });
 
 describe('Quests', () => {
+  it('shows one deep-linked quest and clears the quest parameter', async () => {
+    const other = { ...quest, id: 'other', title: 'Other quest' };
+    renderScreen(
+      vi.fn((url: string) =>
+        response(url === '/api/worlds' ? [world] : url === '/api/quests' ? [quest, other] : []),
+      ),
+      '/quests?world=missing&quest=make-map',
+    );
+
+    expect(await screen.findByText(quest.title)).not.toBeNull();
+    expect(screen.queryByText(other.title)).toBeNull();
+    expect(screen.queryByLabelText('World filter')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all quests' }));
+    expect(await screen.findByLabelText('World filter')).not.toBeNull();
+    expect(screen.getByText('No quests match these filters.')).not.toBeNull();
+  });
+
   it('renders world tags and combines world and status filters', async () => {
     const pak = { ...world, id: 'pak', name: 'Expansion Pak', order: 1 };
     const idea = { ...quest, id: 'new-path', title: 'New path', status: 'idea' as const };

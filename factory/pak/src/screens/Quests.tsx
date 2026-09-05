@@ -210,6 +210,7 @@ const statusFilters: { id: StatusFilter; label: string; statuses?: QuestStatus[]
 export function Quests() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedWorld = searchParams.get('world') ?? 'all';
+  const selectedQuestId = searchParams.get('quest');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [worlds, setWorlds] = useState<Awaited<ReturnType<typeof listWorlds>>>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -255,6 +256,7 @@ export function Quests() {
     status === 'all' ? filtered.filter((quest) => quest.status !== 'done') : filtered;
   const doneQuests = status === 'all' ? filtered.filter((quest) => quest.status === 'done') : [];
   const worldNames = new Map(worlds.map((world) => [world.id, world.name]));
+  const selectedQuest = quests.find((quest) => quest.id === selectedQuestId);
   const chooseWorld = (worldId: string) => {
     setDoneExpanded(false);
     setSearchParams(worldId === 'all' ? {} : { world: worldId });
@@ -263,69 +265,91 @@ export function Quests() {
   return (
     <section className="world-quests">
       <h1>Quests</h1>
-      <div className="quest-filters">
-        <div className="quest-filter" aria-label="World filter">
-          <strong>World</strong>
-          {[{ id: 'all', name: 'All' }, ...worlds].map((world) => (
-            <button
-              key={world.id}
-              type="button"
-              aria-pressed={selectedWorld === world.id}
-              onClick={() => chooseWorld(world.id)}
-            >
-              {world.name}
-            </button>
-          ))}
-        </div>
-        <div className="quest-filter" aria-label="Status filter">
-          <strong>Status</strong>
-          {statusFilters.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              aria-pressed={status === filter.id}
-              onClick={() => {
-                setStatus(filter.id);
-                setDoneExpanded(false);
-              }}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="quest-list">
-        {activeQuests.map((quest) => (
+      {selectedQuest ? (
+        <div className="quest-list">
           <QuestCard
-            key={quest.id}
-            quest={quest}
-            worldName={worldNames.get(quest.worldId) ?? quest.worldId}
+            quest={selectedQuest}
+            worldName={worldNames.get(selectedQuest.worldId) ?? selectedQuest.worldId}
             onChange={replaceQuest}
           />
-        ))}
-        {doneQuests.length > 0 && (
-          <section className="done-quests">
-            <button
-              className="done-quests__toggle"
-              type="button"
-              aria-expanded={doneExpanded}
-              onClick={() => setDoneExpanded((expanded) => !expanded)}
-            >
-              Done ({doneQuests.length})
-            </button>
-            {doneExpanded &&
-              doneQuests.map((quest) => (
-                <QuestCard
-                  key={quest.id}
-                  quest={quest}
-                  worldName={worldNames.get(quest.worldId) ?? quest.worldId}
-                  onChange={replaceQuest}
-                />
+          <button
+            type="button"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete('quest');
+              setSearchParams(next);
+            }}
+          >
+            Show all quests
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="quest-filters">
+            <div className="quest-filter" aria-label="World filter">
+              <strong>World</strong>
+              {[{ id: 'all', name: 'All' }, ...worlds].map((world) => (
+                <button
+                  key={world.id}
+                  type="button"
+                  aria-pressed={selectedWorld === world.id}
+                  onClick={() => chooseWorld(world.id)}
+                >
+                  {world.name}
+                </button>
               ))}
-          </section>
-        )}
-      </div>
-      {filtered.length === 0 && <p className="pak-dim">No quests match these filters.</p>}
+            </div>
+            <div className="quest-filter" aria-label="Status filter">
+              <strong>Status</strong>
+              {statusFilters.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  aria-pressed={status === filter.id}
+                  onClick={() => {
+                    setStatus(filter.id);
+                    setDoneExpanded(false);
+                  }}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="quest-list">
+            {activeQuests.map((quest) => (
+              <QuestCard
+                key={quest.id}
+                quest={quest}
+                worldName={worldNames.get(quest.worldId) ?? quest.worldId}
+                onChange={replaceQuest}
+              />
+            ))}
+            {doneQuests.length > 0 && (
+              <section className="done-quests">
+                <button
+                  className="done-quests__toggle"
+                  type="button"
+                  aria-expanded={doneExpanded}
+                  onClick={() => setDoneExpanded((expanded) => !expanded)}
+                >
+                  Done ({doneQuests.length})
+                </button>
+                {doneExpanded &&
+                  doneQuests.map((quest) => (
+                    <QuestCard
+                      key={quest.id}
+                      quest={quest}
+                      worldName={worldNames.get(quest.worldId) ?? quest.worldId}
+                      onChange={replaceQuest}
+                    />
+                  ))}
+              </section>
+            )}
+          </div>
+          {filtered.length === 0 && <p className="pak-dim">No quests match these filters.</p>}
+        </>
+      )}
     </section>
   );
 }

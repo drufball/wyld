@@ -26,23 +26,14 @@ function renderToday(signals?: { rumbles: number; demos: number; memory: string 
 
 afterEach(() => vi.unstubAllGlobals());
 describe('Today', () => {
-  it('quietly shows the building quest count in words', async () => {
-    const buildingQuest = {
-      id: 'map',
-      worldId: 'wyld',
-      title: 'Map',
-      pitch: 'Chart it.',
-      status: 'building',
-      progress: 0,
-      sinceYouLooked: '',
-      lastNote: '',
-    };
+  it('does not render the old cranking paragraph', async () => {
     const fetch = vi.fn((url: string) =>
-      jsonResponse(url === '/api/quests?status=building' ? [buildingQuest] : presence),
+      jsonResponse(url === '/api/quests' || url === '/api/worlds' ? [] : presence),
     );
     vi.stubGlobal('fetch', fetch);
-    renderToday();
-    expect(await screen.findByText('Cranking on one quest.')).not.toBeNull();
+    const { container } = renderToday();
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/quests', {}));
+    expect(container.querySelector('.today-cranking')).toBeNull();
     expect(fetch.mock.calls.filter(([url]) => url === '/api/presence/seen')).toHaveLength(0);
   });
 
