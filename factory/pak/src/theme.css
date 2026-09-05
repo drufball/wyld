@@ -147,6 +147,16 @@ p {
   background: var(--pak-purple-deep);
 }
 
+@media (min-width: 360px) {
+  .pak-nav__label--mobile {
+    display: none;
+  }
+
+  .pak-nav__label--desktop {
+    display: inline;
+  }
+}
+
 @media (min-width: 900px) {
   h1 {
     font-size: 24px;
@@ -169,7 +179,7 @@ p {
     padding: var(--pak-space-4) var(--pak-space-3);
     border-top: 0;
     border-right: 3px solid var(--pak-bevel-dark);
-    font-size: 8px;
+    font-size: 16px;
   }
 
   .pak-nav__brand {

@@ -28,7 +28,7 @@ export function Nav() {
                 {mobileLabel}
               </span>
               <span className="pak-nav__label pak-nav__label--desktop" aria-hidden="true">
-                {label}
+                {label.toUpperCase()}
               </span>
             </NavLink>
           </li>
