@@ -15,7 +15,7 @@ step finishes._
 | 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | done | #33 catchups table + `GET/POST /api/catchup` + mechanical digest, #37 `pak_write_catchup`/`pak_read_catchup`, #38 Catch-Up card + arrival gate + VMU; `skills/write-catchup.md` |
 | 1.5 GitHub loop + Debug Menu health tiles | done | #41 `health` table + `POST /api/health/report` + `GET /api/health/snapshot`, #44 `pak_health_report`/`pak_read_health` + Wake `lastGithubEventAt`, #45 e2e harness isolation, #47 `/debug` live tiles |
 | Quests `question-chains` + `today-glance` (Dru intents 2026-09-05, outside the step plan) | done | #49 server chains, #53 Wake `human.question`/`human.chain_closed` + `pak_read_chains`/`pak_answer_chain`/`pak_close_chain`, #54 Today chain cards, #57 quest Ask → chains, #59 in-flight quest cards on Today |
-| `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | **in progress** — own lead; #62 ops report endpoint, #67 local ops reporter, #68 honest tiles merged; #72 (no-checks-yet is not red) open | — |
+| `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | done | #62 `POST /api/ops/report` + `ops_reports` (measured health kept apart from the Planner heartbeat), #67 `@wyld/ops` reporter (gh runs/PRs/rate + Claude session JSONL tokens, every 2 min, `ops` tmux window via `factory:up`), #68 ten plain-English tiles + stuck-channel tell, #73 no-checks-yet reads pending. `Spent today` is honestly "Not measured" (flat subscription, no cost source) |
 | 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | **in progress** — own lead; #63 server (table, API, decide → `human.decision`, digest slot) and #71 Wake tools merged; Pak screen waits on `debug-menu` and `one-box` | — |
 | `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | **in progress** — own lead; #70 Planner-started chains merged; Today unit waits on `debug-menu` | — |
 | 1.7 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
@@ -67,6 +67,18 @@ _Rewritten 2026-09-05 ~19:45 by the respawned Planner after draining the queue._
 5. Keep this file and the Pak quests in sync as steps finish.
 
 ## Open items
+
+- **`gh pr review --request-changes` fails on Codex PRs** ("Can not request changes on your own pull
+  request" — Codex pushes as drufball). Use `gh pr comment` for the record, then
+  `codex cloud exec --branch codex/<slug>`. PROTOCOL/skills still say `--request-changes`; fix when
+  next touched.
+- **tmux windows `wyld:0` (server) and `wyld:1` (wake) vanished mid-session 2026-09-05 ~20:19** —
+  gone, not crashed-and-restarted. The debug-menu lead recreated them
+  (`set -a; . .factory/env; tmux new-window -t wyld:0 ...`). Cause unknown; possibly a lead's
+  `respawn-window`/`kill-window` against the wrong index. A doctor check that all six windows exist
+  is a cheap Codex unit. Leads: never `kill-window`; `respawn-window -k` only on the server window.
+- Leads picking scratch ports collided (8791/8792/8796 all taken at once). Pick a free port
+  programmatically in verification runs.
 
 - Quest `pak-polish` is **done** (2026-09-05): #28 mark-done + collapsed Done section + Today
   textarea, #29 Ask-box textarea, #30 flat Quests tab (world tags, world+status chips, `/worlds`
