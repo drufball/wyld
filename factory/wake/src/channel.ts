@@ -1,5 +1,10 @@
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  type CallToolRequest,
+  type CallToolResult,
+  ListToolsRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import {
   CiState,
   type HealthReport,
@@ -18,7 +23,7 @@ export type ChannelNotification = {
   method: 'notifications/claude/channel';
   params: { content: string; meta: Record<string, string> };
 };
-type Logger = (level: LogLevel, msg: string, context?: LogContext) => void;
+export type Logger = (level: LogLevel, msg: string, context?: LogContext) => void;
 
 export function createDaemonPost(options: {
   wakeUrl: string;
@@ -593,13 +598,17 @@ function textResult(text: string, isError = false) {
   return { content: [{ type: 'text' as const, text }], ...(isError ? { isError: true } : {}) };
 }
 
-export function registerPakTools(
-  server: Server,
-  options: { pakUrl: string; fetch?: typeof fetch },
-): void {
+export type ToolRegistry = {
+  tools: typeof tools;
+  callTool: (params: CallToolRequest['params']) => Promise<CallToolResult>;
+};
+
+export function createToolRegistry(options: {
+  pakUrl: string;
+  fetch?: typeof fetch;
+}): ToolRegistry {
   const request = options.fetch ?? fetch;
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
-  server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
+  const callTool = async (params: CallToolRequest['params']): Promise<CallToolResult> => {
     if (params.name === 'pak_log_event') {
       const parsed = LogEventArgs.safeParse(params.arguments);
       if (!parsed.success)
@@ -837,7 +846,23 @@ export function registerPakTools(
       });
     }
     return textResult(`Unknown tool: ${params.name}`, true);
-  });
+  };
+  return { tools, callTool };
+}
+
+export function registerPakTools(
+  server: Server,
+  options: { pakUrl: string; fetch?: typeof fetch },
+): { swap: (next: ToolRegistry) => void; current: () => ToolRegistry } {
+  let registry = createToolRegistry(options);
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: registry.tools }));
+  server.setRequestHandler(CallToolRequestSchema, async ({ params }) => registry.callTool(params));
+  return {
+    swap(next) {
+      registry = next;
+    },
+    current: () => registry,
+  };
 }
 
 function invalidArguments(error: z.ZodError) {
