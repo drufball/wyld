@@ -1,0 +1,4 @@
+**/dist/**
+**/node_modules/**
+.factory/**
+pnpm-lock.yaml

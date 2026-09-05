@@ -1,0 +1,5 @@
+packages:
+  - 'factory/*'
+  - 'game'
+minimumReleaseAgeExclude:
+  - eslint@10.10.0
