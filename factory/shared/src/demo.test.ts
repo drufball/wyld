@@ -33,6 +33,7 @@ describe('demo schemas', () => {
     expect(Demo.safeParse({ ...demo, status: 'unknown' }).success).toBe(false);
     expect(Feedback.safeParse({ ...feedback, id: -1 }).success).toBe(false);
     expect(NewDemo.safeParse({ id: 'main', ref: '' }).success).toBe(false);
+    expect(NewDemo.safeParse({ id: 'main', ref: '--upload-pack=evil' }).success).toBe(false);
     expect(NewFeedback.safeParse({ demoId: 'main', text: '' }).success).toBe(false);
   });
 });

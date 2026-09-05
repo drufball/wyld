@@ -62,7 +62,7 @@ export function createDemoBuilder(dependencies: Dependencies) {
       await fs.mkdir(dependencies.worktreesDir, { recursive: true });
       await fs.mkdir(dependencies.demosDir, { recursive: true });
       step = 'fetch';
-      await command('git', ['-C', dependencies.repoDir, 'fetch', 'origin', ref]);
+      await command('git', ['-C', dependencies.repoDir, 'fetch', 'origin', '--', ref]);
       step = 'remove stale worktree';
       await command('git', [
         '-C',

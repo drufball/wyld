@@ -19,7 +19,12 @@ export type Demo = z.infer<typeof Demo>;
 
 export const NewDemo = z.object({
   id: Id,
-  ref: z.string().min(1),
+  ref: z
+    .string()
+    .min(1)
+    .refine((ref) => !ref.startsWith('-'), {
+      message: 'ref must not start with -',
+    }),
   questId: Id.optional(),
   title: z.string().min(1).optional(),
 });

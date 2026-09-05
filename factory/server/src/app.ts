@@ -82,8 +82,8 @@ export type AppDependencies = {
   fetch?: typeof globalThis.fetch;
   logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
   pakDist?: string;
-  demosDir?: string;
-  feedbackDir?: string;
+  demosDir: string;
+  feedbackDir: string;
   builder?: DemoBuilder;
 };
 
@@ -371,8 +371,9 @@ export function createApp(dependencies: AppDependencies) {
       database: dependencies.database,
       now,
       storeEvent,
-      config: { feedbackDir: dependencies.feedbackDir ?? '.factory/feedback' },
+      config: { feedbackDir: dependencies.feedbackDir },
       builder,
+      logger,
     }),
   );
 
@@ -477,7 +478,7 @@ export function createApp(dependencies: AppDependencies) {
       return c.json({ error: 'Not Found' }, 404);
     const prefix = `/play/${slug}`;
     const response = resolveStaticFile(
-      path.join(dependencies.demosDir ?? '.factory/demos', slug),
+      path.join(dependencies.demosDir, slug),
       c.req.path.slice(prefix.length) || '/',
       c.req.method,
     );

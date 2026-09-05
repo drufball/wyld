@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { DEMO_SLUG, type DemoBuilder } from './builder.js';
 import type { Config } from './config.js';
 import type { AppDatabase } from './database.js';
+import type { LogContext } from './logger.js';
 import { formatIssues } from './quests.js';
 import { demos, feedback, quests } from './schema.js';
 
@@ -18,6 +19,7 @@ type Dependencies = {
   storeEvent: (event: NewEvent) => Promise<unknown>;
   config: Pick<Config, 'feedbackDir'>;
   builder: DemoBuilder;
+  logger: (level: 'info' | 'error', message: string, context?: LogContext) => void;
 };
 const BuildRequest = z.object({ id: z.string().optional() });
 const FeedbackQuery = z.object({ demo: z.string().optional() });
@@ -28,21 +30,32 @@ const parseFeedback = (row: typeof feedback.$inferSelect) =>
   Feedback.parse({ ...row, hasScreenshot: row.screenshotPath !== null });
 const validSlug = (value: string) => DEMO_SLUG.test(value);
 
-export function createDemoRoutes({ database, now, storeEvent, config, builder }: Dependencies) {
+export function createDemoRoutes({
+  database,
+  now,
+  storeEvent,
+  config,
+  builder,
+  logger,
+}: Dependencies) {
   const { db } = database;
   const app = new Hono();
 
   const finishBuild = (id: string, promise: ReturnType<DemoBuilder['build']>) => {
-    void promise.then((result) => {
-      db.update(demos)
-        .set(
-          result.ok
-            ? { status: 'ready', builtAt: now().toISOString(), error: null }
-            : { status: 'failed', error: result.error },
-        )
-        .where(eq(demos.id, id))
-        .run();
-    });
+    void promise
+      .then((result) => {
+        db.update(demos)
+          .set(
+            result.ok
+              ? { status: 'ready', builtAt: now().toISOString(), error: null }
+              : { status: 'failed', error: result.error },
+          )
+          .where(eq(demos.id, id))
+          .run();
+      })
+      .catch((error: unknown) => {
+        logger('error', 'failed to record demo build result', { id, error: String(error) });
+      });
   };
 
   app.get('/demos', (c) => {
@@ -52,7 +65,9 @@ export function createDemoRoutes({ database, now, storeEvent, config, builder }:
       .all()
       .sort((a, b) => {
         if (a.id === 'main' || b.id === 'main') return a.id === 'main' ? -1 : 1;
-        if (a.builtAt === null || b.builtAt === null) return a.builtAt === null ? -1 : 1;
+        if (a.builtAt === null && b.builtAt === null) return a.id.localeCompare(b.id);
+        if (a.builtAt === null) return -1;
+        if (b.builtAt === null) return 1;
         return b.builtAt.localeCompare(a.builtAt) || a.id.localeCompare(b.id);
       });
     return c.json(rows.map(parseDemo));

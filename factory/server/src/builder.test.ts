@@ -48,7 +48,7 @@ describe('demo builder', () => {
     await expect(observed.build('main', 'main')).resolves.toEqual({ ok: true });
     expect(spy.mock.calls.map(([command, args]) => `${command} ${args.join(' ')}`)).toEqual(
       expect.arrayContaining([
-        'git -C /repo fetch origin main',
+        'git -C /repo fetch origin -- main',
         'pnpm install --frozen-lockfile --prefer-offline',
         'pnpm --filter @wyld/game build',
       ]),
