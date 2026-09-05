@@ -1,8 +1,0 @@
-.pak-panel {
-  padding: var(--pak-space-4);
-  border: 3px solid;
-  border-color: var(--pak-bevel-light) var(--pak-bevel-dark) var(--pak-bevel-dark)
-    var(--pak-bevel-light);
-  border-radius: var(--pak-radius);
-  background: var(--pak-panel);
-}

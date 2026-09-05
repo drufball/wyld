@@ -2,6 +2,10 @@ import type { Chain } from '@wyld/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { closeChain, listChains, listQuests, postChainMessage } from '../api/client.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
+import { Badge } from './ui/badge.js';
+import { Button } from './ui/button.js';
+import { Card } from './ui/card.js';
+import { Textarea } from './ui/textarea.js';
 
 function noteDate(timestamp: string) {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
@@ -65,34 +69,37 @@ export function ChainCard({
   const waiting = chain.messages.at(-1)?.author === 'human';
 
   return (
-    <article className="chain-card">
+    <Card className="grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
       {showQuestChip && chain.questId !== null && (
-        <span className="world-tag">{questName ?? chain.questId}</span>
+        <Badge variant="tone" data-tone="accent">
+          {questName ?? chain.questId}
+        </Badge>
       )}
-      <div className="chain-card__notes" aria-live="polite">
+      <div className="grid gap-2" aria-live="polite">
         {chain.messages.map((message) => (
-          <p key={message.id}>
+          <p className="m-0 overflow-anywhere whitespace-pre-wrap bg-muted p-2" key={message.id}>
             <strong>{message.author === 'planner' ? 'Fable' : 'You'}</strong>{' '}
-            <span className="pak-dim">· {noteDate(message.ts)}</span>
+            <span className="text-muted-foreground">· {noteDate(message.ts)}</span>
             <br />
             {message.text}
           </p>
         ))}
       </div>
       {waiting && (
-        <p className="chain-card__thinking" aria-live="polite">
+        <p className="m-0 text-muted-foreground" aria-live="polite">
           Fable's thinking…
         </p>
       )}
-      <form onSubmit={submit}>
+      <form className="grid gap-2" onSubmit={submit}>
         <label htmlFor={`chain-follow-up-${chain.id}`}>Follow up</label>
-        <span className="chain-card__input">
-          <textarea
+        <span className="flex flex-wrap gap-2">
+          <Textarea
             ref={field}
             id={`chain-follow-up-${chain.id}`}
             rows={1}
             value={text}
             onChange={(event) => setText(event.target.value)}
+            className="min-w-0 flex-[1_1_190px] resize-none overflow-hidden"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
@@ -100,28 +107,28 @@ export function ChainCard({
               }
             }}
           />
-          <button type="submit">Send</button>
+          <Button type="submit">Send</Button>
         </span>
       </form>
-      <div className="chain-card__actions">
-        <button type="button" onClick={() => close('settled')}>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="retro" type="button" onClick={() => close('settled')}>
           Settled
-        </button>
+        </Button>
         {onConvert && (
-          <button type="button" onClick={() => close('converted')}>
+          <Button variant="retro" type="button" onClick={() => close('converted')}>
             Make this a quest
-          </button>
+          </Button>
         )}
       </div>
       {failedAction !== null && (
-        <p className="quest-retry">
+        <p className="m-0 text-destructive">
           That didn't go through.{' '}
-          <button type="button" onClick={failedAction}>
+          <Button variant="ghost" type="button" onClick={failedAction}>
             Retry
-          </button>
+          </Button>
         </p>
       )}
-    </article>
+    </Card>
   );
 }
 
@@ -171,7 +178,7 @@ export function ChainList({
   }, [addedChain]);
   if (chains.length === 0) return null;
   return (
-    <section className="today-chains" aria-label="Open questions">
+    <section className="grid gap-3" aria-label="Open questions">
       {chains.map((chain) => (
         <ChainCard
           key={chain.id}
