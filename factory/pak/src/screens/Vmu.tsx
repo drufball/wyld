@@ -32,7 +32,7 @@ export function Vmu() {
       )}
       {rumbleCount !== null && rumbleCount > 0 && (
         <Link className="vmu-rumbles" to="/rumble">
-          {countInWords(rumbleCount)} Rumbles
+          {countInWords(rumbleCount)} {rumbleCount === 1 ? 'Rumble' : 'Rumbles'}
         </Link>
       )}
       {nextAction !== null &&

@@ -16,7 +16,7 @@ export function Signals({ rumbles, demos, memory }: TodaySignals) {
   if (rumbles <= 0 && demos <= 0 && memory === null) return null;
   return (
     <section className="today-signals" aria-label="Signals">
-      {rumbles > 0 && <a href="/rumble">{compactCount(rumbles)} Rumbles</a>}
+      {rumbles > 0 && <Link to="/rumble">{compactCount(rumbles)} Rumbles</Link>}
       {demos > 0 && <p>{compactCount(demos)} demos ready</p>}
       {memory !== null && <p>{memory}</p>}
     </section>

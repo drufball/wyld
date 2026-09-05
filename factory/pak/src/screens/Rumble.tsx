@@ -189,29 +189,31 @@ export function Rumble() {
           </article>
         ))}
       </div>
-      <details className="rumble-decided">
-        <summary>Already decided ({decided.length})</summary>
-        <div className="rumble-list">
-          {decided.map((rumble) => (
-            <article
-              key={rumble.id}
-              className={`rumble-card${rumble.kind === 'outage' ? ' rumble-card--outage' : ''}`}
-            >
-              <h2>{rumble.title}</h2>
-              <p>
-                Chosen: <strong>{rumble.chosen}</strong>
-              </p>
-              <DecisionButtons
-                rumble={rumble}
-                options={rumble.options.filter((option) => option !== rumble.chosen)}
-                deciding={deciding[rumble.id] ?? false}
-                failed={failed[rumble.id] ?? null}
-                decide={decide}
-              />
-            </article>
-          ))}
-        </div>
-      </details>
+      {decided.length > 0 && (
+        <details className="rumble-decided">
+          <summary>Already decided ({decided.length})</summary>
+          <div className="rumble-list">
+            {decided.map((rumble) => (
+              <article
+                key={rumble.id}
+                className={`rumble-card${rumble.kind === 'outage' ? ' rumble-card--outage' : ''}`}
+              >
+                <h2>{rumble.title}</h2>
+                <p>
+                  Chosen: <strong>{rumble.chosen}</strong>
+                </p>
+                <DecisionButtons
+                  rumble={rumble}
+                  options={rumble.options.filter((option) => option !== rumble.chosen)}
+                  deciding={deciding[rumble.id] ?? false}
+                  failed={failed[rumble.id] ?? null}
+                  decide={decide}
+                />
+              </article>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

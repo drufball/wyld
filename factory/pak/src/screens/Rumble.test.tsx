@@ -76,6 +76,7 @@ describe('Rumble', () => {
     vi.mocked(listRumbles).mockResolvedValue([]);
     render(<Rumble />);
     expect(await screen.findByText("Controller's quiet.")).not.toBeNull();
+    expect(screen.queryByText('Already decided (0)')).toBeNull();
   });
 
   it('offers retry after a failed decision', async () => {
