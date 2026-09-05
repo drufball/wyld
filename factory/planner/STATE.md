@@ -81,6 +81,16 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
   against the running Planner — if Claude Code ignores it, say so in STATE.md and stop there.
   Also check in `.claude/settings.json` with `enabledMcpjsonServers: ["wake"]` so a fresh clone
   never hits the MCP approval.
+- **Queued lead (after `wake-hot-reload`, same packages): quest `improved-chains` "Better
+  chains"** (Dru, 2026-09-05 21:41, verbatim: "rumbles should also be a chain of type rumble. Can
+  also be tagged with a quest at the same time. All chains should be snoozable"). Design to state
+  in the issues: chains get a `kind` (`question` | `message` | `rumble`); a Rumble is stored/served
+  as a chain of kind `rumble` that keeps its options, context and `chosen`, and deciding still
+  emits `human.decision`; a rumble chain may carry `questId` too; every chain gets `snoozedUntil`
+  — Today hides snoozed chains and they reappear at that time (a snoozed rumble still counts on
+  the Rumble screen). Keep `pak_request_rumble`/`pak_read_rumbles` working; add `pak_snooze_chain`
+  or fold snooze into the chain API for the UI only (the Planner never snoozes). Plan the split:
+  server model + migration → Wake tools → Pak UI (Today cards + Rumble screen + snooze control).
 - **Tailscale Serve is on (2026-09-05 ~21:30):** Dru enabled Serve on the tailnet; `tailscale serve
   --bg 8787` now proxies `https://macbook-pro-6.taild72c8d.ts.net/` → `127.0.0.1:8787` (tailnet
   only, persists across restarts; `tailscale serve status` to check, `tailscale serve --https=443
