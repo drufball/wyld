@@ -11,7 +11,7 @@ file is down to environment facts and open items. Keep it short; update it whene
 | 1.1 Pak shell + Today | done | #13 next-action + static hosting, #15 shell/theme, #20 Today + SSE + Playwright smoke |
 | 1.2 Wake | done | #14 core, #18 channel adapter + `pak_log_event`/`pak_set_next_action`, #21 factory up/down/doctor |
 | 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | done | #23 server worlds/quests/links/notes, #26 nine `pak_*` tools, #27 Worlds screen + Nudge/Park/Ask |
-| 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | **in progress** (lead spawned 2026-09-05) | — |
+| 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | done | #33 catchups table + `GET/POST /api/catchup` + mechanical digest, #37 `pak_write_catchup`/`pak_read_catchup`, #38 Catch-Up card + arrival gate + VMU; `skills/write-catchup.md` |
 | 1.5 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -82,6 +82,17 @@ file is down to environment facts and open items. Keep it short; update it whene
   must have `WAKE_URL` unset (it's optional in server config). The tell remains: a surprising
   human intent that is absent from `pak_read_events` is a leaked test event. Proper fix (wake
   ingress rejects or namespaces non-production senders) is a future Codex unit.
+- **The Pak e2e harness itself leaks** (confirmed empirically 2026-09-05 by the 1.4 lead): the
+  `webServer.env` in `factory/pak/playwright.config.ts` is *merged* into `process.env`, not a
+  replacement, so the fixture's server inherits `WAKE_URL`/`WAKE_SECRET` and forwards every
+  synthetic `human.intent` to live Wake. Proved by pointing `WAKE_URL` at a local sink and running
+  `e2e/today.spec.ts`: the sink received `POST /event`. This is a harness defect, not shell
+  hygiene — no amount of care at the shell fixes `pnpm test:e2e`. Fix needs both halves: teach
+  `factory/server/src/config.ts` to treat an empty `WAKE_URL`/`WAKE_SECRET` as unset (today an
+  empty string fails `z.url()` and the server refuses to start), then add `WAKE_URL: ''` and
+  `WAKE_SECRET: ''` to the fixture env. Same file has a second defect: `PAK_PORT: '8788'` is
+  Wake's port, so the e2e suite cannot run at all while the factory is up (`EADDRINUSE`) — move it
+  to something unused like 8799.
 - **Stale `@wyld/shared` dist crashes the live server on pull** (seen 2026-09-05): the server dev
   watcher restarts on a `git pull` of the live checkout, but does not rebuild `@wyld/shared`; a
   merge that adds a shared export (the catch-up engine) crashed it with a missing-export
