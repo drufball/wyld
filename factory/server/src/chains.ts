@@ -11,7 +11,11 @@ export const CHAIN_QUIET_SECONDS = 86_400;
 export const CHAIN_LIMIT = 5;
 
 const ChainCreate = z
-  .object({ text: z.string().min(1).max(2000), questId: z.string().min(1).optional() })
+  .object({
+    text: z.string().min(1).max(2000),
+    questId: z.string().min(1).optional(),
+    author: z.enum(['human', 'planner']).default('human'),
+  })
   .strict();
 const ChainQuery = z.object({ quest: z.string().min(1).optional() });
 const MessageCreate = z
@@ -109,11 +113,11 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
       .returning({ id: chains.id })
       .get();
     db.insert(chainMessages)
-      .values({ chainId: row.id, author: 'human', text: parsed.data.text, ts })
+      .values({ chainId: row.id, author: parsed.data.author, text: parsed.data.text, ts })
       .run();
     await storeEvent({
-      source: 'human',
-      kind: 'human.question',
+      source: parsed.data.author,
+      kind: parsed.data.author === 'human' ? 'human.question' : 'planner.chain_updated',
       ...(parsed.data.questId === undefined ? {} : { questId: parsed.data.questId }),
       payload: {
         chainId: row.id,

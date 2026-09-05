@@ -85,8 +85,45 @@ describe('chain routes', () => {
     });
   });
 
+  it.each([
+    { questId: undefined, text: 'A proactive update' },
+    { questId: 'target', text: 'A targeted update' },
+  ])('creates a planner-authored chain with quest $questId', async ({ questId, text }) => {
+    if (questId !== undefined) createQuest(questId);
+    const response = await post('/api/chains', {
+      text,
+      author: 'planner',
+      ...(questId === undefined ? {} : { questId }),
+    });
+
+    expect(response.status).toBe(201);
+    const chain = Chain.parse(await response.json());
+    expect(chain).toMatchObject({
+      status: 'open',
+      questId: questId ?? null,
+      messages: [{ author: 'planner', text }],
+    });
+    expect(chain.messages).toHaveLength(1);
+    expect(await events()).toEqual([
+      expect.objectContaining({
+        source: 'planner',
+        kind: 'planner.chain_updated',
+        ...(questId === undefined ? {} : { questId }),
+        payload: {
+          chainId: chain.id,
+          text,
+          ...(questId === undefined ? {} : { questId }),
+        },
+      }),
+    ]);
+  });
+
   it('rejects a chain targeted at an unknown quest', async () => {
-    const response = await post('/api/chains', { text: 'Lost question', questId: 'missing' });
+    const response = await post('/api/chains', {
+      text: 'Lost update',
+      author: 'planner',
+      questId: 'missing',
+    });
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: 'Not Found' });
   });
