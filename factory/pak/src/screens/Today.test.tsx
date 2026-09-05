@@ -26,6 +26,27 @@ function renderToday(signals?: { rumbles: number; demos: number; memory: string 
 
 afterEach(() => vi.unstubAllGlobals());
 describe('Today', () => {
+  it('quietly shows the building quest count in words', async () => {
+    const buildingQuest = {
+      id: 'map',
+      worldId: 'wyld',
+      title: 'Map',
+      pitch: 'Chart it.',
+      status: 'building',
+      progress: 0,
+      sinceYouLooked: '',
+      lastNote: '',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        jsonResponse(url === '/api/quests?status=building' ? [buildingQuest] : presence),
+      ),
+    );
+    renderToday();
+    expect(await screen.findByText('Cranking on one quest.')).not.toBeNull();
+  });
+
   it('posts an intent and clears the field', async () => {
     const fetch = vi.fn((_url: string, init?: RequestInit) =>
       init?.method === 'POST' && _url === '/api/events'

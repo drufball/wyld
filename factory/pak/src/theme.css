@@ -313,3 +313,207 @@ a.today-action:focus-visible {
     animation-iteration-count: 1 !important;
   }
 }
+
+:root {
+  --pak-world-0: var(--pak-jewel-blue);
+  --pak-world-1: var(--pak-jewel-green);
+  --pak-world-2: var(--pak-jewel-yellow);
+  --pak-world-3: var(--pak-purple);
+}
+
+.worlds,
+.world-quests {
+  max-width: 1100px;
+}
+
+.world-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--pak-space-4);
+}
+
+.world-door {
+  display: grid;
+  min-height: 180px;
+  gap: var(--pak-space-3);
+  align-content: center;
+  padding: var(--pak-space-4);
+  border: 3px solid var(--world-color);
+  color: var(--pak-ink);
+  background: var(--pak-panel);
+  text-decoration: none;
+}
+.world-door--0 {
+  --world-color: var(--pak-world-0);
+}
+.world-door--1 {
+  --world-color: var(--pak-world-1);
+}
+.world-door--2 {
+  --world-color: var(--pak-world-2);
+}
+.world-door--3 {
+  --world-color: var(--pak-world-3);
+}
+.world-door:hover,
+.world-door:focus-visible {
+  background: var(--pak-panel-raised);
+}
+.world-door:focus-visible {
+  outline: 3px solid var(--pak-orange);
+  outline-offset: 3px;
+}
+.world-door__icon {
+  color: var(--world-color);
+  font-family: var(--pak-display);
+  font-size: 28px;
+}
+.world-door strong {
+  font-family: var(--pak-display);
+  font-size: 14px;
+}
+.world-door span:last-child {
+  color: var(--pak-ink-dim);
+}
+
+.quest-list {
+  display: grid;
+  gap: var(--pak-space-4);
+}
+.quest-card {
+  min-width: 0;
+  padding: var(--pak-space-4);
+  border: 2px solid var(--pak-bevel-light);
+  background: var(--pak-panel);
+}
+.quest-card header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pak-space-3);
+  justify-content: space-between;
+}
+.quest-card header > div {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.quest-card h2 {
+  margin: 0;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.quest-card header p {
+  margin: var(--pak-space-2) 0;
+  color: var(--pak-ink-dim);
+}
+.quest-status {
+  align-self: start;
+  padding: var(--pak-space-1) var(--pak-space-2);
+  border: 1px solid var(--pak-jewel-blue);
+  color: var(--pak-ink);
+  font-family: var(--pak-display);
+  font-size: 9px;
+}
+.quest-status--building {
+  border-color: var(--pak-jewel-green);
+}
+.quest-status--demo {
+  border-color: var(--pak-jewel-yellow);
+}
+.quest-status--parked {
+  border-color: var(--pak-ink-dim);
+}
+.quest-progress {
+  height: 10px;
+  margin: var(--pak-space-3) 0;
+  background: var(--pak-bevel-dark);
+  overflow: hidden;
+}
+.quest-progress span {
+  display: block;
+  height: 100%;
+  background: var(--pak-jewel-green);
+  transition: width 400ms ease;
+}
+.quest-context {
+  padding-left: var(--pak-space-3);
+  border-left: 2px solid var(--pak-purple);
+  color: var(--pak-ink-dim);
+}
+.quest-context p {
+  margin: var(--pak-space-2) 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.quest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pak-space-2);
+  margin-top: var(--pak-space-4);
+}
+.quest-actions button,
+.ask-thread button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--pak-space-2) var(--pak-space-3);
+  border: 2px solid var(--pak-bevel-light);
+  color: var(--pak-ink);
+  background: var(--pak-panel-raised);
+  font: inherit;
+  cursor: pointer;
+}
+.quest-actions button:focus-visible,
+.ask-thread button:focus-visible {
+  outline: 3px solid var(--pak-orange);
+}
+.quest-actions button:disabled {
+  color: var(--pak-ink-dim);
+  cursor: not-allowed;
+}
+.quest-demo {
+  display: inline-flex;
+  gap: var(--pak-space-2);
+  align-items: center;
+  color: var(--pak-ink-dim);
+}
+.ask-thread {
+  display: grid;
+  gap: var(--pak-space-3);
+  margin-top: var(--pak-space-4);
+  padding-top: var(--pak-space-3);
+  border-top: 2px solid var(--pak-bevel-dark);
+}
+.ask-thread__notes p {
+  padding: var(--pak-space-2);
+  background: var(--pak-panel-raised);
+  overflow-wrap: anywhere;
+}
+.ask-thread form {
+  display: grid;
+  gap: var(--pak-space-2);
+}
+.ask-thread__input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pak-space-2);
+}
+.ask-thread input {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 190px;
+  border: 2px solid var(--pak-bevel-light);
+  padding: var(--pak-space-2);
+  color: var(--pak-ink);
+  background: var(--pak-bg);
+  font: inherit;
+}
+.quest-retry {
+  color: var(--pak-ink-dim);
+}
+.quest-retry button {
+  border: 0;
+  padding: 0;
+  color: var(--pak-ink);
+  background: none;
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -7,6 +7,7 @@ import { Rumble } from './screens/Rumble.js';
 import { Today } from './screens/Today.js';
 import { Vmu } from './screens/Vmu.js';
 import { Worlds } from './screens/Worlds.js';
+import { WorldQuests } from './screens/WorldQuests.js';
 import { LiveEventsProvider, type EventSourceFactory } from './live/LiveEvents.js';
 
 function Shell() {
@@ -28,6 +29,7 @@ export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFa
         <Route element={<Shell />}>
           <Route index element={<Today />} />
           <Route path="worlds" element={<Worlds />} />
+          <Route path="worlds/:id" element={<WorldQuests />} />
           <Route path="demos" element={<Demos />} />
           <Route path="rumble" element={<Rumble />} />
           <Route path="debug" element={<Debug />} />

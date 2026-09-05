@@ -14,7 +14,6 @@ function renderAt(path: string) {
 }
 
 const placeholders = [
-  ['Worlds', 'Every world, and the quests inside it.'],
   ['Demos', 'Demo Discs — builds you can try right now.'],
   ['Rumble', 'Decisions only you can make.'],
   ['Debug', 'Factory health, architecture, and the raw event stream.'],
@@ -65,6 +64,12 @@ describe('Pak shell', () => {
 
     expect(screen.getByRole('heading', { name })).not.toBeNull();
     expect(screen.getByText(purpose)).not.toBeNull();
+  });
+
+  it('navigates to the Worlds hub', () => {
+    renderAt('/');
+    fireEvent.click(screen.getByRole('link', { name: 'Worlds' }));
+    expect(screen.getByRole('heading', { name: 'Worlds' })).not.toBeNull();
   });
 
   it('renders the VMU without shell navigation', () => {
