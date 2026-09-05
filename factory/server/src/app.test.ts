@@ -109,8 +109,64 @@ describe('Pak server', () => {
     expect(events).toMatchObject([{ source: 'human', kind: 'human.seen' }]);
   });
 
+  it('starts with no next action', async () => {
+    const current = Presence.parse(await (await app.request('/api/presence')).json());
+    expect(current.nextAction).toBeNull();
+  });
+
+  it('updates the next action and records a planner event', async () => {
+    const response = await app.request('/api/presence/next-action', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: 'Try the demo', deepLink: '/demos' }),
+    });
+    expect(response.status).toBe(200);
+    const updated = Presence.parse(await response.json());
+    expect(updated.nextAction).toEqual({ text: 'Try the demo', deepLink: '/demos' });
+    expect(Presence.parse(await (await app.request('/api/presence')).json())).toEqual(updated);
+    const stored = z.array(Event).parse(await (await app.request('/api/events')).json());
+    expect(stored).toMatchObject([
+      {
+        source: 'planner',
+        kind: 'planner.next_action',
+        payload: { text: 'Try the demo', deepLink: '/demos' },
+      },
+    ]);
+  });
+
+  it.each([{}, { text: '' }, { text: 'x', deepLink: 'https://example.com' }])(
+    'rejects invalid next action %j',
+    async (body) => {
+      const response = await app.request('/api/presence/next-action', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ error: 'Invalid request' });
+    },
+  );
+
   it('checks database health', async () => {
     const health = await (await app.request('/api/health')).json();
     expect(health).toMatchObject({ ok: true, db: 'ok', version: '0.0.0' });
+  });
+
+  it('keeps APIs available when the Pak build is absent', async () => {
+    const appWithStatic = createApp({
+      database,
+      logger: silentLogger,
+      pakDist: path.join(directory, 'missing-pak'),
+    });
+    expect((await appWithStatic.request('/api/health')).status).toBe(200);
+    const unknownApi = await appWithStatic.request('/api/nope');
+    expect(unknownApi.status).toBe(404);
+    expect(await unknownApi.json()).toEqual({ error: 'Not Found' });
+    const root = await appWithStatic.request('/');
+    expect(root.status).toBe(404);
+    expect(await root.json()).toEqual({
+      error: 'Pak build not found',
+      hint: 'pnpm --filter @wyld/pak build',
+    });
   });
 });

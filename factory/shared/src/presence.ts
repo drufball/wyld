@@ -4,14 +4,14 @@ import { EventId, Id, Timestamp } from './ids.js';
 
 export const NextAction = z.object({
   text: z.string().min(1),
-  deepLink: z.string().min(1),
+  deepLink: z.string().startsWith('/').optional(),
 });
 export type NextAction = z.infer<typeof NextAction>;
 
 export const Presence = z.object({
   lastSeenAt: Timestamp,
   lastCatchupEventId: EventId.nullable(),
-  nextAction: NextAction,
+  nextAction: NextAction.nullable(),
 });
 export type Presence = z.infer<typeof Presence>;
 

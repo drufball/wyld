@@ -23,8 +23,8 @@ export function openDatabase(databasePath: string, migrationsFolder: string): Ap
     .prepare(
       `INSERT OR IGNORE INTO presence
        (id, last_seen_at, last_catchup_event_id, next_action_text, next_action_link)
-       VALUES (1, ?, NULL, ?, ?)`,
+       VALUES (1, ?, NULL, NULL, NULL)`,
     )
-    .run(new Date().toISOString(), 'No action yet', '/');
+    .run(new Date().toISOString());
   return { db, sqlite };
 }
