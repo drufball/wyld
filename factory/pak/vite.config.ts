@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -17,8 +18,8 @@ const pwaOptions = {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#14121f',
-    theme_color: '#5f5aa2',
+    background_color: '#282a36',
+    theme_color: '#bd93f9',
     icons: [
       { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
       { src: '/icon-maskable.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
@@ -27,10 +28,7 @@ const pwaOptions = {
 } satisfies Parameters<typeof VitePWA>[0];
 
 const config = defineConfig({
-  plugins: [
-    react(),
-    VitePWA(pwaOptions),
-  ],
+  plugins: [tailwindcss(), react(), VitePWA(pwaOptions)],
   server: {
     proxy: {
       '/api': {

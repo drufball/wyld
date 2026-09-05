@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 
 const config = [
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '.factory/**'],
+    ignores: ['**/.tsc/**', '**/dist/**', '**/node_modules/**', '.factory/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

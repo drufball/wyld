@@ -13,9 +13,9 @@ import { LiveEventsProvider, type EventSourceFactory } from './live/LiveEvents.j
 
 function Shell() {
   return (
-    <div className="pak-shell">
+    <div className="min-h-dvh">
       <Nav />
-      <main className="pak-content">
+      <main className="mx-auto w-full max-w-[760px] px-3 py-5 pb-[calc(88px+env(safe-area-inset-bottom))] md:px-5 md:pb-8">
         <CatchUpGate>
           <Outlet />
         </CatchUpGate>

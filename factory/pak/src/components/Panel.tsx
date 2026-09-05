@@ -1,12 +1,12 @@
 import type { ComponentPropsWithoutRef } from 'react';
-import './Panel.css';
+import { Card } from './ui/card.js';
 
 type PanelProps = ComponentPropsWithoutRef<'section'>;
 
 export function Panel({ children, className = '', ...props }: PanelProps) {
   return (
-    <section className={`pak-panel ${className}`.trim()} {...props}>
+    <Card variant="bevel" className={`p-5 ${className}`.trim()} {...props}>
       {children}
-    </section>
+    </Card>
   );
 }
