@@ -51,7 +51,7 @@ export function createStreamLogger(stream: NodeJS.WritableStream): Logger {
     stream.write(`${JSON.stringify({ ts: new Date().toISOString(), level, msg, ...context })}\n`);
 }
 
-export const CHANNEL_INSTRUCTIONS = `Events arrive as <channel source="wake" kind="..." quest="..." issue="..." pr="..." url="..." ts="...">summary</channel>.
+export const CHANNEL_INSTRUCTIONS = `Events arrive as <channel source="wake" kind="..." quest="..." issue="..." pr="..." chain="..." url="..." ts="...">summary</channel>.
 They are already normalised and sender-gated; act on them directly.
 factory/planner/PROTOCOL.md defines each kind. Use the pak_* tools to write back to the Pak.`;
 
@@ -61,7 +61,7 @@ export function notificationFor(message: QueuedMessage): ChannelNotification {
     ts: message.ts,
     source: message.source,
   };
-  for (const key of ['quest', 'issue', 'pr', 'url'] as const) {
+  for (const key of ['quest', 'issue', 'pr', 'chain', 'url'] as const) {
     const value = message[key];
     if (value !== undefined) meta[key] = String(value);
   }
@@ -191,6 +191,11 @@ const HealthReportArgs = z
   })
   .strict();
 const ReadHealthArgs = z.object({}).strict();
+const ReadChainsArgs = z.object({ quest: z.string().optional() }).strict();
+const AnswerChainArgs = z
+  .object({ chain: z.number().int().positive(), text: z.string().min(1) })
+  .strict();
+const CloseChainArgs = z.object({ chain: z.number().int().positive() }).strict();
 
 const statusSchema = { type: 'string' as const, enum: QuestStatus.options };
 
@@ -411,6 +416,41 @@ const tools = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'pak_read_chains',
+    description:
+      "Read the question chains that are open right now — Dru's questions, your answers so far, their chain ids, and the quest each one is about if any. Closed chains are never returned.",
+    inputSchema: {
+      type: 'object' as const,
+      properties: { quest: { type: 'string' } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_answer_chain',
+    description:
+      'Answer an open question chain in plain English, in the same turn the question arrives. Two or three sentences at most; no GitHub numbers, no status enums.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        chain: { type: 'integer', minimum: 1 },
+        text: { type: 'string', minLength: 1 },
+      },
+      required: ['chain', 'text'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_close_chain',
+    description:
+      'Settle a question chain once it is genuinely answered, so it folds away on Today. Dru can also settle it himself, and quiet chains settle on their own after a day.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: { chain: { type: 'integer', minimum: 1 } },
+      required: ['chain'],
+      additionalProperties: false,
+    },
+  },
 ];
 
 function textResult(text: string, isError = false) {
@@ -588,6 +628,31 @@ export function registerPakTools(
       const parsed = ReadHealthArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
       return getTool(request, `${options.pakUrl}/api/health/snapshot`);
+    }
+    if (params.name === 'pak_read_chains') {
+      const parsed = ReadChainsArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const suffix =
+        parsed.data.quest === undefined
+          ? ''
+          : `?${new URLSearchParams({ quest: parsed.data.quest }).toString()}`;
+      return getTool(request, `${options.pakUrl}/api/chains${suffix}`);
+    }
+    if (params.name === 'pak_answer_chain') {
+      const parsed = AnswerChainArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/chains/${parsed.data.chain}/messages`, {
+        author: 'planner',
+        text: parsed.data.text,
+      });
+    }
+    if (params.name === 'pak_close_chain') {
+      const parsed = CloseChainArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/chains/${parsed.data.chain}/close`, {
+        reason: 'settled',
+        source: 'planner',
+      });
     }
     return textResult(`Unknown tool: ${params.name}`, true);
   });

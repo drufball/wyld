@@ -305,6 +305,32 @@ describe('normaliseGithub', () => {
 
 describe('normaliseEvent', () => {
   it.each([
+    [
+      'human.question',
+      { text: 'How does Wake work?', chainId: 7 },
+      'wake-24',
+      'Dru asks about wake-24: How does Wake work?',
+    ],
+    [
+      'human.chain_closed',
+      { text: 'Settled: how does Wake work', chainId: 8 },
+      undefined,
+      'Settled: how does Wake work',
+    ],
+  ] as const)('normalises %s with its chain id', (kind, payload, questId, summary) => {
+    expect(
+      normaliseEvent({ id: 1, ts: timestamp, source: 'human', kind, payload, questId }),
+    ).toEqual({
+      source: 'human',
+      kind,
+      summary,
+      chain: payload.chainId,
+      ...(questId === undefined ? {} : { quest: questId }),
+      ts: timestamp,
+    });
+  });
+
+  it.each([
     ['human.nudge', 'Keep moving', 'Nudge on wake-24: Keep moving'],
     ['human.ask', 'What is next?', 'Ask on wake-24: What is next?'],
     ['human.park', 'Park: Wake tools', 'Park: Wake tools'],

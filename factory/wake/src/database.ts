@@ -23,13 +23,15 @@ export function openDatabase(databasePath: string, migrationsFolder: string): Ap
 
 export function enqueueMessage(database: AppDatabase, message: WakeMessage, now: Date): number {
   const target =
-    message.pr !== undefined
-      ? (['pr', message.pr] as const)
-      : message.issue !== undefined
-        ? (['issue', message.issue] as const)
-        : message.quest !== undefined
-          ? (['quest', message.quest] as const)
-          : undefined;
+    message.kind === 'human.question' || message.kind === 'human.chain_closed'
+      ? undefined
+      : message.pr !== undefined
+        ? (['pr', message.pr] as const)
+        : message.issue !== undefined
+          ? (['issue', message.issue] as const)
+          : message.quest !== undefined
+            ? (['quest', message.quest] as const)
+            : undefined;
   const nowIso = now.toISOString();
   const cutoff = new Date(now.getTime() - 60_000).toISOString();
   if (target !== undefined) {

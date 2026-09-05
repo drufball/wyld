@@ -119,6 +119,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
           ...optional('quest', row.quest),
           ...optional('issue', row.issue),
           ...optional('pr', row.pr),
+          ...optional('chain', row.chain),
           ...optional('url', row.url),
           summary: row.summary,
           ts: row.ts,

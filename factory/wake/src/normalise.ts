@@ -268,12 +268,17 @@ export function normaliseEvent(raw: unknown): WakeMessageType | undefined {
     summary = `Nudge on ${event.questId ?? 'a quest'}${cleanLine(text).toLowerCase() === 'nudge' ? '' : `: ${text}`}`;
   else if (event.kind === 'human.ask') summary = `Ask on ${event.questId ?? 'a quest'}: ${text}`;
   else if (event.kind === 'human.park') summary = text;
+  else if (event.kind === 'human.question')
+    summary = event.questId ? `Dru asks about ${event.questId}: ${text}` : `Dru asks: ${text}`;
+  else if (event.kind === 'human.chain_closed') summary = text;
   else return undefined;
   const url = z.url().safeParse(event.payload['url']);
+  const chain = z.number().int().positive().safeParse(event.payload['chainId']);
   return WakeMessage.parse({
     source: event.source,
     kind: event.kind,
     ...optional('quest', event.questId),
+    ...(chain.success ? optional('chain', chain.data) : {}),
     ...(url.success ? { url: url.data } : {}),
     summary: truncate(summary),
     ts: event.ts,

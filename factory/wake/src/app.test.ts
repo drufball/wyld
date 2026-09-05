@@ -112,6 +112,27 @@ describe('Wake app', () => {
     expect(await response.json()).toMatchObject({ messages: [{ summary: 'Dru: build it' }] });
   });
 
+  it('returns a chain id when claiming a question', async () => {
+    await app.request('/event', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: 2,
+        ts: '2026-01-01T00:00:00.000Z',
+        source: 'human',
+        kind: 'human.question',
+        payload: { text: 'How does Wake work?', chainId: 7 },
+      }),
+    });
+
+    const response = await app.request('/queue/claim', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(await response.json()).toMatchObject({ messages: [{ chain: 7 }] });
+  });
+
   it.each([
     ['unsigned', {}],
     ['wrongly signed', { 'X-Hub-Signature-256': 'sha256=wrong' }],
