@@ -46,13 +46,23 @@ file is down to environment facts and open items. Keep it short; update it whene
 
 ## First actions for the on-duty Planner (tmux session)
 
-1. Confirm Wake delivery: ask Dru to type an intent on Today; you should receive a channel
-   notification. If not, use `pak_read_events` to pull it and note the upstream bug.
-2. Handle it per PROTOCOL.md (quest or clarifying note + next action).
-3. Spawn the step 1.4 project lead (opus) with the same brief style the previous leads got:
-   read STATE/PROTOCOL/spec sections, implementer loop, "run what Codex ships", exit criteria,
-   screenshots, report under 400 words. Mark 1.4 in progress here.
-4. Keep this file and the Pak quests in sync as steps finish.
+_Rewritten 2026-09-05 ~18:10 by the outgoing session, which respawned itself to clear the
+unknown-kind channel freeze (see Open items) and to load the newer wake tools._
+
+1. A backlog of channel events should arrive as the queue drains — you are NOT behind; every
+   GitHub event in it was already handled (links recorded, PRs merged by leads). Cross-check with
+   `pak_read_events` if unsure. Two stuck messages are lead tests labelled "LEAD CHECK (not Dru)":
+   close those chains (`pak_close_chain`), do not answer them as Dru.
+2. Load the tools this session can now see (ToolSearch): `pak_read_chains` / `pak_answer_chain` /
+   `pak_close_chain`, `pak_health_report` / `pak_read_health`, `pak_write_catchup` /
+   `pak_read_catchup`. Post a heartbeat; PROTOCOL §6 now requires one after every batch.
+3. `pak_read_chains` — answer any real open chain immediately; chains are live for Dru now
+   (`human.question` events; PROTOCOL §5a has the model).
+4. You orchestrate; leads execute (CLAUDE.md). Spawn next: the step 1.6 lead (Rumble screen,
+   factory-spec §11), and give it (or a small second lead, sequenced on `factory/pak`) the
+   reopened `debug-menu` follow-up — feed the empty gauges (queue depth, CI state, cost, GH rate
+   via real reporters), plain-English tile labels.
+5. Keep this file and the Pak quests in sync as steps finish.
 
 ## Open items
 
