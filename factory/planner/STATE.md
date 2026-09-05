@@ -1,8 +1,7 @@
 # Planner state — read this first on every new session
 
-_Last updated 2026-09-05 by the bootstrap Planner session (Claude desktop app). This file is a
-bootstrap crutch until Quests in the Pak carry this state (step 1.3). Keep it short; update it
-whenever a step finishes._
+_Last updated 2026-09-05 by the 1.3 project lead. Quests in the Pak now carry the live state; this
+file is down to environment facts and open items. Keep it short; update it whenever a step finishes._
 
 ## Where we are
 
@@ -46,8 +45,24 @@ whenever a step finishes._
 
 - Pak theme is a clean baseline, not yet the chunky bevelled console look — planned for 1.11
   unless Dru asks sooner.
-- Pak `LiveEventsProvider` keeps `lastEvent` in provider state (needless re-render per event);
-  remove when 1.3 consumes events per kind.
+- Pak `LiveEventsProvider` still keeps `lastEvent` in provider state (needless re-render per event).
+  1.3 consumes events via `subscribe(kind, …)` and never reads `lastEvent` — it can be deleted.
+- `factory/pak/src/words.ts` exports `sentenceCount`, which has no call sites. Dead on arrival in #27.
+- Quest lists are ordered by quest id, so `done` and `idea` quests interleave. Fine for now; revisit
+  if a world gets busy.
 - Service-worker registration errored in the sandboxed in-app browser; unconfirmed on a real phone.
 - Upstream channel bugs: notifications may not reach an idle session (anthropics/claude-code
   #36827, #45563, #61797). If nothing arrives after an intent, suspect that first.
+
+## Seeded data (2026-09-05)
+
+The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the API, not code:
+
+- World `pak` "Expansion Pak" (`factory`, order 0) — quests for steps 0–1.3 in `done`, and one
+  `idea` quest per remaining step 1.4–1.11, each with a one-line friend-pitch.
+- World `fieldwork` "Fieldwork" (`game`, order 1) — no quests yet; the game spec becomes its
+  quests in Phase 2.
+- Next action: "Type what we should make next" → `/`.
+
+`.factory/` is gitignored, so a fresh clone starts empty. Re-seed with `POST /api/worlds` and
+`POST /api/quests` if the database is ever rebuilt.
