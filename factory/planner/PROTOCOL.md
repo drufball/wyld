@@ -50,9 +50,9 @@ normalised and sender-gated. Act on them directly; never parse raw GitHub JSON.
 |---|---|---|
 | `human.intent` | Dru typed into Today. | If it's clear: create the quest in the right World (`pak_upsert_quest`) with a friend-pitch, status `idea`, set its since-you-looked line, and set the next action. If it's genuinely ambiguous: create nothing, `pak_post_note` one short clarifying question on the closest quest (or create the quest as `idea` and ask there), and set the next action to answering it. One question, never two. |
 | `human.nudge` | Dru pressed Nudge on a quest card. | Answer **in the same turn**. `pak_post_note` a plain-English status: what's happening right now, what's next, when he'd see something. Then reconsider priority — a nudge is a signal this matters more than what you're on; if so, reorder and say so in the note. Refresh that quest's since-you-looked line. |
-| `human.ask` | Dru asked a question in a quest's Ask thread. | Answer it in the thread with `pak_post_note` on that quest. Plain English, in the thread, same turn. If the answer changes the plan, say what you changed. If it's a decision only he can make, raise a Rumble (1.6) and say you did. |
-| `human.question` | Dru asked a question off Today, or followed up inside an open chain. He wants an answer, **not** a quest. | Answer **in the same turn** with `pak_answer_chain` using the `chain` id on the event. Two or three plain sentences; no GitHub numbers, no status enums. Create nothing. If the answer settles it, `pak_close_chain` so the card folds away; if it is really a piece of work, say so and let him tap "Make this a quest". Do not touch the next action for a question. |
+| `human.question` | Dru asked a question — from Today, or from a quest's Ask button, or as a follow-up inside an open chain. He wants an answer, **not** a quest. The event carries a `chain` id, and a `quest` too when the chain is about one. | Answer **in the same turn** with `pak_answer_chain` using that `chain` id. Two or three plain sentences; no GitHub numbers, no status enums. Create nothing. If the answer settles it, `pak_close_chain` so the card folds away; if it is really a piece of work, say so in a sentence and let him tap "Make this a quest". Do not touch the next action for a question. |
 | `human.chain_closed` | Dru settled a chain, or turned one into a quest. | Informational. Stop thinking about that chain. If the reason is `converted`, a `human.intent` is probably right behind it — handle that normally. |
+| `human.ask` | **Legacy.** The old per-quest Ask thread. Superseded by `human.question` on a quest-targeted chain; it may still arrive from an old client. | Answer it with `pak_post_note` on that quest, same turn, plain English. Prefer the chain path for anything new. |
 | `human.park` | Dru parked or unparked a quest. | Parked: stop work on it immediately. Convert its open PRs to drafts (`gh pr ready --undo <n>`), leave its issues open, and `pak_post_note` one sentence — why it's parked and what would unpark it. Unparked: return it to its previous status and pick the work back up. Either way, refresh the next action so it points somewhere useful. |
 | `human.feedback` | Feedback on a Demo Disc. **Reserved for 1.7** — not yet emitted. | Ack on the quest, then turn it into work on that quest or a follow-up quest. |
 | `human.decision` | A Rumble was answered. **1.6.** | Record it, unpark whatever it unblocked, resume. |
@@ -131,9 +131,15 @@ be two or three sentences and is permanent — it appears in the Ask thread.
 
 ### 5a. Question chains
 
-A **chain** is not a quest and not a note. It is a throwaway thread Dru starts from Today when he
-just wants to know something. `pak_read_chains` lists the open ones with their ids and messages;
-`pak_answer_chain` adds your answer; `pak_close_chain` settles one.
+A **chain** is not a quest and not a note. It is a throwaway thread Dru starts when he just wants to
+know something. `pak_read_chains` lists the open ones with their ids and messages; `pak_answer_chain`
+adds your answer; `pak_close_chain` settles one.
+
+Chains are the **one** conversation primitive. A chain started from Today floats free; a chain
+started from a quest's Ask button is the same thing pointed at that quest, and its events carry both
+a `chain` id and a `quest` id. Same lifecycle either way. Quests no longer accumulate a visible
+conversation — a quest card shows its status, its since-you-looked line, and your latest note.
+`pak_post_note` is still yours for one-way updates; it is not a reply channel.
 
 - Answer in the same turn the `human.question` arrives. A chain with no answer is the worst thing
   on the screen.
