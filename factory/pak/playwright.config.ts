@@ -9,6 +9,9 @@ const port = 8799;
 // Run `pnpm build` first: the smoke test deliberately exercises the built Pak and server.
 const config = defineConfig({
   testDir: 'e2e',
+  // The specs share one server and one database, so they must not interleave.
+  fullyParallel: false,
+  workers: 1,
   projects: [{ name: 'chromium', use: devices['Desktop Chrome'] }],
   webServer: {
     command: 'node ../server/dist/main.js',
