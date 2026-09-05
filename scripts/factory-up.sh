@@ -45,6 +45,9 @@ else
   skipped+=('pak (factory/pak does not exist)')
 fi
 
+tmux new-window -d -t wyld -n ops -c "$PWD" 'pnpm --filter @wyld/ops dev'
+started+=(ops)
+
 tmux new-window -d -t wyld -n webhook -c "$PWD" \
   "until gh webhook forward --repo drufball/wyld --events '*' --url 'http://localhost:${WAKE_PORT}/gh' --secret \"\$GH_WEBHOOK_SECRET\"; do echo 'webhook forward exited; restarting in 5s'; sleep 5; done"
 started+=(webhook)
