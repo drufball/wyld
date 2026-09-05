@@ -37,46 +37,14 @@ describe('Today', () => {
     expect(fetch.mock.calls.filter(([url]) => url === '/api/presence/seen')).toHaveLength(0);
   });
 
-  it('submits an intent from the textarea on Enter and clears the field', async () => {
-    const fetch = vi.fn((_url: string, init?: RequestInit) =>
-      init?.method === 'POST' && _url === '/api/events'
-        ? jsonResponse({
-            id: 2,
-            ts: presence.lastSeenAt,
-            source: 'human',
-            kind: 'human.intent',
-            payload: { text: 'build it' },
-          })
-        : jsonResponse(presence),
-    );
-    vi.stubGlobal('fetch', fetch);
-    renderToday();
-    const field = screen.getByLabelText('What do we make today?');
-    expect(field.tagName).toBe('TEXTAREA');
-    fireEvent.change(field, { target: { value: 'build it' } });
-    fireEvent.keyDown(field, { key: 'Enter' });
-    expect((field as HTMLTextAreaElement).value).toBe('');
-    await waitFor(() => expect(screen.getByText('Got it.')).not.toBeNull());
-    expect(fetch).toHaveBeenCalledWith(
-      '/api/events',
-      expect.objectContaining({
-        body: JSON.stringify({
-          source: 'human',
-          kind: 'human.intent',
-          payload: { text: 'build it' },
-        }),
-      }),
-    );
-  });
-
-  it('toggles question mode and submits a chain instead of an intent', async () => {
+  it('submits a chain on Enter, clears the field, and renders its card immediately', async () => {
     const chain = {
       id: 1,
       status: 'open',
       createdAt: presence.lastSeenAt,
       lastActivityAt: presence.lastSeenAt,
       questId: null,
-      messages: [{ id: 1, chainId: 1, author: 'human', text: 'How?', ts: presence.lastSeenAt }],
+      messages: [{ id: 1, chainId: 1, author: 'human', text: 'build it', ts: presence.lastSeenAt }],
     };
     const fetch = vi.fn((url: string, init?: RequestInit) =>
       url === '/api/chains' && init?.method === 'POST'
@@ -85,20 +53,29 @@ describe('Today', () => {
     );
     vi.stubGlobal('fetch', fetch);
     renderToday();
-    fireEvent.click(screen.getByRole('button', { name: 'Just asking?' }));
-    const field = screen.getByLabelText('What do you want to know?');
-    fireEvent.change(field, { target: { value: 'How?' } });
+    const field = screen.getByLabelText("What's on your mind?");
+    expect(field.tagName).toBe('TEXTAREA');
+    fireEvent.change(field, { target: { value: 'build it' } });
     fireEvent.keyDown(field, { key: 'Enter' });
+    expect((field as HTMLTextAreaElement).value).toBe('');
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
         '/api/chains',
-        expect.objectContaining({ body: JSON.stringify({ text: 'How?' }) }),
+        expect.objectContaining({ body: JSON.stringify({ text: 'build it' }) }),
       ),
     );
     expect(fetch.mock.calls.filter(([url]) => url === '/api/events')).toHaveLength(0);
-    expect(
-      screen.getByRole('button', { name: 'Make something instead' }).getAttribute('aria-pressed'),
-    ).toBe('true');
+    expect(await screen.findByText('build it')).not.toBeNull();
+  });
+
+  it('has no mode toggle', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse(presence)),
+    );
+    renderToday();
+    expect(screen.queryByRole('button', { name: 'Just asking?' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Make something instead' })).toBeNull();
   });
 
   it('keeps a newline and does not submit on Shift+Enter', async () => {
@@ -108,7 +85,7 @@ describe('Today', () => {
     });
     vi.stubGlobal('fetch', fetch);
     renderToday();
-    const field = screen.getByLabelText('What do we make today?');
+    const field = screen.getByLabelText("What's on your mind?");
     fireEvent.change(field, { target: { value: 'first line' } });
     fireEvent.keyDown(field, { key: 'Enter', shiftKey: true });
     fireEvent.change(field, { target: { value: 'first line\nsecond line' } });
@@ -124,7 +101,7 @@ describe('Today', () => {
       vi.fn(() => jsonResponse(presence)),
     );
     renderToday();
-    const field = screen.getByLabelText('What do we make today?') as HTMLTextAreaElement;
+    const field = screen.getByLabelText("What's on your mind?") as HTMLTextAreaElement;
     Object.defineProperty(field, 'scrollHeight', { configurable: true, value: 88 });
     Object.defineProperty(field, 'clientHeight', { configurable: true, value: 86 });
     Object.defineProperty(field, 'offsetHeight', { configurable: true, value: 88 });
@@ -140,30 +117,103 @@ describe('Today', () => {
     });
     vi.stubGlobal('fetch', fetch);
     renderToday();
-    const field = screen.getByLabelText('What do we make today?');
+    const field = screen.getByLabelText("What's on your mind?");
     fireEvent.change(field, { target: { value: '   ' } });
     fireEvent.submit(field.closest('form')!);
     await waitFor(() => expect(fetch).toHaveBeenCalled());
-    expect(fetch.mock.calls.filter(([url]) => url === '/api/events')).toHaveLength(0);
+    expect(
+      fetch.mock.calls.filter(([url, init]) => url === '/api/chains' && init?.method === 'POST'),
+    ).toHaveLength(0);
   });
 
   it('retains failed text for retry', async () => {
     const fetch = vi.fn((url: string, init?: RequestInit) => {
       void init;
-      return url === '/api/events' ? jsonResponse({}, false) : jsonResponse(presence);
+      return url === '/api/chains' ? jsonResponse({}, false) : jsonResponse(presence);
     });
     vi.stubGlobal('fetch', fetch);
     renderToday();
-    const field = screen.getByLabelText('What do we make today?');
+    const field = screen.getByLabelText("What's on your mind?");
     fireEvent.change(field, { target: { value: 'same idea' } });
     fireEvent.submit(field.closest('form')!);
     const retry = await screen.findByRole('button', { name: 'Retry' });
     fireEvent.click(retry);
     await waitFor(() =>
+      expect(
+        fetch.mock.calls.filter(([url, init]) => url === '/api/chains' && init?.method === 'POST'),
+      ).toHaveLength(2),
+    );
+    expect(
+      fetch.mock.calls.filter(
+        ([url, init]) => url === '/api/chains' && init?.method === 'POST',
+      )[1]?.[1],
+    ).toEqual(expect.objectContaining({ body: expect.stringContaining('same idea') }));
+  });
+
+  it('converts a chain to an intent without changing the prompt', async () => {
+    const chain = {
+      id: 7,
+      status: 'open',
+      createdAt: presence.lastSeenAt,
+      lastActivityAt: presence.lastSeenAt,
+      questId: null,
+      messages: [
+        { id: 8, chainId: 7, author: 'human', text: 'make a map', ts: presence.lastSeenAt },
+      ],
+    };
+    const fetch = vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/chains' && init?.method !== 'POST') return jsonResponse([chain]);
+      if (url === '/api/chains/7/close') return jsonResponse({ ...chain, status: 'converted' });
+      return jsonResponse(url.startsWith('/api/quests') ? [] : presence);
+    });
+    vi.stubGlobal('fetch', fetch);
+    renderToday();
+    const field = screen.getByLabelText("What's on your mind?") as HTMLTextAreaElement;
+    fireEvent.click(await screen.findByRole('button', { name: 'Make this a quest' }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/events',
+        expect.objectContaining({
+          body: JSON.stringify({
+            source: 'human',
+            kind: 'human.intent',
+            payload: { text: 'make a map' },
+          }),
+        }),
+      ),
+    );
+    expect(field.value).toBe('');
+  });
+
+  it('retries a failed chain conversion as an intent', async () => {
+    const chain = {
+      id: 9,
+      status: 'open',
+      createdAt: presence.lastSeenAt,
+      lastActivityAt: presence.lastSeenAt,
+      questId: null,
+      messages: [
+        { id: 10, chainId: 9, author: 'human', text: 'build a bridge', ts: presence.lastSeenAt },
+      ],
+    };
+    const fetch = vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/chains' && init?.method !== 'POST') return jsonResponse([chain]);
+      if (url === '/api/chains/9/close') return jsonResponse({ ...chain, status: 'converted' });
+      if (url === '/api/events') return jsonResponse({}, false);
+      return jsonResponse(url.startsWith('/api/quests') ? [] : presence);
+    });
+    vi.stubGlobal('fetch', fetch);
+    renderToday();
+    fireEvent.click(await screen.findByRole('button', { name: 'Make this a quest' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    await waitFor(() =>
       expect(fetch.mock.calls.filter(([url]) => url === '/api/events')).toHaveLength(2),
     );
+    expect(
+      fetch.mock.calls.filter(([url, init]) => url === '/api/chains' && init?.method === 'POST'),
+    ).toHaveLength(0);
     expect(fetch.mock.calls.filter(([url]) => url === '/api/events')[1]?.[1]).toEqual(
-      expect.objectContaining({ body: expect.stringContaining('same idea') }),
+      expect.objectContaining({ body: expect.stringContaining('build a bridge') }),
     );
   });
 

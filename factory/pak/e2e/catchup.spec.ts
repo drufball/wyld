@@ -23,5 +23,5 @@ test('routes an arrival through Catch-Up and back to Today', async ({ page, requ
   await expect(page.getByRole('heading', { name: 'Catch-Up' })).toBeVisible();
   await page.getByRole('button', { name: 'Got it' }).click();
   await expect(page).toHaveURL('/');
-  await expect(page.getByText('What do we make today?')).toBeVisible();
+  await expect(page.getByText("What's on your mind?")).toBeVisible();
 });
