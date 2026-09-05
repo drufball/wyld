@@ -26,7 +26,7 @@ idea ──► planning ──► building ──► demo ──► done
 | `planning` | Being split into Codex-sized units. No issue filed yet. | You pick it up. | The first Codex issue is filed → `building`. |
 | `building` | At least one Codex issue or PR is open against it. | The first `codex cloud exec` starts. | All its issues are merged: → `demo` if there is something runnable, else → `done`. |
 | `demo` | Built, merged, and there is a Demo Disc Dru can try. | Merge + a registered demo (1.7). | Dru tries it, or a day passes with no `human.feedback` → `done`. Feedback that needs work → back to `building`. |
-| `done` | Merged, demoed, no follow-ups. | See above. | Nothing. New work is a new quest. |
+| `done` | Merged, demoed, no follow-ups. | See above. | Follow-up work that completes what the quest promised (often born from a question on the quest) → reopen to `planning`/`building`. A genuinely new capability → a new quest. (Rule from Dru, 2026-09-05.) |
 | `parked` | Blocked on a Rumble, or deliberately shelved. | `human.park`; a Rumble it cannot proceed without. | `human.decision` unblocking it, or Dru unparking it. Return it to the status it held before parking. |
 
 Rules that hold in every state:
