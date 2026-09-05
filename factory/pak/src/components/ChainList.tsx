@@ -148,20 +148,21 @@ export function ChainList({
   );
   useEffect(() => {
     load();
+    if (!showQuestChip) return;
     void listQuests()
       .then((quests) =>
         setQuestNames(Object.fromEntries(quests.map(({ id, title }) => [id, title]))),
       )
       .catch(() => undefined);
-  }, [load]);
+  }, [load, showQuestChip]);
   useEffect(() => {
     const unsubscribe = [
-      subscribe('human.question', load),
-      subscribe('planner.chain_updated', load),
-      subscribe('human.chain_closed', load),
+      subscribe('human.question', (event) => (!quest || event.questId === quest) && load()),
+      subscribe('planner.chain_updated', (event) => (!quest || event.questId === quest) && load()),
+      subscribe('human.chain_closed', (event) => (!quest || event.questId === quest) && load()),
     ];
     return () => unsubscribe.forEach((stop) => stop());
-  }, [load, subscribe]);
+  }, [load, quest, subscribe]);
   useEffect(() => {
     if (addedChain)
       setChains((current) =>
