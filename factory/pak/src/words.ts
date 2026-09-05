@@ -30,7 +30,10 @@ export function countInWords(value: number): string {
   return String(count);
 }
 
-export function sentenceCount(value: number): string {
-  const words = countInWords(value);
-  return words.charAt(0).toUpperCase() + words.slice(1);
+export function relativeTime(iso: string, now: Date): string {
+  const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 1000));
+  if (elapsedSeconds < 60) return 'just now';
+  if (elapsedSeconds < 60 * 60) return `${Math.floor(elapsedSeconds / 60)}m ago`;
+  if (elapsedSeconds < 24 * 60 * 60) return `${Math.floor(elapsedSeconds / (60 * 60))}h ago`;
+  return `${Math.floor(elapsedSeconds / (24 * 60 * 60))}d ago`;
 }

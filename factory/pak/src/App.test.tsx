@@ -16,7 +16,6 @@ function renderAt(path: string) {
 const placeholders = [
   ['Demos', 'Demo Discs — builds you can try right now.'],
   ['Rumble', 'Decisions only you can make.'],
-  ['Debug', 'Factory health, architecture, and the raw event stream.'],
   ['Memory', 'Save files — retros, stats, achievements.'],
 ] as const;
 
@@ -118,6 +117,14 @@ describe('Pak shell', () => {
     await screen.findByText('What do we make today?');
     fireEvent.click(screen.getByRole('link', { name: 'Quests' }));
     expect(screen.getByRole('heading', { name: 'Quests' })).not.toBeNull();
+  });
+
+  it('navigates to the Debug Menu', async () => {
+    renderAt('/');
+    await screen.findByText('What do we make today?');
+    fireEvent.click(screen.getByRole('link', { name: 'Debug' }));
+    expect(screen.getByRole('heading', { name: 'Debug Menu' })).not.toBeNull();
+    expect(screen.getByText('Reading the factory…')).not.toBeNull();
   });
 
   it('renders the VMU without shell navigation', () => {

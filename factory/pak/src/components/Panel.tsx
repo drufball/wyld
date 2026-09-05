@@ -1,8 +1,12 @@
-import type { PropsWithChildren } from 'react';
+import type { ComponentPropsWithoutRef } from 'react';
 import './Panel.css';
 
-type PanelProps = PropsWithChildren<{ className?: string }>;
+type PanelProps = ComponentPropsWithoutRef<'section'>;
 
-export function Panel({ children, className = '' }: PanelProps) {
-  return <section className={`pak-panel ${className}`.trim()}>{children}</section>;
+export function Panel({ children, className = '', ...props }: PanelProps) {
+  return (
+    <section className={`pak-panel ${className}`.trim()} {...props}>
+      {children}
+    </section>
+  );
 }
