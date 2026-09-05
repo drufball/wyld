@@ -14,14 +14,22 @@ async function cycle(): Promise<void> {
       readGithubStatus(config.repo),
       readTokensToday(config.usageDir, new Date()),
     ]);
-    const report = OpsReport.parse({ ...github, ...(tokensToday === undefined ? {} : { tokensToday }) });
+    const report = OpsReport.parse({
+      ...github,
+      ...(tokensToday === undefined ? {} : { tokensToday }),
+    });
     const response = await fetch(`${config.pakUrl.replace(/\/$/, '')}/api/ops/report`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(report), signal: AbortSignal.timeout(10_000),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(report),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new Error(`Pak returned HTTP ${response.status}`);
     log('info', 'ops report posted', { report });
   } catch (error) {
-    log('error', 'ops report cycle failed', { error: error instanceof Error ? error.message : String(error) });
+    log('error', 'ops report cycle failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 

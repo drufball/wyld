@@ -5,7 +5,11 @@ import readline from 'node:readline';
 
 export async function readTokensToday(directory: string, now: Date): Promise<number | undefined> {
   let files: string[];
-  try { files = await readdir(directory); } catch { return undefined; }
+  try {
+    files = await readdir(directory);
+  } catch {
+    return undefined;
+  }
   const day = now.toISOString().slice(0, 10);
   let total = 0;
   for (const file of files) {
@@ -15,17 +19,35 @@ export async function readTokensToday(directory: string, now: Date): Promise<num
     try {
       for await (const line of lines) {
         try {
-          const entry = JSON.parse(line) as { type?: string; timestamp?: string; message?: { model?: string; usage?: Record<string, unknown> } };
-          if (entry.type !== 'assistant' || entry.message?.model === '<synthetic>' || entry.timestamp?.slice(0, 10) !== day) continue;
+          const entry = JSON.parse(line) as {
+            type?: string;
+            timestamp?: string;
+            message?: { model?: string; usage?: Record<string, unknown> };
+          };
+          if (
+            entry.type !== 'assistant' ||
+            entry.message?.model === '<synthetic>' ||
+            entry.timestamp?.slice(0, 10) !== day
+          )
+            continue;
           const usage = entry.message?.usage;
           if (!usage) continue;
-          for (const key of ['input_tokens', 'output_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens']) {
+          for (const key of [
+            'input_tokens',
+            'output_tokens',
+            'cache_creation_input_tokens',
+            'cache_read_input_tokens',
+          ]) {
             const value = usage[key];
             if (typeof value === 'number' && Number.isFinite(value)) total += value;
           }
-        } catch { /* A damaged line must not hide other measurements. */ }
+        } catch {
+          /* A damaged line must not hide other measurements. */
+        }
       }
-    } catch { /* An unreadable individual file is skipped. */ }
+    } catch {
+      /* An unreadable individual file is skipped. */
+    }
   }
   return total;
 }
