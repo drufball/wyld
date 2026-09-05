@@ -112,3 +112,29 @@ export const questNotes = sqliteTable(
   },
   (table) => [index('quest_notes_quest_id_idx').on(table.questId)],
 );
+
+export const chains = sqliteTable(
+  'chains',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    status: text('status', { enum: ['open', 'settled', 'converted'] }).notNull(),
+    createdAt: text('created_at').notNull(),
+    lastActivityAt: text('last_activity_at').notNull(),
+    questId: text('quest_id'),
+  },
+  (table) => [index('chains_status_activity_idx').on(table.status, table.lastActivityAt)],
+);
+
+export const chainMessages = sqliteTable(
+  'chain_messages',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    chainId: integer('chain_id')
+      .notNull()
+      .references(() => chains.id),
+    author: text('author', { enum: ['human', 'planner'] }).notNull(),
+    text: text('text').notNull(),
+    ts: text('ts').notNull(),
+  },
+  (table) => [index('chain_messages_chain_id_idx').on(table.chainId)],
+);

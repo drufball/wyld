@@ -1,4 +1,5 @@
 export * from './demo.js';
+export * from './chain.js';
 export * from './event.js';
 export * from './health.js';
 export * from './ids.js';

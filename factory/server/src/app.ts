@@ -23,6 +23,7 @@ import { mechanicalDigest } from './catchup.js';
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder } from './forwarder.js';
 import { createQuestRoutes, formatIssues } from './quests.js';
+import { createChainRoutes } from './chains.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -343,6 +344,7 @@ export function createApp(dependencies: AppDependencies) {
   });
 
   app.route('/api', createQuestRoutes({ database: dependencies.database, now, storeEvent }));
+  app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
 
   app.get('/api/health', (c) => c.json(serverHealth()));
 
