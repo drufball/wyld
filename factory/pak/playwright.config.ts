@@ -3,7 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
-const factoryDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wyld-e2e-'));
+const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wyld-e2e-'));
+const factoryDir = path.join(testDir, 'factory');
+const repoDir = path.join(testDir, 'repo');
+fs.mkdirSync(factoryDir);
+fs.mkdirSync(repoDir);
 const port = 8799;
 
 // Run `pnpm build` first: the smoke test deliberately exercises the built Pak and server.
@@ -17,6 +21,7 @@ const config = defineConfig({
     command: 'node ../server/dist/main.js',
     env: {
       FACTORY_DIR: factoryDir,
+      REPO_DIR: repoDir,
       PAK_PORT: String(port),
       PAK_DIST: path.resolve('dist'),
       WAKE_URL: '',

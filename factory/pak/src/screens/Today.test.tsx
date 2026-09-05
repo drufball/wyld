@@ -245,6 +245,6 @@ describe('Today', () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole('link', { name: '9+ Rumbles' }).getAttribute('href')).toBe('/rumble');
-    expect(screen.getByText('1 demos ready')).not.toBeNull();
+    expect(screen.getByRole('link', { name: '1 demos ready' }).getAttribute('href')).toBe('/demos');
   });
 });

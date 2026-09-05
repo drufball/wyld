@@ -41,6 +41,7 @@ export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFa
           <Route path="worlds" element={<LegacyWorldRedirect />} />
           <Route path="worlds/:id" element={<LegacyWorldRedirect />} />
           <Route path="demos" element={<Demos />} />
+          <Route path="demos/:id" element={<Demos />} />
           <Route path="rumble" element={<Rumble />} />
           <Route path="debug" element={<Debug />} />
           <Route path="memory" element={<Memory />} />

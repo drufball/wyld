@@ -959,3 +959,113 @@ a.today-action:focus-visible {
   font-size: 12px;
   text-decoration: none;
 }
+
+.demo-screen {
+  max-width: 1100px;
+  margin-inline: auto;
+}
+.demo-grid {
+  display: grid;
+  gap: var(--pak-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+}
+.demo-card {
+  display: grid;
+  align-content: start;
+  gap: var(--pak-space-3);
+  padding: var(--pak-space-4);
+  border: 3px solid;
+  border-color: var(--pak-bevel-light) var(--pak-bevel-dark) var(--pak-bevel-dark)
+    var(--pak-bevel-light);
+  border-radius: var(--pak-radius);
+  background: var(--pak-panel);
+}
+.demo-card h2,
+.demo-card p {
+  margin: 0;
+}
+.demo-card button,
+.demo-play,
+.demo-feedback-panel button {
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--pak-space-2) var(--pak-space-3);
+  border: 2px solid var(--pak-bevel-light);
+  color: var(--pak-ink);
+  background: var(--pak-panel-raised);
+  font: inherit;
+}
+.demo-play {
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+.demo-player {
+  position: fixed;
+  inset: 0 0 72px 0;
+  background: var(--pak-panel);
+}
+.demo-player iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  overflow: hidden;
+}
+.demo-back,
+.demo-feedback-button,
+.demo-thanks,
+.demo-feedback-panel {
+  position: absolute;
+  z-index: 2;
+}
+.demo-back {
+  top: var(--pak-space-3);
+  left: var(--pak-space-3);
+  padding: var(--pak-space-2);
+  color: var(--pak-ink);
+  background: var(--pak-panel);
+}
+.demo-feedback-button {
+  right: var(--pak-space-3);
+  bottom: var(--pak-space-3);
+  min-width: 44px;
+  min-height: 44px;
+}
+.demo-feedback-panel {
+  right: var(--pak-space-3);
+  bottom: var(--pak-space-3);
+  display: grid;
+  width: min(340px, calc(100% - 2 * var(--pak-space-3)));
+  gap: var(--pak-space-2);
+  padding: var(--pak-space-3);
+  border: 3px solid var(--pak-bevel-light);
+  background: var(--pak-panel);
+}
+.demo-feedback-panel textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+.demo-feedback-panel div {
+  display: flex;
+  gap: var(--pak-space-2);
+}
+.demo-thanks {
+  right: var(--pak-space-3);
+  bottom: calc(44px + var(--pak-space-5));
+  padding: var(--pak-space-2);
+  background: var(--pak-panel);
+}
+.vmu-demos {
+  padding: var(--pak-space-3);
+  border: 2px solid var(--pak-orange);
+  color: var(--pak-orange) !important;
+  font-family: var(--pak-display);
+  font-size: 12px;
+  text-decoration: none;
+}
+@media (min-width: 900px) {
+  .demo-player {
+    left: 220px;
+    bottom: 0;
+  }
+}

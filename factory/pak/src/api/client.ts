@@ -1,18 +1,26 @@
 import {
   CatchupView,
   Chain,
+  Demo,
   Event,
+  Feedback,
   HealthSnapshot,
   NewEvent,
   Presence,
   Quest,
   QuestNote,
   Rumble,
+  NewFeedback,
   WorldWithQuestCounts,
   type NewEvent as NewEventType,
   type QuestStatus,
 } from '@wyld/shared';
 import type { Chain as ChainType } from '@wyld/shared';
+import type {
+  Demo as DemoType,
+  Feedback as FeedbackType,
+  NewFeedback as NewFeedbackType,
+} from '@wyld/shared';
 
 async function request(input: string, init: RequestInit, description: string): Promise<unknown> {
   const response = await fetch(input, init);
@@ -140,5 +148,30 @@ export async function decideRumble(id: string, chosen: string) {
       json('POST', { chosen }),
       'Deciding rumble',
     ),
+  );
+}
+
+export async function listDemos(): Promise<DemoType[]> {
+  return Demo.array().parse(await request('/api/demos', {}, 'Loading demos'));
+}
+
+export async function buildDemo(id?: string): Promise<DemoType> {
+  return Demo.parse(
+    await request(
+      '/api/demos/build',
+      json('POST', id === undefined ? {} : { id }),
+      'Building demo',
+    ),
+  );
+}
+
+export async function listFeedback(demo?: string): Promise<FeedbackType[]> {
+  const query = demo === undefined ? '' : `?demo=${encodeURIComponent(demo)}`;
+  return Feedback.array().parse(await request(`/api/feedback${query}`, {}, 'Loading feedback'));
+}
+
+export async function postFeedback(body: NewFeedbackType): Promise<FeedbackType> {
+  return Feedback.parse(
+    await request('/api/feedback', json('POST', NewFeedback.parse(body)), 'Posting feedback'),
   );
 }

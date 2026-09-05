@@ -2,31 +2,34 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const pwaOptions = {
+  registerType: 'autoUpdate',
+  devOptions: { enabled: false },
+  workbox: {
+    navigateFallback: '/index.html',
+    navigateFallbackDenylist: [/^\/play\//, /^\/api\//],
+    skipWaiting: true,
+    clientsClaim: true,
+  },
+  manifest: {
+    name: 'WYLD — Expansion Pak',
+    short_name: 'Pak',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    background_color: '#14121f',
+    theme_color: '#5f5aa2',
+    icons: [
+      { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+      { src: '/icon-maskable.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+    ],
+  },
+} satisfies Parameters<typeof VitePWA>[0];
+
 const config = defineConfig({
   plugins: [
     react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      devOptions: { enabled: false },
-      workbox: {
-        navigateFallback: '/index.html',
-        skipWaiting: true,
-        clientsClaim: true,
-      },
-      manifest: {
-        name: 'WYLD — Expansion Pak',
-        short_name: 'Pak',
-        start_url: '/',
-        scope: '/',
-        display: 'standalone',
-        background_color: '#14121f',
-        theme_color: '#5f5aa2',
-        icons: [
-          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-          { src: '/icon-maskable.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
-        ],
-      },
-    }),
+    VitePWA(pwaOptions),
   ],
   server: {
     proxy: {
@@ -40,14 +43,18 @@ const config = defineConfig({
           });
         },
       },
+      '/play': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
     },
   },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'vite.config.test.ts'],
     globals: false,
   },
 });
 
-export { config as default };
+export { config as default, pwaOptions };
