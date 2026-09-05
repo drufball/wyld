@@ -260,9 +260,11 @@ describe('World quests', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Ask' }));
     const field = screen.getByLabelText('Ask about this quest') as HTMLTextAreaElement;
     Object.defineProperty(field, 'scrollHeight', { configurable: true, value: 88 });
+    Object.defineProperty(field, 'clientHeight', { configurable: true, value: 84 });
+    Object.defineProperty(field, 'offsetHeight', { configurable: true, value: 88 });
     fireEvent.change(field, { target: { value: longText } });
 
-    expect(field.style.height).toBe('88px');
+    expect(field.style.height).toBe('92px');
     fireEvent.keyDown(field, { key: 'Enter' });
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(

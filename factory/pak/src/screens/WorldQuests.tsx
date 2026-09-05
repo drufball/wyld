@@ -41,7 +41,7 @@ function AskThread({ questId }: { questId: string }) {
     const field = askField.current;
     if (!field) return;
     field.style.height = 'auto';
-    field.style.height = `${field.scrollHeight}px`;
+    field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
   }, [text]);
 
   const send = (noteText: string) => {
