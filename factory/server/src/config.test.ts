@@ -24,6 +24,25 @@ describe('readConfig', () => {
     });
   });
 
+  it.each([
+    ['empty', { WAKE_URL: '', WAKE_SECRET: '' }],
+    ['whitespace-only', { WAKE_URL: ' \t\n', WAKE_SECRET: '  ' }],
+    ['absent', {}],
+  ])('treats %s Wake settings as unset', (_description, environment) => {
+    const config = readConfig(environment);
+
+    expect(config.wakeUrl).toBeUndefined();
+    expect(config.wakeSecret).toBeUndefined();
+    expect(config).not.toHaveProperty('wakeUrl');
+    expect(config).not.toHaveProperty('wakeSecret');
+  });
+
+  it('rejects a malformed non-empty Wake URL', () => {
+    expect(() => readConfig({ WAKE_URL: 'not-a-url', WAKE_SECRET: 'shared-secret' })).toThrow(
+      'Invalid server configuration',
+    );
+  });
+
   it('resolves the default Pak build directory relative to the server module', () => {
     expect(readConfig({}).pakDist).toBe(
       path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../pak/dist'),
