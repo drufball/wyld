@@ -99,7 +99,7 @@ describe('Debug', () => {
     expect(within(channel).getByText('Stuck')).not.toBeNull();
     expect(
       within(channel).getByText(
-        '3 waiting, nothing delivered since 12 minutes ago — the channel is jammed',
+        '3 waiting, nothing delivered since 12m ago — the channel is jammed',
       ),
     ).not.toBeNull();
     expect(channel.getAttribute('data-tone')).toBe('bad');
@@ -131,6 +131,47 @@ describe('Debug', () => {
     expect(channel.getAttribute('data-tone')).toBe('bad');
   });
 
+  it('marks GitHub as quiet when its last event is more than an hour old', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    vi.mocked(getHealthSnapshot).mockResolvedValue({
+      ...snapshot,
+      wake: { ...snapshot.wake, lastGithubEventAt: '2026-09-05T10:59:00.000Z' },
+    });
+    render(<Debug />);
+    await act(async () => Promise.resolve());
+
+    const github = tile('Is GitHub talking to me?');
+    expect(within(github).getByText('Quiet')).not.toBeNull();
+    expect(within(github).getByText('last heard 1h ago')).not.toBeNull();
+    expect(github.getAttribute('data-tone')).toBe('warn');
+  });
+
+  it('shows no GitHub signal when the channel is unreachable or no event has arrived', async () => {
+    vi.mocked(getHealthSnapshot).mockResolvedValue({
+      ...snapshot,
+      wake: { reachable: false },
+    });
+    const view = render(<Debug />);
+    await screen.findByText('No signal');
+
+    let github = tile('Is GitHub talking to me?');
+    expect(within(github).getByText('nothing yet')).not.toBeNull();
+    expect(github.getAttribute('data-tone')).toBe('bad');
+
+    vi.mocked(getHealthSnapshot).mockResolvedValue({
+      ...snapshot,
+      wake: { ...snapshot.wake, lastGithubEventAt: undefined },
+    });
+    view.unmount();
+    render(<Debug />);
+    await screen.findByText('No signal');
+
+    github = tile('Is GitHub talking to me?');
+    expect(within(github).getByText('nothing yet')).not.toBeNull();
+    expect(github.getAttribute('data-tone')).toBe('bad');
+  });
+
   it('renders honest placeholders when no ops measurements exist', async () => {
     vi.mocked(getHealthSnapshot).mockResolvedValue({
       ...snapshot,
@@ -139,7 +180,7 @@ describe('Debug', () => {
       costToday: undefined,
     });
     render(<Debug />);
-    await screen.findByText('No signal');
+    await screen.findByText("Don't know");
 
     expect(within(tile('Are the tests passing?')).getByText("Don't know")).not.toBeNull();
     expect(tile('Are the tests passing?').hasAttribute('data-tone')).toBe(false);
@@ -152,6 +193,18 @@ describe('Debug', () => {
         'no honest dollar figure to read yet — nothing is capped',
       ),
     ).not.toBeNull();
+  });
+
+  it('only shows the pause banner when there is a reason', async () => {
+    vi.mocked(getHealthSnapshot).mockResolvedValue({ ...snapshot, pausedReason: 'Needs a human' });
+    const view = render(<Debug />);
+    expect(await screen.findByText('Paused — Needs a human')).not.toBeNull();
+
+    vi.mocked(getHealthSnapshot).mockResolvedValue(snapshot);
+    view.unmount();
+    render(<Debug />);
+    await screen.findByRole('heading', { name: 'Am I awake?' });
+    expect(screen.queryByText(/^Paused —/)).toBeNull();
   });
 
   it('keeps the last snapshot when a poll fails', async () => {

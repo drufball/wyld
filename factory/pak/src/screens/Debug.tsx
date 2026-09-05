@@ -67,22 +67,22 @@ function Tiles({ snapshot }: { snapshot: HealthSnapshot }) {
     now.getTime() - oldestPendingAt.getTime() > 2 * 60 * 1000;
   const channelValue = !snapshot.wake.reachable ? 'No' : channelStuck ? 'Stuck' : 'Yes';
   const stuckAge = snapshot.wake.oldestPendingTs
-    ? relativeTime(snapshot.wake.oldestPendingTs, now).replace(/^(\d+)m ago$/, '$1 minutes ago')
+    ? relativeTime(snapshot.wake.oldestPendingTs, now)
     : '';
   const channelDetail = !snapshot.wake.reachable
     ? 'the message channel is down'
     : channelStuck && oldestPendingAt
       ? `${queue} waiting, nothing delivered since ${stuckAge} — the channel is jammed`
       : wakeDetail;
-  const githubAge = snapshot.github.reportedAt
-    ? relativeTime(snapshot.github.reportedAt, now)
+  const githubAge = snapshot.wake.lastGithubEventAt
+    ? relativeTime(snapshot.wake.lastGithubEventAt, now)
     : null;
   const githubValue =
-    snapshot.github.source === 'ops'
-      ? 'Yes'
-      : snapshot.github.source === 'planner'
+    !snapshot.wake.reachable || !snapshot.wake.lastGithubEventAt
+      ? 'No signal'
+      : now.getTime() - new Date(snapshot.wake.lastGithubEventAt).getTime() > 60 * 60 * 1000
         ? 'Quiet'
-        : 'No signal';
+        : 'Yes';
   const githubTone: Tone = githubValue === 'Yes' ? 'ok' : githubValue === 'Quiet' ? 'warn' : 'bad';
   const serverUp = snapshot.server.ok && snapshot.server.db === 'ok';
   const testsValue =
