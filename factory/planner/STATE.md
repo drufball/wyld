@@ -15,8 +15,9 @@ step finishes._
 | 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | done | #33 catchups table + `GET/POST /api/catchup` + mechanical digest, #37 `pak_write_catchup`/`pak_read_catchup`, #38 Catch-Up card + arrival gate + VMU; `skills/write-catchup.md` |
 | 1.5 GitHub loop + Debug Menu health tiles | done | #41 `health` table + `POST /api/health/report` + `GET /api/health/snapshot`, #44 `pak_health_report`/`pak_read_health` + Wake `lastGithubEventAt`, #45 e2e harness isolation, #47 `/debug` live tiles |
 | Quests `question-chains` + `today-glance` (Dru intents 2026-09-05, outside the step plan) | done | #49 server chains, #53 Wake `human.question`/`human.chain_closed` + `pak_read_chains`/`pak_answer_chain`/`pak_close_chain`, #54 Today chain cards, #57 quest Ask → chains, #59 in-flight quest cards on Today |
-| `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | **in progress** — own lead, spawned 19:41 | — |
-| 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | **in progress** — own lead, spawned 19:41; told to do server/shared + Wake units first and not touch `factory/pak` until `debug-menu` is done | — |
+| `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | **in progress** — own lead; #62 ops report endpoint, #67 local ops reporter, #68 honest tiles merged; #72 (no-checks-yet is not red) open | — |
+| 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | **in progress** — own lead; #63 server (table, API, decide → `human.decision`, digest slot) and #71 Wake tools merged; Pak screen waits on `debug-menu` and `one-box` | — |
+| `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | **in progress** — own lead; #70 Planner-started chains merged; Today unit waits on `debug-menu` | — |
 | 1.7 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -58,8 +59,10 @@ _Rewritten 2026-09-05 ~19:45 by the respawned Planner after draining the queue._
    Rumble. If you are a fresh session they are gone with it: check `gh pr list`, `gh issue list`
    and `pak_read_quests` for where they got to, and respawn a lead per unfinished quest with the
    same sequencing rule (Rumble lead does not touch `factory/pak` until `debug-menu` is done).
-3. When the Rumble lead's Wake unit merges (new `pak_request_rumble`/`pak_read_rumbles` tools), the
-   Planner must respawn `wyld:planner` to see them — same as after #44. Rewrite this section first.
+3. **Respawn pending.** #70 (Planner can start a message chain) and #71 (`pak_request_rumble` /
+   `pak_read_rumbles`) merged at ~20:19 while three leads were still running; the on-duty Planner
+   cannot see those tools until `wyld:planner` is respawned, and respawning kills running leads. Rule
+   adopted: respawn only when no lead is mid-quest. Do it as soon as all leads have reported.
 4. Then 1.7 Demo Discs (factory-spec §11), one lead.
 5. Keep this file and the Pak quests in sync as steps finish.
 
