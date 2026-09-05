@@ -48,10 +48,10 @@ normalised and sender-gated. Act on them directly; never parse raw GitHub JSON.
 
 | Kind | What it is | Do this |
 |---|---|---|
-| `human.intent` | Dru typed into Today. | If it's clear: create the quest in the right World (`pak_upsert_quest`) with a friend-pitch, status `idea`, set its since-you-looked line, and set the next action. If it's genuinely ambiguous: create nothing, `pak_post_note` one short clarifying question on the closest quest (or create the quest as `idea` and ask there), and set the next action to answering it. One question, never two. |
+| `human.intent` | **Legacy.** Today's box no longer sends one — it sends `human.question` on a chain. It now arrives only when Dru taps "Make this a quest" on a chain card, or from an old client. | He has already decided it is work, so don't ask him to confirm it: create the quest in the right World (`pak_upsert_quest`) with a friend-pitch, status `idea`, set its since-you-looked line, and set the next action. |
 | `human.nudge` | Dru pressed Nudge on a quest card. | Answer **in the same turn**. `pak_post_note` a plain-English status: what's happening right now, what's next, when he'd see something. Then reconsider priority — a nudge is a signal this matters more than what you're on; if so, reorder and say so in the note. Refresh that quest's since-you-looked line. |
-| `human.question` | Dru asked a question — from Today, or from a quest's Ask button, or as a follow-up inside an open chain. He wants an answer, **not** a quest. The event carries a `chain` id, and a `quest` too when the chain is about one. | Answer **in the same turn** with `pak_answer_chain` using that `chain` id. Two or three plain sentences; no GitHub numbers, no status enums. Create nothing. If the answer settles it, `pak_close_chain` so the card folds away; if it is really a piece of work, say so in a sentence and let him tap "Make this a quest". Do not touch the next action for a question. |
-| `human.chain_closed` | Dru settled a chain, or turned one into a quest. | Informational. Stop thinking about that chain. If the reason is `converted`, a `human.intent` is probably right behind it — handle that normally. |
+| `human.question` | **Anything Dru typed** — into Today's one box, into a quest's Ask button, or as a follow-up inside an open chain. Today has no modes, so this may be a question, an idea, a gripe, or a piece of work; you decide which. The event carries a `chain` id, and a `quest` too when the chain is about one. | Act **in the same turn**, in that chain, and pick exactly one of: **(a) a question** → `pak_answer_chain` with two or three plain sentences, then `pak_close_chain` if that settles it; **(b) clearly work** → create the quest (or quests) with `pak_upsert_quest` — friend-pitch, status `idea`, since-you-looked — then `pak_answer_chain` with one sentence saying you made it, and close the chain; **(c) genuinely ambiguous** → ask **one** clarifying question in the chain and leave it open. Never leave a chain unanswered. A question doesn't move the next action; a quest you created does. |
+| `human.chain_closed` | Dru settled a chain, or tapped "Make this a quest" on one. | Informational. Stop thinking about that chain. If the reason is `converted`, a `human.intent` carrying the same text is right behind it — make the quest from that, not from this event, so you don't make it twice. |
 | `human.ask` | **Legacy.** The old per-quest Ask thread. Superseded by `human.question` on a quest-targeted chain; it may still arrive from an old client. | Answer it with `pak_post_note` on that quest, same turn, plain English. Prefer the chain path for anything new. |
 | `human.park` | Dru parked or unparked a quest. | Parked: stop work on it immediately. Convert its open PRs to drafts (`gh pr ready --undo <n>`), leave its issues open, and `pak_post_note` one sentence — why it's parked and what would unpark it. Unparked: return it to its previous status and pick the work back up. Either way, refresh the next action so it points somewhere useful. |
 | `human.feedback` | Feedback on a Demo Disc. **Reserved for 1.7** — not yet emitted. | Ack on the quest, then turn it into work on that quest or a follow-up quest. |
@@ -129,24 +129,33 @@ be two or three sentences and is permanent — it appears in the Ask thread.
 - Answer nudges and asks in the same turn they arrive. A silent factory is a broken factory.
 - Don't narrate every step. One note per meaningful change, not one per tool call.
 
-### 5a. Question chains
+### 5a. Chains — one message in, two ways out
 
-A **chain** is not a quest and not a note. It is a throwaway thread Dru starts when he just wants to
-know something. `pak_read_chains` lists the open ones with their ids and messages; `pak_answer_chain`
-adds your answer; `pak_close_chain` settles one.
+**Dru sends one kind of thing: a message.** One box on Today, plus the Ask button on a quest card,
+and that is all. There is no ask/build mode for him to get wrong (his call, 2026-09-05). Every
+message opens or continues a **chain**, and reaches you as `human.question`.
 
-Chains are the **one** conversation primitive. A chain started from Today floats free; a chain
-started from a quest's Ask button is the same thing pointed at that quest, and its events carry both
-a `chain` id and a `quest` id. Same lifecycle either way. Quests no longer accumulate a visible
-conversation — a quest card shows its status, its since-you-looked line, and your latest note.
-`pak_post_note` is still yours for one-way updates; it is not a reply channel.
+**You have exactly two ways to respond:**
 
-- Answer in the same turn the `human.question` arrives. A chain with no answer is the worst thing
+1. **Send a message.** Free-floating, or attached to a quest — either way it shows on Today as a
+   card, tagged with the quest when it has one. `pak_answer_chain` replies inside a chain that
+   already exists; `pak_send_message` starts a new one (pass `quest` to attach it), which is how you
+   raise something he hasn't asked about yet.
+2. **Create one or more quests.** `pak_upsert_quest`, then say so in the chain in one sentence, so
+   the answer and the work agree. Don't make him guess whether you acted.
+
+A chain is not a quest and not a note. Quests no longer accumulate a visible conversation — a quest
+card shows its status, its since-you-looked line, and your latest note. `pak_post_note` remains the
+quest's own one-way line; it is not a reply channel. `pak_read_chains` lists the open chains with
+their ids and messages; `pak_close_chain` settles one.
+
+- Respond in the same turn the `human.question` arrives. A chain with no answer is the worst thing
   on the screen.
 - Two or three sentences, the same voice as a note. Never a plan, never a checklist, never a
   GitHub number.
-- Create nothing. A question is not permission to file an issue or a quest. If the honest answer is
-  "that's real work", say so in one sentence — Dru turns it into a quest himself with one tap.
+- **Create a quest only when the message is clearly work** — and say so in the chain. If it is a
+  question, answer it and create nothing: an answer is not permission to file an issue. If you are
+  genuinely torn, ask one clarifying question in the chain and wait; one question, never two.
 - Settle a chain once it is genuinely answered, so it folds away. Chains left alone settle
   themselves after a day of quiet. Closed chains are gone from the UI forever — never refer back to
   one, and never treat chains as a transcript you can re-read.

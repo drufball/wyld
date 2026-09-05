@@ -1,16 +1,25 @@
 # Skill — plan a quest
 
-Use when a `human.intent` arrives, or when a quest is ready to move `idea` → `planning`.
-See `PROTOCOL.md` §1 for the lifecycle, §3–§4 for the lines you must refresh afterwards.
+Use when a message from Dru turns out to be work, or when a quest is ready to move `idea` →
+`planning`. See `PROTOCOL.md` §1 for the lifecycle, §3–§4 for the lines you must refresh afterwards.
 
 ## 1. Decide whether it is a quest
 
-A quest is something Dru would recognise and could try. If the intent is smaller than that, it is a
-unit of work inside an existing quest — post a note there instead and skip to step 5.
+Nearly everything Dru sends now arrives as `human.question` on a chain — Today has one box and no
+modes, so the message itself does not tell you whether it is a question or a piece of work. You
+decide (`PROTOCOL.md` §5a). Read it and pick one:
 
-If the intent is genuinely ambiguous (two plausible readings that lead to different builds), do not
-guess: post **one** clarifying question and set the next action to answering it. One question, never
-two. Anything you are ≥ 80% sure about, decide yourself (`POLICIES.md`).
+- **A question** → answer it in the chain and stop. Create nothing.
+- **Clearly work** → create the quest (steps 2–4), then reply in the chain with one sentence saying
+  you made it, and close the chain. Anything you are ≥ 80% sure about, decide yourself
+  (`POLICIES.md`) — don't ask permission to build what he just asked for.
+- **Genuinely ambiguous** (two plausible readings that lead to different builds) → ask **one**
+  clarifying question in the chain and leave it open. One question, never two.
+
+A quest is something Dru would recognise and could try. If the work is smaller than that, it is a
+unit inside an existing quest — say so in the chain, note it on that quest, and skip to step 5.
+
+A `human.intent` means he already tapped "Make this a quest": skip the deciding and go to step 2.
 
 ## 2. Pick the World
 
