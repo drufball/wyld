@@ -29,72 +29,163 @@ Quest ↔ issue/PR links live in `quest_links` and are **never rendered in the P
 
 Codex is driven **from the Codex CLI**, not from `@codex` GitHub mentions. A task triggered by a
 GitHub mention runs with `environment_id: null` and no environment, so it never sees `GH_TOKEN` and
-can never push. The Planner drives Codex Cloud directly, pulls the diff back, and publishes it.
+can never push — **never use `@codex` mentions on GitHub.** Instead the Planner starts a Codex Cloud
+task with an explicit environment, and inside that environment `GH_TOKEN` is a non-empty env var, so
+Codex publishes its own work: it pushes a `codex/<slug>` branch and opens the PR itself (see
+`AGENTS.md` → "Publishing your work").
 
 Always invoke the CLI through `npx -y @openai/codex@latest` — never install it globally, and never
 use a locally installed `codex` binary (0.44 is too old for the `cloud` subcommands). Auth is the
 existing ChatGPT login.
 
+**Always pass `--env 6a9be268ad288191b44bbdefcbe977ee` — the environment ID, never the label
+`drufball/wyld`.** The label resolves to a different environment with no token, which silently
+reproduces the "Codex can't push" failure mode this loop exists to avoid.
+
 ```
-Planner files the GitHub issue (tracking; its body is also the prompt)
+Planner files the GitHub issue (spec is the issue body; the prompt names the issue)
         │
         ▼
-codex cloud exec --env drufball/wyld --branch main "<prompt>"   ──►  task_e_...
+codex cloud exec --env 6a9be268ad288191b44bbdefcbe977ee --branch main "<prompt>"  ──► task_e_...
         │
         ▼
-poll: codex cloud status <task_id>   (every 60s, cap 30 min)
+wait for the PR: poll `gh pr list` every 60s (cap 30 min); `codex cloud status <task_id>` for
+task state. Typical latency: 4–8 min for an implementation, 3–4 min for a fix round.
         │
         ▼
-worktree + fresh branch codex/<slug> off origin/main
-codex cloud diff <task_id> | git apply
-verify: ./scripts/bootstrap.sh && pnpm typecheck && pnpm lint && pnpm test && pnpm build
-commit --author="Codex <codex@openai.com>" · push · gh pr create --base main
+Planner reviews the whole diff on the PR as a senior engineer; `gh pr checks` is the truth,
+not Codex's self-report
         │
-        ▼
-Planner reviews the whole diff as a senior engineer
+        ├── changes needed ──► gh pr review <n> --request-changes -b "<feedback>"
+        │                      codex cloud exec --env <id> --branch codex/<slug> "<feedback>"
+        │                      (loops back to "wait for the PR")
         │
-        ├── changes needed ──► codex cloud exec --branch codex/<slug> "<review feedback>"
-        │                      apply the new diff on top, push  ──┐
-        │                                                          │
-        └── green & good ◄────────────────────────────────────────┘
-        │
-        ▼
-gh pr merge <n> --squash --delete-branch
+        └── green & good ──► gh pr merge <n> --squash --delete-branch
 ```
+
+### Primary flow: Codex publishes
+
+1. **File the issue.** Body is the spec, in this shape:
+
+   ```
+   ## Context
+   <why this exists, what it touches>
+
+   ## Task
+   <what to build>
+
+   ## Acceptance criteria
+   <bullet list, testable>
+
+   ## Verify
+   <exact commands: typecheck / lint / test / build / manual steps>
+
+   ## Out of scope
+   <what NOT to touch>
+
+   <!-- quest:<id> -->
+   ```
+
+2. **Start exactly one task for the issue:**
+
+   ```bash
+   codex cloud exec --env 6a9be268ad288191b44bbdefcbe977ee --branch main \
+     "Implement GitHub issue #N of drufball/wyld. <body>. Follow AGENTS.md including \
+   'Publishing your work': push branch codex/<slug> and open a PR whose body contains 'Closes #N'."
+   ```
+
+   One `cloud exec` task per issue — never two triggers for one issue. If a task looks stuck or
+   wrong, fix it with a review round on the branch it already opened; do not start a second task
+   for the same issue.
+
+3. **Wait for the PR.** Poll in a single loop rather than one-off checks:
+
+   ```bash
+   until gh pr list --json number,headRefName,body | grep -q '"codex/'; do sleep 60; done
+   ```
+
+   Cap any such loop at 30 minutes. `codex cloud status <task_id>` gives task-level state
+   (`ready` means Codex finished its side, independent of whether the PR is open yet). Typical
+   latency: 4–8 minutes for an implementation, 3–4 minutes for a fix round.
+
+4. **Review on the PR**, as a senior engineer:
+   - Read the whole diff, not just the summary.
+   - `gh pr checks <n>` must show green. **Do not trust Codex's self-reported checks — CI is the
+     truth.**
+   - Acceptance criteria from the issue are actually met.
+   - No new globals, no secrets, nothing under `.factory/`.
+   - Idiomatic for this codebase; not over-engineered for what the issue asked.
+   - When it matters (UI, behaviour a diff can't show), pull the branch into a worktree and verify
+     it locally rather than taking the description on faith.
+
+5. **Fix round**, when changes are needed:
+
+   ```bash
+   gh pr review <n> --request-changes -b "<review, verbatim>"
+   codex cloud exec --env 6a9be268ad288191b44bbdefcbe977ee --branch codex/<slug> \
+     "Address the review on PR #M of drufball/wyld: <feedback verbatim>. Commit and push to the \
+   same branch; do not open a new PR."
+   ```
+
+   **Sharp edge:** `--branch` reads the branch as it exists on GitHub right now. Anything the
+   Planner applied locally to that branch must be pushed *before* starting the next task, or Codex
+   works off a stale branch.
+
+6. **Merge when green and correct:**
+
+   ```bash
+   gh pr merge <n> --squash --delete-branch
+   ```
+
+   Never force-push `main`. Never merge red.
 
 ### Commands
 
 | Command | What it does |
 |---|---|
-| `npx -y @openai/codex@latest cloud exec --env drufball/wyld --branch <branch> "<prompt>"` | Starts a task; prints a URL containing the `task_e_...` id. `--env` takes the environment **label**. |
+| `npx -y @openai/codex@latest cloud exec --env 6a9be268ad288191b44bbdefcbe977ee --branch <branch> "<prompt>"` | Starts a task; prints a URL containing the `task_e_...` id. `--env` takes the environment **ID**, never the `drufball/wyld` label. |
 | `... cloud status <task_id>` | Task state; `ready` means finished. |
 | `... cloud list --json --limit <n>` | Recent tasks: `id`, `status`, `summary.files_changed`, `environment_label`. |
-| `... cloud diff <task_id>` | The unified diff on stdout. |
-| `... cloud apply <task_id>` | Applies that diff to the local working tree. |
+| `gh pr list --json number,headRefName,body` | Poll target for "has Codex opened the PR yet." |
+| `gh pr checks <n>` | CI state — the source of truth, not Codex's summary. |
+| `gh pr review <n> --request-changes -b "<text>"` | Posts the fix-round review onto the PR. |
+| `gh pr merge <n> --squash --delete-branch` | Merges once green and reviewed. |
+
+### Fallback when Codex cannot publish
+
+Use this only when `GH_TOKEN` is missing/expired in the environment, or Codex otherwise cannot
+reach GitHub (Codex says so, or no branch/PR appears after a reasonable wait). It is no longer the
+default path — do not reach for it just because it was the old habit.
+
+The Planner pulls the diff back and publishes it directly:
+
+```
+codex cloud diff <task_id> | git apply           # in a fresh worktree/branch off origin/main
+verify: ./scripts/bootstrap.sh && pnpm typecheck && pnpm lint && pnpm test && pnpm build
+commit --author="Codex <codex@openai.com>" · push · gh pr create --base main
+```
+
+- Apply in a git worktree, never the main checkout:
+  `git worktree add -b codex/<slug> <scratchpad>/wt-<slug> origin/main`. Remove it once the PR
+  merges (`git worktree remove`).
+- Verify locally before pushing — all four of `typecheck`, `lint`, `test`, `build`, plus
+  `./scripts/bootstrap.sh`. Never push a diff you have not run.
+- Commit message carries `Closes #<issue>`; PR body follows the `AGENTS.md` format, including the
+  Codex task URL.
+- Review-fix loop still runs on the PR branch: `cloud exec --branch codex/<slug>` with the review
+  feedback as the prompt, apply the returned diff on top, push. Same PR, no second PR.
 
 ### Rules
 
-1. **One `cloud exec` task per issue.** The prompt is the issue body, prefixed with: "Implement
-   GitHub issue #N of drufball/wyld. Follow AGENTS.md. Do NOT attempt to push or open a PR; just
-   make the changes, run the verification commands, and summarize."
+1. One `cloud exec` task per issue, ever — whichever flow is in play. Never two triggers for one
+   issue.
 2. One issue = one coherent unit Codex can finish in roughly an hour. Explicit acceptance criteria
    and the exact verify commands, every time.
-3. **Codex never publishes.** The Planner applies the diff, verifies locally, commits authored as
-   `Codex <codex@openai.com>`, pushes, and opens the PR. The commit message carries
-   `Closes #<issue>` and the PR body follows the `AGENTS.md` format, including the Codex task URL.
-4. **Apply in a git worktree**, never in the main checkout:
-   `git worktree add -b codex/<slug> <scratchpad>/wt-<slug> origin/main`. Remove it when the PR
-   merges (`git worktree remove`).
-5. Verify locally before pushing — all four of `typecheck`, `lint`, `test`, `build`, plus
-   `./scripts/bootstrap.sh`. Never push a diff you have not run.
-6. **Review-fix loop runs on the PR branch**: `cloud exec --branch codex/<slug>` with the review
-   feedback as the prompt, then apply the returned diff on top of the branch and push. Same PR, no
-   second PR.
-7. Sequence dependent issues — Codex works off the named branch, so do not start B until A is
+3. Sequence dependent issues — Codex works off the named branch, so do not start B until A is
    merged. Independent issues may run in parallel.
-8. Never merge red. Never merge without reading the whole diff. Do not nitpick what the linter
+4. Never merge red. Never merge without reading the whole diff. Do not nitpick what the linter
    enforces.
-9. After any batch of actions, refresh each affected quest's "since you last looked" line and the
+5. After any batch of actions, refresh each affected quest's "since you last looked" line and the
    single recommended next action.
 
 ### Branch protection (blocked — Rumble pending)
@@ -132,6 +223,11 @@ JSON
 ```
 
 The CI check context is named `ci`.
+
+## Known constraints
+
+- **TypeScript is pinned to 6.0.3** because of the `typescript-eslint` peer range — do not bump it
+  without also bumping `typescript-eslint` and confirming the peer range is satisfied.
 
 ## Event handling (v0)
 

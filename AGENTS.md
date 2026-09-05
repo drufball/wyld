@@ -55,13 +55,9 @@ All four of `typecheck`, `lint`, `test`, `build` must pass before a PR is ready.
 
 ## Publishing your work
 
-**When you are running as a Codex Cloud task started by the Planner, do NOT push and do NOT open a
-pull request.** Make the changes, run the verification commands, and summarize what you did — the
-Planner pulls your diff back with `codex cloud diff`, verifies it locally, and publishes it as a
-commit authored by you plus a PR. Attempting to push from that path only wastes time: those tasks
-run without an environment, so `GH_TOKEN` is empty.
-
-The rest of this section is a **fallback**, and applies only if `GH_TOKEN` is actually non-empty.
+**Publish your own work.** When `GH_TOKEN` is non-empty, push your branch and open the PR yourself
+— do not wait for the Planner to do it for you. This is the normal case for every task started by
+the Planner via `codex cloud exec`.
 
 A `GH_TOKEN` **environment variable** (fine-grained PAT scoped to this repo: Contents + Pull requests
 read/write) is provided. It must be an environment variable, not a Codex *secret*: secrets are
