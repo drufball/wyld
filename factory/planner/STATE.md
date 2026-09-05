@@ -11,7 +11,7 @@ whenever a step finishes._
 | Phase 0 bootstrap | done | #4 skeleton+CI, #7 shared types, #9 server v0 |
 | 1.1 Pak shell + Today | done | #13 next-action + static hosting, #15 shell/theme, #20 Today + SSE + Playwright smoke |
 | 1.2 Wake | done | #14 core, #18 channel adapter + `pak_log_event`/`pak_set_next_action`, #21 factory up/down/doctor |
-| 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | **next** | — |
+| 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | **in progress** — lead already running from the desktop Planner session; do not spawn another | — |
 | 1.4 – 1.11 | not started | see factory-spec.md §11 |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
