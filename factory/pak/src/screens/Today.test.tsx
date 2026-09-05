@@ -37,14 +37,13 @@ describe('Today', () => {
       sinceYouLooked: '',
       lastNote: '',
     };
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((url: string) =>
-        jsonResponse(url === '/api/quests?status=building' ? [buildingQuest] : presence),
-      ),
+    const fetch = vi.fn((url: string) =>
+      jsonResponse(url === '/api/quests?status=building' ? [buildingQuest] : presence),
     );
+    vi.stubGlobal('fetch', fetch);
     renderToday();
     expect(await screen.findByText('Cranking on one quest.')).not.toBeNull();
+    expect(fetch.mock.calls.filter(([url]) => url === '/api/presence/seen')).toHaveLength(0);
   });
 
   it('submits an intent from the textarea on Enter and clears the field', async () => {

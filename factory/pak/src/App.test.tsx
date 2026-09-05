@@ -21,10 +21,10 @@ const placeholders = [
 ] as const;
 
 describe('Pak shell', () => {
-  it('renders Today and all six tab destinations at the root', () => {
+  it('renders Today and all six tab destinations at the root', async () => {
     renderAt('/');
 
-    expect(screen.getByText('What do we make today?')).not.toBeNull();
+    expect(await screen.findByText('What do we make today?')).not.toBeNull();
     for (const label of ['Today', 'Worlds', 'Demos', 'Rumble', 'Debug', 'Memory']) {
       expect(screen.getByRole('link', { name: label })).not.toBeNull();
     }
@@ -57,8 +57,10 @@ describe('Pak shell', () => {
     ]);
   });
 
-  it.each(placeholders)('navigates to %s and renders its purpose', (name, purpose) => {
+  it.each(placeholders)('navigates to %s and renders its purpose', async (name, purpose) => {
     renderAt('/');
+
+    await screen.findByText('What do we make today?');
 
     fireEvent.click(screen.getByRole('link', { name }));
 
@@ -66,8 +68,9 @@ describe('Pak shell', () => {
     expect(screen.getByText(purpose)).not.toBeNull();
   });
 
-  it('navigates to the Worlds hub', () => {
+  it('navigates to the Worlds hub', async () => {
     renderAt('/');
+    await screen.findByText('What do we make today?');
     fireEvent.click(screen.getByRole('link', { name: 'Worlds' }));
     expect(screen.getByRole('heading', { name: 'Worlds' })).not.toBeNull();
   });
