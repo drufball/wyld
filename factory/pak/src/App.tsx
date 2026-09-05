@@ -7,6 +7,7 @@ import { Rumble } from './screens/Rumble.js';
 import { Today } from './screens/Today.js';
 import { Vmu } from './screens/Vmu.js';
 import { Worlds } from './screens/Worlds.js';
+import { LiveEventsProvider, type EventSourceFactory } from './live/LiveEvents.js';
 
 function Shell() {
   return (
@@ -19,19 +20,21 @@ function Shell() {
   );
 }
 
-export function App() {
+export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFactory }) {
   return (
-    <Routes>
-      <Route path="/vmu" element={<Vmu />} />
-      <Route element={<Shell />}>
-        <Route index element={<Today />} />
-        <Route path="worlds" element={<Worlds />} />
-        <Route path="demos" element={<Demos />} />
-        <Route path="rumble" element={<Rumble />} />
-        <Route path="debug" element={<Debug />} />
-        <Route path="memory" element={<Memory />} />
-      </Route>
-      <Route path="*" element={<Navigate replace to="/" />} />
-    </Routes>
+    <LiveEventsProvider eventSourceFactory={eventSourceFactory}>
+      <Routes>
+        <Route path="/vmu" element={<Vmu />} />
+        <Route element={<Shell />}>
+          <Route index element={<Today />} />
+          <Route path="worlds" element={<Worlds />} />
+          <Route path="demos" element={<Demos />} />
+          <Route path="rumble" element={<Rumble />} />
+          <Route path="debug" element={<Debug />} />
+          <Route path="memory" element={<Memory />} />
+        </Route>
+        <Route path="*" element={<Navigate replace to="/" />} />
+      </Routes>
+    </LiveEventsProvider>
   );
 }

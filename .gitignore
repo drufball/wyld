@@ -5,5 +5,8 @@ dist/
 *.log
 .vitest/
 *.tsbuildinfo
+test-results/
+playwright-report/
+.playwright/
 
 .tsc/

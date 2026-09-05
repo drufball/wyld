@@ -4,7 +4,10 @@ import { EventId, Id, Timestamp } from './ids.js';
 
 export const NextAction = z.object({
   text: z.string().min(1),
-  deepLink: z.string().startsWith('/').optional(),
+  deepLink: z
+    .string()
+    .regex(/^\/(?!\/)/)
+    .optional(),
 });
 export type NextAction = z.infer<typeof NextAction>;
 
