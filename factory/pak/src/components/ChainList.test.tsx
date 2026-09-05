@@ -1,0 +1,147 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { LiveEventsProvider, type EventSourceFactory } from '../live/LiveEvents.js';
+import { ChainList } from './ChainList.js';
+
+const timestamp = '2026-09-05T12:00:00.000Z';
+const question = {
+  id: 1,
+  status: 'open',
+  createdAt: timestamp,
+  lastActivityAt: timestamp,
+  questId: null,
+  messages: [{ id: 1, chainId: 1, author: 'human', text: 'Why?', ts: timestamp }],
+} as const;
+function response(value: unknown) {
+  return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(value) } as Response);
+}
+function renderList(
+  eventSourceFactory: EventSourceFactory = () => ({
+    addEventListener() {},
+    removeEventListener() {},
+    close() {},
+  }),
+) {
+  return render(
+    <LiveEventsProvider eventSourceFactory={eventSourceFactory}>
+      <ChainList />
+    </LiveEventsProvider>,
+  );
+}
+
+afterEach(() => vi.unstubAllGlobals());
+describe('ChainList', () => {
+  it('renders nothing when there are no chains', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url === '/api/chains' ? [] : [])),
+    );
+    const { container } = renderList();
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith('/api/chains', {}));
+    expect(container.querySelector('.today-chains')).toBeNull();
+  });
+
+  it('renders messages and only shows a chip for a targeted chain', async () => {
+    const answered = {
+      ...question,
+      messages: [
+        ...question.messages,
+        { id: 2, chainId: 1, author: 'planner', text: 'Because.', ts: timestamp },
+      ],
+    };
+    const targeted = {
+      ...question,
+      id: 2,
+      questId: 'quest-one',
+      messages: [{ ...question.messages[0], id: 3, chainId: 2, text: 'Quest question' }],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        response(
+          url === '/api/chains'
+            ? [answered, targeted]
+            : [
+                {
+                  id: 'quest-one',
+                  worldId: 'wyld',
+                  title: 'Named quest',
+                  pitch: 'A pitch',
+                  status: 'building',
+                  progress: 0,
+                  sinceYouLooked: '',
+                  lastNote: '',
+                },
+              ],
+        ),
+      ),
+    );
+    renderList();
+    expect(await screen.findByText('Why?')).not.toBeNull();
+    expect(screen.getByText('Because.')).not.toBeNull();
+    expect(await screen.findByText('Named quest')).not.toBeNull();
+    expect(screen.getAllByText(/Named quest/)).toHaveLength(1);
+  });
+
+  it('reloads for a live planner update', async () => {
+    let receive: EventListener | undefined;
+    const fetch = vi.fn((url: string) => response(url === '/api/chains' ? [question] : []));
+    vi.stubGlobal('fetch', fetch);
+    renderList(() => ({
+      addEventListener(type, listener) {
+        if (type === 'event') receive = listener as EventListener;
+      },
+      removeEventListener() {},
+      close() {},
+    }));
+    await screen.findByText('Why?');
+    receive?.(
+      new MessageEvent('event', {
+        data: JSON.stringify({
+          id: 9,
+          ts: timestamp,
+          source: 'planner',
+          kind: 'planner.chain_updated',
+          payload: { chainId: 1 },
+        }),
+      }),
+    );
+    await waitFor(() =>
+      expect(fetch.mock.calls.filter(([url]) => url === '/api/chains')).toHaveLength(2),
+    );
+  });
+
+  it('settles a chain and posts a follow-up to that chain', async () => {
+    const followed = {
+      ...question,
+      messages: [
+        ...question.messages,
+        { id: 2, chainId: 1, author: 'human', text: 'More?', ts: timestamp },
+      ],
+    };
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      response(
+        init?.method === 'POST' && url.endsWith('/messages')
+          ? followed
+          : url === '/api/chains'
+            ? [question]
+            : init?.method === 'POST'
+              ? { ...question, status: 'settled' }
+              : [],
+      ),
+    );
+    vi.stubGlobal('fetch', fetch);
+    renderList();
+    const field = await screen.findByLabelText('Follow up');
+    fireEvent.change(field, { target: { value: 'More?' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/chains/1/messages',
+        expect.objectContaining({ body: JSON.stringify({ author: 'human', text: 'More?' }) }),
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Settled' }));
+    await waitFor(() => expect(screen.queryByText('Why?')).toBeNull());
+  });
+});

@@ -134,6 +134,22 @@ p {
   text-decoration: underline;
   cursor: pointer;
 }
+.today-mode-toggle {
+  justify-self: start;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  padding: var(--pak-space-2) 0;
+  color: var(--pak-ink-dim);
+  background: transparent;
+  font-family: var(--pak-body);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.today-mode-toggle:focus-visible {
+  outline: 3px solid var(--pak-orange);
+}
 .today-ack {
   animation: acknowledgement 3s ease-out forwards;
 }
@@ -156,6 +172,75 @@ a.today-action:focus-visible {
 }
 .today-signals p {
   margin: 0;
+}
+.today-chains {
+  display: grid;
+  gap: var(--pak-space-3);
+}
+.chain-card {
+  display: grid;
+  min-width: 0;
+  gap: var(--pak-space-3);
+  border-left: 2px solid var(--pak-orange);
+  border-radius: var(--pak-radius);
+  padding: var(--pak-space-4);
+  background: var(--pak-panel);
+}
+.chain-card > .world-tag {
+  justify-self: start;
+}
+.chain-card__notes {
+  display: grid;
+  gap: var(--pak-space-2);
+}
+.chain-card__notes p {
+  margin: 0;
+  padding: var(--pak-space-2);
+  background: var(--pak-panel-raised);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chain-card__thinking {
+  margin: 0;
+  color: var(--pak-ink-dim);
+}
+.chain-card form {
+  display: grid;
+  gap: var(--pak-space-2);
+}
+.chain-card__input,
+.chain-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pak-space-2);
+}
+.chain-card textarea {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 190px;
+  box-sizing: border-box;
+  border: 2px solid var(--pak-bevel-light);
+  padding: var(--pak-space-2);
+  color: var(--pak-ink);
+  background: var(--pak-bg);
+  font: inherit;
+  overflow: hidden;
+  resize: none;
+}
+.chain-card__input button,
+.chain-card__actions button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--pak-space-2) var(--pak-space-3);
+  border: 2px solid var(--pak-bevel-light);
+  color: var(--pak-ink);
+  background: var(--pak-panel-raised);
+  font: inherit;
+  cursor: pointer;
+}
+.chain-card button:focus-visible,
+.chain-card textarea:focus-visible {
+  outline: 3px solid var(--pak-orange);
 }
 
 @keyframes terminal-caret {
