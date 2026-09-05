@@ -57,9 +57,11 @@ All four of `typecheck`, `lint`, `test`, `build` must pass before a PR is ready.
 
 A `GH_TOKEN` **environment variable** (fine-grained PAT scoped to this repo: Contents + Pull requests
 read/write) is provided. It must be an environment variable, not a Codex *secret*: secrets are
-removed before the agent phase starts, so a secret shows up as empty here. The sandbox may or may not already have an `origin` remote, and if it does, that remote
-is **unauthenticated** — pushing to it fails with `Invalid username or token`. So always overwrite
-the remote URL with the token-bearing one. Do not use `git remote add`; it is a no-op when `origin`
+removed before the agent phase starts, so a secret shows up as empty here.
+
+The sandbox may or may not already have an `origin` remote, and if it does, that remote is
+**unauthenticated** — pushing to it fails with `Invalid username or token`. So always overwrite the
+remote URL with the token-bearing one. Do not use `git remote add`; it is a no-op when `origin`
 already exists.
 
 ```bash
