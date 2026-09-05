@@ -55,7 +55,7 @@ h1,
 h1 {
   margin: 0 0 var(--pak-space-4);
   color: var(--pak-ink);
-  font-size: clamp(1.15rem, 4vw, 1.7rem);
+  font-size: 16px;
   line-height: 1.5;
 }
 
@@ -69,6 +69,7 @@ p {
 
 .pak-shell {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .pak-content {
@@ -85,7 +86,7 @@ p {
   padding: var(--pak-space-2) var(--pak-space-1) env(safe-area-inset-bottom);
   border-top: 3px solid var(--pak-bevel-light);
   background: var(--pak-panel-raised);
-  font-size: 0.54rem;
+  font-size: 8px;
 }
 
 .pak-nav__brand {
@@ -101,15 +102,24 @@ p {
   list-style: none;
 }
 
+.pak-nav__list > li {
+  min-width: 0;
+}
+
 .pak-nav a {
   display: grid;
   min-height: 52px;
   place-items: center;
-  padding: var(--pak-space-2) var(--pak-space-1);
+  min-width: 0;
+  padding: var(--pak-space-2) 0;
   border: 2px solid transparent;
   color: var(--pak-ink-dim);
   text-align: center;
   text-decoration: none;
+}
+
+.pak-nav__label--desktop {
+  display: none;
 }
 
 .pak-nav a:hover {
@@ -131,12 +141,17 @@ p {
 .vmu {
   display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
   align-content: center;
   padding: var(--pak-space-4);
   background: var(--pak-purple-deep);
 }
 
 @media (min-width: 900px) {
+  h1 {
+    font-size: 24px;
+  }
+
   .pak-shell {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
@@ -154,14 +169,14 @@ p {
     padding: var(--pak-space-4) var(--pak-space-3);
     border-top: 0;
     border-right: 3px solid var(--pak-bevel-dark);
-    font-size: 0.65rem;
+    font-size: 8px;
   }
 
   .pak-nav__brand {
     display: block;
     margin: var(--pak-space-2) 0 var(--pak-space-5);
     color: var(--pak-orange);
-    font-size: 0.75rem;
+    font-size: 16px;
     line-height: 1.8;
   }
 
@@ -175,6 +190,14 @@ p {
     min-height: 48px;
     place-items: center start;
     padding-inline: var(--pak-space-3);
+  }
+
+  .pak-nav__label--mobile {
+    display: none;
+  }
+
+  .pak-nav__label--desktop {
+    display: inline;
   }
 }
 

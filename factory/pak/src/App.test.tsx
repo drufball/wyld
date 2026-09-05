@@ -29,6 +29,24 @@ describe('Pak shell', () => {
     }
   });
 
+  it('uses compact mobile labels that fit all six 8px grid-font tabs at 320px', () => {
+    const { container } = renderAt('/');
+    const mobileLabels = Array.from(
+      container.querySelectorAll<HTMLElement>('.pak-nav__label--mobile'),
+    );
+
+    expect(mobileLabels).toHaveLength(6);
+    expect(mobileLabels.map(({ textContent }) => textContent)).toEqual([
+      'TODAY',
+      'WORLD',
+      'DEMOS',
+      'RMBL',
+      'DEBUG',
+      'MEM',
+    ]);
+    expect(mobileLabels.every(({ textContent }) => (textContent?.length ?? 0) <= 5)).toBe(true);
+  });
+
   it.each(placeholders)('navigates to %s and renders its purpose', (name, purpose) => {
     renderAt('/');
 
