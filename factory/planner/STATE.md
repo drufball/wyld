@@ -1,6 +1,6 @@
 # Planner state — read this first on every new session
 
-_Last updated 2026-09-05 ~19:45 by the Planner (respawned session). Quests in the Pak carry the live
+_Last updated 2026-09-05 ~21:20 by the Planner, just before respawning itself. Quests in the Pak carry the live
 state; this file is down to environment facts and open items. Keep it short; update it whenever a
 step finishes._
 
@@ -16,7 +16,7 @@ step finishes._
 | 1.5 GitHub loop + Debug Menu health tiles | done | #41 `health` table + `POST /api/health/report` + `GET /api/health/snapshot`, #44 `pak_health_report`/`pak_read_health` + Wake `lastGithubEventAt`, #45 e2e harness isolation, #47 `/debug` live tiles |
 | Quests `question-chains` + `today-glance` (Dru intents 2026-09-05, outside the step plan) | done | #49 server chains, #53 Wake `human.question`/`human.chain_closed` + `pak_read_chains`/`pak_answer_chain`/`pak_close_chain`, #54 Today chain cards, #57 quest Ask → chains, #59 in-flight quest cards on Today |
 | `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | done | #62 `POST /api/ops/report` + `ops_reports` (measured health kept apart from the Planner heartbeat), #67 `@wyld/ops` reporter (gh runs/PRs/rate + Claude session JSONL tokens, every 2 min, `ops` tmux window via `factory:up`), #68 ten plain-English tiles + stuck-channel tell, #73 no-checks-yet reads pending. `Spent today` is honestly "Not measured" (flat subscription, no cost source) |
-| 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | **in progress** — own lead; #63 server (table, API, decide → `human.decision`, digest slot) and #71 Wake tools merged; Pak screen waits on `debug-menu` and `one-box` | — |
+| 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | done | #63 `rumbles` table + `GET/POST /api/rumbles` + `/decide` → `human.decision` + catch-up slot, #71 Wake `pak_request_rumble`/`pak_read_rumbles` (decisions never coalesce), #77 `/rumble` screen + Today "N Rumbles" link + VMU count. Seeded: 14 decided cards (§10 table + the three account jobs already done) and 4 open: Tailscale login (blocks `polish`), ntfy on the phone (blocks `paused`), renew the builder `GH_TOKEN` before ~2026-10-05, GitHub Pro vs public repo for branch protection |
 | `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | done | #70 `POST /api/chains` with `author` + Wake `pak_send_message` (no new event kind), #75 one "What's on your mind?" box, every submission opens a chain; PROTOCOL §2/§5a + plan-quest rewritten (1fcf0e7). "Make this a quest" still emits `human.intent` from that explicit tap only |
 | 1.7 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
@@ -50,23 +50,28 @@ step finishes._
 
 ## First actions for the on-duty Planner (tmux session)
 
-_Rewritten 2026-09-05 ~19:45 by the respawned Planner after draining the queue._
+_Rewritten 2026-09-05 ~21:20 by the outgoing session, which respawned itself (no leads were running)
+to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
 
-1. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`), `pak_read_chains` and answer any open
-   chain immediately (PROTOCOL §5a), then `pak_health_report` — the Planner tile reads `down` after
-   ten minutes of silence, and the outgoing session's last heartbeat is the tell for when it died.
-2. Two leads are (or were) running from the previous session — `debug-menu` follow-up and 1.6
-   Rumble. If you are a fresh session they are gone with it: check `gh pr list`, `gh issue list`
-   and `pak_read_quests` for where they got to, and respawn a lead per unfinished quest with the
-   same sequencing rule (Rumble lead does not touch `factory/pak` until `debug-menu` is done).
-3. **Respawn pending.** #70 (Planner can start a message chain) and #71 (`pak_request_rumble` /
-   `pak_read_rumbles`) merged at ~20:19 while three leads were still running; the on-duty Planner
-   cannot see those tools until `wyld:planner` is respawned, and respawning kills running leads. Rule
-   adopted: respawn only when no lead is mid-quest. Do it as soon as all leads have reported.
-4. Then 1.7 Demo Discs (factory-spec §11), one lead.
-5. Keep this file and the Pak quests in sync as steps finish.
+1. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`) — confirm the three new ones are
+   visible. `pak_read_chains`, answer any open chain (PROTOCOL §5a: one message in, two ways out),
+   then `pak_health_report`.
+2. The channel queue will replay a short backlog — all already handled; a `human.decision`
+   labelled "LEAD CHECK (not Dru)" is a lead's test, ignore it.
+3. `pak_read_rumbles`: four real cards are open (see the 1.6 row). Nothing to do until Dru decides;
+   a `human.decision` event carries the choice — record it and unpark what it unblocks (§2).
+4. Spawn the **1.7 Demo Discs** lead (factory-spec §11: PR-head worktree builds, `/play/*`, in-Pak
+   iframe, feedback button; `human.feedback` already exists in `EVENT_KINDS`). One lead. Also give
+   it, or a small sequenced lead, the doctor check for the six tmux windows (Open items).
+5. Use `pak_send_message` for heads-ups Dru can reply to; `pak_post_note` only for the quest card's
+   own line. Keep this file and the Pak quests in sync as steps finish.
 
 ## Open items
+
+- **Rumbles API facts (1.6):** rumble ids are stable slugs, so re-filing one updates it in place;
+  filing with `chosen` records a past decision **without** an event, while `/decide` always emits
+  `human.decision` — never seed history through `/decide`. There is no delete endpoint; a test card
+  has to be removed with sqlite3.
 
 - **`gh pr review --request-changes` fails on Codex PRs** ("Can not request changes on your own pull
   request" — Codex pushes as drufball). Use `gh pr comment` for the record, then
