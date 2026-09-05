@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createWakeApp } from './app.js';
 import { openDatabase, type AppDatabase } from './database.js';
+import { messages } from './schema.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 const wakeSecret = 'wake-secret-1234';
@@ -37,6 +38,51 @@ describe('Wake app', () => {
   async function queueDepth() {
     return ((await (await app.request('/health')).json()) as { queueDepth: number }).queueDepth;
   }
+
+  it('reports no last GitHub event for an empty queue', async () => {
+    const health = (await (await app.request('/health')).json()) as {
+      lastGithubEventAt: string | null;
+    };
+    expect(health.lastGithubEventAt).toBeNull();
+  });
+
+  it('reports the newest GitHub message timestamp and ignores human messages', async () => {
+    const createdAt = '2026-09-05T12:00:00.000Z';
+    database.db
+      .insert(messages)
+      .values([
+        {
+          source: 'github',
+          kind: 'github.issue_opened',
+          summary: 'Older GitHub event',
+          ts: '2026-09-05T09:00:00.000Z',
+          createdAt,
+          updatedAt: createdAt,
+        },
+        {
+          source: 'github',
+          kind: 'github.pr_opened',
+          summary: 'Newest GitHub event',
+          ts: '2026-09-05T10:00:00.000Z',
+          createdAt,
+          updatedAt: createdAt,
+        },
+        {
+          source: 'human',
+          kind: 'human.intent',
+          summary: 'Later human event',
+          ts: '2026-09-05T11:00:00.000Z',
+          createdAt,
+          updatedAt: createdAt,
+        },
+      ])
+      .run();
+
+    const health = (await (await app.request('/health')).json()) as {
+      lastGithubEventAt: string | null;
+    };
+    expect(health.lastGithubEventAt).toBe('2026-09-05T10:00:00.000Z');
+  });
 
   it.each([
     ['missing secret', {}, validEvent],

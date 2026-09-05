@@ -82,10 +82,14 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
     const delivery = database.sqlite
       .prepare(`SELECT MAX(delivered_at) AS lastDeliveryAt FROM messages`)
       .get() as { lastDeliveryAt: string | null };
+    const github = database.sqlite
+      .prepare(`SELECT MAX(ts) AS lastGithubEventAt FROM messages WHERE source = 'github'`)
+      .get() as { lastGithubEventAt: string | null };
     return c.json({
       ok: true,
       queueDepth: stats.queueDepth,
       lastDeliveryAt: delivery.lastDeliveryAt,
+      lastGithubEventAt: github.lastGithubEventAt,
       oldestPendingTs: stats.oldestPendingTs,
       uptimeSeconds: (Date.now() - startedAt) / 1000,
       version: dependencies.version ?? '0.0.0',
