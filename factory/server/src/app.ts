@@ -5,6 +5,7 @@ import {
   Event,
   EventId,
   NewEvent,
+  NextAction,
   Presence,
   WakeMessage,
   type NewEvent as NewEventType,
@@ -14,6 +15,7 @@ import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import { log, type LogContext } from './logger.js';
 import { events, presence } from './schema.js';
+import { createStaticHandler } from './static.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -33,6 +35,7 @@ export type AppDependencies = {
   now?: () => Date;
   fetch?: typeof globalThis.fetch;
   logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
+  pakDist?: string;
 };
 
 function formatIssues(error: z.ZodError) {
@@ -180,11 +183,33 @@ export function createApp(dependencies: AppDependencies) {
     return Presence.parse({
       lastSeenAt: row.lastSeenAt,
       lastCatchupEventId: row.lastCatchupEventId,
-      nextAction: { text: row.nextActionText, deepLink: row.nextActionLink },
+      nextAction:
+        row.nextActionText === null
+          ? null
+          : {
+              text: row.nextActionText,
+              ...(row.nextActionLink === null ? {} : { deepLink: row.nextActionLink }),
+            },
     });
   };
 
   app.get('/api/presence', (c) => c.json(readPresence()));
+
+  app.post('/api/presence/next-action', async (c) => {
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const parsed = NextAction.safeParse(body);
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    db.update(presence)
+      .set({ nextActionText: parsed.data.text, nextActionLink: parsed.data.deepLink ?? null })
+      .where(eq(presence.id, 1))
+      .run();
+    await storeEvent({
+      source: 'planner',
+      kind: 'planner.next_action',
+      payload: parsed.data,
+    });
+    return c.json(readPresence());
+  });
 
   app.post('/api/presence/seen', async (c) => {
     const seenAt = now().toISOString();
@@ -207,6 +232,9 @@ export function createApp(dependencies: AppDependencies) {
       version: dependencies.version ?? '0.0.0',
     });
   });
+
+  if (dependencies.pakDist !== undefined) app.all('*', createStaticHandler(dependencies.pakDist));
+  app.notFound((c) => c.json({ error: 'Not Found' }, 404));
 
   return app;
 }

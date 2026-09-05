@@ -17,6 +17,6 @@ export const presence = sqliteTable('presence', {
   id: integer('id').primaryKey(),
   lastSeenAt: text('last_seen_at').notNull(),
   lastCatchupEventId: integer('last_catchup_event_id'),
-  nextActionText: text('next_action_text').notNull(),
-  nextActionLink: text('next_action_link').notNull(),
+  nextActionText: text('next_action_text'),
+  nextActionLink: text('next_action_link'),
 });
