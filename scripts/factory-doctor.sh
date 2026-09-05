@@ -19,7 +19,7 @@ for tool in tmux gh claude node pnpm; do
   fi
 done
 
-if command -v gh >/dev/null 2>&1 && gh extension list 2>/dev/null | awk '{print $1}' | grep -Eq '(^|/)gh-webhook$'; then
+if command -v gh >/dev/null 2>&1 && gh extension list 2>/dev/null | grep -Eq '(^|[[:space:]])cli/gh-webhook([[:space:]]|$)'; then
   ok 'gh webhook extension is installed'
 else
   fail 'gh webhook extension is not installed; run `gh extension install cli/gh-webhook`'
@@ -67,7 +67,7 @@ fi
 
 for port in 8787 8788; do
   if command -v lsof >/dev/null 2>&1; then
-    listeners="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $1 "(pid " $2 ")"}' | sort -u | paste -sd, -)"
+    listeners="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $1 "(pid " $2 ")"}' | sort -u | paste -sd, - || true)"
     if [[ -n "$listeners" ]]; then
       ok "port $port is listening: $listeners"
     else

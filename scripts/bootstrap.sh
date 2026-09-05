@@ -20,9 +20,21 @@ else
     wake_secret="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")"
     webhook_secret="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")"
   fi
-  sed -e "0,/replace-me/s//${wake_secret}/" -e "0,/replace-me/s//${webhook_secret}/" \
-    factory/env.example >.factory/env
+  {
+    sed '/^WAKE_SECRET=/d; /^GH_WEBHOOK_SECRET=/d' factory/env.example
+    echo "WAKE_SECRET=${wake_secret}"
+    echo "GH_WEBHOOK_SECRET=${webhook_secret}"
+  } >.factory/env
   chmod 600 .factory/env
+
+  generated_wake_secret="$(sed -n 's/^WAKE_SECRET=//p' .factory/env | tail -n 1)"
+  generated_webhook_secret="$(sed -n 's/^GH_WEBHOOK_SECRET=//p' .factory/env | tail -n 1)"
+  if [[ -z "$generated_wake_secret" || "$generated_wake_secret" == replace-me || \
+    -z "$generated_webhook_secret" || "$generated_webhook_secret" == replace-me ]]; then
+    echo 'error: failed to generate secrets in .factory/env' >&2
+    exit 1
+  fi
+
   echo 'Created .factory/env'
 fi
 
