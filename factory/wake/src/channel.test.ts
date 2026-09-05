@@ -164,6 +164,8 @@ describe('Pak tools', () => {
       'pak_read_catchup',
       'pak_health_report',
       'pak_read_health',
+      'pak_request_rumble',
+      'pak_read_rumbles',
       'pak_read_chains',
       'pak_send_message',
       'pak_answer_chain',
@@ -527,6 +529,101 @@ describe('Pak tools', () => {
       isError: true,
     });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('requests a Rumble with mapped arguments and defaults', async () => {
+    const fetch = vi.fn(async () => new Response('{"id":"rumble-1"}', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    const result = await call!({
+      params: {
+        name: 'pak_request_rumble',
+        arguments: {
+          title: 'Choose a model',
+          context: 'The prototypes differ. Pick the direction we should pursue.',
+          options: ['Fast', 'Beautiful'],
+          kind: 'model',
+        },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/rumbles', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Choose a model',
+        context: 'The prototypes differ. Pick the direction we should pursue.',
+        options: ['Fast', 'Beautiful'],
+        kind: 'model',
+        blockingQuestIds: [],
+      }),
+    });
+  });
+
+  it('maps blocking quests when requesting a Rumble', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () => new Response('{"id":"rumble-1"}', { status: 200 }),
+    );
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    await call!({
+      params: {
+        name: 'pak_request_rumble',
+        arguments: {
+          title: 'Choose the scope',
+          context: 'Two quests depend on this. Pick the scope to unblock them.',
+          options: ['Small', 'Large'],
+          kind: 'scope',
+          blocking_quests: ['quest-one', 'quest-two'],
+        },
+      },
+    });
+
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+      blockingQuestIds: ['quest-one', 'quest-two'],
+    });
+  });
+
+  it.each([
+    { options: [] },
+    { options: ['one', 'two', 'three', 'four', 'five'] },
+    { kind: 'weather' },
+  ])('rejects invalid Rumble arguments: %o', async (override) => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const [, call] = handlers(fetch);
+    const result = await call!({
+      params: {
+        name: 'pak_request_rumble',
+        arguments: {
+          title: 'Choose',
+          context: 'A choice is required. Pick one.',
+          options: ['one'],
+          kind: 'scope',
+          ...override,
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ isError: true });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [undefined, 'http://pak/api/rumbles'],
+    ['open', 'http://pak/api/rumbles?status=open'],
+  ] as const)('reads Rumbles with status %s', async (status, url) => {
+    const fetch = vi.fn(async () => new Response('[]', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const result = await call!({
+      params: {
+        name: 'pak_read_rumbles',
+        arguments: status === undefined ? {} : { status },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith(url, { method: 'GET', headers: {} });
   });
 
   it.each(['pak_read_chains', 'pak_answer_chain', 'pak_close_chain'])(

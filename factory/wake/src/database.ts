@@ -23,7 +23,9 @@ export function openDatabase(databasePath: string, migrationsFolder: string): Ap
 
 export function enqueueMessage(database: AppDatabase, message: WakeMessage, now: Date): number {
   const target =
-    message.kind === 'human.question' || message.kind === 'human.chain_closed'
+    message.kind === 'human.question' ||
+    message.kind === 'human.chain_closed' ||
+    message.kind === 'human.decision'
       ? undefined
       : message.pr !== undefined
         ? (['pr', message.pr] as const)
