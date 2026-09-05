@@ -328,7 +328,7 @@ commit --author="Codex <codex@openai.com>" · push · gh pr create --base main
    (`planner_state`, `current_task` in plain English, plus `ci_state` / `codex_prs_open` when you
    know them). The Debug Menu's Planner tile reads `down` after ten minutes of silence.
 
-### Branch protection (blocked — Rumble pending)
+### Branch protection (decided 2026-09-05: convention, not enforcement)
 
 `main` has **no branch protection**, and cannot have any until an account decision is made.
 `drufball/wyld` is a private repo on a Free plan, and GitHub gates both mechanisms behind Pro:
@@ -340,15 +340,15 @@ $ gh api -X POST repos/drufball/wyld/rulesets ...
 {"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","status":"403"}
 ```
 
-Both ways out — paying for GitHub Pro, or making the repo public — are Rumbles under
-`POLICIES.md` ("anything needing an account, login, payment, or plan change"). Until one is
-chosen, the required `ci` check is **convention, not enforcement**. So, without exception:
+Both ways out — paying for GitHub Pro, or making the repo public — were put to Dru as a Rumble,
+and on 2026-09-05 he chose **"Leave it as my discipline"**. The required `ci` check is therefore
+**convention, not enforcement**, by decision rather than by accident. So, without exception:
 
 - Never merge a PR whose `gh pr checks <n>` does not show `ci  pass`.
 - Never push to `main` directly except for the Planner-owned files listed in `CLAUDE.md`.
 - Never force-push `main`. Nothing at the server side will stop you.
 
-When the Rumble resolves in favour of Pro, apply:
+If Dru ever reverses that decision in favour of Pro, apply:
 
 ```bash
 gh api -X PUT repos/drufball/wyld/branches/main/protection --input - <<'JSON'

@@ -16,7 +16,7 @@ step finishes._
 | 1.5 GitHub loop + Debug Menu health tiles | done | #41 `health` table + `POST /api/health/report` + `GET /api/health/snapshot`, #44 `pak_health_report`/`pak_read_health` + Wake `lastGithubEventAt`, #45 e2e harness isolation, #47 `/debug` live tiles |
 | Quests `question-chains` + `today-glance` (Dru intents 2026-09-05, outside the step plan) | done | #49 server chains, #53 Wake `human.question`/`human.chain_closed` + `pak_read_chains`/`pak_answer_chain`/`pak_close_chain`, #54 Today chain cards, #57 quest Ask → chains, #59 in-flight quest cards on Today |
 | `debug-menu` follow-up (feed the empty gauges with real reporters, plain-English tile labels) | done | #62 `POST /api/ops/report` + `ops_reports` (measured health kept apart from the Planner heartbeat), #67 `@wyld/ops` reporter (gh runs/PRs/rate + Claude session JSONL tokens, every 2 min, `ops` tmux window via `factory:up`), #68 ten plain-English tiles + stuck-channel tell, #73 no-checks-yet reads pending. `Spent today` is honestly "Not measured" (flat subscription, no cost source) |
-| 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | done | #63 `rumbles` table + `GET/POST /api/rumbles` + `/decide` → `human.decision` + catch-up slot, #71 Wake `pak_request_rumble`/`pak_read_rumbles` (decisions never coalesce), #77 `/rumble` screen + Today "N Rumbles" link + VMU count. Seeded: 14 decided cards (§10 table + the three account jobs already done) and 4 open: Tailscale login (blocks `polish`), ntfy on the phone (blocks `paused`), renew the builder `GH_TOKEN` before ~2026-10-05, GitHub Pro vs public repo for branch protection |
+| 1.6 Rumble screen + `pak_request_rumble`, §10 seeded as Rumble cards | done | #63 `rumbles` table + `GET/POST /api/rumbles` + `/decide` → `human.decision` + catch-up slot, #71 Wake `pak_request_rumble`/`pak_read_rumbles` (decisions never coalesce), #77 `/rumble` screen + Today "N Rumbles" link + VMU count. Seeded: 14 decided cards (§10 table + the three account jobs already done) and 4 open: Tailscale login (blocks `polish`), ntfy on the phone (blocks `paused`), renew the builder `GH_TOKEN` before ~2026-10-05, GitHub Pro vs public repo for branch protection. **Decided 2026-09-05 ~21:25:** Tailscale login → Done (laptop `macbook-pro-6.taild72c8d.ts.net`, phone on the tailnet); branch protection → "Leave it as my discipline". New open card `tailscale-serve`: Serve is not enabled on the tailnet (`tailscale serve` prints an enable link; only Dru can flip it) — blocks the Pak's HTTPS address and the ntfy card |
 | `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | done | #70 `POST /api/chains` with `author` + Wake `pak_send_message` (no new event kind), #75 one "What's on your mind?" box, every submission opens a chain; PROTOCOL §2/§5a + plan-quest rewritten (1fcf0e7). "Make this a quest" still emits `human.intent` from that explicit tap only |
 | 1.7 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
@@ -67,6 +67,26 @@ to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
    own line. Keep this file and the Pak quests in sync as steps finish.
 
 ## Open items
+
+- **Queued lead (start when the 1.7 lead is done — it shares `factory/wake` and `factory/shared`):
+  `wake-hot-reload`.** Dru asked (2026-09-05 21:20) to stop the Planner getting stuck on the
+  startup prompt when he's away. The prompt is Claude Code's development-channels warning (not
+  the `.mcp.json` approval, which `.claude/settings.local.json` already grants); the auto-mode
+  classifier refused to let the Planner script a keypress through it, so quest
+  `unattended-restart` is **parked** until Dru allows a launcher script in his Claude settings and
+  says so. The half we can do alone: make restarts rare. Codex unit: (a) `WakeMessage.kind` becomes
+  a plain string at the queue boundary and unparseable messages are dropped, not retried forever
+  (the frozen-channel bug below); (b) the channel adapter advertises new `pak_*` tools via MCP
+  `notifications/tools/list_changed` after a `@wyld/shared`/wake rebuild, verified empirically
+  against the running Planner — if Claude Code ignores it, say so in STATE.md and stop there.
+  Also check in `.claude/settings.json` with `enabledMcpjsonServers: ["wake"]` so a fresh clone
+  never hits the MCP approval.
+- **Tailscale (2026-09-05 ~21:28):** logged in; `tailscale serve --bg 8787` fails with "Serve is
+  not enabled on your tailnet" and prints an enable link — filed as Rumble `tailscale-serve`
+  (blocks `polish`, `paused`). On its `human.decision` → Done: rerun `tailscale serve --bg 8787`
+  (with `.factory/env` sourced), confirm `tailscale serve status`, then `curl -sI
+  https://macbook-pro-6.taild72c8d.ts.net/` and put that address on the `ntfy-phone` card once the
+  ntfy server exists (1.8). The Serve command blocks while not enabled — run it with a timeout.
 
 - **Rumbles API facts (1.6):** rumble ids are stable slugs, so re-filing one updates it in place;
   filing with `chosen` records a past decision **without** an event, while `/decide` always emits
