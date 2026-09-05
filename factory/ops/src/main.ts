@@ -11,7 +11,7 @@ let timer: NodeJS.Timeout | undefined;
 async function cycle(): Promise<void> {
   try {
     const [github, tokensToday] = await Promise.all([
-      readGithubStatus(config.repo),
+      readGithubStatus(config.repo, undefined, new Date()),
       readTokensToday(config.usageDir, new Date()),
     ]);
     const report = OpsReport.parse({

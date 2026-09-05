@@ -16,10 +16,11 @@ function runner(main: object, prs: object[], fail = false): CommandRunner {
   };
 }
 const greenMain = { status: 'completed', conclusion: 'success', workflowName: 'CI' };
-const pr = (headRefName: string, statusCheckRollup: object[]) => ({
+const pr = (headRefName: string, statusCheckRollup: object[], createdAt = 'invalid') => ({
   number: 64,
   headRefName,
   isDraft: false,
+  createdAt,
   statusCheckRollup,
 });
 
@@ -57,6 +58,26 @@ describe('readGithubStatus', () => {
     expect(
       (await readGithubStatus('r', runner(greenMain, [pr('codex/work', [...rollup])]))).ciState,
     ).toBe(state);
+  });
+  it('reports an empty roll-up on a new robot PR as pending', async () => {
+    const now = new Date('2026-09-05T12:00:00.000Z');
+    const result = await readGithubStatus(
+      'r',
+      runner(greenMain, [pr('codex/work', [], '2026-09-05T11:59:00.000Z')]),
+      now,
+    );
+
+    expect(result.ciState).toBe('pending');
+  });
+  it('reports an empty roll-up on an old robot PR as failed', async () => {
+    const now = new Date('2026-09-05T12:00:00.000Z');
+    const result = await readGithubStatus(
+      'r',
+      runner(greenMain, [pr('codex/work', [], '2026-09-05T11:00:00.000Z')]),
+      now,
+    );
+
+    expect(result.ciState).toBe('fail');
   });
   it('survives gh errors without inventing rate values', async () => {
     const result = await readGithubStatus('r', runner(greenMain, [], true));
