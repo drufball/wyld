@@ -78,6 +78,38 @@ describe('Today', () => {
     );
   });
 
+  it('toggles question mode and submits a chain instead of an intent', async () => {
+    const chain = {
+      id: 1,
+      status: 'open',
+      createdAt: presence.lastSeenAt,
+      lastActivityAt: presence.lastSeenAt,
+      questId: null,
+      messages: [{ id: 1, chainId: 1, author: 'human', text: 'How?', ts: presence.lastSeenAt }],
+    };
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      url === '/api/chains' && init?.method === 'POST'
+        ? jsonResponse(chain)
+        : jsonResponse(url === '/api/chains' || url.startsWith('/api/quests') ? [] : presence),
+    );
+    vi.stubGlobal('fetch', fetch);
+    renderToday();
+    fireEvent.click(screen.getByRole('button', { name: 'Just asking?' }));
+    const field = screen.getByLabelText('What do you want to know?');
+    fireEvent.change(field, { target: { value: 'How?' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/chains',
+        expect.objectContaining({ body: JSON.stringify({ text: 'How?' }) }),
+      ),
+    );
+    expect(fetch.mock.calls.filter(([url]) => url === '/api/events')).toHaveLength(0);
+    expect(
+      screen.getByRole('button', { name: 'Make something instead' }).getAttribute('aria-pressed'),
+    ).toBe('true');
+  });
+
   it('keeps a newline and does not submit on Shift+Enter', async () => {
     const fetch = vi.fn((url: string) => {
       void url;
@@ -96,7 +128,10 @@ describe('Today', () => {
   });
 
   it('grows for long text and includes the vertical border width', () => {
-    vi.stubGlobal('fetch', vi.fn(() => jsonResponse(presence)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse(presence)),
+    );
     renderToday();
     const field = screen.getByLabelText('What do we make today?') as HTMLTextAreaElement;
     Object.defineProperty(field, 'scrollHeight', { configurable: true, value: 88 });

@@ -1,7 +1,8 @@
 import { NewEvent, type NextAction } from '@wyld/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { getPresence, listQuests, postEvent } from '../api/client.js';
+import { getPresence, listQuests, postChain, postEvent } from '../api/client.js';
+import { ChainList } from '../components/ChainList.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { countInWords } from '../words.js';
 
@@ -28,7 +29,11 @@ export function Today({
   signals?: TodaySignals;
 }) {
   const [text, setText] = useState('');
-  const [failedText, setFailedText] = useState<string | null>(null);
+  const [mode, setMode] = useState<'intent' | 'question'>('intent');
+  const [failedSubmission, setFailedSubmission] = useState<{
+    text: string;
+    mode: 'intent' | 'question';
+  } | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const [buildingCount, setBuildingCount] = useState(0);
@@ -67,30 +72,42 @@ export function Today({
     field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
   }, [text]);
 
-  const send = (intent: string) => {
-    setFailedText(null);
-    void postEvent(
-      NewEvent.parse({ source: 'human', kind: 'human.intent', payload: { text: intent } }),
-    )
+  const send = (submission: string, submissionMode = mode) => {
+    setFailedSubmission(null);
+    if (submissionMode === 'question') setAcknowledged(false);
+    const request =
+      submissionMode === 'question'
+        ? postChain(submission)
+        : postEvent(
+            NewEvent.parse({
+              source: 'human',
+              kind: 'human.intent',
+              payload: { text: submission },
+            }),
+          );
+    void request
       .then(() => {
+        if (submissionMode === 'question') return;
         setAcknowledged(true);
         clearTimeout(acknowledgementTimer.current);
         acknowledgementTimer.current = setTimeout(() => setAcknowledged(false), 3000);
       })
-      .catch(() => setFailedText(intent));
+      .catch(() => setFailedSubmission({ text: submission, mode: submissionMode }));
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const intent = text.trim();
     if (!intent) return;
     setText('');
-    send(intent);
+    send(intent, mode);
   };
 
   return (
     <div className="today">
       <form className="today-prompt" onSubmit={submit}>
-        <label htmlFor="today-intent">What do we make today?</label>
+        <label htmlFor="today-intent">
+          {mode === 'intent' ? 'What do we make today?' : 'What do you want to know?'}
+        </label>
         <span className="today-input-line">
           <span aria-hidden="true">&gt;</span>
           <textarea
@@ -109,11 +126,22 @@ export function Today({
             autoComplete="off"
           />
         </span>
+        <button
+          className="today-mode-toggle"
+          type="button"
+          aria-pressed={mode === 'question'}
+          onClick={() => setMode((current) => (current === 'intent' ? 'question' : 'intent'))}
+        >
+          {mode === 'intent' ? 'Just asking?' : 'Make something instead'}
+        </button>
         <div className="today-response" aria-live="polite">
-          {failedText !== null ? (
+          {failedSubmission !== null ? (
             <span>
               That didn't go through.{' '}
-              <button type="button" onClick={() => send(failedText)}>
+              <button
+                type="button"
+                onClick={() => send(failedSubmission.text, failedSubmission.mode)}
+              >
                 Retry
               </button>
             </span>
@@ -130,6 +158,13 @@ export function Today({
         ) : (
           <div className="today-action">{nextAction.text}</div>
         ))}
+      <ChainList
+        onConvert={(question) => {
+          setMode('intent');
+          setText(question);
+          requestAnimationFrame(() => intentField.current?.focus());
+        }}
+      />
       {buildingCount > 0 && (
         <p className="today-cranking">
           Cranking on {countInWords(buildingCount)} {buildingCount === 1 ? 'quest' : 'quests'}.
