@@ -15,12 +15,14 @@ export function ChainCard({
   onChange,
   onClosed,
   onConvert,
+  showQuestChip = true,
 }: {
   chain: Chain;
   questName?: string;
   onChange: (chain: Chain) => void;
   onClosed: (id: number) => void;
   onConvert?: (text: string) => void;
+  showQuestChip?: boolean;
 }) {
   const [text, setText] = useState('');
   const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
@@ -64,7 +66,9 @@ export function ChainCard({
 
   return (
     <article className="chain-card">
-      {chain.questId !== null && <span className="world-tag">{questName ?? chain.questId}</span>}
+      {showQuestChip && chain.questId !== null && (
+        <span className="world-tag">{questName ?? chain.questId}</span>
+      )}
       <div className="chain-card__notes" aria-live="polite">
         {chain.messages.map((message) => (
           <p key={message.id}>
@@ -124,9 +128,13 @@ export function ChainCard({
 export function ChainList({
   quest,
   onConvert,
+  showQuestChip = true,
+  addedChain,
 }: {
   quest?: string;
   onConvert?: (text: string) => void;
+  showQuestChip?: boolean;
+  addedChain?: Chain | null;
 }) {
   const [chains, setChains] = useState<Chain[]>([]);
   const [questNames, setQuestNames] = useState<Record<string, string>>({});
@@ -140,20 +148,27 @@ export function ChainList({
   );
   useEffect(() => {
     load();
+    if (!showQuestChip) return;
     void listQuests()
       .then((quests) =>
         setQuestNames(Object.fromEntries(quests.map(({ id, title }) => [id, title]))),
       )
       .catch(() => undefined);
-  }, [load]);
+  }, [load, showQuestChip]);
   useEffect(() => {
     const unsubscribe = [
-      subscribe('human.question', load),
-      subscribe('planner.chain_updated', load),
-      subscribe('human.chain_closed', load),
+      subscribe('human.question', (event) => (!quest || event.questId === quest) && load()),
+      subscribe('planner.chain_updated', (event) => (!quest || event.questId === quest) && load()),
+      subscribe('human.chain_closed', (event) => (!quest || event.questId === quest) && load()),
     ];
     return () => unsubscribe.forEach((stop) => stop());
-  }, [load, subscribe]);
+  }, [load, quest, subscribe]);
+  useEffect(() => {
+    if (addedChain)
+      setChains((current) =>
+        current.some(({ id }) => id === addedChain.id) ? current : [...current, addedChain],
+      );
+  }, [addedChain]);
   if (chains.length === 0) return null;
   return (
     <section className="today-chains" aria-label="Open questions">
@@ -167,6 +182,7 @@ export function ChainList({
           }
           onClosed={(id) => setChains((current) => current.filter((item) => item.id !== id))}
           onConvert={onConvert}
+          showQuestChip={showQuestChip}
         />
       ))}
     </section>

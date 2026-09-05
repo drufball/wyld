@@ -77,12 +77,6 @@ export async function patchQuestStatus(id: string, status: QuestStatus) {
   );
 }
 
-export async function listQuestNotes(id: string) {
-  return QuestNote.array().parse(
-    await request(`/api/quests/${encodeURIComponent(id)}/notes`, {}, 'Loading notes'),
-  );
-}
-
 export async function postQuestNote(
   id: string,
   note: { author: 'human'; text: string; intent: 'nudge' | 'ask' },

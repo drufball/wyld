@@ -144,4 +144,68 @@ describe('ChainList', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Settled' }));
     await waitFor(() => expect(screen.queryByText('Why?')).toBeNull());
   });
+
+  it('suppresses the quest chip and does not load quest names when requested', async () => {
+    const targeted = { ...question, questId: 'quest-one' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url.startsWith('/api/chains') ? [targeted] : [])),
+    );
+    const { container } = render(
+      <LiveEventsProvider
+        eventSourceFactory={() => ({
+          addEventListener() {},
+          removeEventListener() {},
+          close() {},
+        })}
+      >
+        <ChainList quest="quest-one" showQuestChip={false} />
+      </LiveEventsProvider>,
+    );
+    expect(await screen.findByText('Why?')).not.toBeNull();
+    expect(container.querySelector('.chain-card .world-tag')).toBeNull();
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/chains?quest=quest-one', {});
+    expect(globalThis.fetch).not.toHaveBeenCalledWith('/api/quests', {});
+  });
+
+  it('does not reload a quest-scoped list for another quest event', async () => {
+    let receive: EventListener | undefined;
+    const targeted = { ...question, questId: 'quest-one' };
+    const fetch = vi.fn((url: string) => response(url.startsWith('/api/chains') ? [targeted] : []));
+    vi.stubGlobal('fetch', fetch);
+    render(
+      <LiveEventsProvider
+        eventSourceFactory={() => ({
+          addEventListener(type, listener) {
+            if (type === 'event') receive = listener as EventListener;
+          },
+          removeEventListener() {},
+          close() {},
+        })}
+      >
+        <ChainList quest="quest-one" />
+      </LiveEventsProvider>,
+    );
+    await screen.findByText('Why?');
+    expect(fetch.mock.calls.filter(([url]) => url === '/api/chains?quest=quest-one')).toHaveLength(
+      1,
+    );
+
+    receive?.(
+      new MessageEvent('event', {
+        data: JSON.stringify({
+          id: 10,
+          ts: timestamp,
+          source: 'planner',
+          kind: 'planner.chain_updated',
+          questId: 'quest-two',
+          payload: { chainId: 2 },
+        }),
+      }),
+    );
+
+    expect(fetch.mock.calls.filter(([url]) => url === '/api/chains?quest=quest-one')).toHaveLength(
+      1,
+    );
+  });
 });

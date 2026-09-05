@@ -58,9 +58,10 @@ function renderScreen(fetch: ReturnType<typeof vi.fn>, path = '/quests?world=wyl
   );
 }
 function baseFetch(url: string, init?: RequestInit) {
+  void init;
   if (url === '/api/worlds') return response([world]);
   if (url === '/api/quests') return response([quest]);
-  if (url.endsWith('/notes') && init?.method !== 'POST') return response([note]);
+  if (url === '/api/chains?quest=make-map') return response([]);
   return response(quest);
 }
 
@@ -241,46 +242,61 @@ describe('Quests', () => {
     ).toBe(false);
   });
 
-  it('posts an Ask from the textarea on Enter and renders a planner note arriving live', async () => {
-    let notes = [note];
-    const plannerNote = { ...note, id: 2, author: 'planner', text: 'Follow the lanterns.' };
-    const fetch = vi.fn((url: string, init?: RequestInit) => {
-      if (url.endsWith('/notes') && init?.method === 'POST') return response(note);
-      if (url.endsWith('/notes')) return response(notes);
-      return baseFetch(url, init);
-    });
+  it('starts a quest-targeted chain and renders it without old note history', async () => {
+    const chain = {
+      id: 8,
+      status: 'open',
+      createdAt: note.ts,
+      lastActivityAt: note.ts,
+      questId: quest.id,
+      messages: [{ id: 9, chainId: 8, author: 'human', text: 'Where next?', ts: note.ts }],
+    };
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      url === '/api/chains' && init?.method === 'POST' ? response(chain) : baseFetch(url, init),
+    );
     renderScreen(fetch);
-    fireEvent.click(await screen.findByRole('button', { name: 'Ask' }));
-    expect(await screen.findByText('Where next?')).not.toBeNull();
+    const ask = await screen.findByRole('button', { name: 'Ask' });
+    expect(ask.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(ask);
+    expect(ask.getAttribute('aria-expanded')).toBe('true');
     const field = screen.getByLabelText('Ask about this quest');
-    expect(field.tagName).toBe('TEXTAREA');
-    expect(field.id).toBe(`ask-${quest.id}`);
     fireEvent.change(field, { target: { value: 'Where next?' } });
     fireEvent.keyDown(field, { key: 'Enter' });
+
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
-        '/api/quests/make-map/notes',
+        '/api/chains',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ author: 'human', text: 'Where next?', intent: 'ask' }),
+          body: JSON.stringify({ text: 'Where next?', questId: quest.id }),
         }),
       ),
     );
-    notes = [note, plannerNote];
-    liveListener?.(
-      new MessageEvent('event', {
-        data: JSON.stringify({
-          id: 7,
-          ts: '2026-09-05T12:00:00.000Z',
-          source: 'planner',
-          kind: 'planner.note',
-          questId: quest.id,
-          payload: { text: plannerNote.text },
-        }),
-      }),
+    expect(await screen.findByText('Where next?')).not.toBeNull();
+    expect(screen.queryByLabelText('Ask about this quest')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Make this a quest' })).toBeNull();
+    expect(fetch.mock.calls.some(([url, init]) => url.endsWith('/notes') && !init?.method)).toBe(
+      false,
     );
-    expect(await screen.findByText(plannerNote.text)).not.toBeNull();
-    expect(screen.getByText('Fable')).not.toBeNull();
+  });
+
+  it('shows an existing open chain without its redundant quest chip', async () => {
+    const chain = {
+      id: 8,
+      status: 'open',
+      createdAt: note.ts,
+      lastActivityAt: note.ts,
+      questId: quest.id,
+      messages: [{ id: 9, chainId: 8, author: 'human', text: 'Open question', ts: note.ts }],
+    };
+    renderScreen(
+      vi.fn((url: string, init?: RequestInit) =>
+        url === '/api/chains?quest=make-map' ? response([chain]) : baseFetch(url, init),
+      ),
+    );
+    const card = (await screen.findByText('Open question')).closest('.quest-card')!;
+    expect(card.querySelector('.chain-card .world-tag')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Make this a quest' })).toBeNull();
   });
 
   it('keeps a newline and does not submit an Ask on Shift+Enter', async () => {
@@ -294,31 +310,5 @@ describe('Quests', () => {
 
     expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
     expect((field as HTMLTextAreaElement).value).toBe('first line\nsecond line');
-  });
-
-  it('grows for long text and still submits it on Enter', async () => {
-    const longText = 'How should the winding trail through the ancient forest reach the mountain?';
-    const fetch = vi.fn((url: string, init?: RequestInit) =>
-      url.endsWith('/notes') && init?.method === 'POST' ? response(note) : baseFetch(url, init),
-    );
-    renderScreen(fetch);
-    fireEvent.click(await screen.findByRole('button', { name: 'Ask' }));
-    const field = screen.getByLabelText('Ask about this quest') as HTMLTextAreaElement;
-    Object.defineProperty(field, 'scrollHeight', { configurable: true, value: 88 });
-    Object.defineProperty(field, 'clientHeight', { configurable: true, value: 84 });
-    Object.defineProperty(field, 'offsetHeight', { configurable: true, value: 88 });
-    fireEvent.change(field, { target: { value: longText } });
-
-    expect(field.style.height).toBe('92px');
-    fireEvent.keyDown(field, { key: 'Enter' });
-    await waitFor(() =>
-      expect(fetch).toHaveBeenCalledWith(
-        '/api/quests/make-map/notes',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ author: 'human', text: longText, intent: 'ask' }),
-        }),
-      ),
-    );
   });
 });

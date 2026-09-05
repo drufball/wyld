@@ -1,42 +1,21 @@
-import { type Event, type Quest, type QuestNote, type QuestStatus } from '@wyld/shared';
+import { type Chain, type Event, type Quest, type QuestNote, type QuestStatus } from '@wyld/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   getQuest,
-  listQuestNotes,
   listQuests,
   listWorlds,
   patchQuestStatus,
+  postChain,
   postQuestNote,
 } from '../api/client.js';
+import { ChainList } from '../components/ChainList.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 
-function noteDate(timestamp: string) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
-    new Date(timestamp),
-  );
-}
-
-function AskThread({ questId }: { questId: string }) {
-  const [notes, setNotes] = useState<QuestNote[]>([]);
+function AskComposer({ questId, onSent }: { questId: string; onSent: (chain: Chain) => void }) {
   const [text, setText] = useState('');
   const [failedText, setFailedText] = useState<string | null>(null);
   const askField = useRef<HTMLTextAreaElement>(null);
-  const { subscribe } = useLiveEvents();
-  const load = useCallback(
-    () =>
-      void listQuestNotes(questId)
-        .then(setNotes)
-        .catch(() => undefined),
-    [questId],
-  );
-
-  useEffect(() => {
-    load();
-    return subscribe('planner.note', (event) => {
-      if (event.questId === questId) load();
-    });
-  }, [load, questId, subscribe]);
   useLayoutEffect(() => {
     const field = askField.current;
     if (!field) return;
@@ -46,10 +25,10 @@ function AskThread({ questId }: { questId: string }) {
 
   const send = (noteText: string) => {
     setFailedText(null);
-    void postQuestNote(questId, { author: 'human', text: noteText, intent: 'ask' })
-      .then((note) => {
-        setNotes((current) => [...current, note]);
+    void postChain(noteText, questId)
+      .then((chain) => {
         setText('');
+        onSent(chain);
       })
       .catch(() => setFailedText(noteText));
   };
@@ -60,20 +39,10 @@ function AskThread({ questId }: { questId: string }) {
   };
 
   return (
-    <div className="ask-thread">
-      <div className="ask-thread__notes" aria-live="polite">
-        {notes.map((note) => (
-          <p key={note.id}>
-            <strong>{note.author === 'planner' ? 'Fable' : 'You'}</strong>{' '}
-            <span className="pak-dim">· {noteDate(note.ts)}</span>
-            <br />
-            {note.text}
-          </p>
-        ))}
-      </div>
+    <div className="ask-composer">
       <form onSubmit={submit}>
         <label htmlFor={`ask-${questId}`}>Ask about this quest</label>
-        <span className="ask-thread__input">
+        <span className="ask-composer__input">
           <textarea
             ref={askField}
             id={`ask-${questId}`}
@@ -112,6 +81,7 @@ export function QuestCard({
   onChange: (quest: Quest) => void;
 }) {
   const [asking, setAsking] = useState(false);
+  const [newChain, setNewChain] = useState<Chain | null>(null);
   const [nudged, setNudged] = useState(false);
   const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
   const previousStatus = useRef<QuestStatus>('building');
@@ -205,7 +175,16 @@ export function QuestCard({
           That didn't go through. <button onClick={failedAction}>Retry</button>
         </p>
       )}
-      {asking && <AskThread questId={quest.id} />}
+      {asking && (
+        <AskComposer
+          questId={quest.id}
+          onSent={(chain) => {
+            setNewChain(chain);
+            setAsking(false);
+          }}
+        />
+      )}
+      <ChainList quest={quest.id} showQuestChip={false} addedChain={newChain} />
     </article>
   );
 }
