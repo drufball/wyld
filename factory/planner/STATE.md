@@ -116,6 +116,20 @@ file is down to environment facts and open items. Keep it short; update it whene
 - The Planner's own GitHub activity comes back as events (its issues as `github.issue_opened`, its
   review comments as `github.issue_comment` from `drufball`). Expected; PROTOCOL §2 already says to
   do nothing with your own review, but do not mistake a self-authored comment for Dru.
+- **A new event kind silently freezes the whole channel until the Planner restarts** (found
+  2026-09-05 by the question-chains lead, and it is biting right now). The channel adapter
+  (`factory/wake/dist/channel-main.js`) is an MCP child of the Planner's Claude session, so it holds
+  the `@wyld/shared` it loaded at session start. `parseClaimResponse` validates every claimed
+  message with `WakeMessage`, whose `kind` is a `z.enum`. The first message carrying a kind the old
+  enum has never heard of makes `claim()` throw, the delivery loop backs off and retries the same
+  batch forever, and **nothing behind it is ever delivered** — GitHub events included. The tell:
+  `GET :8788/health` shows a climbing `queueDepth` with a `lastDeliveryAt` frozen a minute before
+  `oldestPendingTs`, and the oldest pending message uses the new kind. Rebuilding
+  `@wyld/shared` does not fix it; only respawning `wyld:planner` (which restarts the MCP child)
+  does. **Rule: after merging anything that adds an `EVENT_KINDS` entry, respawn the Planner window
+  — same reflex as rebuilding shared for the server.** Proper fix (make `WakeMessage.kind` a plain
+  string at the queue boundary, or drop unparseable messages instead of throwing the batch) is a
+  future Codex unit; it should also cover `pak_read_events`' kind filter.
 
 ## Seeded data (2026-09-05)
 
