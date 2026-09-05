@@ -53,34 +53,32 @@ step finishes._
 
 ## First actions for the on-duty Planner (tmux session)
 
-_Rewritten 2026-09-05 ~21:20 by the outgoing session, which respawned itself (no leads were running)
-to load `pak_send_message`, `pak_request_rumble` and `pak_read_rumbles`._
+_Rewritten 2026-09-06 ~23:30 by the outgoing session, which respawned itself (no leads were
+running — the pak-theme lead was stopped at a clean boundary on purpose) to load
+`pak_register_demo`, `pak_read_demos`, `pak_read_feedback` and the hot-reloading wake adapter._
 
-1. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`) — confirm the three new ones are
-   visible. `pak_read_chains`, answer any open chain (PROTOCOL §5a: one message in, two ways out),
-   then `pak_health_report`.
-2. The channel queue will replay a short backlog — all already handled; a `human.decision`
-   labelled "LEAD CHECK (not Dru)" is a lead's test, ignore it.
-3. `pak_read_rumbles`: four real cards are open (see the 1.6 row). Nothing to do until Dru decides;
-   a `human.decision` event carries the choice — record it and unpark what it unblocks (§2).
-4. **1.7 Demo Discs is done** (#80/#81/#84/#85/#87). The Planner deferred its respawn
-   (2026-09-05 22:45) until the `wake-hot-reload` lead lands, so there is one restart instead of
-   two; until then rebuild/register discs with the `curl` in Open items. **`wake-hot-reload` has now
-   landed (#90/#93), so take that one respawn** — the running adapter predates the hot-reload code
-   and cannot load itself; after the respawn, the demo tools are there and new `pak_*` tools arrive
-   live (see the struck "New Wake tools need a Planner restart" item). Two leads are running in
-   parallel: `pak-theme` (only `factory/pak`) and `wake-hot-reload` (`factory/wake` +
-   `factory/shared` + `.claude/settings.json`). `improved-chains` starts after both. If this
-   session was just respawned and those leads are gone, check `gh pr list` / `gh issue list` for
-   their open work and re-spawn each lead with "continue from the open issues/PRs" in its brief
-   (`wake-hot-reload`, `pak-theme`, `improved-chains`). `human.feedback` now really arrives — the
-   PROTOCOL §2 row for it is live, not reserved.
-4b. **`pak-theme` unit 1 landed** (#89 / PR #91) — Today wears the new look and the live
-   Pak is rebuilt. Units 2 and 3 are written and ready to file verbatim from
-   `factory/planner/queued/pak-theme-unit-2.md` then `-unit-3.md`, one lead at a time.
-
-5. Use `pak_send_message` for heads-ups Dru can reply to; `pak_post_note` only for the quest card's
-   own line. Keep this file and the Pak quests in sync as steps finish.
+1. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`) — confirm the three demo tools are
+   visible. `pak_read_chains`; answer any open chain (PROTOCOL §5a). `pak_health_report`. Chain
+   "restart-proofing half is in" (on `unattended-restart`) is the Planner's own heads-up about
+   this restart — close it once you are up.
+2. The channel queue replays a short backlog — all handled. Everything up to `f85baab` is done.
+3. Open Rumbles: `ntfy-phone` (waits on 1.8's ntfy server + a path under Tailscale Serve) and
+   `rotate-build-token` (before ~2026-10-05). Both wait on Dru or on later steps.
+4. **Spawn the `pak-theme` lead again** for units 2 and 3 — the issue bodies are written verbatim
+   in `factory/planner/queued/pak-theme-unit-2.md` and `-unit-3.md`; file them one at a time
+   (both touch `factory/pak`). Same brief as before (see the `pak-theme` Open-items bullet):
+   verify by screenshots at 375×812 and 1280×900, deploy each merge to the live Pak
+   (`git pull`, `pnpm --filter @wyld/pak build`, rebuild the main disc), quest → `demo` at the
+   end with "refresh the Pak" in the note. No other lead may touch `factory/pak` meanwhile.
+5. When `pak-theme` is done, spawn the `improved-chains` lead (Open-items bullet has the design).
+   It touches server + wake + pak, so it runs alone.
+6. From now on, after a merge that adds a `pak_*` tool, `pnpm --filter @wyld/wake build` in the
+   live checkout is enough — the adapter reloads and the tool appears next turn (verified on the
+   plain MCP path; confirm once under the channels flag and note the result here). A schema that
+   lives in `@wyld/shared` still needs a Planner restart to change shape.
+7. Restarting the Planner still needs Dru's keypress at the channels warning (quest
+   `unattended-restart` is parked on that). Restart only at a clean boundary, tell him first via
+   `pak_send_message`, and prefer doing it while he is around.
 
 ## Open items
 
