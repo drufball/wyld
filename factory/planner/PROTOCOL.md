@@ -97,6 +97,42 @@ gh pr merge <n> --squash --delete-branch
 9. After any batch of actions, refresh each affected quest's "since you last looked" line and the
    single recommended next action.
 
+### Branch protection (blocked — Rumble pending)
+
+`main` has **no branch protection**, and cannot have any until an account decision is made.
+`drufball/wyld` is a private repo on a Free plan, and GitHub gates both mechanisms behind Pro:
+
+```
+$ gh api -X PUT repos/drufball/wyld/branches/main/protection ...
+{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","status":"403"}
+$ gh api -X POST repos/drufball/wyld/rulesets ...
+{"message":"Upgrade to GitHub Pro or make this repository public to enable this feature.","status":"403"}
+```
+
+Both ways out — paying for GitHub Pro, or making the repo public — are Rumbles under
+`POLICIES.md` ("anything needing an account, login, payment, or plan change"). Until one is
+chosen, the required `ci` check is **convention, not enforcement**. So, without exception:
+
+- Never merge a PR whose `gh pr checks <n>` does not show `ci  pass`.
+- Never push to `main` directly except for the Planner-owned files listed in `CLAUDE.md`.
+- Never force-push `main`. Nothing at the server side will stop you.
+
+When the Rumble resolves in favour of Pro, apply:
+
+```bash
+gh api -X PUT repos/drufball/wyld/branches/main/protection --input - <<'JSON'
+{
+  "required_status_checks": { "strict": false, "contexts": ["ci"] },
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "allow_force_pushes": false
+}
+JSON
+```
+
+The CI check context is named `ci`.
+
 ## Event handling (v0)
 
 Events arrive from Wake as `{source, kind, quest?, issue?, pr?, url?, summary, ts}`.
