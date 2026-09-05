@@ -10,8 +10,9 @@ file is down to environment facts and open items. Keep it short; update it whene
 | Phase 0 bootstrap | done | #4 skeleton+CI, #7 shared types, #9 server v0 |
 | 1.1 Pak shell + Today | done | #13 next-action + static hosting, #15 shell/theme, #20 Today + SSE + Playwright smoke |
 | 1.2 Wake | done | #14 core, #18 channel adapter + `pak_log_event`/`pak_set_next_action`, #21 factory up/down/doctor |
-| 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | **in progress** — lead already running from the desktop Planner session; do not spawn another | — |
-| 1.4 – 1.11 | not started | see factory-spec.md §11 |
+| 1.3 Worlds/Quests, PROTOCOL v1, `pak.*` tools, since-you-looked | done | #23 server worlds/quests/links/notes, #26 nine `pak_*` tools, #27 Worlds screen + Nudge/Park/Ask |
+| 1.4 Catch-Up + VMU: presence tracking, write-catchup skill, mechanical fallback | **next** | — |
+| 1.5 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
 
@@ -40,6 +41,16 @@ file is down to environment facts and open items. Keep it short; update it whene
   only green.
 - TypeScript pinned 6.0.3 (typescript-eslint peer range). Tailscale is logged out on the laptop
   (needed at 1.11 → Rumble then).
+
+## First actions for the on-duty Planner (tmux session)
+
+1. Confirm Wake delivery: ask Dru to type an intent on Today; you should receive a channel
+   notification. If not, use `pak_read_events` to pull it and note the upstream bug.
+2. Handle it per PROTOCOL.md (quest or clarifying note + next action).
+3. Spawn the step 1.4 project lead (opus) with the same brief style the previous leads got:
+   read STATE/PROTOCOL/spec sections, implementer loop, "run what Codex ships", exit criteria,
+   screenshots, report under 400 words. Mark 1.4 in progress here.
+4. Keep this file and the Pak quests in sync as steps finish.
 
 ## Open items
 
