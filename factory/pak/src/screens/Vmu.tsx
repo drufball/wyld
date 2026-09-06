@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getCatchup, listDemos, listQuests, listRumbles } from '../api/client.js';
+import {
+  getCatchup,
+  getHealthSnapshot,
+  listDemos,
+  listQuests,
+  listRumbles,
+} from '../api/client.js';
 import { Card } from '../components/ui/card.js';
 import { countInWords } from '../words.js';
 
@@ -9,11 +15,15 @@ export function Vmu() {
   const [buildingCount, setBuildingCount] = useState<number | null>(null);
   const [rumbleCount, setRumbleCount] = useState<number | null>(null);
   const [demoCount, setDemoCount] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     void getCatchup()
       .then(setCatchup)
       .catch(() => setCatchup(null));
+    void getHealthSnapshot()
+      .then((snapshot) => setPaused(snapshot.paused !== undefined))
+      .catch(() => setPaused(false));
     void listQuests({ status: 'building' })
       .then((quests) => setBuildingCount(quests.length))
       .catch(() => setBuildingCount(0));
@@ -35,6 +45,14 @@ export function Vmu() {
   return (
     <main className="grid min-h-dvh content-center items-stretch gap-5 bg-muted p-5">
       <h1 className="m-0 font-display text-[10px] text-muted-foreground">VMU</h1>
+      {paused && (
+        <Link
+          className="flex min-h-11 items-center border-2 border-accent p-3 font-display text-xs text-accent no-underline"
+          to="/rumble"
+        >
+          Paused?
+        </Link>
+      )}
       {catchup?.show && (
         <Link
           className="flex min-h-11 items-center justify-self-start py-2 font-display text-[10px] text-accent underline"

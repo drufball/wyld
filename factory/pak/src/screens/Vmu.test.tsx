@@ -1,11 +1,18 @@
 import type { CatchupView } from '@wyld/shared';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getCatchup, listDemos, listQuests, listRumbles } from '../api/client.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  getCatchup,
+  getHealthSnapshot,
+  listDemos,
+  listQuests,
+  listRumbles,
+} from '../api/client.js';
 import { Vmu } from './Vmu.js';
 vi.mock('../api/client.js', () => ({
   getCatchup: vi.fn(),
+  getHealthSnapshot: vi.fn(),
   listQuests: vi.fn(),
   listRumbles: vi.fn(),
   listDemos: vi.fn(),
@@ -43,6 +50,35 @@ function renderScreen() {
 }
 afterEach(() => vi.clearAllMocks());
 describe('VMU', () => {
+  beforeEach(() => {
+    vi.mocked(getHealthSnapshot).mockResolvedValue({
+      ts: '2026-09-05T12:00:00.000Z',
+      planner: { state: 'online' },
+      server: { ok: true, db: 'ok', uptimeSeconds: 1, version: 'test', eventsToday: 0 },
+      wake: { reachable: true },
+      github: { ciState: 'unknown', codexPrsOpen: 0, source: 'none' },
+    });
+  });
+
+  it('puts a paused link first when the factory is paused', async () => {
+    vi.mocked(getHealthSnapshot).mockResolvedValue({
+      ts: '2026-09-05T12:00:00.000Z',
+      planner: { state: 'paused' },
+      server: { ok: true, db: 'ok', uptimeSeconds: 1, version: 'test', eventsToday: 0 },
+      wake: { reachable: true },
+      github: { ciState: 'unknown', codexPrsOpen: 0, source: 'none' },
+      paused: { lane: 'codex', reason: 'Quota hit', since: '2026-09-05T02:14:00.000Z' },
+    });
+    vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
+    vi.mocked(listQuests).mockResolvedValue([]);
+    vi.mocked(listRumbles).mockResolvedValue([]);
+    vi.mocked(listDemos).mockResolvedValue([]);
+    const { container } = renderScreen();
+
+    const pausedLink = await screen.findByRole('link', { name: 'Paused?' });
+    expect(pausedLink.getAttribute('href')).toBe('/rumble');
+    expect(container.querySelectorAll('a')[0]).toBe(pausedLink);
+  });
   it('shows catch-up, the next action, and cranking work', async () => {
     vi.mocked(getCatchup).mockResolvedValue(view);
     vi.mocked(listQuests).mockResolvedValue([quest]);

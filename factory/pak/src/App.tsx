@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom';
 import { Nav } from './components/Nav.js';
+import { PausedBanner } from './components/PausedBanner.js';
 import { CatchUpGate } from './CatchUpGate.js';
 import { CatchUp } from './screens/CatchUp.js';
 import { Debug } from './screens/Debug.js';
@@ -16,6 +17,7 @@ function Shell() {
     <div className="min-h-dvh">
       <Nav />
       <main className="mx-auto w-full max-w-[760px] px-3 py-5 pb-[calc(88px+env(safe-area-inset-bottom))] md:px-5 md:pb-8">
+        <PausedBanner />
         <CatchUpGate>
           <Outlet />
         </CatchUpGate>
