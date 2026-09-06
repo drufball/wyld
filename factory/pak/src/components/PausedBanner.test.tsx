@@ -26,6 +26,11 @@ const paused: HealthSnapshot = {
     since: '2026-09-05T02:14:00.000Z',
   },
 };
+const expectedTime = new Date(paused.paused!.since).toLocaleTimeString([], {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
 
 describe('PausedBanner', () => {
   const handlers = new Map<string, () => void>();
@@ -54,7 +59,7 @@ describe('PausedBanner', () => {
 
     expect(
       await screen.findByText(
-        'Paused — Codex quota hit at 02:14. Nothing lost; four events queued. It refills within the hour.',
+        `Paused — Codex quota hit at ${expectedTime}. Nothing lost; four events queued. It refills within the hour.`,
       ),
     ).not.toBeNull();
     expect(container.querySelector('.paused-banner')?.getAttribute('data-tone')).toBe('bad');
