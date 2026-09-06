@@ -32,6 +32,14 @@ describe('presence schemas', () => {
     expect(NextAction.parse({ text: 'Home', deepLink: '/' }).deepLink).toBe('/');
   });
 
+  it('accepts an optional ISO back-at instant and rejects invalid timestamps', () => {
+    expect(NextAction.parse({ text: 'Wait', backAt: '2026-09-06T16:30:00.000Z' })).toEqual({
+      text: 'Wait',
+      backAt: '2026-09-06T16:30:00.000Z',
+    });
+    expect(NextAction.safeParse({ text: 'Wait', backAt: 'tomorrow' }).success).toBe(false);
+  });
+
   it('rejects invalid next actions', () => {
     expect(NextAction.safeParse({ text: '' }).success).toBe(false);
     expect(NextAction.safeParse({ text: 'Leave', deepLink: 'https://example.com' }).success).toBe(

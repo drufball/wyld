@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import {
   getPresence,
   listDemos,
+  listQuests,
   listRetros,
   listRumbles,
   postChain,
@@ -15,6 +16,7 @@ import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
+import { countInWords } from '../words.js';
 
 export type TodaySignals = { rumbles: number; demos: number; memory: string | null };
 
@@ -38,6 +40,80 @@ export function Signals({ rumbles, demos, memory }: TodaySignals) {
       )}
       {memory !== null && <p className="m-0">{memory}</p>}
     </section>
+  );
+}
+
+export function GoOutside({
+  action,
+  building,
+}: {
+  action: NextAction;
+  building: number;
+  chainCount: number;
+}) {
+  const actionText = action.deepLink ? (
+    <Link aria-label={action.text} to={action.deepLink} className="min-h-11 text-foreground">
+      {action.text}
+    </Link>
+  ) : (
+    <p className="m-0">{action.text}</p>
+  );
+  return (
+    <Card variant="bevel" className="today-go-outside overflow-hidden p-0">
+      <div aria-hidden="true" className="relative h-40 overflow-hidden">
+        <svg
+          viewBox="0 0 320 160"
+          className="absolute inset-0 size-full"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <defs>
+            <linearGradient id="sunset-sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#282a36" />
+              <stop offset="0.28" stopColor="#6272a4" />
+              <stop offset="0.52" stopColor="#bd93f9" />
+              <stop offset="0.75" stopColor="#ff79c6" />
+              <stop offset="1" stopColor="#ffb86c" />
+            </linearGradient>
+          </defs>
+          <rect width="320" height="160" fill="url(#sunset-sky)" />
+          <circle cx="242" cy="101" r="23" fill="#f1fa8c" opacity="0.18" />
+          <circle
+            cx="242"
+            cy="101"
+            r="14"
+            fill="#f1fa8c"
+            className="[animation:sunset-shimmer_6s_ease-in-out_infinite]"
+          />
+          <polygon points="0,103 73,72 145,108 230,77 320,109 320,160 0,160" fill="#6272a4" />
+          <polygon points="0,122 82,92 157,126 235,93 320,119 320,160 0,160" fill="#44475a" />
+          <polygon points="0,139 66,112 145,137 220,110 320,134 320,160 0,160" fill="#282a36" />
+          <g fill="#21222c">
+            <polygon points="238,119 251,116 258,137 235,137" />
+            <polygon points="241,111 253,109 258,119 239,121" />
+            <polygon points="241,111 244,103 248,110" />
+            <polygon points="251,110 255,103 256,114" />
+            <polygon points="257,135 263,116 266,119 263,137" />
+          </g>
+        </svg>
+      </div>
+      <div className="grid gap-2 p-5">
+        {actionText}
+        <p className="m-0 text-muted-foreground">
+          {building === 0
+            ? 'Nothing cooking right now.'
+            : `Cranking on ${countInWords(building)} ${building === 1 ? 'quest' : 'quests'}.`}
+        </p>
+        {action.backAt && (
+          <p className="m-0 text-muted-foreground">
+            Back around{' '}
+            {new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(
+              new Date(action.backAt),
+            )}
+            .
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -105,6 +181,8 @@ export function Today({
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const [rumbleCount, setRumbleCount] = useState(signals.rumbles);
   const [demoCount, setDemoCount] = useState(signals.demos);
+  const [chainCount, setChainCount] = useState(0);
+  const [buildingCount, setBuildingCount] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
   const intentField = useRef<HTMLTextAreaElement>(null);
   const composerButton = useRef<HTMLButtonElement>(null);
@@ -152,6 +230,17 @@ export function Today({
     ];
     return () => stops.forEach((stop) => stop());
   }, [loadDemos, subscribe]);
+  const loadBuilding = useCallback(
+    () =>
+      void listQuests({ status: 'building' })
+        .then((items) => setBuildingCount(items.length))
+        .catch(() => undefined),
+    [],
+  );
+  useEffect(() => {
+    loadBuilding();
+    return subscribe('planner.quest_updated', loadBuilding);
+  }, [loadBuilding, subscribe]);
   useLayoutEffect(() => {
     const field = intentField.current;
     if (!field) return;
@@ -202,6 +291,12 @@ export function Today({
     setText('');
     sendChain(intent);
   };
+
+  const goOutside =
+    nextAction !== null &&
+    /^nothing needs you/i.test(nextAction.text.trimStart()) &&
+    chainCount === 0 &&
+    rumbleCount === 0;
 
   return (
     <div className="grid gap-8">
@@ -278,8 +373,10 @@ export function Today({
           </Button>
         </form>
       </Card>
-      {nextAction !== null &&
-        (nextAction.deepLink ? (
+      {goOutside && nextAction !== null ? (
+        <GoOutside action={nextAction} building={buildingCount} chainCount={chainCount} />
+      ) : nextAction !== null ? (
+        nextAction.deepLink ? (
           <Card variant="bevel" className="p-0">
             <Link
               aria-label={nextAction.text}
@@ -299,9 +396,15 @@ export function Today({
           <Card variant="flat" className="p-5">
             {nextAction.text}
           </Card>
-        ))}
-      <ChainList kind="all" addedChain={addedChain} onConvert={sendIntent} />
-      <InFlight />
+        )
+      ) : null}
+      <ChainList
+        kind="all"
+        addedChain={addedChain}
+        onConvert={sendIntent}
+        onCountChange={setChainCount}
+      />
+      <InFlight heading={!goOutside} />
       <Signals {...signals} rumbles={rumbleCount} demos={demoCount} />
       <Button
         ref={composerButton}

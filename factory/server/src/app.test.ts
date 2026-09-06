@@ -384,20 +384,40 @@ describe('Pak server', () => {
     const response = await app.request('/api/presence/next-action', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: 'Try the demo', deepLink: '/demos' }),
+      body: JSON.stringify({
+        text: 'Try the demo',
+        deepLink: '/demos',
+        backAt: '2026-09-06T16:30:00.000Z',
+      }),
     });
     expect(response.status).toBe(200);
     const updated = Presence.parse(await response.json());
-    expect(updated.nextAction).toEqual({ text: 'Try the demo', deepLink: '/demos' });
+    expect(updated.nextAction).toEqual({
+      text: 'Try the demo',
+      deepLink: '/demos',
+      backAt: '2026-09-06T16:30:00.000Z',
+    });
     expect(Presence.parse(await (await app.request('/api/presence')).json())).toEqual(updated);
     const stored = z.array(Event).parse(await (await app.request('/api/events')).json());
     expect(stored).toMatchObject([
       {
         source: 'planner',
         kind: 'planner.next_action',
-        payload: { text: 'Try the demo', deepLink: '/demos' },
+        payload: {
+          text: 'Try the demo',
+          deepLink: '/demos',
+          backAt: '2026-09-06T16:30:00.000Z',
+        },
       },
     ]);
+    await app.request('/api/presence/next-action', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: 'Still working' }),
+    });
+    expect(Presence.parse(await (await app.request('/api/presence')).json()).nextAction).toEqual({
+      text: 'Still working',
+    });
   });
 
   it.each([{}, { text: '' }, { text: 'x', deepLink: 'https://example.com' }])(

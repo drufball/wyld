@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
-import { LastMemoryCard, Signals, Today } from './Today.js';
+import { GoOutside, LastMemoryCard, Signals, Today } from './Today.js';
 
 const source = () => ({ addEventListener() {}, removeEventListener() {}, close() {} });
 const presence = { lastSeenAt: '2026-09-05T12:00:00Z', lastCatchupEventId: null, nextAction: null };
@@ -26,6 +26,102 @@ function renderToday(signals?: { rumbles: number; demos: number; memory: string 
 
 afterEach(() => vi.unstubAllGlobals());
 describe('Today', () => {
+  it('renders the Go Outside details and optional local ETA', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <GoOutside
+          action={{ text: 'Nothing needs you.', backAt: '2026-09-06T16:30:00.000Z' }}
+          building={3}
+          chainCount={0}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Cranking on three quests.')).not.toBeNull();
+    expect(screen.getByText(/Back around \d{1,2}:\d{2}/)).not.toBeNull();
+    rerender(
+      <MemoryRouter>
+        <GoOutside action={{ text: 'Nothing needs you.' }} building={0} chainCount={0} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Nothing cooking right now.')).not.toBeNull();
+    expect(screen.queryByText(/Back around/)).toBeNull();
+  });
+
+  it('shows the panel for a lower-case matching action when chains and Rumbles are empty', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        jsonResponse(
+          url === '/api/presence'
+            ? { ...presence, nextAction: { text: '  nothing needs you today' } }
+            : [],
+        ),
+      ),
+    );
+    const { container } = renderToday();
+    await waitFor(() => expect(container.querySelector('.today-go-outside')).not.toBeNull());
+  });
+
+  it.each([
+    ['different text', 'Keep going', [], []],
+    [
+      'an open chain',
+      'Nothing needs you today',
+      [
+        {
+          id: 1,
+          kind: 'message',
+          status: 'open',
+          createdAt: presence.lastSeenAt,
+          lastActivityAt: presence.lastSeenAt,
+          questId: null,
+          snoozedUntil: null,
+          rumble: null,
+          messages: [
+            {
+              id: 1,
+              chainId: 1,
+              author: 'human',
+              text: 'Question',
+              ts: presence.lastSeenAt,
+            },
+          ],
+        },
+      ],
+      [],
+    ],
+    [
+      'an open Rumble',
+      'Nothing needs you today',
+      [],
+      [
+        {
+          id: 'rumble',
+          title: 'Choose',
+          context: 'A choice',
+          options: ['A', 'B'],
+          chosen: null,
+          chosenAt: null,
+          blockingQuestIds: [],
+          kind: 'taste',
+        },
+      ],
+    ],
+  ])('does not show the panel with %s', async (_name, text, chains, rumbles) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url === '/api/presence')
+          return jsonResponse({ ...presence, nextAction: { text, deepLink: '/' } });
+        if (url.startsWith('/api/chains?')) return jsonResponse(chains);
+        if (url.startsWith('/api/rumbles?')) return jsonResponse(rumbles);
+        return jsonResponse([]);
+      }),
+    );
+    const { container } = renderToday();
+    expect(await screen.findByRole('link', { name: text })).not.toBeNull();
+    await waitFor(() => expect(container.querySelector('.today-go-outside')).toBeNull());
+  });
   it("links to sleep and persists dismissal of last night's Memory Card", async () => {
     const today = new Date();
     const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;

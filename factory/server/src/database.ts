@@ -22,8 +22,8 @@ export function openDatabase(databasePath: string, migrationsFolder: string): Ap
   sqlite
     .prepare(
       `INSERT OR IGNORE INTO presence
-       (id, last_seen_at, last_catchup_event_id, next_action_text, next_action_link)
-       VALUES (1, ?, NULL, NULL, NULL)`,
+       (id, last_seen_at, last_catchup_event_id, next_action_text, next_action_link, next_action_back_at)
+       VALUES (1, ?, NULL, NULL, NULL, NULL)`,
     )
     .run(new Date().toISOString());
   return { db, sqlite };

@@ -501,12 +501,14 @@ export function ChainList({
   onConvert,
   showQuestChip = true,
   addedChain,
+  onCountChange,
 }: {
   quest?: string;
   kind?: 'question' | 'message' | 'rumble' | 'all';
   onConvert?: (text: string) => void;
   showQuestChip?: boolean;
   addedChain?: Chain | null;
+  onCountChange?: (count: number) => void;
 }) {
   const [chains, setChains] = useState<Chain[]>([]);
   const [questNames, setQuestNames] = useState<Record<string, string>>({});
@@ -542,6 +544,7 @@ export function ChainList({
         current.some(({ id }) => id === addedChain.id) ? current : [addedChain, ...current],
       );
   }, [addedChain]);
+  useEffect(() => onCountChange?.(chains.length), [chains.length, onCountChange]);
   if (chains.length === 0) return null;
   const remove = (id: number) => setChains((current) => current.filter((item) => item.id !== id));
   return (

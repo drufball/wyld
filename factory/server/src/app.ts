@@ -261,6 +261,7 @@ export function createApp(dependencies: AppDependencies) {
           : {
               text: row.nextActionText,
               ...(row.nextActionLink === null ? {} : { deepLink: row.nextActionLink }),
+              ...(row.nextActionBackAt === null ? {} : { backAt: row.nextActionBackAt }),
             },
     });
   };
@@ -378,19 +379,27 @@ export function createApp(dependencies: AppDependencies) {
     const body: unknown = await c.req.json().catch(() => undefined);
     const parsed = NextAction.safeParse(body);
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
-    await setNextAction(parsed.data.text, parsed.data.deepLink ?? null);
+    await setNextAction(parsed.data.text, parsed.data.deepLink ?? null, parsed.data.backAt ?? null);
     return c.json(readPresence());
   });
 
-  async function setNextAction(text: string, deepLink: string | null) {
+  async function setNextAction(
+    text: string,
+    deepLink: string | null,
+    backAt: string | null = null,
+  ) {
     db.update(presence)
-      .set({ nextActionText: text, nextActionLink: deepLink })
+      .set({ nextActionText: text, nextActionLink: deepLink, nextActionBackAt: backAt })
       .where(eq(presence.id, 1))
       .run();
     await storeEvent({
       source: 'planner',
       kind: 'planner.next_action',
-      payload: { text, ...(deepLink === null ? {} : { deepLink }) },
+      payload: {
+        text,
+        ...(deepLink === null ? {} : { deepLink }),
+        ...(backAt === null ? {} : { backAt }),
+      },
     });
   }
 

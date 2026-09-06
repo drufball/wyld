@@ -8,6 +8,7 @@ export const NextAction = z.object({
     .string()
     .regex(/^\/(?!\/)/)
     .optional(),
+  backAt: Timestamp.optional(),
 });
 export type NextAction = z.infer<typeof NextAction>;
 
