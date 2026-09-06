@@ -91,4 +91,12 @@ describe('readConfig', () => {
   it('fails clearly for an invalid port', () => {
     expect(() => readConfig({ PAK_PORT: 'not-a-port' })).toThrow('Invalid server configuration');
   });
+
+  it('fails clearly for an invalid sleep wall time', () => {
+    expect(() => readConfig({ SLEEP_GOODNIGHT: '25:99' })).toThrow('must be HH:MM (24-hour time)');
+  });
+
+  it('can disable the sleep schedule', () => {
+    expect(readConfig({ SLEEP_SCHEDULE: 'off' }).sleep.enabled).toBe(false);
+  });
 });

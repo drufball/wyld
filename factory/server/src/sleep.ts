@@ -359,32 +359,47 @@ export function createSleepScheduler(dependencies: SchedulerDependencies) {
         row = service.open();
       }
     }
-    if (
-      row &&
-      currentNow >=
-        new Date(
-          nextAt(new Date(row.started), dependencies.config.lastCall, dependencies.config.timeZone),
-        ) &&
-      !row.alarmsFired.includes('last_call')
-    )
-      row =
-        dependencies.database.db.select().from(sleepRuns).where(eq(sleepRuns.id, row.id)).get() &&
-        ((await service.alarm(
-          dependencies.database.db.select().from(sleepRuns).where(eq(sleepRuns.id, row.id)).get()!,
-          'last_call',
-        )) as typeof row);
-    if (
-      row &&
-      currentNow >=
-        new Date(
-          nextAt(new Date(row.started), dependencies.config.lightsOn, dependencies.config.timeZone),
-        ) &&
-      !row.alarmsFired.includes('lights_on')
-    )
-      await service.alarm(
-        dependencies.database.db.select().from(sleepRuns).where(eq(sleepRuns.id, row.id)).get()!,
-        'lights_on',
-      );
+    if (row) {
+      const current = dependencies.database.db
+        .select()
+        .from(sleepRuns)
+        .where(eq(sleepRuns.id, row.id))
+        .get();
+      if (
+        current &&
+        !current.alarmsFired.includes('last_call') &&
+        currentNow >=
+          new Date(
+            nextAt(
+              new Date(current.started),
+              dependencies.config.lastCall,
+              dependencies.config.timeZone,
+            ),
+          )
+      ) {
+        await service.alarm(current, 'last_call');
+      }
+
+      const afterLastCall = dependencies.database.db
+        .select()
+        .from(sleepRuns)
+        .where(eq(sleepRuns.id, row.id))
+        .get();
+      if (
+        afterLastCall &&
+        !afterLastCall.alarmsFired.includes('lights_on') &&
+        currentNow >=
+          new Date(
+            nextAt(
+              new Date(afterLastCall.started),
+              dependencies.config.lightsOn,
+              dependencies.config.timeZone,
+            ),
+          )
+      ) {
+        await service.alarm(afterLastCall, 'lights_on');
+      }
+    }
   };
   return {
     tick,
