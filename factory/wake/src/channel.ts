@@ -11,6 +11,8 @@ import {
   PlannerState,
   Quest,
   RumbleKind,
+  SleepOutcome,
+  SleepPhase,
   WakeMessageWire,
   type WakeMessageWire as WakeMessageWireType,
 } from '@wyld/shared';
@@ -66,7 +68,7 @@ export function notificationFor(message: QueuedMessage): ChannelNotification {
     ts: message.ts,
     source: message.source,
   };
-  for (const key of ['quest', 'issue', 'pr', 'chain', 'url'] as const) {
+  for (const key of ['quest', 'issue', 'pr', 'chain', 'url', 'run'] as const) {
     const value = message[key];
     if (value !== undefined) meta[key] = String(value);
   }
@@ -281,10 +283,91 @@ const PauseArgs = z
 const ResumeArgs = z
   .object({ lane: z.enum(['codex', 'github', 'planner', 'all']).optional() })
   .strict();
+const ReadSleepArgs = z.object({}).strict();
+const AdvanceSleepArgs = z
+  .object({ run: z.number().int().positive(), phase: SleepPhase, note: z.string().optional() })
+  .strict();
+const EndSleepArgs = z
+  .object({
+    run: z.number().int().positive(),
+    outcome: SleepOutcome,
+    leftovers_parked: z.array(z.string()).optional(),
+  })
+  .strict();
+const WriteRetroArgs = z
+  .object({
+    date: z.iso.date(),
+    summary: z.string(),
+    wins: z.array(z.string()),
+    misses: z.array(z.string()),
+    factory_improvements: z.array(z.string()),
+    stats: z.record(z.string(), z.number()).optional(),
+  })
+  .strict();
+const ReadRetrosArgs = z.object({ limit: z.number().int().min(1).max(50).default(10) }).strict();
 
 const statusSchema = { type: 'string' as const, enum: QuestStatus.options };
 
 const tools = [
+  {
+    name: 'pak_read_sleep',
+    description: 'Read the active night, its schedule and recent runs before driving Sleep Mode.',
+    inputSchema: { type: 'object' as const, properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'pak_advance_sleep',
+    description: 'Record progress as the night moves into its next phase.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        run: { type: 'integer', minimum: 1 },
+        phase: { type: 'string', enum: SleepPhase.options },
+        note: { type: 'string' },
+      },
+      required: ['run', 'phase'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_end_sleep',
+    description: 'Close the night once work is finished, paused or out of time.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        run: { type: 'integer', minimum: 1 },
+        outcome: { type: 'string', enum: SleepOutcome.options },
+        leftovers_parked: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['run', 'outcome'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_write_retro',
+    description: 'Write the Memory Card after reflecting on a completed night.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        date: { type: 'string', format: 'date' },
+        summary: { type: 'string' },
+        wins: { type: 'array', items: { type: 'string' } },
+        misses: { type: 'array', items: { type: 'string' } },
+        factory_improvements: { type: 'array', items: { type: 'string' } },
+        stats: { type: 'object', additionalProperties: { type: 'number' } },
+      },
+      required: ['date', 'summary', 'wins', 'misses', 'factory_improvements'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_retros',
+    description: 'Read recent Memory Cards when planning improvements for tonight.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: { limit: { type: 'integer', minimum: 1, maximum: 50, default: 10 } },
+      additionalProperties: false,
+    },
+  },
   {
     name: 'pak_log_event',
     description: 'Record a Planner event in the Pak event stream.',
@@ -688,6 +771,68 @@ export function createToolRegistry(options: {
 }): ToolRegistry {
   const request = options.fetch ?? fetch;
   const callTool = async (params: CallToolRequest['params']): Promise<CallToolResult> => {
+    if (params.name === 'pak_read_sleep') {
+      const parsed = ReadSleepArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const [current, recent] = await Promise.all([
+        getTool(request, `${options.pakUrl}/api/sleep/current`),
+        getTool(request, `${options.pakUrl}/api/sleep/runs?limit=5`),
+      ]);
+      if (current.isError) return current;
+      if (recent.isError) return recent;
+      try {
+        const currentValue = JSON.parse(current.content[0]!.text) as {
+          run: unknown;
+          schedule: unknown;
+        };
+        return textResult(
+          JSON.stringify({
+            run: currentValue.run,
+            schedule: currentValue.schedule,
+            recent: JSON.parse(recent.content[0]!.text),
+          }),
+        );
+      } catch (error) {
+        return textResult(
+          `Invalid Pak response: ${error instanceof Error ? error.message : String(error)}`,
+          true,
+        );
+      }
+    }
+    if (params.name === 'pak_advance_sleep') {
+      const parsed = AdvanceSleepArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/sleep/${parsed.data.run}/phase`, {
+        phase: parsed.data.phase,
+        ...(parsed.data.note === undefined ? {} : { note: parsed.data.note }),
+      });
+    }
+    if (params.name === 'pak_end_sleep') {
+      const parsed = EndSleepArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/sleep/${parsed.data.run}/end`, {
+        outcome: parsed.data.outcome,
+        ...(parsed.data.leftovers_parked === undefined
+          ? {}
+          : { leftoversParked: parsed.data.leftovers_parked }),
+      });
+    }
+    if (params.name === 'pak_write_retro') {
+      const parsed = WriteRetroArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return putTool(request, `${options.pakUrl}/api/retros/${parsed.data.date}`, {
+        summary: parsed.data.summary,
+        wins: parsed.data.wins,
+        misses: parsed.data.misses,
+        factoryImprovements: parsed.data.factory_improvements,
+        ...(parsed.data.stats === undefined ? {} : { stats: parsed.data.stats }),
+      });
+    }
+    if (params.name === 'pak_read_retros') {
+      const parsed = ReadRetrosArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return getTool(request, `${options.pakUrl}/api/retros?limit=${parsed.data.limit}`);
+    }
     if (params.name === 'pak_log_event') {
       const parsed = LogEventArgs.safeParse(params.arguments);
       if (!parsed.success)
@@ -1005,6 +1150,10 @@ async function patchTool(request: typeof fetch, url: string, body: unknown) {
   return requestTool(request, url, { method: 'PATCH', body });
 }
 
+async function putTool(request: typeof fetch, url: string, body: unknown) {
+  return requestTool(request, url, { method: 'PUT', body });
+}
+
 async function getTool(request: typeof fetch, url: string, headers: Record<string, string> = {}) {
   return requestTool(request, url, { method: 'GET', headers });
 }
@@ -1012,7 +1161,7 @@ async function getTool(request: typeof fetch, url: string, headers: Record<strin
 async function requestTool(
   request: typeof fetch,
   url: string,
-  options: { method: 'GET' | 'PATCH'; body?: unknown; headers?: Record<string, string> },
+  options: { method: 'GET' | 'PATCH' | 'PUT'; body?: unknown; headers?: Record<string, string> },
 ) {
   try {
     const headers =

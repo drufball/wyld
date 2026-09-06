@@ -303,6 +303,41 @@ describe('normaliseGithub', () => {
   });
 });
 
+describe('sleep alarms', () => {
+  const event = (alarm: string, trigger = 'schedule', payload = {}) => ({
+    id: 1,
+    ts: timestamp,
+    source: 'sleep',
+    kind: 'sleep.alarm',
+    payload: {
+      runId: 12,
+      alarm,
+      trigger,
+      lightsOnAt: '2026-01-01T08:05:00.000Z',
+      ...payload,
+    },
+  });
+
+  it.each([
+    ['goodnight', 'schedule', 'Goodnight — Sleep Mode started (scheduled); lights on at 08:05'],
+    ['goodnight', 'human', 'Goodnight — Sleep Mode started (by Dru); lights on at 08:05'],
+    ['last_call', 'schedule', 'Last call — lights on at 08:05, wrap up the night'],
+    ['lights_on', 'schedule', 'Lights on — end the run and reset Today'],
+  ])('normalises %s (%s)', (alarm, trigger, summary) => {
+    expect(normaliseEvent(event(alarm, trigger))).toMatchObject({
+      source: 'sleep',
+      kind: 'sleep.alarm',
+      run: 12,
+      summary,
+    });
+  });
+
+  it('drops bad alarms and every other sleep event', () => {
+    expect(normaliseEvent(event('bad'))).toBeUndefined();
+    expect(normaliseEvent({ ...event('goodnight'), kind: 'sleep.phase' })).toBeUndefined();
+  });
+});
+
 describe('normaliseEvent', () => {
   it.each([
     [

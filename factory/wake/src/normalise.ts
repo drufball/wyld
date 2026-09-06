@@ -73,6 +73,12 @@ const Payload = z
     compare: z.url().optional(),
   })
   .passthrough();
+const SleepAlarmPayload = z.object({
+  alarm: z.enum(['goodnight', 'last_call', 'lights_on']),
+  trigger: z.enum(['human', 'schedule']),
+  runId: z.number().int().positive(),
+  lightsOnAt: z.iso.datetime(),
+});
 
 function cleanLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
@@ -256,6 +262,28 @@ export function normaliseEvent(raw: unknown): WakeMessageType | undefined {
   const parsed = Event.safeParse(raw);
   if (!parsed.success) return undefined;
   const event = parsed.data;
+  if (event.source === 'sleep' && event.kind === 'sleep.alarm') {
+    const alarm = SleepAlarmPayload.safeParse(event.payload);
+    if (!alarm.success) return undefined;
+    const time = new Date(alarm.data.lightsOnAt).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const summary =
+      alarm.data.alarm === 'goodnight'
+        ? `Goodnight — Sleep Mode started (${alarm.data.trigger === 'schedule' ? 'scheduled' : 'by Dru'}); lights on at ${time}`
+        : alarm.data.alarm === 'last_call'
+          ? `Last call — lights on at ${time}, wrap up the night`
+          : 'Lights on — end the run and reset Today';
+    return WakeMessage.parse({
+      source: event.source,
+      kind: event.kind,
+      run: alarm.data.runId,
+      summary,
+      ts: event.ts,
+    });
+  }
   if (event.source !== 'human' || event.kind === 'human.seen') return undefined;
   const text = event.payload['text'] ?? event.payload['summary'];
   if (typeof text !== 'string' || cleanLine(text).length === 0) return undefined;

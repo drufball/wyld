@@ -81,4 +81,17 @@ describe('enqueueMessage', () => {
 
     expect(database.db.select().from(messages).all()).toHaveLength(2);
   });
+
+  it('never coalesces sleep alarms by run', () => {
+    const alarm: WakeMessage = {
+      source: 'sleep',
+      kind: 'sleep.alarm',
+      run: 12,
+      summary: 'Goodnight',
+      ts: '2026-01-01T00:00:00.000Z',
+    };
+    enqueueMessage(database, alarm, new Date('2026-01-01T00:00:00.000Z'));
+    enqueueMessage(database, alarm, new Date('2026-01-01T00:00:05.000Z'));
+    expect(database.db.select().from(messages).all()).toHaveLength(2);
+  });
 });

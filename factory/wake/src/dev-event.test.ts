@@ -54,4 +54,15 @@ describe('buildDevRequest', () => {
       'GH_WEBHOOK_SECRET is required',
     );
   });
+
+  it('builds a valid sleep alarm for Wake ingress', () => {
+    const request = buildDevRequest({ kind: 'sleep.alarm' }, { wakeSecret: 'wake' });
+    expect(request.path).toBe('/event');
+    expect(request.headers['X-Wake-Secret']).toBe('wake');
+    expect(normaliseEvent(JSON.parse(request.body) as unknown)).toMatchObject({
+      source: 'sleep',
+      kind: 'sleep.alarm',
+      run: 1,
+    });
+  });
 });
