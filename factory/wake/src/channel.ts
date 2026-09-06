@@ -7,6 +7,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   CiState,
+  DemoKind,
   type HealthReport,
   PlannerState,
   Quest,
@@ -243,8 +244,28 @@ const RegisterDemoArgs = z
     ref: z.string(),
     quest: z.string().optional(),
     title: z.string().optional(),
+    kind: DemoKind.default('disc'),
+    summary: z.string().min(1).max(400).optional(),
+    steps: z.array(z.string().min(1).max(200)).max(12).optional(),
+    seeded: z.array(z.string().min(1).max(200)).max(12).optional(),
+    deep_link: z.string().startsWith('/').optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((demo, context) => {
+    if (demo.kind === 'live' && (!demo.summary || !demo.steps?.length)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'live demos need a summary and at least one step',
+      });
+    }
+    if (demo.kind === 'disc' && demo.deep_link !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['deep_link'],
+        message: 'deep_link only applies to live demos',
+      });
+    }
+  });
 const ReadDemosArgs = z.object({}).strict();
 const ReadFeedbackArgs = z.object({ demo: z.string().optional() }).strict();
 const ReadChainsArgs = z
@@ -621,7 +642,7 @@ const tools = [
   {
     name: 'pak_register_demo',
     description:
-      'Register a build Dru can try against a quest, or as the main build, and start building it. The slug becomes the URL. Registering a demo is what moves its quest to demo, and calling this again for the same slug rebuilds it.',
+      'Register what Dru can try for a quest: a Demo Disc (a game build) or a live try-it card (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -633,6 +654,36 @@ const tools = [
         ref: { type: 'string', description: 'The git ref to build.' },
         quest: { type: 'string', description: 'The quest this demo belongs to.' },
         title: { type: 'string', description: 'An optional display label.' },
+        kind: {
+          type: 'string',
+          enum: ['disc', 'live'],
+          default: 'disc',
+          description: 'disc for a game build, live for a try-it card against the running Pak.',
+        },
+        summary: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 400,
+          description: 'One or two sentences: what changed, at a glance.',
+        },
+        steps: {
+          type: 'array',
+          maxItems: 12,
+          items: { type: 'string', minLength: 1, maxLength: 200 },
+          description: 'Numbered steps for how to try it, in order.',
+        },
+        seeded: {
+          type: 'array',
+          maxItems: 12,
+          items: { type: 'string', minLength: 1, maxLength: 200 },
+          description: 'The test data already put in place for him.',
+        },
+        deep_link: {
+          type: 'string',
+          pattern: '^/',
+          description:
+            'The Pak path the Try it button opens, for example /sleep or /quests?quest=sleep-mode. Live cards only.',
+        },
       },
       required: ['slug', 'ref'],
       additionalProperties: false,
@@ -640,7 +691,8 @@ const tools = [
   },
   {
     name: 'pak_read_demos',
-    description: 'Read the builds Dru can try right now and whether each one built cleanly.',
+    description:
+      'Read what Dru can try right now — game builds and live try-it cards — and whether each one is ready.',
     inputSchema: {
       type: 'object' as const,
       properties: {},
@@ -1014,11 +1066,17 @@ export function createToolRegistry(options: {
     if (params.name === 'pak_register_demo') {
       const parsed = RegisterDemoArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
+      const { slug, ref, quest, title, kind, summary, steps, seeded, deep_link } = parsed.data;
       return postTool(request, `${options.pakUrl}/api/demos`, {
-        id: parsed.data.slug,
-        ref: parsed.data.ref,
-        ...(parsed.data.quest === undefined ? {} : { questId: parsed.data.quest }),
-        ...(parsed.data.title === undefined ? {} : { title: parsed.data.title }),
+        id: slug,
+        ref,
+        ...(quest === undefined ? {} : { questId: quest }),
+        ...(title === undefined ? {} : { title }),
+        kind,
+        ...(summary === undefined ? {} : { summary }),
+        ...(steps === undefined ? {} : { steps }),
+        ...(seeded === undefined ? {} : { seeded }),
+        ...(deep_link === undefined ? {} : { deepLink: deep_link }),
       });
     }
     if (params.name === 'pak_read_demos') {

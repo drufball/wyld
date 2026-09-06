@@ -386,10 +386,26 @@ describe('Pak tools', () => {
         ref: { type: 'string' },
         quest: { type: 'string' },
         title: { type: 'string' },
+        kind: { type: 'string', enum: ['disc', 'live'], default: 'disc' },
+        summary: { type: 'string', minLength: 1, maxLength: 400 },
+        steps: {
+          type: 'array',
+          maxItems: 12,
+          items: { type: 'string', minLength: 1, maxLength: 200 },
+        },
+        seeded: {
+          type: 'array',
+          maxItems: 12,
+          items: { type: 'string', minLength: 1, maxLength: 200 },
+        },
+        deep_link: { type: 'string', pattern: '^/' },
       },
       required: ['slug', 'ref'],
       additionalProperties: false,
     });
+    expect(result.tools?.find(({ name }) => name === 'pak_register_demo')?.description).toBe(
+      'Register what Dru can try for a quest: a Demo Disc (a game build) or a live try-it card (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
+    );
     expect(result.tools?.find(({ name }) => name === 'pak_read_demos')?.inputSchema).toMatchObject({
       properties: {},
       additionalProperties: false,
@@ -952,6 +968,7 @@ describe('Pak tools', () => {
         id: 'demo-discs',
         ref: 'codex/wake-demo-tools',
         questId: 'demo-discs',
+        kind: 'disc',
       }),
     });
   });
@@ -973,12 +990,60 @@ describe('Pak tools', () => {
       id: 'main',
       ref: 'main',
       title: 'Main build',
+      kind: 'disc',
+    });
+  });
+
+  it('registers a live try-it card with its card fields', async () => {
+    const fetch = vi.fn(async () => new Response('{"id":"sleep-mode"}', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    const result = await call!({
+      params: {
+        name: 'pak_register_demo',
+        arguments: {
+          slug: 'sleep-mode',
+          ref: 'codex/sleep-mode',
+          kind: 'live',
+          summary: 'Sleep mode is ready to try.',
+          steps: ['Open Sleep.', 'Choose a wake time.'],
+          seeded: ['An active quest'],
+          deep_link: '/sleep',
+        },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/demos', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: 'sleep-mode',
+        ref: 'codex/sleep-mode',
+        kind: 'live',
+        summary: 'Sleep mode is ready to try.',
+        steps: ['Open Sleep.', 'Choose a wake time.'],
+        seeded: ['An active quest'],
+        deepLink: '/sleep',
+      }),
     });
   });
 
   it.each([
     { slug: 'Bad Slug', ref: 'main' },
     { slug: 'main', ref: 'main', unknown: true },
+    { slug: 'main', ref: 'main', kind: 'live', steps: ['Open it.'] },
+    { slug: 'main', ref: 'main', kind: 'live', summary: 'Ready.', steps: [] },
+    { slug: 'main', ref: 'main', deep_link: '/quests' },
+    { slug: 'main', ref: 'main', steps: Array.from({ length: 13 }, () => 'A step') },
+    {
+      slug: 'main',
+      ref: 'main',
+      kind: 'live',
+      summary: 'Ready.',
+      steps: ['Open it.'],
+      deep_link: 'quests',
+    },
   ])('rejects invalid Demo Disc registration without an HTTP call: %j', async (arguments_) => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const [, call] = handlers(fetch);
@@ -988,6 +1053,25 @@ describe('Pak tools', () => {
     expect(result).toMatchObject({ isError: true });
     expect(result.content?.[0]?.text).toContain('Invalid arguments');
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('passes live try-it card fields through when reading demos', async () => {
+    const demos = [
+      {
+        id: 'sleep-mode',
+        kind: 'live',
+        summary: 'Sleep mode is ready to try.',
+        steps: ['Open Sleep.'],
+        seeded: ['An active quest'],
+        deepLink: '/sleep',
+      },
+    ];
+    const fetch = vi.fn(async () => new Response(JSON.stringify(demos), { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    const result = await call!({ params: { name: 'pak_read_demos', arguments: {} } });
+
+    expect(JSON.parse(result.content![0]!.text)).toEqual(demos);
   });
 
   it.each([
