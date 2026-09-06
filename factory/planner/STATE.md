@@ -90,6 +90,16 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **Two rules from Dru, 2026-09-06 ~10:50 (both now in PROTOCOL):** (1) never settle a chain he started — answer and
+  leave it open; he taps Settled after reading (`pak_close_chain` only for chains the Planner opened). (2) `demo →
+  done` is his acceptance: only he marks a quest done; the "quiet day → done" auto-close is gone.
+- **Quest `try-it-cards` "Try-it cards" (Dru, 10:53) — `idea`, queued behind `sleep-mode` and `quiet-chain-cards`.**
+  Every quest reaching `demo` gets a demo card: what changed at a glance, step-by-step how to try it, test data
+  pre-seeded. Factory quests demo against the live Pak (no branch builds — Dru left that to the Planner, decision:
+  live Pak + deep link); game quests keep their discs; one unified Demos screen shows both. Likely units: a `demos`
+  row kind for "live" demos with `instructions` + `seed` fields, Planner tool to register one on shipping, Demos
+  screen + quest card rendering, and a `merge-and-ship` step that writes the card.
+
 - **Quest `quiet-chain-cards` "Quieter chain cards" (Dru, 2026-09-06 10:43, answering the Planner's question):**
   chain cards on Today collapse to just the conversation; tap → follow-up box + Settled; Make this a quest + Snooze
   behind a "⋯" menu; rumble chains unchanged. Pak-only, one unit. Lead spawned 10:44 (branch
