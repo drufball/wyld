@@ -14,6 +14,11 @@ const demo = (id: string, status: 'ready' | 'building' | 'failed') => ({
   status,
   builtAt: status === 'ready' ? '2026-09-05T12:00:00.000Z' : null,
   error: status === 'failed' ? 'nope' : null,
+  kind: 'disc' as const,
+  summary: null,
+  steps: [],
+  seeded: [],
+  deepLink: null,
 });
 function response(value: unknown, ok = true) {
   return Promise.resolve({
@@ -64,7 +69,44 @@ describe('Demos', () => {
       vi.fn(() => response([])),
     );
     show();
-    expect(await screen.findByText('No discs yet.')).not.toBeNull();
+    expect(await screen.findByText('Nothing to try yet.')).not.toBeNull();
+  });
+  it('renders a live try-it card and posts feedback without game data', async () => {
+    const live = {
+      ...demo('live-map', 'ready'),
+      kind: 'live' as const,
+      title: 'Map tools',
+      summary: 'Shape a very long winding trail.',
+      steps: ['Open the map', 'Place a tree'],
+      seeded: ['A starter forest'],
+      deepLink: '/quests?quest=map-tools',
+      url: '/quests?quest=map-tools',
+      builtAt: null,
+    };
+    const fetch = vi.fn((url: string) =>
+      url === '/api/feedback' ? response({ id: 1 }) : response([live]),
+    );
+    vi.stubGlobal('fetch', fetch);
+    show();
+    expect(await screen.findByText('TRY IT')).not.toBeNull();
+    expect(screen.getByText(live.summary)).not.toBeNull();
+    expect(screen.getAllByRole('list')[0]?.tagName).toBe('OL');
+    expect(screen.getByText('Open the map')).not.toBeNull();
+    expect(screen.getByText("What's already there")).not.toBeNull();
+    expect(screen.getByText('A starter forest')).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Try it' }).getAttribute('href')).toBe(live.deepLink);
+    fireEvent.click(screen.getByRole('button', { name: 'Feedback' }));
+    const formClasses = screen.getByLabelText('What did you think?').closest('form')?.className;
+    expect(formClasses).toContain('w-full');
+    expect(formClasses).not.toContain('w-[min(340px,calc(100vw-24px))]');
+    fireEvent.change(screen.getByLabelText('What did you think?'), { target: { value: 'Useful' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/feedback',
+        expect.objectContaining({ body: JSON.stringify({ demoId: 'live-map', text: 'Useful' }) }),
+      ),
+    );
   });
   it('posts text-only feedback without game hooks', async () => {
     const fetch = vi.fn((url: string) =>
@@ -83,6 +125,9 @@ describe('Demos', () => {
     vi.stubGlobal('fetch', fetch);
     show('/demos/main');
     fireEvent.click(await screen.findByRole('button', { name: 'Feedback' }));
+    expect(screen.getByLabelText('What did you think?').closest('form')?.className).toContain(
+      'w-[min(340px,calc(100vw-24px))]',
+    );
     fireEvent.change(screen.getByLabelText('What did you think?'), { target: { value: 'Fun' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() =>

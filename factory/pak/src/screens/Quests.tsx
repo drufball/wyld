@@ -1,8 +1,16 @@
-import { type Chain, type Event, type Quest, type QuestNote, type QuestStatus } from '@wyld/shared';
+import {
+  type Chain,
+  type Demo,
+  type Event,
+  type Quest,
+  type QuestNote,
+  type QuestStatus,
+} from '@wyld/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   getQuest,
+  listDemos,
   listQuests,
   listWorlds,
   patchQuestStatus,
@@ -80,10 +88,12 @@ export function QuestCard({
   quest,
   worldName,
   onChange,
+  demo,
 }: {
   quest: Quest;
   worldName: string;
   onChange: (quest: Quest) => void;
+  demo?: Demo;
 }) {
   const [asking, setAsking] = useState(false);
   const [newChain, setNewChain] = useState<Chain | null>(null);
@@ -191,12 +201,20 @@ export function QuestCard({
           >
             Ask
           </Button>
-          <span className="inline-flex items-center gap-2 text-muted-foreground">
-            <Button variant="retro" type="button" disabled>
-              Demo
-            </Button>{' '}
-            <small>not yet</small>
-          </span>
+          {demo ? (
+            <Button variant="retro" asChild>
+              <Link to={`/demos/${encodeURIComponent(demo.id)}`}>
+                {demo.kind === 'live' ? 'Try it' : 'Play'}
+              </Link>
+            </Button>
+          ) : (
+            <span className="inline-flex items-center gap-2 text-muted-foreground">
+              <Button variant="retro" type="button" disabled>
+                Demo
+              </Button>{' '}
+              <small>not yet</small>
+            </span>
+          )}
         </div>
         {nudged && (
           <p
@@ -254,6 +272,7 @@ export function Quests() {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [worlds, setWorlds] = useState<Awaited<ReturnType<typeof listWorlds>>>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [demosByQuest, setDemosByQuest] = useState<Map<string, Demo>>(new Map());
   const [doneExpanded, setDoneExpanded] = useState(false);
   const { subscribe } = useLiveEvents();
   const replaceQuest = useCallback((quest: Quest) => {
@@ -272,6 +291,17 @@ export function Quests() {
     },
     [replaceQuest],
   );
+  const refreshDemos = useCallback(() => {
+    void listDemos()
+      .then((demos) => {
+        const next = new Map<string, Demo>();
+        for (const demo of [...demos].sort((left, right) => left.id.localeCompare(right.id))) {
+          if (demo.questId && !next.has(demo.questId)) next.set(demo.questId, demo);
+        }
+        setDemosByQuest(next);
+      })
+      .catch(() => setDemosByQuest(new Map()));
+  }, []);
 
   useEffect(() => {
     void listWorlds()
@@ -280,11 +310,13 @@ export function Quests() {
     void listQuests()
       .then(setQuests)
       .catch(() => setQuests([]));
-  }, []);
+    refreshDemos();
+  }, [refreshDemos]);
   useEffect(() => {
     const unsubscribes = liveKinds.map((kind) => subscribe(kind, refreshQuest));
+    unsubscribes.push(subscribe('planner.quest_updated', refreshDemos));
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }, [refreshQuest, subscribe]);
+  }, [refreshDemos, refreshQuest, subscribe]);
 
   const selectedStatuses = statusFilters.find((filter) => filter.id === status)?.statuses;
   const filtered = quests.filter(
@@ -311,6 +343,7 @@ export function Quests() {
             quest={selectedQuest}
             worldName={worldNames.get(selectedQuest.worldId) ?? selectedQuest.worldId}
             onChange={replaceQuest}
+            demo={demosByQuest.get(selectedQuest.id)}
           />
           <Button
             variant="retro"
@@ -368,6 +401,7 @@ export function Quests() {
                 quest={quest}
                 worldName={worldNames.get(quest.worldId) ?? quest.worldId}
                 onChange={replaceQuest}
+                demo={demosByQuest.get(quest.id)}
               />
             ))}
             {doneQuests.length > 0 && (
@@ -388,6 +422,7 @@ export function Quests() {
                       quest={quest}
                       worldName={worldNames.get(quest.worldId) ?? quest.worldId}
                       onChange={replaceQuest}
+                      demo={demosByQuest.get(quest.id)}
                     />
                   ))}
               </section>

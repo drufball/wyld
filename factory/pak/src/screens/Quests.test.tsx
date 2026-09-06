@@ -71,6 +71,39 @@ afterEach(() => {
 });
 
 describe('Quests', () => {
+  it('shows Try it, Play, and not yet actions according to each quest demo', async () => {
+    const discQuest = { ...quest, id: 'disc-quest', title: 'Disc quest' };
+    const emptyQuest = { ...quest, id: 'empty-quest', title: 'Empty quest' };
+    const demoFields = {
+      title: 'Demo',
+      ref: 'main',
+      url: '/',
+      status: 'ready',
+      builtAt: null,
+      error: null,
+      summary: null,
+      steps: [],
+      seeded: [],
+      deepLink: null,
+    };
+    const demos = [
+      { ...demoFields, id: 'z-live', questId: quest.id, kind: 'live' },
+      { ...demoFields, id: 'a-disc', questId: discQuest.id, kind: 'disc' },
+    ];
+    renderScreen(
+      vi.fn((url: string) => {
+        if (url === '/api/worlds') return response([world]);
+        if (url === '/api/quests') return response([quest, discQuest, emptyQuest]);
+        if (url === '/api/demos') return response(demos);
+        return response([]);
+      }),
+    );
+    expect((await screen.findByRole('link', { name: 'Try it' })).getAttribute('href')).toBe(
+      '/demos/z-live',
+    );
+    expect(screen.getByRole('link', { name: 'Play' }).getAttribute('href')).toBe('/demos/a-disc');
+    expect(screen.getByText('not yet')).not.toBeNull();
+  });
   it('shows one deep-linked quest and clears the quest parameter', async () => {
     const other = { ...quest, id: 'other', title: 'Other quest' };
     renderScreen(

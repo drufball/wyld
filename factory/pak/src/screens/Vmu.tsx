@@ -74,7 +74,7 @@ export function Vmu() {
           className="flex min-h-11 items-center border-2 border-accent p-3 font-display text-xs text-accent no-underline"
           to="/demos"
         >
-          {countInWords(demoCount)} {demoCount === 1 ? 'disc' : 'discs'} ready
+          {countInWords(demoCount)} {demoCount === 1 ? 'demo' : 'demos'} ready
         </Link>
       )}
       {nextAction !== null &&

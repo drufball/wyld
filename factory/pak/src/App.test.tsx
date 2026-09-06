@@ -24,11 +24,11 @@ const response = (value: unknown) =>
   } as Response);
 
 describe('Pak shell', () => {
-  it('navigates to Demo Discs', async () => {
+  it('navigates to Demos', async () => {
     renderAt('/');
     await screen.findByText("What's on your mind?");
     fireEvent.click(screen.getByRole('link', { name: 'Demos' }));
-    expect(screen.getByRole('heading', { name: 'Demo Discs' })).not.toBeNull();
+    expect(screen.getByRole('heading', { name: 'Demos' })).not.toBeNull();
   });
   it.each([
     ['/worlds', 'All'],
