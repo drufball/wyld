@@ -132,7 +132,8 @@ describe('ChainList', () => {
     );
     vi.stubGlobal('fetch', fetch);
     renderList();
-    const field = await screen.findByLabelText('Follow up');
+    fireEvent.click(await screen.findByRole('button', { name: 'Reply or settle' }));
+    const field = screen.getByLabelText('Follow up');
     fireEvent.change(field, { target: { value: 'More?' } });
     fireEvent.keyDown(field, { key: 'Enter' });
     await waitFor(() =>
@@ -143,6 +144,77 @@ describe('ChainList', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Settled' }));
     await waitFor(() => expect(screen.queryByText('Why?')).toBeNull());
+  });
+
+  it('collapses responses and expands from the chevron or card body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url === '/api/chains' ? [question] : [])),
+    );
+    const { container } = renderList();
+    await screen.findByText('Why?');
+    expect(screen.queryByLabelText('Follow up')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Settled' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reply or settle' }));
+    expect(document.activeElement).toBe(screen.getByLabelText('Follow up'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByLabelText('Follow up')).toBeNull();
+
+    fireEvent.click(container.querySelector('.chain-card p')!);
+    expect(document.activeElement).toBe(screen.getByLabelText('Follow up'));
+  });
+
+  it('opens the actions menu, snoozes with presets, and closes on Escape', async () => {
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      response(url === '/api/chains' ? [question] : init?.method === 'POST' ? question : []),
+    );
+    vi.stubGlobal('fetch', fetch);
+    render(
+      <LiveEventsProvider
+        eventSourceFactory={() => ({ addEventListener() {}, removeEventListener() {}, close() {} })}
+      >
+        <ChainList onConvert={() => undefined} />
+      </LiveEventsProvider>,
+    );
+    await screen.findByText('Why?');
+    const trigger = screen.getByRole('button', { name: 'More actions' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('menuitem', { name: 'Make this a quest' })).not.toBeNull();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Snooze' }));
+    expect(screen.getByRole('menuitem', { name: 'Later today' })).not.toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Tomorrow morning' })).not.toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Next week' })).not.toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Snooze' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Tomorrow morning' }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/chains/1/snooze',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    );
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('closes the actions menu from the card body without expanding the card', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url === '/api/chains' ? [question] : [])),
+    );
+    const { container } = renderList();
+    await screen.findByText('Why?');
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menu')).not.toBeNull();
+    fireEvent.click(container.querySelector('.chain-card p')!);
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByLabelText('Follow up')).toBeNull();
   });
 
   it('suppresses the quest chip and does not load quest names when requested', async () => {
