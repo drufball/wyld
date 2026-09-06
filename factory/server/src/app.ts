@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, gte } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, gte, isNull } from 'drizzle-orm';
 import path from 'node:path';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
@@ -19,7 +19,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { log, type LogContext } from './logger.js';
-import { catchups, events, healthReports, presence, quests } from './schema.js';
+import { catchups, events, healthReports, pauses, presence, quests } from './schema.js';
 import { mechanicalDigest } from './catchup.js';
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder } from './forwarder.js';
@@ -31,6 +31,7 @@ import { createDemoRoutes } from './demos.js';
 import { DEMO_SLUG, type DemoBuilder } from './builder.js';
 import { resolveStaticFile } from './static.js';
 import { createNotifier } from './notify.js';
+import { createPauseRoutes, createPauseService } from './pause.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -386,7 +387,15 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', createQuestRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
-  app.route('/api', createRumbleRoutes({ database: dependencies.database, now, storeEvent }));
+  const resumePause = createPauseService({ database: dependencies.database, now, storeEvent });
+  app.route(
+    '/api',
+    createPauseRoutes({ database: dependencies.database, now, storeEvent, notify }),
+  );
+  app.route(
+    '/api',
+    createRumbleRoutes({ database: dependencies.database, now, storeEvent, resumePause }),
+  );
   const builder = dependencies.builder ?? {
     build: async () => ({ ok: false as const, error: 'Demo builder is not configured' }),
     isBuilding: () => false,
@@ -422,6 +431,10 @@ export function createApp(dependencies: AppDependencies) {
     const current = now();
     const latest = db.select().from(healthReports).orderBy(desc(healthReports.ts)).get();
     const latestOps = latestOpsReport(dependencies.database);
+    const activePauses = db.select().from(pauses).where(isNull(pauses.resolvedAt)).all();
+    const activePause =
+      activePauses.find((pause) => pause.lane === 'all') ??
+      activePauses.sort((a, b) => a.since.localeCompare(b.since))[0];
     const opsFresh =
       latestOps !== undefined &&
       current.getTime() - new Date(latestOps.ts).getTime() <= OPS_STALE_SECONDS * 1000;
@@ -486,6 +499,16 @@ export function createApp(dependencies: AppDependencies) {
           : {}),
         ...(latest?.costToday == null ? {} : { costToday: latest.costToday }),
         ...(latest?.pausedReason == null ? {} : { pausedReason: latest.pausedReason }),
+        ...(activePause === undefined
+          ? {}
+          : {
+              paused: {
+                lane: activePause.lane,
+                reason: activePause.reason,
+                ...(activePause.fix === null ? {} : { fix: activePause.fix }),
+                since: activePause.since,
+              },
+            }),
       }),
     );
   });
