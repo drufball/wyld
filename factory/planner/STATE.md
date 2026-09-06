@@ -95,8 +95,9 @@ this file, the Pak, and GitHub._
   done` is his acceptance: only he marks a quest done; the "quiet day → done" auto-close is gone.
 - **Quest `try-it-cards` "Try-it cards" (Dru, 10:53) — `idea`, queued behind `sleep-mode` and `quiet-chain-cards`.**
   Every quest reaching `demo` gets a demo card: what changed at a glance, step-by-step how to try it, test data
-  pre-seeded. Factory quests demo against the live Pak (no branch builds — Dru left that to the Planner, decision:
-  live Pak + deep link); game quests keep their discs; one unified Demos screen shows both. Likely units: a `demos`
+  pre-seeded. Factory quests demo against the live Pak by default, **but a branch build stays possible and the Planner picks
+  per quest** — big/risky changes or anything altering how Dru works get a branch demo before landing (Dru, 10:55);
+  game quests keep their discs; one unified Demos screen shows both. Likely units: a `demos`
   row kind for "live" demos with `instructions` + `seed` fields, Planner tool to register one on shipping, Demos
   screen + quest card rendering, and a `merge-and-ship` step that writes the card.
 
