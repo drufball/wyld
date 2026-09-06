@@ -101,6 +101,12 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **`try-it-cards` unit 7 Hide landed 19:17 (#162 / PR #163, zero fix rounds)** — `demos.hidden_at` (migration 0015),
+  `POST /api/demos/:id/hide|unhide`, default list drops hidden, `?includeDone=1` = everything, re-register/build unhides; Pak
+  `Hide` where questless, `Mark done` where quest-owned, never both. Quest back in `demo`, card re-registered. Lead's edges:
+  **`PausedBanner.test.tsx` is red on this BST Mac on `main`** (third lead to hit it — tonight's `night:` Sweep item, pin
+  `TZ` or format with the same `Intl` call); `unhide` has no UI (curl only); questless `building`/`failed` cards have no Hide;
+  the live Pak opens on a Catch-Up overlay, so leads verify against scratch stacks only.
 - **`polish` done 19:06 (lead report).** Sharp edges: (1) **Codex's "pnpm test passed" was false twice today** (#153: 16 Pak tests
   red; #161: 1 red) — never merge on its self-report, CI is the truth. (2) A leaked `vi.useFakeTimers()` cascades — restore in
   `afterEach`. (3) Locale-fragile date assertions (`en-GB` locally vs `en-US` in CI) — build expected strings with the same
