@@ -29,7 +29,8 @@ step finishes._
 | 1.10 Sleep Mode + Memory Card (quest `sleep-mode`) | done, in `demo` (2026-09-06 11:20; three PRs, one fix round each) | #125 shared+server (`sleep_runs`/`retros`, `POST /api/sleep/goodnight|:id/phase|:id/end`, `GET /api/sleep/current|runs`, `GET/PUT /api/retros[/:date]`, 30 s scheduler on local time `SLEEP_TZ`/`SLEEP_GOODNIGHT` 23:00/`SLEEP_LAST_CALL` 07:15/`SLEEP_LIGHTS_ON` 08:00/`SLEEP_SCHEDULE`, idempotent alarms in `alarms_fired`, 08:00 guard ends run `timed_out` + mechanical retro + **overwrites the next action** with "Good morning — nothing needs you yet"; forwarder lets only `sleep.alarm` through), #129 Wake (`sleep.alarm` normalised, `run` carried in the WakeMessage/claim/channel tag, tools `pak_read_sleep`/`pak_advance_sleep`/`pak_end_sleep`/`pak_write_retro`/`pak_read_retros`), #131 Pak (`/sleep` GOODNIGHT + phases + countdown + CSS night scene, `/memory` save-file cards, Today moon button + dismissable last-night card, smoke 10/10). Planner-side: `skills/sleep-mode.md`, `skills/write-retro.md`, PROTOCOL §2 rows. **First real night is 2026-09-06 23:00.** |
 | `try-it-cards` (Dru 2026-09-06 10:53) | done, in `demo` (16:45; five PRs) | #137 shared+server (`demos.kind` disc\|live\|pak, `summary`/`steps`/`seeded`/`deep_link`, live → `ready` w/o builder, migration 0012), #139 wake `pak_register_demo` fields + validation, #141 Pak one Demos grid + `/demos/:id` live card + quest-card Try it (2 fix rounds), #145 `kind: 'pak'` branch Pak builds under `/play/<slug>/` (`PAK_BASE`, router basename, no SW off `/`; 2 fix rounds), #147 pak build needs `@wyld/shared` built first (`--filter @wyld/pak...`). `skills/merge-and-ship.md` §3: every quest reaching `demo` registers a card |
 | `quiet-chain-cards` follow-up (Dru 15:04) | done, in `demo` | #143 no arrow (sr-only toggle), header row only with a quest chip, lucide `Ellipsis` icon button beside Settled |
-| 1.9 Debug Menu explorer/event stream, 1.11 `polish` | not started | see factory-spec.md §11; `polish` is an `idea` quest (Serve already on; make `factory:up`/doctor check it) |
+| 1.11 `polish` "Sofa polish" | done, in `demo` (19:06; five PRs) | #150 doctor Serve-on-443 + `factory-up` public URL; #151 Go Outside sunset + `NextAction.backAt` + `pak_set_next_action back_at` (1 fix round: sun hidden behind hills, `slice` crop — screenshots only); #153 achievements (table + 7-rule catalogue in `factory/server/src/achievements.ts`, `pak.achievement_unlocked`, `GET /api/achievements`, Memory wall + Today toast; 1 round); #157 SFX/haptics (WebAudio, `wyld.sfx`, off on coarse pointer, switch on Debug; 1 round); #161 snoozed Rumbles don't block the sunset or the "N Rumbles" line (2 rounds). Card registered, deep link `/memory` |
+| 1.9 Debug Menu explorer/event stream | not started | see factory-spec.md §11 |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
 
@@ -100,6 +101,16 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **`polish` done 19:06 (lead report).** Sharp edges: (1) **Codex's "pnpm test passed" was false twice today** (#153: 16 Pak tests
+  red; #161: 1 red) — never merge on its self-report, CI is the truth. (2) A leaked `vi.useFakeTimers()` cascades — restore in
+  `afterEach`. (3) Locale-fragile date assertions (`en-GB` locally vs `en-US` in CI) — build expected strings with the same
+  `Intl.DateTimeFormat`. (4) **`GET /api/rumbles` is not snooze-aware; `Vmu.tsx` still counts snoozed Rumbles** — fold into
+  `one-mechanism`. (5) Writing a retro stores no event, so `streak-3` unlocks on the next stored event. (6) **Never load the live
+  Pak in Playwright** — `CatchUpGate` posts "seen" on mount and would swallow Dru's pending catch-up; scratch stacks only.
+  (7) `pak.achievement_unlocked` is deliberately not forwarded to Wake. **Also in flight:** `try-it-cards` unit 7 — Hide on
+  questless demo cards (`hidden_at`, `POST /api/demos/:id/hide|unhide`; Dru 19:00: the Main creature disc "is just sticking
+  around"), lead on `codex/try-it-hide`, #162. Dismiss lead's note: **Mark done is one-way in the UI** (no un-done; Park/Unpark
+  lands on `building`) — fold an "undo" into `one-mechanism`.
 - **Order revised 18:21 (Dru, on `polish` chain 59): `polish` → `one-mechanism` → `artifacts` → `roadmap` → Phase 2.** New `idea`
   quest **`one-mechanism`** "Everything is a chain": Rumbles already are chains; try-it cards/demos, the next action and unlocks
   become chains with tags; each screen filters by tag; snooze/settle/Mark done are one mechanism; "nothing needs you" = no open,
