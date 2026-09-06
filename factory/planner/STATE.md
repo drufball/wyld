@@ -82,6 +82,40 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
    `unattended-restart` is parked on that). Restart only at a clean boundary, tell him first via
    `pak_send_message`, and prefer doing it while he is around.
 
+## Cutover to the host (runbook — written 2026-09-06 09:25, execute once #116 has merged)
+
+The last attended restart. Everything below is the Planner's own job; leads never do it.
+
+**Preconditions, all true before starting**
+1. `planner-in-pak` unit 2 (#116) merged and deployed: `git pull`, `pnpm --filter @wyld/planner-host build`,
+   `scripts/factory-up.sh` has `PLANNER_MODE` (`host` default, `cli` fallback), doctor checks `:8789/health` and
+   "exactly one Planner".
+2. **No lead mid-flight.** Leads are subagents of the CLI session and die with it. Wait for every running lead to
+   report (or reach a merge boundary), and check `gh pr list` / `gh issue list` for Codex tasks still open — the
+   new session inherits those from GitHub, not from memory, so list them in "First actions" below.
+3. `pnpm factory:doctor` green; `.factory/env` has `CLAUDE_CODE_OAUTH_TOKEN` (it does, since 08:27); no
+   `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` in that file or the tmux environment (sharp edge 5 above).
+4. No open chain; next action set; `pak_health_report` sent.
+
+**Steps**
+1. `pak_send_message` (no quest): one paragraph — switching to the new home now, a few quiet minutes, no
+   keypress needed this time, and how he'll know it worked (Debug Menu Planner tile alive, "hello" note on
+   `planner-in-pak`).
+2. Rewrite "First actions for the on-duty Planner" below for the new session: it will be a **fresh** session
+   (no `.factory/planner-session.json` yet), so it must read this file, load the wake tools, answer chains,
+   re-adopt any open Codex PRs/issues by quest, and post the hello note. Commit and push.
+3. From this session, replace the planner window in place (this kills the CLI Planner — expected):
+   `tmux respawn-window -k -t wyld:planner -c /Users/drufball/code/wyld 'set -a; . .factory/env; set +a; PLANNER_MODE=host exec <the exact command factory-up.sh uses after #116>'`
+   — copy the command verbatim from `scripts/factory-up.sh` at cutover time; do not improvise it.
+4. The new session verifies itself: `curl -s localhost:8789/health` shows a session id; `pak_health_report`
+   lands; the Debug Menu's Planner tile reads alive. If nothing happens within 5 minutes, Dru's fallback is
+   `tmux respawn-window -k -t wyld:planner 'claude --dangerously-load-development-channels server:wake'`
+   (the CLI path, one keypress) — put that sentence in the message to him.
+
+**After cutover (new session's job):** move `planner-in-pak` → `demo` with a note; close `unattended-restart`
+as done ("restarts no longer need you"); update PROTOCOL.md §6 "Known constraints" and `reference/channels.md`
+to say the channel flag is the fallback path only; delete `factory/planner/queued/*` (spent).
+
 ## Open items
 
 - **Never post to the live `/api/notify` (or call `pak_notify`) from a verification run** (2026-09-06: a lead's
