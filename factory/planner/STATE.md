@@ -110,7 +110,12 @@ this file, the Pak, and GitHub._
   `-wake`, `-pak`, `-branch-build`. The lead registers this quest's own live card after unit 3. **Planner to-do when the
   tool lands:** rewrite `skills/merge-and-ship.md` §3 so every quest reaching `demo` registers a try-it card (summary,
   steps, seeded), and say in lead briefs that seeding test data is part of shipping.
-- `skills/merge-and-ship.md` now names `/Users/crawnk/wyld` as the live checkout (38b9200).
+- **`try-it-cards` units 1 and 2 landed** (14:41 #136/PR #137 shared+server — `demos.kind/summary/steps/seeded/deep_link`,
+  live rows `ready` at once, build on live → 400, migration 0012 verified on the live db; 14:51 #138/PR #139 wake —
+  `pak_register_demo` gained `kind/summary/steps/seeded/deep_link`, live needs a summary + ≥1 step, `deep_link` rejected on a
+  disc). Zero fix rounds on both. Unit 3 (pak) next, then 4 (branch builds).
+- `skills/merge-and-ship.md` now names `/Users/crawnk/wyld` as the live checkout (38b9200) and **§3 says every quest
+  reaching `demo` registers a try-it card** (seed first, then `pak_register_demo kind=live …`; ce3baa7).
 
 - **Move done 2026-09-06 14:54 BST; waiting on Dru's Done on Rumble `new-home-prep`** (re-filed in place with the two
   closing steps: `pnpm factory:down` on the old laptop, phone ntfy re-subscribed to the new `:8443/wyld-pak`). As of 14:56 the
