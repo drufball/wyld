@@ -1,5 +1,24 @@
 # Move WYLD to a new machine
 
+## 0. Before you can point Claude at this file
+
+The human does these steps by hand:
+
+1. Finish macOS Setup Assistant: create an admin user and save the password. Later steps prompt for `sudo`.
+2. Open Terminal and run `git --version` once. macOS offers to install the Command Line Tools; accept and wait for it to finish.
+3. Install Claude Code:
+   ```bash
+   curl -fsSL https://claude.ai/install.sh | bash
+   ```
+4. Run `claude` once and complete the login.
+5. Clone WYLD:
+   ```bash
+   git clone https://github.com/drufball/wyld.git && cd wyld
+   ```
+6. Start `claude` in that directory and say: **"follow NEW-MACHINE.md"**.
+
+From here on, the assistant installs everything itself and stops only at the logins that need a human.
+
 ## 1. Who you are
 
 You are the setup assistant running on the new Mac, with the human beside you.
@@ -8,29 +27,56 @@ You are the setup assistant running on the new Mac, with the human beside you.
 - Never print or echo secrets.
 - The human performs every login themselves.
 
-## 2. Prerequisites
+## 2. Install tools and complete logins
 
-- Xcode Command Line Tools and Git: run `xcode-select --install` if needed; verify with `xcode-select -p` and `git --version`.
-- Node 22 is pinned in `.node-version`: use `nvm install $(cat .node-version)` or `brew install node@22`; verify with `node --version`.
-- Install and start Colima on the always-on Mac (the assistant does this; it is not a human login step):
-  ```bash
-  brew install colima docker
-  colima start --cpu 2 --memory 2
-  brew services start colima   # so it comes back after a reboot
-  docker info                  # verify
-  ```
-  Any Docker-compatible runtime (Colima, Docker Desktop, OrbStack or Rancher Desktop) works; only `docker info` answering matters.
-- Log Tailscale into the **same tailnet**; verify with `tailscale status`, then run `tailscale serve --bg 8787` and `tailscale serve --bg --https=8443 8790`.
-- GitHub CLI: the human runs `gh auth login` and chooses HTTPS when prompted for the protocol (no SSH key to manage); verify with `gh auth status`, then run `gh extension install cli/gh-webhook`.
-- Codex ChatGPT login: the human runs `npx -y @openai/codex@latest login`.
-- tmux: run `brew install tmux`; verify with `tmux -V`.
-- `claude` itself is already logged in if this session is running.
+The assistant installs, in this order:
 
-## 3. Clone and bootstrap
+1. Homebrew. This prompts for `sudo` once:
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+   On Apple silicon, run the follow-up `eval "$(/opt/homebrew/bin/brew shellenv)"` step printed by the installer.
+2. Node 22:
+   ```bash
+   brew install node@22
+   ```
+   `node@22` is keg-only. Add the PATH line Homebrew prints, `export PATH="/opt/homebrew/opt/node@22/bin:$PATH"`, to `~/.zprofile` before `node --version` reports 22, which is what `.node-version` pins.
+3. Docker runtime:
+   ```bash
+   brew install colima docker
+   colima start --cpu 2 --memory 2
+   brew services start colima
+   docker info
+   ```
+   Any Docker-compatible runtime (Colima, Docker Desktop, OrbStack or Rancher Desktop) works; only `docker info` answering matters.
+4. GitHub CLI: `brew install gh`.
+5. tmux: `brew install tmux`.
+6. Tailscale: `brew install --cask tailscale`.
+
+The human does these steps; the assistant stops and waits at each:
+
+1. Sign in to the Tailscale app from its menu-bar icon on the **same tailnet**. After sign-in, the `tailscale` CLI must be on PATH. The cask installs only the app: use the menu-bar item that installs the CLI helper, or create the same shim the old machine has at `/usr/local/bin/tailscale`:
+   ```bash
+   printf '#!/bin/sh\n/Applications/Tailscale.app/Contents/MacOS/tailscale "$@"\n' \
+     | sudo tee /usr/local/bin/tailscale >/dev/null
+   sudo chmod +x /usr/local/bin/tailscale
+   tailscale status          # verify
+   tailscale serve --bg 8787
+   tailscale serve --bg --https=8443 8790
+   ```
+2. Run `gh auth login`, choose **HTTPS** when prompted for the protocol (no SSH key to manage), then verify and install the extension:
+   ```bash
+   gh auth status
+   gh extension install cli/gh-webhook
+   ```
+3. Complete the ChatGPT login: `npx -y @openai/codex@latest login`.
+4. Set the machine to never sleep on power: System Settings → Displays → Advanced → “Prevent automatic sleeping on power adapter when the display is off,” or use the Energy pane on older macOS. `pnpm factory:up` runs `caffeinate` for the rest.
+
+## 3. Bootstrap
+
+The clone was completed in step 0. From the repo root, run:
 
 ```bash
-git clone https://github.com/drufball/wyld.git
-cd wyld
 ./scripts/bootstrap.sh
 ```
 
@@ -91,6 +137,8 @@ Keep the OLD machine running until the new one is verified. Only then run `pnpm 
 
 ## 9. Troubleshooting
 
+- `corepack enable` fails with a permissions error: re-run it as `sudo corepack enable`.
+- `node --version` is not 22 after `brew install node@22`: the keg-only PATH line is missing from `~/.zprofile`.
 - `no Planner is running`: run `pnpm factory:down && pnpm factory:up`, then check the planner window.
 - `two Planners are running`: stop either the host or CLI Planner so only one claims Wake events.
 - `the container runtime is not answering`: run `colima start` (or start whichever Docker-compatible runtime is installed), then retry `docker info`.
