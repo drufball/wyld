@@ -114,6 +114,13 @@ this file, the Pak, and GitHub._
   live rows `ready` at once, build on live → 400, migration 0012 verified on the live db; 14:51 #138/PR #139 wake —
   `pak_register_demo` gained `kind/summary/steps/seeded/deep_link`, live needs a summary + ≥1 step, `deep_link` rejected on a
   disc). Zero fix rounds on both. Unit 3 (pak) next, then 4 (branch builds).
+- **Sharp edge (14:53): the host session does NOT see a hot-reloaded tool *shape*.** After PR #139 the rebuilt adapter
+  (`dist/channel.js` has `deep_link`) and a `kill -HUP` on the Planner's stdio adapter child (`pgrep -f channel-main.js`)
+  still left `pak_register_demo` with the old four-arg schema in this session's tool list. New tools appearing live was
+  verified on the CLI path; a changed schema of an existing tool under the Agent SDK host apparently is not. **Workaround
+  until the next host restart** (do it at the next lead boundary — `tmux respawn-window -k -t wyld:planner`, session
+  resumes): register cards with `curl -X POST localhost:8787/api/demos` (camelCase `deepLink`). The lead has been told.
+  Candidate `planner-host` unit: on `tools/list_changed`, restart the query (or the process) so the schema refreshes.
 - `skills/merge-and-ship.md` now names `/Users/crawnk/wyld` as the live checkout (38b9200) and **§3 says every quest
   reaching `demo` registers a try-it card** (seed first, then `pak_register_demo kind=live …`; ce3baa7).
 
