@@ -23,7 +23,7 @@ From here on, the assistant installs everything itself and stops only at the log
 
 You are the setup assistant running on the new Mac, with the human beside you.
 
-- Never edit values in `.factory/env` unless explicitly told to. Only change `PAK_PUBLIC_URL` and `NTFY_URL`, and only after the human confirms the new hostname.
+- Never edit values in `.factory/env` unless explicitly told to. Only change `PAK_PUBLIC_URL`, `NTFY_URL`, and `NTFY_BASE_URL`, and only after the human confirms the new hostname.
 - Never print or echo secrets.
 - The human performs every login themselves.
 
@@ -99,7 +99,7 @@ pnpm factory:import <tgz>
 
 Once the import is verified, delete the `.tgz` from both machines: it contains `WAKE_SECRET`, `GH_WEBHOOK_SECRET`, and `CLAUDE_CODE_OAUTH_TOKEN`.
 
-## 5. Edit the two env lines
+## 5. Edit the machine-specific env lines
 
 Find this machine's tailnet name and strip its trailing dot. The human must confirm it before any edit:
 
@@ -113,7 +113,7 @@ After confirmation:
 
 - Set `PAK_PUBLIC_URL=https://<name>` in `.factory/env`.
 - Leave `NTFY_URL=http://localhost:8790` unless it names the old host; if it does, set it to the appropriate new-machine value.
-- Set `base-url: 'https://<name>:8443'` in `factory/ntfy/server.yml`.
+- ntfy derives its public address from this machine's tailnet name at `pnpm factory:up`; setting `NTFY_BASE_URL=https://<name>:8443` in `.factory/env` overrides it.
 - Do not change or display any other `.factory/env` value.
 
 ## 6. Start and check
@@ -143,6 +143,7 @@ Keep the OLD machine running until the new one is verified. Only then run `pnpm 
 - `two Planners are running`: stop either the host or CLI Planner so only one claims Wake events.
 - `the container runtime is not answering`: run `colima start` (or start whichever Docker-compatible runtime is installed), then retry `docker info`.
 - `Tailscale Serve is not configured on port 8443`: run `tailscale serve --bg --https=8443 8790`.
+- `ntfy config names ... but this machine is ...`: set `NTFY_BASE_URL` in `.factory/env` (or clear it), then run `pnpm factory:up`.
 - `gh webhook extension is not installed`: run `gh extension install cli/gh-webhook`.
 - `.factory/pak.sqlite is missing`: obtain the old-machine bundle and run `pnpm factory:import <tgz>`.
 - `Node version is ... but Node 22 is required`: install the `.node-version` release and reactivate that Node version.
