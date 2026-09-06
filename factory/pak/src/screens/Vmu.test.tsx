@@ -151,7 +151,7 @@ describe('VMU', () => {
       },
     ]);
     renderScreen();
-    expect((await screen.findByRole('link', { name: 'one disc ready' })).getAttribute('href')).toBe(
+    expect((await screen.findByRole('link', { name: 'one demo ready' })).getAttribute('href')).toBe(
       '/demos',
     );
   });
