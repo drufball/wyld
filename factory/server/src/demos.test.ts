@@ -11,7 +11,7 @@ import { eq } from 'drizzle-orm';
 import { createApp } from './app.js';
 import type { DemoBuilder } from './builder.js';
 import { openDatabase, type AppDatabase } from './database.js';
-import { demos, quests, worlds } from './schema.js';
+import { chainMessages, chains, demos, quests, worlds } from './schema.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 
@@ -140,6 +140,79 @@ describe('demo and feedback routes', () => {
     expect(
       database.db.select().from(demos).where(eq(demos.id, 'hide-me')).get()?.hiddenAt,
     ).toBeNull();
+  });
+
+  it('keeps one refreshed demo chain in sync through registration, build, hide, and unhide', async () => {
+    build.mockImplementation(() => new Promise(() => undefined));
+    await post('/api/demos', {
+      id: 'chain-demo',
+      ref: 'one',
+      title: 'First',
+      summary: 'First summary',
+      steps: ['one'],
+      seeded: ['old'],
+    });
+    const first = database.db.select().from(chains).where(eq(chains.demoId, 'chain-demo')).get()!;
+    expect(first).toMatchObject({ kind: 'demo', status: 'open', tags: ['demo', 'disc'] });
+    expect(first.payload).toMatchObject({ title: 'First', steps: ['one'], seeded: ['old'] });
+
+    clock = new Date('2026-09-05T13:00:00.000Z');
+    await post('/api/demos', {
+      id: 'chain-demo',
+      ref: 'two',
+      kind: 'pak',
+      title: 'Second',
+      summary: 'Fresh summary',
+      steps: ['two'],
+      seeded: ['new'],
+      deepLink: '/sleep',
+    });
+    expect(database.db.select().from(chains).where(eq(chains.demoId, 'chain-demo')).all()).toEqual([
+      expect.objectContaining({ id: first.id, status: 'open', tags: ['demo', 'pak'] }),
+    ]);
+    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()?.payload).toEqual(
+      {
+        title: 'Second',
+        kind: 'pak',
+        summary: 'Fresh summary',
+        steps: ['two'],
+        seeded: ['new'],
+        deepLink: '/sleep',
+        url: '/play/chain-demo/sleep',
+      },
+    );
+    expect(
+      database.db.select().from(chainMessages).where(eq(chainMessages.chainId, first.id)).all(),
+    ).toEqual([expect.objectContaining({ author: 'planner', text: 'Fresh summary' })]);
+
+    expect((await post('/api/demos/chain-demo/hide', {})).status).toBe(200);
+    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()?.status).toBe(
+      'settled',
+    );
+    expect(database.db.select().from(demos).where(eq(demos.id, 'chain-demo')).get()?.hiddenAt).toBe(
+      clock.toISOString(),
+    );
+    expect((await post('/api/demos/chain-demo/unhide', {})).status).toBe(200);
+    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()?.status).toBe(
+      'open',
+    );
+    expect(
+      database.db.select().from(demos).where(eq(demos.id, 'chain-demo')).get()?.hiddenAt,
+    ).toBeNull();
+
+    await post('/api/demos/chain-demo/hide', {});
+    expect((await post('/api/demos/build', { id: 'chain-demo' })).status).toBe(202);
+    expect(
+      database.db.select().from(chains).where(eq(chains.demoId, 'chain-demo')).all(),
+    ).toHaveLength(1);
+    expect(
+      database.db.select().from(chainMessages).where(eq(chainMessages.chainId, first.id)).all(),
+    ).toHaveLength(1);
+    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()).toMatchObject({
+      status: 'open',
+      tags: ['demo', 'pak'],
+      payload: expect.objectContaining({ title: 'Second', steps: ['two'], seeded: ['new'] }),
+    });
   });
 
   it('returns not found from hide and unhide for an unknown demo', async () => {

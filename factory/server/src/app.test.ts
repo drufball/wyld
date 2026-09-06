@@ -422,6 +422,22 @@ describe('Pak server', () => {
       backAt: '2026-09-06T16:30:00.000Z',
     });
     expect(Presence.parse(await (await app.request('/api/presence')).json())).toEqual(updated);
+    expect(
+      database.sqlite.prepare("SELECT status, payload FROM chains WHERE kind = 'action'").get(),
+    ).toEqual({
+      status: 'open',
+      payload: JSON.stringify({
+        deepLink: '/demos',
+        backAt: '2026-09-06T16:30:00.000Z',
+      }),
+    });
+    expect(
+      database.sqlite
+        .prepare(
+          "SELECT author, text FROM chain_messages WHERE chain_id = (SELECT id FROM chains WHERE kind = 'action')",
+        )
+        .get(),
+    ).toEqual({ author: 'planner', text: 'Try the demo' });
     const stored = z.array(Event).parse(await (await app.request('/api/events')).json());
     expect(stored).toMatchObject([
       {
@@ -439,7 +455,7 @@ describe('Pak server', () => {
         },
       },
     ]);
-    await app.request('/api/presence/next-action', {
+    const secondResponse = await app.request('/api/presence/next-action', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ text: 'Still working' }),
@@ -447,6 +463,29 @@ describe('Pak server', () => {
     expect(Presence.parse(await (await app.request('/api/presence')).json()).nextAction).toEqual({
       text: 'Still working',
     });
+    expect(Presence.parse(await secondResponse.json())).toMatchObject({
+      ...updated,
+      nextAction: { text: 'Still working' },
+    });
+    expect(
+      database.sqlite.prepare("SELECT status FROM chains WHERE kind = 'action' ORDER BY id").all(),
+    ).toEqual([{ status: 'settled' }, { status: 'open' }]);
+  });
+
+  it('counts only open, unsnoozed needs-you chain kinds', async () => {
+    const insert = database.sqlite.prepare(
+      "INSERT INTO chains (kind, status, created_at, last_activity_at, snoozed_until) VALUES (?, 'open', '2026', '2026', ?)",
+    );
+    for (const kind of ['question', 'message', 'rumble', 'demo']) insert.run(kind, null);
+    insert.run('action', null);
+    insert.run('unlock', null);
+    expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(4);
+    database.sqlite
+      .prepare(
+        "UPDATE chains SET snoozed_until = '2999-01-01T00:00:00.000Z' WHERE kind IN ('question', 'message', 'rumble', 'demo')",
+      )
+      .run();
+    expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(0);
   });
 
   it.each([{}, { text: '' }, { text: 'x', deepLink: 'https://example.com' }])(

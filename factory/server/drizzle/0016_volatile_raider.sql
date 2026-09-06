@@ -20,7 +20,7 @@ SELECT
   `demos`.`id`,
   json_object(
     'title', `demos`.`title`, 'kind', `demos`.`kind`, 'summary', `demos`.`summary`,
-    'steps', json(`demos`.`steps`), 'seeded', json(`demos`.`seeded`), 'deepLink', `demos`.`deep_link`,
+    'steps', json(coalesce(`demos`.`steps`, '[]')), 'seeded', json(coalesce(`demos`.`seeded`, '[]')), 'deepLink', `demos`.`deep_link`,
     'url', CASE WHEN `demos`.`kind` = 'live' THEN coalesce(`demos`.`deep_link`, '/') ELSE '/play/' || `demos`.`id` || '/' || ltrim(coalesce(`demos`.`deep_link`, '/'), '/') END
   )
 FROM `demos` LEFT JOIN `quests` ON `quests`.`id` = `demos`.`quest_id`;

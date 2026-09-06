@@ -72,7 +72,8 @@ export function ensureDemoChain(database: AppDatabase, row: DemoRow, now: string
       .set({ text: row.summary ?? row.title })
       .where(eq(chainMessages.id, message.id))
       .run();
-  return { chain: existing, changed: existing.status !== 'open' };
+  const refreshed = db.select().from(chains).where(eq(chains.id, existing.id)).get()!;
+  return { chain: refreshed, changed: existing.status !== 'open' };
 }
 
 export function settleDemoChain(database: AppDatabase, demoId: string, now: string) {

@@ -321,7 +321,6 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
     if (current === undefined) return notFound(c);
     const parsed = ChainReopen.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
-    void parsed.data.source;
     if (current.kind === 'rumble')
       return c.json(
         {

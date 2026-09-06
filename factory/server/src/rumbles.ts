@@ -85,7 +85,7 @@ export function writeRumble(database: AppDatabase, now: () => Date, data: NewRum
     db.insert(chains)
       .values({
         kind: 'rumble',
-        tags: ['rumble', ...(data.kind === null ? [] : [data.kind])],
+        tags: ['rumble', data.kind],
         status: data.chosen === undefined ? 'open' : 'settled',
         createdAt,
         lastActivityAt: data.chosenAt ?? createdAt,
@@ -105,6 +105,7 @@ export function writeRumble(database: AppDatabase, now: () => Date, data: NewRum
     const chosenAt = data.chosenAt ?? now().toISOString();
     db.update(chains)
       .set({
+        tags: ['rumble', data.kind],
         title: data.title,
         context: data.context,
         options: data.options,
