@@ -132,20 +132,29 @@ describe('Today', () => {
       [
         {
           id: 1,
-          kind: 'message',
+          kind: 'rumble',
           status: 'open',
           createdAt: presence.lastSeenAt,
           lastActivityAt: presence.lastSeenAt,
           questId: null,
           snoozedUntil: null,
-          rumble: null,
+          rumble: {
+            id: 'rumble',
+            title: 'Choose',
+            context: 'A choice',
+            options: ['A', 'B'],
+            chosen: null,
+            chosenAt: null,
+            blockingQuestIds: [],
+            kind: 'taste',
+          },
           messages: [],
         },
       ],
       true,
     ],
   ])(
-    '%s the panel based on the chains response when an open Rumble exists',
+    '%s the panel and Rumbles link based on the rumble chains response',
     async (_, chains, hidden) => {
       vi.stubGlobal(
         'fetch',
@@ -153,19 +162,6 @@ describe('Today', () => {
           if (url === '/api/presence')
             return jsonResponse({ ...presence, nextAction: { text: 'Nothing needs you today' } });
           if (url.startsWith('/api/chains?')) return jsonResponse(chains);
-          if (url.startsWith('/api/rumbles?'))
-            return jsonResponse([
-              {
-                id: 'rumble',
-                title: 'Choose',
-                context: 'A choice',
-                options: ['A', 'B'],
-                chosen: null,
-                chosenAt: null,
-                blockingQuestIds: [],
-                kind: 'taste',
-              },
-            ]);
           return jsonResponse([]);
         }),
       );
@@ -173,8 +169,10 @@ describe('Today', () => {
       if (hidden) {
         await waitFor(() => expect(container.querySelector('.chain-card')).not.toBeNull());
         expect(container.querySelector('.today-go-outside')).toBeNull();
+        expect(screen.getByRole('link', { name: '1 Rumbles' })).not.toBeNull();
       } else {
         await waitFor(() => expect(container.querySelector('.today-go-outside')).not.toBeNull());
+        expect(screen.queryByRole('link', { name: '1 Rumbles' })).toBeNull();
       }
     },
   );
