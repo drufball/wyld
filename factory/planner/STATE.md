@@ -90,6 +90,15 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **The host does not heartbeat on its own (found 2026-09-06 10:08, first host session).** Only the Planner's
+  `pak_health_report` calls write `health_reports`, and the Planner only gets a turn on an event, so a quiet
+  factory reads as a dead Planner: the ops watchdog pauses lane `planner` after 15 min and pushes to Dru's phone.
+  Fix in flight as `planner-in-pak` unit 3 (lead spawned 10:08; `PLANNER_HOST_HEARTBEAT_SECONDS`, default 120,
+  host posts `idle`/`working` to `POST /api/health/report`). **Bridge:** the session runs a CronCreate job every
+  4 min that sends a heartbeat — it is session-only, so a fresh session must recreate it (CronCreate
+  `*/4 * * * *`) until the unit has merged **and the host has been restarted** (`tmux respawn-window -k -t
+  wyld:planner` with the launcher's command from `scripts/factory-up.sh`; the host resumes the same session).
+
 - **Leads must write issue bodies and reviews to unique scratchpad files** (2026-09-06 09:30, cost two
   Codex runs): two leads used the same file name in the shared scratchpad; the launcher issue (#116) was filed
   with the chains pak body, its Codex task implemented the wrong unit on branch `codex/planner-launcher` (PR
