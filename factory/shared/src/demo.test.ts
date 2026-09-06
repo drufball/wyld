@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { Demo, Feedback, NewDemo, NewFeedback } from './demo.js';
+import { Demo, DemoKind, Feedback, NewDemo, NewFeedback, type Demo as DemoType } from './demo.js';
 
 const demo = {
   id: 'demo-1',
@@ -8,6 +8,11 @@ const demo = {
   title: 'Demo one',
   ref: 'abc123',
   url: '/play/demo-1/',
+  kind: 'disc',
+  summary: null,
+  steps: [],
+  seeded: [],
+  deepLink: null,
   builtAt: '2026-09-05T12:30:00Z',
   status: 'ready',
   error: null,
@@ -25,9 +30,19 @@ const feedback = {
 describe('demo schemas', () => {
   it('parses demos and feedback', () => {
     expect(Demo.parse(demo)).toEqual(demo);
+    expect(DemoKind.options).toEqual(['disc', 'live']);
     expect(Feedback.parse(feedback)).toEqual(feedback);
     expect(NewDemo.parse({ id: 'main', ref: 'main' })).toEqual({ id: 'main', ref: 'main' });
     expect(NewFeedback.parse({ demoId: 'main', text: 'Nice' })).toMatchObject({ text: 'Nice' });
+  });
+  it('exports required card fields on the parsed Demo type', () => {
+    expectTypeOf<DemoType>().toMatchTypeOf<{
+      kind: 'disc' | 'live';
+      summary: string | null;
+      steps: string[];
+      seeded: string[];
+      deepLink: string | null;
+    }>();
   });
   it('rejects malformed demos and feedback', () => {
     expect(Demo.safeParse({ ...demo, status: 'unknown' }).success).toBe(false);
