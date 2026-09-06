@@ -1,6 +1,14 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import type { SleepAlarm, SleepPhaseEntry } from '@wyld/shared';
 
+export const achievements = sqliteTable('achievements', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  badge: text('badge').notNull(),
+  unlockedAt: text('unlocked_at'),
+});
+
 export const events = sqliteTable(
   'events',
   {

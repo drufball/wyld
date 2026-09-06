@@ -19,3 +19,21 @@ describe('createWakeForwarder sleep events', () => {
     });
   });
 });
+
+describe('createWakeForwarder Pak events', () => {
+  it('does not forward achievement unlocks', async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => new Response(null, { status: 200 }));
+    const forward = createWakeForwarder({ wakeUrl: 'http://wake.test', fetch: fetcher });
+    forward(
+      Event.parse({
+        id: 1,
+        ts: '2026-09-06T06:30:00.000Z',
+        source: 'pak',
+        kind: 'pak.achievement_unlocked',
+        payload: { id: 'early-bird', name: 'Early Bird', badge: '🐦' },
+      }),
+    );
+    await Promise.resolve();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+});

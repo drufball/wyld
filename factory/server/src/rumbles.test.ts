@@ -133,7 +133,9 @@ describe('rumble routes', () => {
     );
     expect(second).toMatchObject({ chosen: 'No', chosenAt: '2026-09-05T12:00:01.000Z' });
     expect(second.chosenAt).not.toBe(first.chosenAt);
-    const events = Event.array().parse(await (await app.request('/api/events')).json());
+    const events = Event.array()
+      .parse(await (await app.request('/api/events')).json())
+      .filter(({ kind }) => kind === 'human.decision');
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({
       source: 'human',

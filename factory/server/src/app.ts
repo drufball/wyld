@@ -33,6 +33,7 @@ import { resolveStaticFile } from './static.js';
 import { createNotifier } from './notify.js';
 import { createPauseRoutes, createPauseService } from './pause.js';
 import { createSleepRoutes, createSleepScheduler, type SleepConfig } from './sleep.js';
+import { createAchievements } from './achievements.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -111,6 +112,13 @@ export function createApp(dependencies: AppDependencies) {
   const subscribers = new Set<Subscriber>();
   const startedAt = Date.now();
   const app = new Hono();
+  const sleepConfig = dependencies.sleepConfig ?? {
+    timeZone: 'UTC',
+    goodnight: '23:00',
+    lastCall: '07:15',
+    lightsOn: '08:00',
+    enabled: false,
+  };
   const notify = createNotifier({
     ntfyUrl: dependencies.ntfyUrl,
     topic: dependencies.ntfyTopic ?? 'wyld-pak',
@@ -195,8 +203,28 @@ export function createApp(dependencies: AppDependencies) {
         });
     }
     forwardToWake(event);
+    if (newEvent.kind !== 'pak.achievement_unlocked') {
+      try {
+        await achievementService.evaluate();
+      } catch (error: unknown) {
+        logger('error', 'failed to evaluate achievements', { error: String(error) });
+      }
+    }
     return event;
   };
+
+  const achievementService = createAchievements({
+    database: dependencies.database,
+    now,
+    storeEvent,
+    timeZone: sleepConfig.timeZone,
+  });
+  achievementService.seed();
+  void achievementService.evaluate().catch((error: unknown) => {
+    logger('error', 'failed to evaluate achievements at boot', { error: String(error) });
+  });
+
+  app.get('/api/achievements', (c) => c.json(achievementService.list()));
 
   app.post('/api/events', async (c) => {
     const body: unknown = await c.req.json().catch(() => undefined);
@@ -414,13 +442,6 @@ export function createApp(dependencies: AppDependencies) {
   });
 
   app.route('/api', createQuestRoutes({ database: dependencies.database, now, storeEvent }));
-  const sleepConfig = dependencies.sleepConfig ?? {
-    timeZone: 'UTC',
-    goodnight: '23:00',
-    lastCall: '07:15',
-    lightsOn: '08:00',
-    enabled: false,
-  };
   app.route(
     '/api',
     createSleepRoutes({ database: dependencies.database, now, storeEvent, config: sleepConfig }),

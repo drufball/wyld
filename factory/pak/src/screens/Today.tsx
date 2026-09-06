@@ -182,10 +182,34 @@ export function Today({
   const [chainCount, setChainCount] = useState(0);
   const [buildingCount, setBuildingCount] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [achievementName, setAchievementName] = useState<string | null>(null);
+  const achievementTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intentField = useRef<HTMLTextAreaElement>(null);
   const composerButton = useRef<HTMLButtonElement>(null);
   const composerWasOpened = useRef(false);
   const { subscribe } = useLiveEvents();
+
+  const dismissAchievement = useCallback(() => {
+    if (achievementTimer.current !== null) clearTimeout(achievementTimer.current);
+    achievementTimer.current = null;
+    setAchievementName(null);
+  }, []);
+  useEffect(() => {
+    const stop = subscribe('pak.achievement_unlocked', (event) => {
+      const name = event.payload['name'];
+      if (typeof name !== 'string' || name.trim().length === 0) return;
+      if (achievementTimer.current !== null) clearTimeout(achievementTimer.current);
+      setAchievementName(name);
+      achievementTimer.current = setTimeout(() => {
+        achievementTimer.current = null;
+        setAchievementName(null);
+      }, 8_000);
+    });
+    return () => {
+      stop();
+      if (achievementTimer.current !== null) clearTimeout(achievementTimer.current);
+    };
+  }, [subscribe]);
 
   const loadPresence = useCallback(
     () =>
@@ -371,6 +395,19 @@ export function Today({
           </Button>
         </form>
       </Card>
+      {achievementName !== null && (
+        <Card variant="bevel" data-tone="ok" className="today-achievement relative p-4 pr-14">
+          Achievement unlocked — {achievementName}
+          <button
+            type="button"
+            aria-label="Dismiss achievement"
+            className="absolute right-1 top-1 size-11 text-xl text-muted-foreground"
+            onClick={dismissAchievement}
+          >
+            ×
+          </button>
+        </Card>
+      )}
       {goOutside && nextAction !== null ? (
         <GoOutside action={nextAction} building={buildingCount} />
       ) : nextAction !== null ? (

@@ -1,4 +1,5 @@
 import {
+  Achievement,
   CatchupView,
   Chain,
   Demo,
@@ -32,6 +33,10 @@ async function request(input: string, init: RequestInit, description: string): P
     throw new Error(`${description} failed (${response.status})${detail ? `: ${detail}` : ''}`);
   }
   return response.json();
+}
+
+export async function listAchievements() {
+  return Achievement.array().parse(await request('/api/achievements', {}, 'Loading achievements'));
 }
 
 function json(method: 'POST' | 'PATCH', body: unknown): RequestInit {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { Achievement, Health, Retro, SleepRun } from './ops.js';
+import { Achievement } from './achievement.js';
+import { Health, Retro, SleepRun } from './ops.js';
 
 const ts = '2026-09-05T12:30:00Z';
 
@@ -47,6 +48,7 @@ describe('operations schemas', () => {
       Achievement.parse({
         id: 'achievement-1',
         name: 'First Ship',
+        description: 'Ship once.',
         unlockedAt: ts,
         badge: 'rocket',
       }),
@@ -59,8 +61,13 @@ describe('operations schemas', () => {
       false,
     );
     expect(
-      Achievement.safeParse({ id: 'achievement-1', name: '', unlockedAt: ts, badge: 'rocket' })
-        .success,
+      Achievement.safeParse({
+        id: 'achievement-1',
+        name: '',
+        description: 'Ship once.',
+        unlockedAt: ts,
+        badge: 'rocket',
+      }).success,
     ).toBe(false);
   });
 });

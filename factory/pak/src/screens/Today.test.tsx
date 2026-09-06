@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
@@ -24,8 +24,55 @@ function renderToday(signals?: { rumbles: number; demos: number; memory: string 
   );
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 describe('Today', () => {
+  it('shows, dismisses, and auto-hides live achievement unlocks', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => jsonResponse(url === '/api/presence' ? presence : [])),
+    );
+    let receive: EventListener | null = null;
+    render(
+      <MemoryRouter>
+        <LiveEventsProvider
+          eventSourceFactory={() => ({
+            addEventListener(type, listener) {
+              if (type === 'event') receive = listener as EventListener;
+            },
+            removeEventListener() {},
+            close() {},
+          })}
+        >
+          <Today />
+        </LiveEventsProvider>
+      </MemoryRouter>,
+    );
+    const emit = (name: string) => {
+      receive?.(
+        new MessageEvent('event', {
+          data: JSON.stringify({
+            id: 1,
+            ts: '2026-09-06T08:00:00Z',
+            source: 'pak',
+            kind: 'pak.achievement_unlocked',
+            payload: { name },
+          }),
+        }),
+      );
+    };
+    act(() => emit('First Light'));
+    expect(screen.getByText('Achievement unlocked — First Light')).not.toBeNull();
+    fireEvent.click(screen.getByLabelText('Dismiss achievement'));
+    expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
+    act(() => emit('Five Alive'));
+    expect(screen.getByText('Achievement unlocked — Five Alive')).not.toBeNull();
+    act(() => vi.advanceTimersByTime(8_000));
+    expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
+  });
   it('renders the Go Outside details and optional local ETA', () => {
     const { rerender } = render(
       <MemoryRouter>

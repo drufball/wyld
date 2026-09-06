@@ -129,7 +129,7 @@ describe('Pak shell', () => {
     );
     renderAt('/memory');
     expect(await screen.findByRole('heading', { name: 'MEMORY' })).not.toBeNull();
-    expect(screen.getByText('No nights have been recorded yet.')).not.toBeNull();
+    expect(await screen.findByText('No nights have been recorded yet.')).not.toBeNull();
     vi.unstubAllGlobals();
   });
 
