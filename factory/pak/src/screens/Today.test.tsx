@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
-import { Signals, Today } from './Today.js';
+import { LastMemoryCard, Signals, Today } from './Today.js';
 
 const source = () => ({ addEventListener() {}, removeEventListener() {}, close() {} });
 const presence = { lastSeenAt: '2026-09-05T12:00:00Z', lastCatchupEventId: null, nextAction: null };
@@ -26,6 +26,53 @@ function renderToday(signals?: { rumbles: number; demos: number; memory: string 
 
 afterEach(() => vi.unstubAllGlobals());
 describe('Today', () => {
+  it("links to sleep and persists dismissal of last night's Memory Card", async () => {
+    const today = new Date();
+    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const retro = {
+      id: 1,
+      date,
+      summary: 'A calm night.',
+      wins: [],
+      misses: [],
+      factoryImprovements: [],
+      stats: {},
+      generatedBy: 'planner',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.clear();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse([retro])),
+    );
+    const view = render(
+      <MemoryRouter>
+        <LastMemoryCard />
+      </MemoryRouter>,
+    );
+    expect(
+      (await screen.findByRole('link', { name: /Last night's Memory Card/ })).getAttribute('href'),
+    ).toBe('/memory');
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss Memory Card' }));
+    expect(localStorage.getItem(`pak.memory-card.dismissed.${date}`)).toBe('1');
+    view.unmount();
+    render(
+      <MemoryRouter>
+        <LastMemoryCard />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.queryByText("Last night's Memory Card")).toBeNull());
+  });
+
+  it('offers the Goodnight entry point', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse(presence)),
+    );
+    renderToday();
+    expect(screen.getByRole('link', { name: 'Goodnight' }).getAttribute('href')).toBe('/sleep');
+  });
   it('does not render the old cranking paragraph', async () => {
     const fetch = vi.fn((url: string) =>
       jsonResponse(url === '/api/quests' || url === '/api/worlds' ? [] : presence),

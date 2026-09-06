@@ -1,7 +1,14 @@
-import { NewEvent, type Chain, type NextAction } from '@wyld/shared';
+import { NewEvent, type Chain, type NextAction, type Retro } from '@wyld/shared';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { getPresence, listDemos, listRumbles, postChain, postEvent } from '../api/client.js';
+import {
+  getPresence,
+  listDemos,
+  listRetros,
+  listRumbles,
+  postChain,
+  postEvent,
+} from '../api/client.js';
 import { ChainList } from '../components/ChainList.js';
 import { InFlight } from '../components/InFlight.js';
 import { Button } from '../components/ui/button.js';
@@ -31,6 +38,56 @@ export function Signals({ rumbles, demos, memory }: TodaySignals) {
       )}
       {memory !== null && <p className="m-0">{memory}</p>}
     </section>
+  );
+}
+
+function localIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function LastMemoryCard() {
+  const [retro, setRetro] = useState<Retro | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const eligible = new Set([localIsoDate(today), localIsoDate(yesterday)]);
+    void listRetros(2)
+      .then((items) => {
+        const latest = items.find(({ date }) => eligible.has(date)) ?? null;
+        setRetro(latest);
+        setDismissed(
+          latest === null ||
+            localStorage.getItem(`pak.memory-card.dismissed.${latest.date}`) !== null,
+        );
+      })
+      .catch(() => undefined);
+  }, []);
+  if (retro === null || dismissed) return null;
+  return (
+    <Card variant="bevel" data-tone="accent" className="relative min-w-0 p-4 pr-14">
+      <Link className="block min-h-11 min-w-0 text-foreground no-underline" to="/memory">
+        <span className="block font-display text-[10px] text-dracula-pink">
+          Last night's Memory Card
+        </span>
+        <span className="mt-2 block truncate text-sm text-muted-foreground">{retro.summary}</span>
+      </Link>
+      <button
+        type="button"
+        className="absolute right-1 top-1 size-11 text-xl text-muted-foreground"
+        aria-label="Dismiss Memory Card"
+        onClick={() => {
+          localStorage.setItem(`pak.memory-card.dismissed.${retro.date}`, '1');
+          setDismissed(true);
+        }}
+      >
+        ×
+      </button>
+    </Card>
   );
 }
 
@@ -148,6 +205,14 @@ export function Today({
 
   return (
     <div className="grid gap-8">
+      <div className="flex justify-end">
+        <Button asChild variant="retro" size="icon">
+          <Link to="/sleep" aria-label="Goodnight" className="font-sans text-2xl" title="Goodnight">
+            🌙
+          </Link>
+        </Button>
+      </div>
+      <LastMemoryCard />
       {composerOpen && (
         <button
           type="button"

@@ -11,6 +11,9 @@ import {
   QuestNote,
   Rumble,
   NewFeedback,
+  Retro,
+  SleepCurrent,
+  SleepRun,
   WorldWithQuestCounts,
   type NewEvent as NewEventType,
   type QuestStatus,
@@ -200,4 +203,28 @@ export async function postFeedback(body: NewFeedbackType): Promise<FeedbackType>
   return Feedback.parse(
     await request('/api/feedback', json('POST', NewFeedback.parse(body)), 'Posting feedback'),
   );
+}
+
+export async function getSleepCurrent() {
+  return SleepCurrent.parse(await request('/api/sleep/current', {}, 'Loading sleep status'));
+}
+
+export async function listSleepRuns(limit = 20) {
+  return SleepRun.array().parse(
+    await request(`/api/sleep/runs?limit=${limit}`, {}, 'Loading sleep runs'),
+  );
+}
+
+export async function postGoodnight() {
+  return SleepRun.parse(
+    await request(
+      '/api/sleep/goodnight',
+      json('POST', { trigger: 'human' }),
+      'Starting sleep mode',
+    ),
+  );
+}
+
+export async function listRetros(limit = 20) {
+  return Retro.array().parse(await request(`/api/retros?limit=${limit}`, {}, 'Loading memories'));
 }
