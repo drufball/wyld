@@ -7,19 +7,21 @@ import { App } from './App.js';
 import { reloadWhenSafe } from './pwa/refresh.js';
 import './theme.css';
 
-registerSW({
-  immediate: true,
-  onNeedReload: reloadWhenSafe,
-  onRegisteredSW(_url, registration) {
-    if (!registration) return;
+if (import.meta.env.BASE_URL === '/') {
+  registerSW({
+    immediate: true,
+    onNeedReload: reloadWhenSafe,
+    onRegisteredSW(_url, registration) {
+      if (!registration) return;
 
-    window.setInterval(() => {
-      if (document.visibilityState === 'visible' && navigator.onLine) {
-        void registration.update();
-      }
-    }, 60_000);
-  },
-});
+      window.setInterval(() => {
+        if (document.visibilityState === 'visible' && navigator.onLine) {
+          void registration.update();
+        }
+      }, 60_000);
+    },
+  });
+}
 
 const root = document.querySelector('#root');
 
@@ -29,7 +31,7 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <App />
     </BrowserRouter>
   </StrictMode>,

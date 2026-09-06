@@ -438,6 +438,15 @@ describe('Pak server', () => {
     });
   });
 
+  it('serves a demo folder index for a client-routed play path', async () => {
+    fs.mkdirSync(path.join(directory, 'demos/branch'), { recursive: true });
+    fs.writeFileSync(path.join(directory, 'demos/branch/index.html'), 'branch pak');
+
+    const response = await app.request('/play/branch/sleep');
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('branch pak');
+  });
+
   it('does not let encoded play paths escape a demo directory', async () => {
     fs.mkdirSync(path.join(directory, 'demos/main'), { recursive: true });
     fs.writeFileSync(path.join(directory, 'demos/main/index.html'), 'game');

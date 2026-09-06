@@ -5,7 +5,7 @@ import { Id, Timestamp } from './ids.js';
 export const DemoStatus = z.enum(['building', 'ready', 'failed']);
 export type DemoStatus = z.infer<typeof DemoStatus>;
 
-export const DemoKind = z.enum(['disc', 'live']);
+export const DemoKind = z.enum(['disc', 'live', 'pak']);
 export type DemoKind = z.infer<typeof DemoKind>;
 
 export const Demo = z.object({

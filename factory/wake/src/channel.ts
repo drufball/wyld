@@ -252,17 +252,17 @@ const RegisterDemoArgs = z
   })
   .strict()
   .superRefine((demo, context) => {
-    if (demo.kind === 'live' && (!demo.summary || !demo.steps?.length)) {
+    if (demo.kind !== 'disc' && (!demo.summary || !demo.steps?.length)) {
       context.addIssue({
         code: 'custom',
-        message: 'live demos need a summary and at least one step',
+        message: 'live and pak demos need a summary and at least one step',
       });
     }
     if (demo.kind === 'disc' && demo.deep_link !== undefined) {
       context.addIssue({
         code: 'custom',
         path: ['deep_link'],
-        message: 'deep_link only applies to live demos',
+        message: 'deep_link only applies to live and pak demos',
       });
     }
   });
@@ -642,7 +642,7 @@ const tools = [
   {
     name: 'pak_register_demo',
     description:
-      'Register what Dru can try for a quest: a Demo Disc (a game build) or a live try-it card (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
+      'Register what Dru can try for a quest: a Demo Disc (a game build), a live try-it card, or a branch build of the Pak (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -656,9 +656,10 @@ const tools = [
         title: { type: 'string', description: 'An optional display label.' },
         kind: {
           type: 'string',
-          enum: ['disc', 'live'],
+          enum: ['disc', 'live', 'pak'],
           default: 'disc',
-          description: 'disc for a game build, live for a try-it card against the running Pak.',
+          description:
+            'disc for a game build, live for a card against the running Pak, or pak for a branch Pak build.',
         },
         summary: {
           type: 'string',

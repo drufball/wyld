@@ -9,6 +9,7 @@ const repoDir = path.join(testDir, 'repo');
 fs.mkdirSync(factoryDir);
 fs.mkdirSync(repoDir);
 const port = 8799;
+process.env.WYLD_E2E_DEMOS_DIR = path.join(factoryDir, 'demos');
 
 // Run `pnpm build` first: the smoke test deliberately exercises the built Pak and server.
 const config = defineConfig({
