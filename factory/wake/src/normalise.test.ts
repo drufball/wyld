@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { normaliseEvent, normaliseGithub } from './normalise.js';
 
@@ -304,6 +304,18 @@ describe('normaliseGithub', () => {
 });
 
 describe('sleep alarms', () => {
+  const originalTimezone = process.env.TZ;
+
+  beforeAll(() => {
+    // Production deliberately formats alarm summaries in the machine's own timezone.
+    process.env.TZ = 'UTC';
+  });
+
+  afterAll(() => {
+    if (originalTimezone === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTimezone;
+  });
+
   const event = (alarm: string, trigger = 'schedule', payload = {}) => ({
     id: 1,
     ts: timestamp,

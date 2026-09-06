@@ -125,6 +125,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
         ...optional('pr', row.pr),
         ...optional('chain', row.chain),
         ...optional('url', row.url),
+        ...optional('run', row.run),
         summary: row.summary,
         ts: row.ts,
       });

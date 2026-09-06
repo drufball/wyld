@@ -112,6 +112,34 @@ describe('Wake app', () => {
     expect(await response.json()).toMatchObject({ messages: [{ summary: 'Dru: build it' }] });
   });
 
+  it('carries a sleep run id from ingress through claim', async () => {
+    await app.request('/event', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: 2,
+        ts: '2026-01-01T00:00:00.000Z',
+        source: 'sleep',
+        kind: 'sleep.alarm',
+        payload: {
+          runId: 7,
+          alarm: 'goodnight',
+          trigger: 'schedule',
+          lightsOnAt: '2026-01-01T08:05:00.000Z',
+        },
+      }),
+    });
+
+    const response = await app.request('/queue/claim', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(await response.json()).toMatchObject({
+      messages: [{ kind: 'sleep.alarm', run: 7 }],
+    });
+  });
+
   it('persists pause state and releases untouched messages after resume', async () => {
     await app.request('/event', {
       method: 'POST',
