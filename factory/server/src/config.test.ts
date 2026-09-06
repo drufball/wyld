@@ -14,6 +14,8 @@ describe('readConfig', () => {
         PAK_DIST: '/tmp/pak-dist',
         WAKE_URL: 'http://localhost:8788/event',
         WAKE_SECRET: 'shared-secret',
+        NTFY_URL: 'https://ntfy.example',
+        NTFY_TOPIC: 'custom-topic',
       }),
     ).toEqual({
       factoryDir: '/tmp/factory',
@@ -26,6 +28,8 @@ describe('readConfig', () => {
       pakDist: '/tmp/pak-dist',
       wakeUrl: 'http://localhost:8788/event',
       wakeSecret: 'shared-secret',
+      ntfyUrl: 'https://ntfy.example',
+      ntfyTopic: 'custom-topic',
     });
   });
 
@@ -40,6 +44,16 @@ describe('readConfig', () => {
     expect(config.wakeSecret).toBeUndefined();
     expect(config).not.toHaveProperty('wakeUrl');
     expect(config).not.toHaveProperty('wakeSecret');
+  });
+
+  it('defaults the ntfy topic and treats an empty URL as unset', () => {
+    const config = readConfig({ NTFY_URL: '' });
+    expect(config.ntfyTopic).toBe('wyld-pak');
+    expect(config).not.toHaveProperty('ntfyUrl');
+  });
+
+  it('rejects a malformed non-empty ntfy URL', () => {
+    expect(() => readConfig({ NTFY_URL: 'not-a-url' })).toThrow('Invalid server configuration');
   });
 
   it('rejects a malformed non-empty Wake URL', () => {

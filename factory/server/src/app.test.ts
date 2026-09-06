@@ -716,4 +716,60 @@ describe('quest API', () => {
       { kind: 'human.park', payload: { text: 'Unpark: Catch-Up' } },
     ]);
   });
+
+  it('validates and sends push notifications', async () => {
+    const fetch = vi.fn(async () => new Response('', { status: 200 }));
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      ntfyUrl: 'https://ntfy.example',
+      fetch,
+      logger: silentLogger,
+    });
+    const response = await app.request('/api/notify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 't', message: 'm' }),
+    });
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ sent: true });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetch).toHaveBeenCalledWith(
+      'https://ntfy.example/',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ topic: 'wyld-pak', title: 't', message: 'm' }),
+      }),
+    );
+  });
+
+  it('rejects malformed push bodies', async () => {
+    const response = await app.request('/api/notify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: '' }),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toHaveProperty('issues');
+  });
+
+  it('accepts but does not send notifications when disabled', async () => {
+    const fetch = vi.fn();
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      fetch,
+      logger: silentLogger,
+    });
+    const response = await app.request('/api/notify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 't', message: 'm' }),
+    });
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ sent: false });
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });

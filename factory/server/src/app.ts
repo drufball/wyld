@@ -30,6 +30,7 @@ import { createRumbleRoutes, listOrderedRumbleRows } from './rumbles.js';
 import { createDemoRoutes } from './demos.js';
 import { DEMO_SLUG, type DemoBuilder } from './builder.js';
 import { resolveStaticFile } from './static.js';
+import { createNotifier } from './notify.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -39,6 +40,15 @@ const EventQuery = z.object({
 const ReplayQuery = z.object({
   since: z.coerce.number().int().min(0).optional(),
 });
+
+const NotifyPost = z
+  .object({
+    title: z.string().min(1).max(120),
+    message: z.string().min(1).max(500),
+    tags: z.array(z.string()).optional(),
+    click: z.string().optional(),
+  })
+  .strict();
 
 const CatchupPost = z
   .object({
@@ -78,6 +88,8 @@ export type AppDependencies = {
   version?: string;
   wakeUrl?: string;
   wakeSecret?: string;
+  ntfyUrl?: string;
+  ntfyTopic?: string;
   now?: () => Date;
   fetch?: typeof globalThis.fetch;
   logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
@@ -94,6 +106,20 @@ export function createApp(dependencies: AppDependencies) {
   const subscribers = new Set<Subscriber>();
   const startedAt = Date.now();
   const app = new Hono();
+  const notify = createNotifier({
+    ntfyUrl: dependencies.ntfyUrl,
+    topic: dependencies.ntfyTopic ?? 'wyld-pak',
+    fetch: dependencies.fetch,
+    logger,
+  });
+
+  app.post('/api/notify', async (c) => {
+    const parsed = NotifyPost.safeParse(await c.req.json().catch(() => undefined));
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    const { title, message, ...options } = parsed.data;
+    notify(title, message, options);
+    return c.json({ sent: dependencies.ntfyUrl !== undefined }, 202);
+  });
 
   const serverHealth = () => {
     let databaseStatus: 'ok' | 'error' = 'ok';

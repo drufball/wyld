@@ -72,6 +72,11 @@ else
       fail "$key is unset or still a placeholder; run ./scripts/bootstrap.sh"
     fi
   done
+  if [[ -n "$(sed -n 's/^NTFY_URL=//p' .factory/env | tail -n 1)" ]]; then
+    ok 'push notifications are configured'
+  else
+    warn 'NTFY_URL is unset; push notifications are disabled'
+  fi
 fi
 
 for port in "$PAK_PORT" "$WAKE_PORT"; do
