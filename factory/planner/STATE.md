@@ -27,6 +27,8 @@ step finishes._
 | `improved-chains` (Dru 2026-09-06 ~09:05: Rumbles as chains, quest-attached chains, snooze, fold-up, Today composer FAB) | done, in `demo` | #113 server (rumbles unified with chains + snoozing), #118 Wake chain kind filters, #119 Pak (unified chains/rumbles/snooze/composer). Main disc rebuilt 09:55. Follow-up raised with Dru as a question chain 10:05 (card chrome: follow-up box + three buttons per card) — build only if he says so |
 | `planner-in-pak` (decided 2026-09-06 08:14) | done, in `demo` | #112 `factory/planner-host` (Agent SDK host, streaming input, claims Wake's queue, resumes session id, `:8789/health`), #121 `factory-up.sh` `PLANNER_MODE` host\|cli + doctor "exactly one Planner". **Cutover executed 09:58**; first host session up 10:00 and announced. `unattended-restart` closed as done 10:01 |
 | 1.10 Sleep Mode + Memory Card (quest `sleep-mode`) | done, in `demo` (2026-09-06 11:20; three PRs, one fix round each) | #125 shared+server (`sleep_runs`/`retros`, `POST /api/sleep/goodnight|:id/phase|:id/end`, `GET /api/sleep/current|runs`, `GET/PUT /api/retros[/:date]`, 30 s scheduler on local time `SLEEP_TZ`/`SLEEP_GOODNIGHT` 23:00/`SLEEP_LAST_CALL` 07:15/`SLEEP_LIGHTS_ON` 08:00/`SLEEP_SCHEDULE`, idempotent alarms in `alarms_fired`, 08:00 guard ends run `timed_out` + mechanical retro + **overwrites the next action** with "Good morning — nothing needs you yet"; forwarder lets only `sleep.alarm` through), #129 Wake (`sleep.alarm` normalised, `run` carried in the WakeMessage/claim/channel tag, tools `pak_read_sleep`/`pak_advance_sleep`/`pak_end_sleep`/`pak_write_retro`/`pak_read_retros`), #131 Pak (`/sleep` GOODNIGHT + phases + countdown + CSS night scene, `/memory` save-file cards, Today moon button + dismissable last-night card, smoke 10/10). Planner-side: `skills/sleep-mode.md`, `skills/write-retro.md`, PROTOCOL §2 rows. **First real night is 2026-09-06 23:00.** |
+| `try-it-cards` (Dru 2026-09-06 10:53) | done, in `demo` (16:45; five PRs) | #137 shared+server (`demos.kind` disc\|live\|pak, `summary`/`steps`/`seeded`/`deep_link`, live → `ready` w/o builder, migration 0012), #139 wake `pak_register_demo` fields + validation, #141 Pak one Demos grid + `/demos/:id` live card + quest-card Try it (2 fix rounds), #145 `kind: 'pak'` branch Pak builds under `/play/<slug>/` (`PAK_BASE`, router basename, no SW off `/`; 2 fix rounds), #147 pak build needs `@wyld/shared` built first (`--filter @wyld/pak...`). `skills/merge-and-ship.md` §3: every quest reaching `demo` registers a card |
+| `quiet-chain-cards` follow-up (Dru 15:04) | done, in `demo` | #143 no arrow (sr-only toggle), header row only with a quest chip, lucide `Ellipsis` icon button beside Settled |
 | 1.9 Debug Menu explorer/event stream, 1.11 `polish` | not started | see factory-spec.md §11; `polish` is an `idea` quest (Serve already on; make `factory:up`/doctor check it) |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -98,6 +100,16 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **No lead running as of 16:47; nothing open on GitHub.** Next: plan `polish` (1.11) — check what of factory-spec §11's list is
+  already done (Serve on, PWA/SW exist, `factory up/down/doctor` exist) and quest only what is left; then Phase 2 (`fieldwork`).
+  First Sleep Mode night tonight at 23:00 local — leave nothing non-draft open by then.
+- **try-it lead's sharp edges (16:45):** (1) a builder path that only runs in production needs one *real* run before it counts as
+  verified — `kind: 'pak'` shipped dead in #145 (fresh worktree lacks `factory/shared/dist`; the smoke spec ran inside a checkout
+  that had it) and only the live run found it. (2) `playwright.config.ts` is evaluated once per process (runner + each
+  worker) — module-scope `mkdtempSync` made two temp dirs; now stashed in `process.env.WYLD_E2E_DIR`. (3) **The live server runs
+  `tsx watch src/main.ts`, not `dist`** — `factory/server/dist` goes stale; rebuild `@wyld/server` before verifying against
+  `node factory/server/dist/main.js`. (4) `gh pr merge --delete-branch` also removes the local worktree on that branch; just
+  `git worktree prune`. (5) An overflow check alone does not catch a broken card border — look at the screenshot.
 - **Factory un-quieted 14:24 BST on Dru's word** ("just get started, no need to wait on phone"; he'll tap Done on
   `new-home-prep` after a race). Old laptop confirmed silent on the tailnet 14:20. **Lead spawned 14:24 for quest
   `try-it-cards`** (`planning`; scratchpad `/tmp/wyld-leads/try-it-cards/`), four sequenced units, all on `demos`:
