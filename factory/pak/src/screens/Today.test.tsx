@@ -232,6 +232,7 @@ describe('Today', () => {
     vi.stubGlobal('fetch', fetch);
     renderToday();
     const field = screen.getByLabelText("What's on your mind?") as HTMLTextAreaElement;
+    fireEvent.click(await screen.findByRole('button', { name: 'Reply or settle' }));
     fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Make this a quest' }));
     await waitFor(() =>
@@ -268,6 +269,7 @@ describe('Today', () => {
     });
     vi.stubGlobal('fetch', fetch);
     renderToday();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reply or settle' }));
     fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Make this a quest' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));

@@ -165,6 +165,30 @@ describe('ChainList', () => {
     expect(document.activeElement).toBe(screen.getByLabelText('Follow up'));
   });
 
+  it('hides arrow glyphs and keeps more actions beside Settled only while open', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url === '/api/chains' ? [question] : [])),
+    );
+    const { container } = renderList();
+    await screen.findByText('Why?');
+
+    expect(
+      screen
+        .queryAllByRole('button')
+        .some(({ textContent }) => ['⌄', '⌃'].includes(textContent ?? '')),
+    ).toBe(false);
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reply or settle' }));
+    const actions = container.querySelector('#chain-actions-1');
+    const settled = screen.getByRole('button', { name: 'Settled' });
+    const moreActions = screen.getByRole('button', { name: 'More actions' });
+    expect(actions?.contains(settled)).toBe(true);
+    expect(actions?.contains(moreActions)).toBe(true);
+    expect(settled.parentElement).toBe(moreActions.parentElement);
+  });
+
   it('opens the actions menu, snoozes with presets, and closes on Escape', async () => {
     const fetch = vi.fn((url: string, init?: RequestInit) =>
       response(url === '/api/chains' ? [question] : init?.method === 'POST' ? question : []),
@@ -178,6 +202,7 @@ describe('ChainList', () => {
       </LiveEventsProvider>,
     );
     await screen.findByText('Why?');
+    fireEvent.click(screen.getByRole('button', { name: 'Reply or settle' }));
     const trigger = screen.getByRole('button', { name: 'More actions' });
     fireEvent.click(trigger);
     expect(screen.getByRole('menuitem', { name: 'Make this a quest' })).not.toBeNull();
@@ -209,12 +234,13 @@ describe('ChainList', () => {
     const { container } = renderList();
     await screen.findByText('Why?');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Reply or settle' }));
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     expect(screen.getByRole('menu')).not.toBeNull();
     fireEvent.click(container.querySelector('.chain-card p')!);
 
     expect(screen.queryByRole('menu')).toBeNull();
-    expect(screen.queryByLabelText('Follow up')).toBeNull();
+    expect(screen.getByLabelText('Follow up')).not.toBeNull();
   });
 
   it('suppresses the quest chip and does not load quest names when requested', async () => {

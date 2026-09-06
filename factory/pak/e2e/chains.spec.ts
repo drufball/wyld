@@ -25,7 +25,9 @@ test('asks, receives a live answer, and settles a chain', async ({ page, request
   expect(answerResponse.ok()).toBe(true);
   await expect(card.getByText(answer)).toBeVisible();
 
-  await card.getByRole('button', { name: 'Reply or settle' }).click();
+  const replyTrigger = card.getByRole('button', { name: 'Reply or settle' });
+  await replyTrigger.focus();
+  await replyTrigger.press('Enter');
   const followUp = card.getByLabel('Follow up');
   await followUp.fill('Tell me one more thing.');
   await followUp.press('Enter');
@@ -94,11 +96,12 @@ test('asks about a quest and keeps its chain in sync with Today', async ({ page,
 
   await page.goto(`/quests?world=${worldId}`);
   await expect(page.getByText(answer)).toBeVisible();
-  await page
+  const replyTrigger = page
     .locator('.chain-card')
     .filter({ hasText: question })
-    .getByRole('button', { name: 'Reply or settle' })
-    .click();
+    .getByRole('button', { name: 'Reply or settle' });
+  await replyTrigger.focus();
+  await replyTrigger.press('Enter');
   await page
     .locator('.chain-card')
     .filter({ hasText: question })
@@ -109,10 +112,7 @@ test('asks about a quest and keeps its chain in sync with Today', async ({ page,
   await expect(page.getByText(question)).toHaveCount(0);
 });
 
-test('snoozes a collapsed chain from the actions menu at mobile width', async ({
-  page,
-  request,
-}) => {
+test('snoozes an open chain from the actions menu at mobile width', async ({ page, request }) => {
   await page.setViewportSize({ width: 360, height: 780 });
   const question = `Snooze this question ${Date.now()}`;
   await page.goto('/');
@@ -122,6 +122,9 @@ test('snoozes a collapsed chain from the actions menu at mobile width', async ({
   const card = page.locator('.chain-card').filter({ hasText: question });
   await expect(card).toBeVisible();
 
+  const replyTrigger = card.getByRole('button', { name: 'Reply or settle' });
+  await replyTrigger.focus();
+  await replyTrigger.press('Enter');
   await card.getByRole('button', { name: 'More actions' }).click();
   await expect(card.getByRole('menu')).toBeVisible();
   await card.scrollIntoViewIfNeeded();
@@ -129,7 +132,7 @@ test('snoozes a collapsed chain from the actions menu at mobile width', async ({
   expect(cardBox).not.toBeNull();
   await page.mouse.click(cardBox!.x + 6, cardBox!.y + cardBox!.height / 2);
   await expect(card.getByRole('menu')).toHaveCount(0);
-  await expect(card.getByLabel('Follow up')).toHaveCount(0);
+  await expect(card.getByLabel('Follow up')).toBeVisible();
 
   await card.getByRole('button', { name: 'More actions' }).click();
   await card.getByRole('menuitem', { name: 'Snooze' }).click();
