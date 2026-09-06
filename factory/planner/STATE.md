@@ -196,6 +196,29 @@ to say the channel flag is the fallback path only; delete `factory/planner/queue
     8. The SDK transcript lands in `~/.claude/projects/<cwd, every non-alphanumeric → '-'>/<session-id>.jsonl` with
        the same `message.usage` keys `factory/ops/src/usage.ts` sums, so **the Debug Menu's token tile keeps
        working only while `cwd` is the repo root** and `persistSession` is left alone.
+  - **Unit 2 landed 2026-09-06 09:50 — #120 / PR #121** (one fix round). `scripts/factory-up.sh` gained
+    `PLANNER_MODE` (**`host` is the default**, `cli` is the fallback kept working for a week; anything else exits
+    1); host mode builds `@wyld/wake... --filter @wyld/planner-host...` before opening the window and prints
+    `Planner mode: <mode>`. `scripts/factory-doctor.sh` checks `PLANNER_HOST_PORT` (8789) in its port loop, adds a
+    `planner` detail branch printing `sessionId=… restarts=…`, and reports **exactly one Planner** across four
+    cases, failing on both-or-neither. `factory/env.example` documents `PLANNER_MODE`, `PLANNER_HOST_PORT`,
+    `CLAUDE_CODE_OAUTH_TOKEN` (empty ⇒ the machine's own `claude` login, the normal case) and
+    `.factory/planner-session.json`. `factory-down.sh` untouched.
+    - **Sharp edge, cost a fix round and worth remembering: `pgrep -f` cannot find the CLI Planner.**
+      Claude Code **rewrites its own process title to its version string** — the live planner pane shows as
+      `2.1.261`, so `--dangerously-load-development-channels` appears in no command line at all. The first
+      implementation used `pgrep -f '[d]angerously-load-development-channels'`, which made `cli_running`
+      permanently false: the doctor cried "no Planner is running" about the Planner that was running, and the
+      `host && cli` branch — the whole reason the check exists — was unreachable dead code. The fix is to read the
+      launch command from tmux, which keeps it: `tmux list-panes -t wyld:planner -F '#{pane_dead} #{pane_start_command}'`
+      filtered with `awk '$1 == 0'`. **Never identify a `claude` process by its command line.**
+    - Verified live, read-only, against the running factory: the doctor reports
+      `Planner is running as the CLI session (PLANNER_MODE=cli fallback)`, and standing a fake `{ok:true}` health
+      endpoint on 8789 while the CLI Planner ran made the two-Planner branch fire correctly.
+    - **The cutover has not happened and is Dru's to make.** Note that `PLANNER_MODE` defaults to `host` and the
+      live `.factory/env` does not set it, so **the next `pnpm factory:up` starts the host, not the CLI** — set
+      `PLANNER_MODE=cli` in `.factory/env` to stay on the old path. The exact window command the launcher uses:
+      `set -a; . .factory/env; set +a; until node factory/planner-host/dist/main.js; do echo 'planner host exited; restarting in 5s'; sleep 5; done`
 - **`wake-hot-reload` is done (2026-09-05 ~23:20)** — #88/#90 (tolerant claim path) and #92/#93
   (tool hot reload). Quest `unattended-restart` stays **parked**: the half that needs Dru is
   unchanged — Claude Code's development-channels warning at launch, which the auto-mode classifier
