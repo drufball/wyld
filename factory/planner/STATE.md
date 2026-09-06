@@ -100,6 +100,15 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **Order revised 18:21 (Dru, on `polish` chain 59): `polish` → `one-mechanism` → `artifacts` → `roadmap` → Phase 2.** New `idea`
+  quest **`one-mechanism`** "Everything is a chain": Rumbles already are chains; try-it cards/demos, the next action and unlocks
+  become chains with tags; each screen filters by tag; snooze/settle/Mark done are one mechanism; "nothing needs you" = no open,
+  unsnoozed chain addressed to him. Dru verbatim: "rumbles and try it cards and demos should all just be chains … Each
+  differentiated screen just maybe reads tags instead of a special data type?" Also: **snoozed Rumbles must not block the
+  sunset** — queued as `polish` unit 5 (`codex/polish-sunset-snooze`) with the polish lead. `quiet-chain-cards` alignment
+  landed 18:18 (#155 / PR #158, +2/−1, zero fix rounds) → `demo`, card re-registered, fresh spare chain seeded.
+  Lead sharp edges: `git worktree remove /tmp/...` fails because `/tmp` → `/private/tmp` (use the resolved path or `rm -rf` +
+  `git worktree prune`); `gh pr checks` exits 8 while pending — poll `gh run view <id> --json status,conclusion` instead.
 - **Roadmap direction from Dru (18:07–18:14, chain settled):** he wants the build managed as an *app*, never markdown/brain dumps —
   Claude-artifact-style interactive HTML explainers with Figma-style comment pins on any element that open a chain there. Two
   `idea` quests: **`artifacts`** "Explainer artifacts" (machinery: the Planner publishes a self-contained interactive piece per
