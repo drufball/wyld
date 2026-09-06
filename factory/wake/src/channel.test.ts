@@ -307,6 +307,27 @@ describe('Pak tools', () => {
       properties: { demo: { type: 'string' } },
       additionalProperties: false,
     });
+    expect(result.tools?.find(({ name }) => name === 'pak_read_chains')?.inputSchema).toMatchObject(
+      {
+        properties: {
+          quest: { type: 'string' },
+          kind: { type: 'string', enum: ['question', 'message', 'rumble', 'all'] },
+          include_snoozed: { type: 'boolean' },
+        },
+        additionalProperties: false,
+      },
+    );
+    expect(
+      result.tools?.find(({ name }) => name === 'pak_send_message')?.inputSchema,
+    ).toMatchObject({
+      properties: {
+        text: { type: 'string', minLength: 1 },
+        quest: { type: 'string' },
+        kind: { type: 'string', enum: ['question', 'message'], default: 'message' },
+      },
+      required: ['text'],
+      additionalProperties: false,
+    });
   });
 
   it('routes list and call requests through a swapped registry', async () => {
@@ -646,14 +667,21 @@ describe('Pak tools', () => {
       { text: 'A proactive update', quest: 'wake' },
       'http://pak/api/chains',
       'POST',
-      { text: 'A proactive update', author: 'planner', questId: 'wake' },
+      { text: 'A proactive update', author: 'planner', kind: 'message', questId: 'wake' },
     ],
     [
       'pak_send_message',
       { text: 'An open update' },
       'http://pak/api/chains',
       'POST',
-      { text: 'An open update', author: 'planner' },
+      { text: 'An open update', author: 'planner', kind: 'message' },
+    ],
+    [
+      'pak_send_message',
+      { text: 'Which path should we take?', kind: 'question' },
+      'http://pak/api/chains',
+      'POST',
+      { text: 'Which path should we take?', author: 'planner', kind: 'question' },
     ],
     [
       'pak_answer_chain',
@@ -681,15 +709,37 @@ describe('Pak tools', () => {
     });
   });
 
-  it.each([{}, { text: '' }])('rejects invalid pak_send_message arguments: %j', async (args) => {
-    const fetch = vi.fn<typeof globalThis.fetch>();
-    const [, call] = handlers(fetch);
+  it.each([
+    [{}, 'http://pak/api/chains'],
+    [{ kind: 'rumble' }, 'http://pak/api/chains?kind=rumble'],
+    [{ include_snoozed: true }, 'http://pak/api/chains?includeSnoozed=1'],
+    [
+      { quest: 'wake & queue', kind: 'all', include_snoozed: true },
+      'http://pak/api/chains?quest=wake+%26+queue&kind=all&includeSnoozed=1',
+    ],
+    [{ include_snoozed: false }, 'http://pak/api/chains'],
+  ] as const)('reads chains with filters %j', async (arguments_, url) => {
+    const fetch = vi.fn(async () => new Response('[]', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
 
-    expect(await call!({ params: { name: 'pak_send_message', arguments: args } })).toMatchObject({
-      isError: true,
-    });
-    expect(fetch).not.toHaveBeenCalled();
+    expect(
+      (await call!({ params: { name: 'pak_read_chains', arguments: arguments_ } })).isError,
+    ).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith(url, { method: 'GET', headers: {} });
   });
+
+  it.each([{}, { text: '' }, { text: 'No', kind: 'rumble' }, { text: 'No', kind: 'other' }])(
+    'rejects invalid pak_send_message arguments: %j',
+    async (args) => {
+      const fetch = vi.fn<typeof globalThis.fetch>();
+      const [, call] = handlers(fetch);
+
+      expect(await call!({ params: { name: 'pak_send_message', arguments: args } })).toMatchObject({
+        isError: true,
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
 
   it('requests a Rumble with mapped arguments and defaults', async () => {
     const fetch = vi.fn(async () => new Response('{"id":"rumble-1"}', { status: 200 }));

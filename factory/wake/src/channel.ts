@@ -245,9 +245,19 @@ const RegisterDemoArgs = z
   .strict();
 const ReadDemosArgs = z.object({}).strict();
 const ReadFeedbackArgs = z.object({ demo: z.string().optional() }).strict();
-const ReadChainsArgs = z.object({ quest: z.string().optional() }).strict();
+const ReadChainsArgs = z
+  .object({
+    quest: z.string().optional(),
+    kind: z.enum(['question', 'message', 'rumble', 'all']).optional(),
+    include_snoozed: z.boolean().optional(),
+  })
+  .strict();
 const SendMessageArgs = z
-  .object({ text: z.string().min(1), quest: z.string().optional() })
+  .object({
+    text: z.string().min(1),
+    quest: z.string().optional(),
+    kind: z.enum(['question', 'message']).default('message'),
+  })
   .strict();
 const AnswerChainArgs = z
   .object({ chain: z.number().int().positive(), text: z.string().min(1) })
@@ -567,20 +577,28 @@ const tools = [
   {
     name: 'pak_read_chains',
     description:
-      "Read the open chains — Dru's messages and yours, their chain ids, and the quest each one is about if any. Closed chains are never returned.",
+      "Read the open chains — Dru's messages and yours, each chain's kind and id, and its quest if any. A chain Dru snoozed is hidden until its time comes round unless include_snoozed is set. Rumble chains are returned only when kind is rumble or all; use pak_read_rumbles to read decisions. Closed chains are never returned.",
     inputSchema: {
       type: 'object' as const,
-      properties: { quest: { type: 'string' } },
+      properties: {
+        quest: { type: 'string' },
+        kind: { type: 'string', enum: ['question', 'message', 'rumble', 'all'] },
+        include_snoozed: { type: 'boolean' },
+      },
       additionalProperties: false,
     },
   },
   {
     name: 'pak_send_message',
     description:
-      "Start a message to Dru in a new chain — an update, a heads-up, a question of your own. Give it a quest to attach it to one, or leave it off for an open message; either way it appears on Today as a card he can reply to. Plain English, two or three sentences. Use pak_answer_chain to reply inside a chain that already exists, and pak_post_note for a quest's own one-way line.",
+      "Start a message or question to Dru in a new chain, using kind to say which; message is the default. Give it a quest to attach it to one, or leave it off for an open message; either way it appears on Today as a card he can reply to. Raise a Rumble with pak_request_rumble instead. Plain English, two or three sentences. Use pak_answer_chain to reply inside a chain that already exists, and pak_post_note for a quest's own one-way line.",
     inputSchema: {
       type: 'object' as const,
-      properties: { text: { type: 'string', minLength: 1 }, quest: { type: 'string' } },
+      properties: {
+        text: { type: 'string', minLength: 1 },
+        quest: { type: 'string' },
+        kind: { type: 'string', enum: ['question', 'message'], default: 'message' },
+      },
       required: ['text'],
       additionalProperties: false,
     },
@@ -875,10 +893,11 @@ export function createToolRegistry(options: {
     if (params.name === 'pak_read_chains') {
       const parsed = ReadChainsArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
-      const suffix =
-        parsed.data.quest === undefined
-          ? ''
-          : `?${new URLSearchParams({ quest: parsed.data.quest }).toString()}`;
+      const query = new URLSearchParams();
+      if (parsed.data.quest !== undefined) query.set('quest', parsed.data.quest);
+      if (parsed.data.kind !== undefined) query.set('kind', parsed.data.kind);
+      if (parsed.data.include_snoozed === true) query.set('includeSnoozed', '1');
+      const suffix = query.size === 0 ? '' : `?${query.toString()}`;
       return getTool(request, `${options.pakUrl}/api/chains${suffix}`);
     }
     if (params.name === 'pak_send_message') {
@@ -887,6 +906,7 @@ export function createToolRegistry(options: {
       return postTool(request, `${options.pakUrl}/api/chains`, {
         text: parsed.data.text,
         author: 'planner',
+        kind: parsed.data.kind,
         ...(parsed.data.quest === undefined ? {} : { questId: parsed.data.quest }),
       });
     }
