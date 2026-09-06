@@ -74,11 +74,69 @@ describe('demo builder', () => {
 
     await expect(builder.build('branch', 'feature/ref', 'pak')).resolves.toEqual({ ok: true });
     const build = calls.find(([command, args]) => command === 'pnpm' && args.includes('build'))!;
-    expect(build[1]).toEqual(['--filter', '@wyld/pak', 'build']);
+    expect(build[1]).toEqual(['--filter', '@wyld/pak...', 'build']);
     expect(build[2].env?.PAK_BASE).toBe('/play/branch/');
     await expect(fs.readFile(path.join(root!, 'demos/branch/index.html'), 'utf8')).resolves.toBe(
       'pak',
     );
+  });
+
+  it('varies only the filter, base variable, and published source between targets', async () => {
+    const calls: Parameters<CommandRunner>[] = [];
+    const { builder } = await setup(async (...args) => {
+      calls.push(args);
+      const [command, commandArgs, options] = args;
+      if (command === 'pnpm' && commandArgs.includes('build')) {
+        const source = commandArgs.includes('@wyld/game') ? 'game/dist' : 'factory/pak/dist';
+        await fs.mkdir(path.join(options.cwd!, source), { recursive: true });
+        await fs.writeFile(path.join(options.cwd!, source, 'index.html'), source);
+      }
+      return {};
+    });
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+
+    await expect(builder.build('comparison', 'feature/ref', 'game')).resolves.toEqual({ ok: true });
+    const gameCalls = calls.splice(0);
+    await expect(
+      fs.readFile(path.join(root!, 'demos/comparison/index.html'), 'utf8'),
+    ).resolves.toBe('game/dist');
+    await expect(builder.build('comparison', 'feature/ref', 'pak')).resolves.toEqual({ ok: true });
+    const pakCalls = calls.splice(0);
+    now.mockRestore();
+
+    const gameBuild = gameCalls.find(
+      ([command, args]) => command === 'pnpm' && args.includes('build'),
+    )!;
+    const pakBuild = pakCalls.find(
+      ([command, args]) => command === 'pnpm' && args.includes('build'),
+    )!;
+    expect(gameBuild[1]).toEqual(['--filter', '@wyld/game', 'build']);
+    expect(pakBuild[1]).toEqual(['--filter', '@wyld/pak...', 'build']);
+    expect(gameBuild[2].env?.GAME_BASE).toBe('/play/comparison/');
+    expect(gameBuild[2].env?.PAK_BASE).toBeUndefined();
+    expect(pakBuild[2].env?.PAK_BASE).toBe('/play/comparison/');
+    expect(pakBuild[2].env?.GAME_BASE).toBeUndefined();
+
+    const normalize = (sequence: Parameters<CommandRunner>[]) =>
+      sequence.map(([command, args, options]) => {
+        const { GAME_BASE: gameBase, PAK_BASE: pakBase, ...environment } = options.env ?? {};
+        return {
+          command,
+          args: args.map((argument) =>
+            argument === '@wyld/game' || argument === '@wyld/pak...' ? '<target>' : argument,
+          ),
+          options: {
+            ...options,
+            ...(options.env === undefined
+              ? {}
+              : { env: { ...environment, BASE: gameBase ?? pakBase } }),
+          },
+        };
+      });
+    expect(normalize(pakCalls)).toEqual(normalize(gameCalls));
+    await expect(
+      fs.readFile(path.join(root!, 'demos/comparison/index.html'), 'utf8'),
+    ).resolves.toBe('factory/pak/dist');
   });
 
   it('rejects bad slugs, shares an in-flight promise, and resolves failures', async () => {
