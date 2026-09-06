@@ -123,6 +123,15 @@ test('snoozes a collapsed chain from the actions menu at mobile width', async ({
   await expect(card).toBeVisible();
 
   await card.getByRole('button', { name: 'More actions' }).click();
+  await expect(card.getByRole('menu')).toBeVisible();
+  await card.scrollIntoViewIfNeeded();
+  const cardBox = await card.boundingBox();
+  expect(cardBox).not.toBeNull();
+  await page.mouse.click(cardBox!.x + 6, cardBox!.y + cardBox!.height / 2);
+  await expect(card.getByRole('menu')).toHaveCount(0);
+  await expect(card.getByLabel('Follow up')).toHaveCount(0);
+
+  await card.getByRole('button', { name: 'More actions' }).click();
   await card.getByRole('menuitem', { name: 'Snooze' }).click();
   const presets = ['Later today', 'Tomorrow morning', 'Next week'];
   for (const preset of presets) {

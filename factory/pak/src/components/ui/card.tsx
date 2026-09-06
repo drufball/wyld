@@ -1,5 +1,5 @@
 /** Variants: flat is a quiet surface; bevel is the raised retro tile. data-tone colours its top edge. */
-import type { HTMLAttributes } from 'react';
+import { forwardRef, type HTMLAttributes } from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils.js';
@@ -17,10 +17,13 @@ export const cardVariants = cva('rounded-[var(--radius)] bg-card text-card-foreg
 export interface CardProps extends HTMLAttributes<HTMLElement>, VariantProps<typeof cardVariants> {
   asChild?: boolean;
 }
-export function Card({ asChild = false, className, variant, ...props }: CardProps) {
+export const Card = forwardRef<HTMLElement, CardProps>(function Card(
+  { asChild = false, className, variant, ...props },
+  ref,
+) {
   const Component = asChild ? Slot : 'section';
-  return <Component className={cn(cardVariants({ variant }), className)} {...props} />;
-}
+  return <Component ref={ref} className={cn(cardVariants({ variant }), className)} {...props} />;
+});
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('flex flex-col gap-2 p-5', className)} {...props} />;
 }

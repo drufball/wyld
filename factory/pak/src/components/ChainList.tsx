@@ -63,6 +63,7 @@ export function ChainCard({
   const [asking, setAsking] = useState(!rumbleCard);
   const [deciding, setDeciding] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
+  const cardRoot = useRef<HTMLElement>(null);
   const openTrigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
@@ -80,6 +81,7 @@ export function ChainCard({
     if (!menuOpen) return;
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
+      if (cardRoot.current?.contains(target)) return;
       if (!menu.current?.contains(target) && !menuTrigger.current?.contains(target)) {
         setMenuOpen(false);
         setSnoozeOpen(false);
@@ -341,6 +343,7 @@ export function ChainCard({
 
   return (
     <Card
+      ref={cardRoot}
       className="chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
       onClick={(event) => {
         if (
