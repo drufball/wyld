@@ -36,7 +36,9 @@ issue closes itself via `Closes #N` in the PR body; if it did not, close it by h
 ## 3. Update the quest
 
 ```bash
-pak_link_issue  quest=<id> gh_kind=pr gh_ref=<n> state=merged   # progress derives from this
+pak_link_issue  quest=<id> gh_kind=pr    gh_ref=<n> state=merged   # progress derives from this
+pak_link_issue  quest=<id> gh_kind=issue gh_ref=<N> state=closed   # the issue `Closes #N` shut — record that too,
+                                                                   # or the quest sits at 0.8 forever (seen twice, 2026-09-06)
 ```
 
 Then move the quest, per `PROTOCOL.md` §1:
