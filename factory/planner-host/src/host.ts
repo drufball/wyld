@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 import type { Config } from './config.js';
 import { renderBatch } from './framing.js';
+import type { HeartbeatState } from './heartbeat.js';
 import { createInputQueue } from './input-queue.js';
 import type { Logger } from './logger.js';
 import type { QueuedMessage, QueueClient } from './queue.js';
@@ -35,6 +36,7 @@ export type HostDependencies = {
   setTimeout?: typeof setTimeout;
   clearTimeout?: typeof clearTimeout;
   adapterExists?: (file: string) => boolean;
+  onSessionReady?: () => void;
 };
 
 export function createHost(deps: HostDependencies) {
@@ -199,6 +201,7 @@ export function createHost(deps: HostDependencies) {
           sawInit = true;
           sessionId = message.session_id;
           writeSession(sessionId);
+          deps.onSessionReady?.();
           deps.log('info', 'planner query initialized', {
             sessionId,
             mcpServers: message.mcp_servers.map((s) => ({ name: s.name, status: s.status })),
@@ -286,6 +289,9 @@ export function createHost(deps: HostDependencies) {
     },
     health() {
       return { sessionId, lastTurnAt, queueDepthSeen, restarts };
+    },
+    heartbeatState(): HeartbeatState {
+      return { turnInFlight, lastTurnAt };
     },
     tick: claimTick,
   };

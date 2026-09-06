@@ -20,6 +20,54 @@ const defer = () => {
 };
 
 describe('planner host', () => {
+  it('announces initialized sessions and exposes heartbeat turn state', async () => {
+    const release = defer();
+    const onSessionReady = vi.fn();
+    let clock = Date.parse('2026-09-06T12:00:00.000Z');
+    const host = createHost({
+      config: readConfig({ WAKE_SECRET: 'x'.repeat(16) }),
+      queue: { claim: vi.fn().mockResolvedValue({ messages: [], dropped: [] }), ack: vi.fn() },
+      log: vi.fn(),
+      query: (() =>
+        (async function* () {
+          yield {
+            type: 'system',
+            subtype: 'init',
+            session_id: 'session',
+            tools: [],
+            mcp_servers: [{ name: 'wake', status: 'connected' }],
+          } as unknown as SDKMessage;
+          await release.promise;
+          yield {
+            type: 'result',
+            subtype: 'success',
+            is_error: false,
+            num_turns: 1,
+          } as unknown as SDKMessage;
+          await new Promise(() => undefined);
+        })() as Query) as never,
+      readSession: () => null,
+      writeSession: vi.fn(),
+      adapterExists: () => true,
+      now: () => clock,
+      onSessionReady,
+      setTimeout: vi.fn(() => 1) as never,
+      clearTimeout: vi.fn() as never,
+    });
+    host.start();
+    await vi.waitFor(() => expect(onSessionReady).toHaveBeenCalledOnce());
+    expect(host.heartbeatState()).toEqual({ turnInFlight: true, lastTurnAt: null });
+    clock += 60_000;
+    release.resolve();
+    await vi.waitFor(() =>
+      expect(host.heartbeatState()).toEqual({
+        turnInFlight: false,
+        lastTurnAt: '2026-09-06T12:01:00.000Z',
+      }),
+    );
+    host.stop();
+  });
+
   it('bootstraps, batches claims, waits for result, and then acks', async () => {
     const firstResult = defer();
     const secondResult = defer();
