@@ -26,6 +26,51 @@ function renderToday(signals?: { rumbles: number; demos: number; memory: string 
 
 afterEach(() => vi.unstubAllGlobals());
 describe('Today', () => {
+  it('shows, dismisses, and auto-hides live achievement unlocks', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => jsonResponse(url === '/api/presence' ? presence : [])),
+    );
+    let receive: EventListener | null = null;
+    render(
+      <MemoryRouter>
+        <LiveEventsProvider
+          eventSourceFactory={() => ({
+            addEventListener(type, listener) {
+              if (type === 'event') receive = listener as EventListener;
+            },
+            removeEventListener() {},
+            close() {},
+          })}
+        >
+          <Today />
+        </LiveEventsProvider>
+      </MemoryRouter>,
+    );
+    const emit = (name: string) => {
+      receive?.(
+        new MessageEvent('event', {
+          data: JSON.stringify({
+            id: 1,
+            ts: '2026-09-06T08:00:00Z',
+            source: 'pak',
+            kind: 'pak.achievement_unlocked',
+            payload: { name },
+          }),
+        }),
+      );
+    };
+    emit('First Light');
+    expect(await screen.findByText('Achievement unlocked — First Light')).not.toBeNull();
+    fireEvent.click(screen.getByLabelText('Dismiss achievement'));
+    expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
+    emit('Five Alive');
+    expect(await screen.findByText('Achievement unlocked — Five Alive')).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(8_000);
+    expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
+    vi.useRealTimers();
+  });
   it('renders the Go Outside details and optional local ETA', () => {
     const { rerender } = render(
       <MemoryRouter>

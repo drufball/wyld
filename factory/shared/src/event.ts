@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { EventId, Id, Timestamp } from './ids.js';
 
-export const EventSource = z.enum(['human', 'github', 'planner', 'sleep', 'system']);
+export const EventSource = z.enum(['human', 'github', 'planner', 'sleep', 'system', 'pak']);
 export type EventSource = z.infer<typeof EventSource>;
 
 // Event kinds follow <source>.<verb>: the prefix is an EventSource and the verb is snake_case.
@@ -35,6 +35,7 @@ export const EVENT_KINDS = [
   'system.resumed',
   'sleep.alarm',
   'sleep.phase',
+  'pak.achievement_unlocked',
 ] as const;
 
 export const EventKind = z.enum(EVENT_KINDS);

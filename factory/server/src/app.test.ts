@@ -58,6 +58,30 @@ describe('Pak server', () => {
     });
   }
 
+  it('lists the catalogue and reflects unlock events', async () => {
+    const initial = (await (await app.request('/api/achievements')).json()) as Array<{
+      id: string;
+      unlockedAt: string | null;
+    }>;
+    expect(initial).toHaveLength(7);
+    expect(initial.every(({ unlockedAt }) => unlockedAt === null)).toBe(true);
+    database.sqlite.prepare("INSERT INTO worlds VALUES ('w', 'World', 'game', 1, 'x')").run();
+    database.sqlite
+      .prepare(
+        "INSERT INTO quests (id, world_id, title, pitch, status) VALUES ('q', 'w', 'Quest', 'Do it', 'done')",
+      )
+      .run();
+    await postEvent('human.intent', 'check achievements');
+    const updated = (await (await app.request('/api/achievements')).json()) as typeof initial;
+    expect(updated.find(({ id }) => id === 'first-quest-done')?.unlockedAt).toEqual(
+      expect.any(String),
+    );
+    const eventRows = (await (await app.request('/api/events?limit=20')).json()) as Array<{
+      kind: string;
+    }>;
+    expect(eventRows.some(({ kind }) => kind === 'pak.achievement_unlocked')).toBe(true);
+  });
+
   it('exposes the preferred active pause in the health snapshot', async () => {
     const postPause = (body: unknown) =>
       app.request('/api/pause', {

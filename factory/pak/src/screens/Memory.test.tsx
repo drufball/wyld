@@ -11,6 +11,39 @@ const response = (value: unknown) =>
   } as Response);
 afterEach(() => vi.unstubAllGlobals());
 describe('Memory', () => {
+  it('renders locked and unlocked achievement tiles', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        response(
+          url === '/api/achievements'
+            ? [
+                {
+                  id: 'one',
+                  name: 'First Light',
+                  description: 'Done',
+                  badge: '✨',
+                  unlockedAt: '2026-09-06T08:00:00Z',
+                },
+                {
+                  id: 'two',
+                  name: 'Five Alive',
+                  description: 'Locked',
+                  badge: '🖐️',
+                  unlockedAt: null,
+                },
+              ]
+            : [],
+        ),
+      ),
+    );
+    render(<Memory />);
+    expect(await screen.findByLabelText('First Light, unlocked')).not.toBeNull();
+    expect(screen.getByText('✨')).not.toBeNull();
+    expect(screen.getByLabelText('First Light, unlocked').textContent).toMatch(/\d{1,2}\s\w{3}/);
+    expect(screen.getByLabelText('Five Alive, locked').textContent).toContain('???');
+    expect(screen.getByLabelText('Five Alive, locked').querySelector('time')).toBeNull();
+  });
   it('renders save data and resolves improvement titles', async () => {
     const retro = {
       id: 1,

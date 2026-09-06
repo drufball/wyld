@@ -1,6 +1,6 @@
-import type { Retro } from '@wyld/shared';
+import type { Achievement, Retro } from '@wyld/shared';
 import { useEffect, useState } from 'react';
-import { listQuests, listRetros } from '../api/client.js';
+import { listAchievements, listQuests, listRetros } from '../api/client.js';
 import { Card } from '../components/ui/card.js';
 
 const knownStats: Record<string, string> = {
@@ -25,6 +25,7 @@ function readableDate(date: string) {
 export function Memory() {
   const [retros, setRetros] = useState<Retro[] | null>(null);
   const [titles, setTitles] = useState(new Map<string, string>());
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [error, setError] = useState(false);
   useEffect(() => {
     void listRetros(30)
@@ -36,13 +37,16 @@ export function Memory() {
     void listQuests()
       .then((quests) => setTitles(new Map(quests.map((quest) => [quest.id, quest.title]))))
       .catch(() => undefined);
+    void listAchievements()
+      .then(setAchievements)
+      .catch(() => undefined);
   }, []);
-  if (retros === null)
-    return <p>{error ? "Memory couldn't load. Try again." : 'Loading save files…'}</p>;
   return (
     <div className="grid min-w-0 gap-5">
       <h1 className="m-0">MEMORY</h1>
-      {retros.length === 0 ? (
+      {retros === null ? (
+        <p>{error ? "Memory couldn't load. Try again." : 'Loading save files…'}</p>
+      ) : retros.length === 0 ? (
         <p>No nights have been recorded yet.</p>
       ) : (
         retros.map((retro) => (
@@ -106,6 +110,41 @@ export function Memory() {
             )}
           </Card>
         ))
+      )}
+      {achievements.length > 0 && (
+        <section className="grid gap-3" aria-label="Achievements">
+          <h2 className="m-0 font-display text-xs text-dracula-pink">ACHIEVEMENTS</h2>
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 p-0">
+            {achievements.map((achievement) => {
+              const unlocked = achievement.unlockedAt !== null;
+              return (
+                <li key={achievement.id} className="min-w-0">
+                  <Card
+                    variant="bevel"
+                    aria-label={`${achievement.name}, ${unlocked ? 'unlocked' : 'locked'}`}
+                    className={`achievement-tile grid min-h-24 min-w-0 gap-1 p-3 text-center ${unlocked ? '' : 'opacity-50'}`}
+                  >
+                    <span aria-hidden="true" className="text-2xl">
+                      {unlocked ? achievement.badge : '???'}
+                    </span>
+                    <span className="min-w-0 break-words">{achievement.name}</span>
+                    {achievement.unlockedAt !== null && (
+                      <time
+                        className="text-xs text-muted-foreground"
+                        dateTime={achievement.unlockedAt}
+                      >
+                        {new Intl.DateTimeFormat(undefined, {
+                          day: 'numeric',
+                          month: 'short',
+                        }).format(new Date(achievement.unlockedAt))}
+                      </time>
+                    )}
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
     </div>
   );

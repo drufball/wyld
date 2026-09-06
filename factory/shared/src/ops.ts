@@ -71,11 +71,3 @@ export const NewRetro = z.object({
   stats: z.record(z.string(), z.number()).default({}),
 });
 export type NewRetro = z.infer<typeof NewRetro>;
-
-export const Achievement = z.object({
-  id: Id,
-  name: z.string().min(1),
-  unlockedAt: Timestamp,
-  badge: z.string().min(1),
-});
-export type Achievement = z.infer<typeof Achievement>;

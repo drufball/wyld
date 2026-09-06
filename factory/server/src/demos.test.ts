@@ -186,7 +186,9 @@ describe('demo and feedback routes', () => {
     await post('/api/demos', { id: 'live-card', ref: 'main', kind: 'live' });
     const response = await post('/api/feedback', { demoId: 'live-card', text: 'Looks good' });
     expect(response.status).toBe(201);
-    const events = Event.array().parse(await (await app.request('/api/events')).json());
+    const events = Event.array()
+      .parse(await (await app.request('/api/events')).json())
+      .filter(({ kind }) => kind === 'human.feedback');
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       kind: 'human.feedback',
@@ -245,7 +247,9 @@ describe('demo and feedback routes', () => {
     expect(await (await app.request(`/api/feedback/${stored.id}/screenshot`)).text()).toBe(
       'png bytes',
     );
-    const events = Event.array().parse(await (await app.request('/api/events')).json());
+    const events = Event.array()
+      .parse(await (await app.request('/api/events')).json())
+      .filter(({ kind }) => kind === 'human.feedback');
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       source: 'human',
