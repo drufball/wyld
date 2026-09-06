@@ -119,6 +119,12 @@ this file, the Pak, and GitHub._
   registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
   restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
   `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **Side effect of unit 1 on the live Pak (21:05):** `Today`'s `ChainList` appends any `planner.chain_updated` chain from SSE
+  without filtering by kind, so each new `action` chain (every `pak_set_next_action`) appears as a card until reload; Dru settled
+  two of them (chains 65, 66). Presence/`needsYou` unaffected. **Tonight's Sweep, first item (`night:`):** ChainList only
+  appends live chains whose kind is in the set it fetched (question|message today). Unit 3 supersedes it tomorrow. Also for
+  unit 3's brief: the server stamps the settle of a rotated `action` chain as `source: human` — make rotation settles
+  `planner`-sourced and never render `action` settles as Dru's.
 - **Unit 3 (Pak) starts at lights-on tomorrow, not tonight** (21:16 decision: biggest unit, would straddle the 23:00 Drain).
   Then (4) retire special cases. Units left on `one-mechanism`: (3) Pak — Today renders every kind as a card
   (demo cards with Mark done/Hide/Snooze, action card, unlock card), sunset uses `needsYou`, Demos/Rumble/VMU become filters over
