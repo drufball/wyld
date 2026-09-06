@@ -222,6 +222,49 @@ describe('chain routes', () => {
     expect(await (await app.request('/api/chains')).json()).toHaveLength(CHAIN_LIMIT);
   });
 
+  it('filters kinds and statuses while keeping rumbles outside the chain limit', async () => {
+    for (let index = 0; index < CHAIN_LIMIT + 1; index++) await create(String(index));
+    const message = Chain.parse(
+      await (await post('/api/chains', { text: 'news', author: 'planner' })).json(),
+    );
+    await post('/api/rumbles', {
+      title: 'Choose',
+      context: 'Context',
+      options: ['Yes'],
+      kind: 'taste',
+    });
+    expect(await (await app.request('/api/chains?kind=message')).json()).toMatchObject([
+      { id: message.id, kind: 'message' },
+    ]);
+    expect(await (await app.request('/api/chains?kind=rumble&status=all')).json()).toMatchObject([
+      { kind: 'rumble', rumble: { id: 'choose' } },
+    ]);
+    expect(await (await app.request('/api/chains?kind=all')).json()).toHaveLength(CHAIN_LIMIT + 1);
+    await post(`/api/chains/${message.id}/close`, { reason: 'settled' });
+    expect(
+      await (await app.request('/api/chains?kind=message&status=settled')).json(),
+    ).toMatchObject([{ id: message.id }]);
+  });
+
+  it('snoozes and unsnoozes without events or immediate auto-settlement', async () => {
+    const chain = await create('later');
+    const eventCount = (await events()).length;
+    const until = new Date(clock.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    expect(await (await post(`/api/chains/${chain.id}/snooze`, { until })).json()).toMatchObject({
+      snoozedUntil: until,
+      status: 'open',
+    });
+    expect(await (await app.request('/api/chains')).json()).toEqual([]);
+    expect(await (await app.request('/api/chains?includeSnoozed=1')).json()).toHaveLength(1);
+    clock = new Date(new Date(until).getTime() + 1000);
+    expect(await (await app.request('/api/chains')).json()).toHaveLength(1);
+    expect(await (await post(`/api/chains/${chain.id}/unsnooze`, undefined)).json()).toMatchObject({
+      snoozedUntil: null,
+      status: 'open',
+    });
+    expect(await events()).toHaveLength(eventCount);
+  });
+
   it('does not append to a closed chain', async () => {
     const chain = await create('done');
     await post(`/api/chains/${chain.id}/close`, { reason: 'settled' });

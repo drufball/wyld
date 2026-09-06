@@ -302,10 +302,12 @@ export function createApp(dependencies: AppDependencies) {
           })
           .from(quests)
           .all(),
-        openRumbles: listOrderedRumbleRows(dependencies.database, 'open').map(({ id, title }) => ({
-          id,
-          title,
-        })),
+        openRumbles: listOrderedRumbleRows(dependencies.database, 'open').map(
+          ({ slug, title }) => ({
+            id: slug!,
+            title: title!,
+          }),
+        ),
       });
       [row] = db
         .insert(catchups)

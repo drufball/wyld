@@ -175,4 +175,12 @@ describe('rumble routes', () => {
     };
     expect(view.catchup.digest.rumbles).toEqual([{ text: outage.title, deepLink: '/rumble' }]);
   });
+
+  it('round-trips a rumble through the chain API', async () => {
+    const rumble = await create('Trail', { blockingQuestIds: ['climb'] });
+    expect(await (await app.request('/api/chains?kind=rumble')).json()).toMatchObject([
+      { kind: 'rumble', messages: [], rumble },
+    ]);
+    expect(await (await app.request('/api/chains')).json()).toEqual([]);
+  });
 });

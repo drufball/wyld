@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, inArray, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, ne, or } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
-import { Chain, type NewEvent } from '@wyld/shared';
+import { Chain, ChainKind, ChainStatus, Timestamp, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { formatIssues } from './quests.js';
+import { compareRumbles } from './rumbles.js';
 import { chainMessages, chains, quests } from './schema.js';
 
 export const CHAIN_QUIET_SECONDS = 86_400;
@@ -15,9 +16,16 @@ const ChainCreate = z
     text: z.string().min(1).max(2000),
     questId: z.string().min(1).optional(),
     author: z.enum(['human', 'planner']).default('human'),
+    kind: ChainKind.exclude(['rumble']).optional(),
   })
   .strict();
-const ChainQuery = z.object({ quest: z.string().min(1).optional() });
+const ChainQuery = z.object({
+  quest: z.string().min(1).optional(),
+  kind: z.union([ChainKind, z.literal('all')]).optional(),
+  status: z.union([ChainStatus, z.literal('all')]).default('open'),
+  includeSnoozed: z.enum(['1', 'true']).optional(),
+});
+const ChainSnooze = z.object({ until: Timestamp }).strict();
 const MessageCreate = z
   .object({ author: z.enum(['human', 'planner']), text: z.string().min(1).max(2000) })
   .strict();
@@ -46,7 +54,23 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
       .where(eq(chainMessages.chainId, id))
       .orderBy(asc(chainMessages.id))
       .all();
-    return Chain.parse({ ...row, messages });
+    return Chain.parse({
+      ...row,
+      rumble:
+        row.kind === 'rumble'
+          ? {
+              id: row.slug,
+              title: row.title,
+              context: row.context,
+              options: row.options,
+              chosen: row.chosen,
+              chosenAt: row.chosenAt,
+              blockingQuestIds: row.blockingQuestIds,
+              kind: row.rumbleKind,
+            }
+          : null,
+      messages,
+    });
   };
 
   app.get('/chains', (c) => {
@@ -60,20 +84,52 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
     const cutoff = new Date(now().getTime() - CHAIN_QUIET_SECONDS * 1000).toISOString();
     db.update(chains)
       .set({ status: 'settled' })
-      .where(and(eq(chains.status, 'open'), lt(chains.lastActivityAt, cutoff)))
-      .run();
-    const rows = db
-      .select()
-      .from(chains)
       .where(
         and(
           eq(chains.status, 'open'),
-          parsed.data.quest === undefined ? undefined : eq(chains.questId, parsed.data.quest),
+          ne(chains.kind, 'rumble'),
+          lt(chains.lastActivityAt, cutoff),
+          or(isNull(chains.snoozedUntil), lt(chains.snoozedUntil, cutoff)),
         ),
       )
-      .orderBy(desc(chains.lastActivityAt))
-      .limit(CHAIN_LIMIT)
-      .all();
+      .run();
+    const visible =
+      parsed.data.includeSnoozed === undefined
+        ? or(isNull(chains.snoozedUntil), lt(chains.snoozedUntil, now().toISOString()))
+        : undefined;
+    const common = and(
+      parsed.data.status === 'all' ? undefined : eq(chains.status, parsed.data.status),
+      parsed.data.quest === undefined ? undefined : eq(chains.questId, parsed.data.quest),
+      visible,
+    );
+    const includeNormal =
+      parsed.data.kind === undefined || parsed.data.kind === 'all' || parsed.data.kind !== 'rumble';
+    const includeRumble = parsed.data.kind === 'rumble' || parsed.data.kind === 'all';
+    const normalRows = includeNormal
+      ? db
+          .select()
+          .from(chains)
+          .where(
+            and(
+              common,
+              parsed.data.kind === 'question' || parsed.data.kind === 'message'
+                ? eq(chains.kind, parsed.data.kind)
+                : ne(chains.kind, 'rumble'),
+            ),
+          )
+          .orderBy(desc(chains.lastActivityAt))
+          .limit(CHAIN_LIMIT)
+          .all()
+      : [];
+    const rumbleRows = includeRumble
+      ? db
+          .select()
+          .from(chains)
+          .where(and(common, eq(chains.kind, 'rumble')))
+          .all()
+          .sort(compareRumbles)
+      : [];
+    const rows = [...rumbleRows, ...normalRows];
     if (rows.length === 0) return c.json([]);
     const messages = db
       .select()
@@ -88,7 +144,23 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
       .all();
     return c.json(
       rows.map((row) =>
-        Chain.parse({ ...row, messages: messages.filter((m) => m.chainId === row.id) }),
+        Chain.parse({
+          ...row,
+          rumble:
+            row.kind === 'rumble'
+              ? {
+                  id: row.slug,
+                  title: row.title,
+                  context: row.context,
+                  options: row.options,
+                  chosen: row.chosen,
+                  chosenAt: row.chosenAt,
+                  blockingQuestIds: row.blockingQuestIds,
+                  kind: row.rumbleKind,
+                }
+              : null,
+          messages: messages.filter((message) => message.chainId === row.id),
+        }),
       ),
     );
   });
@@ -105,6 +177,7 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
     const row = db
       .insert(chains)
       .values({
+        kind: parsed.data.kind ?? (parsed.data.author === 'human' ? 'question' : 'message'),
         status: 'open',
         createdAt: ts,
         lastActivityAt: ts,
@@ -183,6 +256,31 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
               ...(current.questId === null ? {} : { questId: current.questId }),
             },
     });
+    return c.json(readChain(id)!);
+  });
+
+  app.post('/chains/:id/snooze', async (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id) || readChain(id) === undefined) return notFound(c);
+    const parsed = ChainSnooze.safeParse(await c.req.json().catch(() => undefined));
+    if (!parsed.success || new Date(parsed.data.until).getTime() <= now().getTime())
+      return c.json(
+        parsed.success
+          ? {
+              error: 'Invalid request',
+              issues: [{ code: 'custom', path: ['until'], message: 'until must be in the future' }],
+            }
+          : formatIssues(parsed.error),
+        400,
+      );
+    db.update(chains).set({ snoozedUntil: parsed.data.until }).where(eq(chains.id, id)).run();
+    return c.json(readChain(id)!);
+  });
+
+  app.post('/chains/:id/unsnooze', (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id) || readChain(id) === undefined) return notFound(c);
+    db.update(chains).set({ snoozedUntil: null }).where(eq(chains.id, id)).run();
     return c.json(readChain(id)!);
   });
 

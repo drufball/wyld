@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { formatIssues } from './quests.js';
-import { rumbles } from './schema.js';
+import { chains } from './schema.js';
 
 type Dependencies = {
   database: AppDatabase;
@@ -21,16 +21,16 @@ type Dependencies = {
 };
 
 const RumbleQuery = z.object({ status: z.enum(['open', 'decided']).optional() });
-type RumbleRow = typeof rumbles.$inferSelect;
+export type RumbleRow = typeof chains.$inferSelect;
 
-const compareRumbles = (left: RumbleRow, right: RumbleRow) => {
+export const compareRumbles = (left: RumbleRow, right: RumbleRow) => {
   const leftOpen = left.chosen === null;
   const rightOpen = right.chosen === null;
   if (leftOpen !== rightOpen) return leftOpen ? -1 : 1;
   if (leftOpen) {
-    const outage = Number(right.kind === 'outage') - Number(left.kind === 'outage');
+    const outage = Number(right.rumbleKind === 'outage') - Number(left.rumbleKind === 'outage');
     if (outage !== 0) return outage;
-    const blockers = right.blockingQuestIds.length - left.blockingQuestIds.length;
+    const blockers = (right.blockingQuestIds?.length ?? 0) - (left.blockingQuestIds?.length ?? 0);
     if (blockers !== 0) return blockers;
     const created = left.createdAt.localeCompare(right.createdAt);
     if (created !== 0) return created;
@@ -38,13 +38,14 @@ const compareRumbles = (left: RumbleRow, right: RumbleRow) => {
     const decided = (right.chosenAt ?? '').localeCompare(left.chosenAt ?? '');
     if (decided !== 0) return decided;
   }
-  return left.id.localeCompare(right.id);
+  return (left.slug ?? '').localeCompare(right.slug ?? '');
 };
 
 export function listOrderedRumbleRows(database: AppDatabase, status?: 'open' | 'decided') {
   return database.db
     .select()
-    .from(rumbles)
+    .from(chains)
+    .where(eq(chains.kind, 'rumble'))
     .all()
     .filter((row) => status === undefined || (status === 'open') === (row.chosen === null))
     .sort(compareRumbles);
@@ -52,14 +53,14 @@ export function listOrderedRumbleRows(database: AppDatabase, status?: 'open' | '
 
 export const parseRumble = (row: RumbleRow) =>
   Rumble.parse({
-    id: row.id,
+    id: row.slug,
     title: row.title,
     context: row.context,
     options: row.options,
     chosen: row.chosen,
     chosenAt: row.chosenAt,
     blockingQuestIds: row.blockingQuestIds,
-    kind: row.kind,
+    kind: row.rumbleKind,
   });
 
 export function writeRumble(database: AppDatabase, now: () => Date, data: NewRumbleType) {
@@ -75,36 +76,68 @@ export function writeRumble(database: AppDatabase, now: () => Date, data: NewRum
         .replace(/-$/, '') || 'rumble';
     id = base;
     let suffix = 2;
-    while (db.select({ id: rumbles.id }).from(rumbles).where(eq(rumbles.id, id)).get())
+    while (db.select({ id: chains.slug }).from(chains).where(eq(chains.slug, id)).get())
       id = `${base}-${suffix++}`;
   }
-  const existing = db.select().from(rumbles).where(eq(rumbles.id, id)).get();
+  const existing = db.select().from(chains).where(eq(chains.slug, id)).get();
   if (existing === undefined) {
-    db.insert(rumbles)
+    const createdAt = now().toISOString();
+    db.insert(chains)
       .values({
-        ...data,
-        id,
+        kind: 'rumble',
+        status: data.chosen === undefined ? 'open' : 'settled',
+        createdAt,
+        lastActivityAt: data.chosenAt ?? createdAt,
+        questId: null,
+        snoozedUntil: null,
+        slug: id,
+        title: data.title,
+        context: data.context,
+        options: data.options,
         chosen: data.chosen ?? null,
-        chosenAt: data.chosen === undefined ? null : (data.chosenAt ?? now().toISOString()),
-        createdAt: now().toISOString(),
+        chosenAt: data.chosen === undefined ? null : (data.chosenAt ?? createdAt),
+        blockingQuestIds: data.blockingQuestIds,
+        rumbleKind: data.kind,
       })
       .run();
   } else {
-    db.update(rumbles)
+    const chosenAt = data.chosenAt ?? now().toISOString();
+    db.update(chains)
       .set({
         title: data.title,
         context: data.context,
         options: data.options,
-        kind: data.kind,
+        rumbleKind: data.kind,
         blockingQuestIds: data.blockingQuestIds,
         ...(data.chosen === undefined
           ? {}
-          : { chosen: data.chosen, chosenAt: data.chosenAt ?? now().toISOString() }),
+          : { chosen: data.chosen, chosenAt, status: 'settled', lastActivityAt: chosenAt }),
       })
-      .where(eq(rumbles.id, id))
+      .where(eq(chains.slug, id))
       .run();
   }
-  return db.select().from(rumbles).where(eq(rumbles.id, id)).get()!;
+  return db.select().from(chains).where(eq(chains.slug, id)).get()!;
+}
+
+export function decideRumbleRow(
+  database: AppDatabase,
+  slug: string,
+  chosen: string,
+  chosenAt: string,
+) {
+  database.db
+    .update(chains)
+    .set({ chosen, chosenAt, status: 'settled', lastActivityAt: chosenAt })
+    .where(eq(chains.slug, slug))
+    .run();
+}
+
+export function clearRumbleChoice(database: AppDatabase, slug: string) {
+  database.db
+    .update(chains)
+    .set({ chosen: null, chosenAt: null, status: 'open' })
+    .where(eq(chains.slug, slug))
+    .run();
 }
 
 export function createRumbleRoutes({ database, now, storeEvent, resumePause }: Dependencies) {
@@ -127,13 +160,14 @@ export function createRumbleRoutes({ database, now, storeEvent, resumePause }: D
   app.post('/rumbles/:id/decide', async (c) => {
     const rumble = db
       .select()
-      .from(rumbles)
-      .where(eq(rumbles.id, c.req.param('id')))
+      .from(chains)
+      .where(eq(chains.slug, c.req.param('id')))
       .get();
-    if (rumble === undefined) return notFound(c);
+    if (rumble === undefined || rumble.kind !== 'rumble') return notFound(c);
     const parsed = RumbleDecision.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
-    if (!rumble.options.includes(parsed.data.chosen)) {
+    const options = rumble.options ?? [];
+    if (!options.includes(parsed.data.chosen)) {
       return c.json(
         {
           error: 'Invalid request',
@@ -141,7 +175,7 @@ export function createRumbleRoutes({ database, now, storeEvent, resumePause }: D
             {
               code: 'custom',
               path: ['chosen'],
-              message: `chosen must be one of: ${rumble.options.join(', ')}`,
+              message: `chosen must be one of: ${options.join(', ')}`,
             },
           ],
         },
@@ -149,27 +183,31 @@ export function createRumbleRoutes({ database, now, storeEvent, resumePause }: D
       );
     }
     const chosenAt = now().toISOString();
-    db.update(rumbles)
-      .set({ chosen: parsed.data.chosen, chosenAt })
-      .where(eq(rumbles.id, rumble.id))
-      .run();
+    decideRumbleRow(database, rumble.slug!, parsed.data.chosen, chosenAt);
     await storeEvent({
       source: 'human',
       kind: 'human.decision',
-      ...(rumble.blockingQuestIds[0] === undefined ? {} : { questId: rumble.blockingQuestIds[0] }),
+      ...(rumble.blockingQuestIds?.[0] === undefined
+        ? {}
+        : { questId: rumble.blockingQuestIds[0] }),
       payload: {
-        rumbleId: rumble.id,
+        rumbleId: rumble.slug!,
         chosen: parsed.data.chosen,
-        blockingQuestIds: rumble.blockingQuestIds,
+        blockingQuestIds: rumble.blockingQuestIds ?? [],
         text: `${rumble.title} → ${parsed.data.chosen}`,
       },
     });
-    // Outages may take the Planner down, so the Resume button must work without it.
-    if (rumble.kind === 'outage' && parsed.data.chosen === 'Resume') {
-      await resumePause?.(rumble.id.replace(/^outage-/, ''), { decideRumble: false });
-    }
-    return c.json(parseRumble({ ...rumble, chosen: parsed.data.chosen, chosenAt }));
+    if (rumble.rumbleKind === 'outage' && parsed.data.chosen === 'Resume')
+      await resumePause?.(rumble.slug!.replace(/^outage-/, ''), { decideRumble: false });
+    return c.json(
+      parseRumble({
+        ...rumble,
+        status: 'settled',
+        lastActivityAt: chosenAt,
+        chosen: parsed.data.chosen,
+        chosenAt,
+      }),
+    );
   });
-
   return app;
 }
