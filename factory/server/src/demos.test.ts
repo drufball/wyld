@@ -71,6 +71,44 @@ describe('demo and feedback routes', () => {
     });
   });
 
+  it('hides demos owned by done quests unless includeDone is requested', async () => {
+    database.db
+      .insert(worlds)
+      .values({ id: 'factory', name: 'Factory', kind: 'factory', order: 0, icon: 'gear' })
+      .run();
+    database.db
+      .insert(quests)
+      .values([
+        {
+          id: 'finished',
+          worldId: 'factory',
+          title: 'Finished',
+          pitch: '',
+          status: 'done',
+          sinceYouLooked: '',
+          lastNote: '',
+        },
+        {
+          id: 'previewing',
+          worldId: 'factory',
+          title: 'Previewing',
+          pitch: '',
+          status: 'demo',
+          sinceYouLooked: '',
+          lastNote: '',
+        },
+      ])
+      .run();
+    await post('/api/demos', { id: 'done-demo', ref: 'main', kind: 'live', questId: 'finished' });
+    await post('/api/demos', { id: 'open-demo', ref: 'main', kind: 'live', questId: 'previewing' });
+    await post('/api/demos', { id: 'main', ref: 'main', kind: 'live' });
+
+    const visible = Demo.array().parse(await (await app.request('/api/demos')).json());
+    const all = Demo.array().parse(await (await app.request('/api/demos?includeDone=1')).json());
+    expect(visible.map(({ id }) => id)).toEqual(['main', 'open-demo']);
+    expect(all.map(({ id }) => id)).toEqual(['main', 'done-demo', 'open-demo']);
+  });
+
   it('upserts demos and defaults their title from the quest', async () => {
     database.db
       .insert(worlds)

@@ -1,7 +1,7 @@
 import type { Demo } from '@wyld/shared';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { buildDemo, listDemos, postFeedback } from '../api/client.js';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { buildDemo, listDemos, patchQuestStatus, postFeedback } from '../api/client.js';
 import { Badge } from '../components/ui/badge.js';
 import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
@@ -106,7 +106,43 @@ function FeedbackForm({
   );
 }
 
-function LiveDemoContent({ demo }: { demo: Demo }) {
+function MarkDone({
+  onMarkDone,
+  marking,
+  failed,
+}: {
+  onMarkDone: () => void;
+  marking: boolean;
+  failed: boolean;
+}) {
+  return (
+    <>
+      <Button variant="retro" type="button" disabled={marking} onClick={onMarkDone}>
+        Mark done
+      </Button>
+      {failed && (
+        <p className="m-0 basis-full text-muted-foreground">
+          That didn't go through.{' '}
+          <Button variant="ghost" type="button" onClick={onMarkDone}>
+            Retry
+          </Button>
+        </p>
+      )}
+    </>
+  );
+}
+
+function LiveDemoContent({
+  demo,
+  onMarkDone,
+  markingDone = false,
+  markDoneFailed = false,
+}: {
+  demo: Demo;
+  onMarkDone?: () => void;
+  markingDone?: boolean;
+  markDoneFailed?: boolean;
+}) {
   return (
     <>
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
@@ -137,13 +173,18 @@ function LiveDemoContent({ demo }: { demo: Demo }) {
           </ul>
         </section>
       )}
-      <Button asChild variant="retro">
-        {demo.kind === 'pak' ? (
-          <a href={demo.url}>Try it</a>
-        ) : (
-          <Link to={demo.deepLink ?? '/'}>Try it</Link>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="retro">
+          {demo.kind === 'pak' ? (
+            <a href={demo.url}>Try it</a>
+          ) : (
+            <Link to={demo.deepLink ?? '/'}>Try it</Link>
+          )}
+        </Button>
+        {demo.questId !== null && onMarkDone && (
+          <MarkDone onMarkDone={onMarkDone} marking={markingDone} failed={markDoneFailed} />
         )}
-      </Button>
+      </div>
       <FeedbackForm demoId={demo.id} />
     </>
   );
@@ -153,6 +194,8 @@ function DemoGrid() {
   const [demos, setDemos] = useState<Demo[]>([]);
   const [rebuilding, setRebuilding] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [markingDone, setMarkingDone] = useState<string | null>(null);
+  const [markDoneFailed, setMarkDoneFailed] = useState<string | null>(null);
   const { subscribe } = useLiveEvents();
   const load = useCallback(
     () =>
@@ -186,6 +229,15 @@ function DemoGrid() {
       .catch(() => setFailed(demo.id))
       .finally(() => setRebuilding(null));
   };
+  const markDone = (demo: Demo) => {
+    if (demo.questId === null) return;
+    setMarkingDone(demo.id);
+    setMarkDoneFailed(null);
+    void patchQuestStatus(demo.questId, 'done')
+      .then(() => setDemos((items) => items.filter((item) => item.id !== demo.id)))
+      .catch(() => setMarkDoneFailed(demo.id))
+      .finally(() => setMarkingDone(null));
+  };
   return (
     <div className="mx-auto max-w-[1100px]">
       <h1>Demos</h1>
@@ -198,7 +250,12 @@ function DemoGrid() {
             <Card asChild variant="bevel" data-tone={tone} key={demo.id}>
               <article className="demo-card grid min-w-0 content-start gap-3 p-5">
                 {demo.kind === 'live' || (demo.kind === 'pak' && demo.status === 'ready') ? (
-                  <LiveDemoContent demo={demo} />
+                  <LiveDemoContent
+                    demo={demo}
+                    onMarkDone={() => markDone(demo)}
+                    markingDone={markingDone === demo.id}
+                    markDoneFailed={markDoneFailed === demo.id}
+                  />
                 ) : (
                   <>
                     <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
@@ -212,9 +269,18 @@ function DemoGrid() {
                         <p className="m-0 text-muted-foreground">
                           Ready · built {relativeTime(demo.builtAt!, new Date())}
                         </p>
-                        <Button asChild variant="retro">
-                          <Link to={`/demos/${encodeURIComponent(demo.id)}`}>Play</Link>
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button asChild variant="retro">
+                            <Link to={`/demos/${encodeURIComponent(demo.id)}`}>Play</Link>
+                          </Button>
+                          {demo.questId !== null && (
+                            <MarkDone
+                              onMarkDone={() => markDone(demo)}
+                              marking={markingDone === demo.id}
+                              failed={markDoneFailed === demo.id}
+                            />
+                          )}
+                        </div>
                       </>
                     )}
                     {demo.status === 'building' && (
@@ -254,12 +320,24 @@ function DemoGrid() {
 
 function DemoPlayer({ id }: { id: string }) {
   const [demo, setDemo] = useState<Demo | null | undefined>(undefined);
+  const [markingDone, setMarkingDone] = useState(false);
+  const [markDoneFailed, setMarkDoneFailed] = useState(false);
+  const navigate = useNavigate();
   const iframe = useRef<HTMLIFrameElement>(null);
   useEffect(() => {
     void listDemos()
       .then((items) => setDemo(items.find((item) => item.id === id) ?? null))
       .catch(() => setDemo(null));
   }, [id]);
+  const markDone = () => {
+    if (demo?.questId == null) return;
+    setMarkingDone(true);
+    setMarkDoneFailed(false);
+    void patchQuestStatus(demo.questId, 'done')
+      .then(() => navigate('/demos'))
+      .catch(() => setMarkDoneFailed(true))
+      .finally(() => setMarkingDone(false));
+  };
   if (demo === undefined) return null;
   if (demo === null)
     return (
@@ -278,7 +356,12 @@ function DemoPlayer({ id }: { id: string }) {
         </Button>
         <Card asChild variant="bevel">
           <article className="demo-card grid min-w-0 gap-3 p-5">
-            <LiveDemoContent demo={demo} />
+            <LiveDemoContent
+              demo={demo}
+              onMarkDone={markDone}
+              markingDone={markingDone}
+              markDoneFailed={markDoneFailed}
+            />
           </article>
         </Card>
       </div>

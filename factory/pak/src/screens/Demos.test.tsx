@@ -20,6 +20,16 @@ const demo = (id: string, status: 'ready' | 'building' | 'failed') => ({
   seeded: [],
   deepLink: null,
 });
+const completedQuest = {
+  id: 'quest',
+  worldId: 'wyld',
+  title: 'Quest',
+  pitch: 'Ship it',
+  status: 'done' as const,
+  progress: 1,
+  sinceYouLooked: '',
+  lastNote: '',
+};
 function response(value: unknown, ok = true) {
   return Promise.resolve({
     ok,
@@ -108,6 +118,55 @@ describe('Demos', () => {
       ),
     );
   });
+  it('marks quest-owned live and ready disc cards done and removes them', async () => {
+    const live = { ...demo('live', 'ready'), kind: 'live' as const, questId: 'live-quest' };
+    const disc = { ...demo('disc', 'ready'), questId: 'disc-quest' };
+    const main = demo('main', 'ready');
+    const fetch = vi.fn((url: string) =>
+      url.startsWith('/api/quests/')
+        ? response({ ...completedQuest, id: 'live-quest' })
+        : response([live, disc, main]),
+    );
+    vi.stubGlobal('fetch', fetch);
+    show();
+
+    const buttons = await screen.findAllByRole('button', { name: 'Mark done' });
+    expect(buttons).toHaveLength(2);
+    fireEvent.click(buttons[0]!);
+    await waitFor(() => expect(screen.queryByText('live disc')).toBeNull());
+    expect(screen.getByText('disc disc')).not.toBeNull();
+    expect(screen.getByText('main disc')).not.toBeNull();
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/quests/live-quest',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'done', source: 'human' }),
+      }),
+    );
+  });
+
+  it('keeps a card and offers retry when marking done fails', async () => {
+    const owned = { ...demo('owned', 'ready'), questId: 'quest' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => (url === '/api/demos' ? response([owned]) : response({}, false))),
+    );
+    show();
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark done' }));
+    expect(await screen.findByRole('button', { name: 'Retry' })).not.toBeNull();
+    expect(screen.getByText('owned disc')).not.toBeNull();
+  });
+
+  it('navigates back after marking a full-page quest demo done', async () => {
+    const live = { ...demo('live', 'ready'), kind: 'live' as const, questId: 'quest' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url === '/api/demos' ? [live] : completedQuest)),
+    );
+    show('/demos/live');
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark done' }));
+    expect(await screen.findByRole('heading', { name: 'Demos' })).not.toBeNull();
+  });
   it('renders a ready Pak as a branch card with a full-navigation anchor', async () => {
     const pak = {
       ...demo('branch-pak', 'ready'),
@@ -118,7 +177,10 @@ describe('Demos', () => {
       url: '/play/branch-pak/sleep',
       deepLink: '/sleep',
     };
-    vi.stubGlobal('fetch', vi.fn(() => response([pak])));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => response([pak])),
+    );
 
     show();
     expect(await screen.findByText('BRANCH')).not.toBeNull();
@@ -133,7 +195,10 @@ describe('Demos', () => {
       { ...demo('building-pak', 'building'), kind: 'pak' as const },
       { ...demo('failed-pak', 'failed'), kind: 'pak' as const },
     ];
-    vi.stubGlobal('fetch', vi.fn(() => response(items)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => response(items)),
+    );
     show();
     expect(await screen.findByText('Building this now…')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Rebuild' })).not.toBeNull();
