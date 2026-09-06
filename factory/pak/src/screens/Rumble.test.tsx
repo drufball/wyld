@@ -1,16 +1,16 @@
 import type { Chain, Rumble as RumbleType } from '@wyld/shared';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { decideRumble, listChains, listRumbles, postChain } from '../api/client.js';
+import { decideRumble, listChains, postChainMessage } from '../api/client.js';
 import { Rumble } from './Rumble.js';
 
 vi.mock('../api/client.js', () => ({
   decideRumble: vi.fn(),
   listChains: vi.fn(),
-  postChain: vi.fn(),
   postChainMessage: vi.fn(),
+  snoozeChain: vi.fn(),
+  unsnoozeChain: vi.fn(),
   closeChain: vi.fn(),
-  listRumbles: vi.fn(),
 }));
 vi.mock('../live/LiveEvents.js', () => {
   const subscribe = () => () => undefined;
@@ -37,6 +37,17 @@ const second: RumbleType = {
   blockingQuestIds: [],
   kind: 'outage',
 };
+const rumbleChain = (rumble: RumbleType, id: number): Chain => ({
+  id,
+  kind: 'rumble',
+  status: 'open',
+  createdAt: '2026-09-05T12:00:00.000Z',
+  lastActivityAt: '2026-09-05T12:00:00.000Z',
+  questId: rumble.blockingQuestIds[0] ?? null,
+  snoozedUntil: null,
+  rumble,
+  messages: [],
+});
 const decided = (rumble: RumbleType, chosen = rumble.options[0]!): RumbleType => ({
   ...rumble,
   chosen,
@@ -44,17 +55,19 @@ const decided = (rumble: RumbleType, chosen = rumble.options[0]!): RumbleType =>
 });
 
 beforeEach(() => {
-  vi.mocked(listRumbles).mockReset().mockResolvedValue([]);
   vi.mocked(decideRumble).mockReset();
   vi.mocked(listChains).mockReset().mockResolvedValue([]);
-  vi.mocked(postChain).mockReset();
+  vi.mocked(postChainMessage).mockReset();
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Rumble', () => {
   it('keeps API ordering, decides, and allows a different decision', async () => {
-    vi.mocked(listRumbles).mockResolvedValue([first, second]);
+    vi.mocked(listChains).mockResolvedValue([rumbleChain(first, 1), rumbleChain(second, 2)]);
     vi.mocked(decideRumble).mockResolvedValue(decided(first, 'A'));
+    vi.mocked(listChains)
+      .mockResolvedValueOnce([rumbleChain(first, 1), rumbleChain(second, 2)])
+      .mockResolvedValue([rumbleChain(decided(first, 'A'), 1), rumbleChain(second, 2)]);
     render(<Rumble />);
     await screen.findByText('First choice');
     const cards = document.querySelectorAll('.rumble-card');
@@ -73,14 +86,14 @@ describe('Rumble', () => {
   });
 
   it('renders the exact empty state', async () => {
-    vi.mocked(listRumbles).mockResolvedValue([]);
+    vi.mocked(listChains).mockResolvedValue([]);
     render(<Rumble />);
     expect(await screen.findByText("Controller's quiet.")).not.toBeNull();
     expect(screen.queryByText('Already decided (0)')).toBeNull();
   });
 
   it('offers retry after a failed decision', async () => {
-    vi.mocked(listRumbles).mockResolvedValue([first]);
+    vi.mocked(listChains).mockResolvedValue([rumbleChain(first, 1)]);
     vi.mocked(decideRumble)
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValueOnce(decided(first));
@@ -93,7 +106,7 @@ describe('Rumble', () => {
   it('vibrates when available and works without vibration support', async () => {
     const vibrate = vi.fn();
     vi.stubGlobal('navigator', { vibrate });
-    vi.mocked(listRumbles).mockResolvedValue([first]);
+    vi.mocked(listChains).mockResolvedValue([rumbleChain(first, 1)]);
     vi.mocked(decideRumble).mockResolvedValue(decided(first));
     const view = render(<Rumble />);
     fireEvent.click(await screen.findByRole('button', { name: 'A' }));
@@ -119,18 +132,17 @@ describe('Rumble', () => {
         { id: 1, chainId: 1, author: 'human', text: 'More?', ts: '2026-09-05T12:00:00.000Z' },
       ],
     };
-    vi.mocked(listRumbles).mockResolvedValue([first]);
-    vi.mocked(listChains).mockResolvedValue([chain]);
-    vi.mocked(postChain).mockResolvedValue(chain);
+    vi.mocked(listChains).mockResolvedValue([rumbleChain(first, 1)]);
+    const ownChain = { ...chain, kind: 'rumble' as const, rumble: first };
+    vi.mocked(listChains).mockResolvedValue([ownChain]);
+    vi.mocked(postChainMessage).mockResolvedValue({ ...ownChain, messages: chain.messages });
     render(<Rumble />);
     fireEvent.click(await screen.findByRole('button', { name: 'Ask for more' }));
     fireEvent.change(screen.getByLabelText('What else do you need to know?'), {
       target: { value: 'More detail' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() =>
-      expect(postChain).toHaveBeenCalledWith('About "First choice": More detail', 'quest-one'),
-    );
+    await waitFor(() => expect(postChainMessage).toHaveBeenCalledWith(1, 'More detail'));
     expect(await screen.findByText('More?')).not.toBeNull();
   });
 });

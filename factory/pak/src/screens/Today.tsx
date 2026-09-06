@@ -48,6 +48,7 @@ export function Today({
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const [rumbleCount, setRumbleCount] = useState(signals.rumbles);
   const [demoCount, setDemoCount] = useState(signals.demos);
+  const [composerOpen, setComposerOpen] = useState(false);
   const intentField = useRef<HTMLTextAreaElement>(null);
   const { subscribe } = useLiveEvents();
 
@@ -98,11 +99,28 @@ export function Today({
     field.style.height = 'auto';
     field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
   }, [text]);
+  useEffect(() => {
+    if (composerOpen) intentField.current?.focus();
+  }, [composerOpen]);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && composerOpen) {
+        setComposerOpen(false);
+        document.getElementById('today-composer-button')?.focus();
+      }
+    };
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [composerOpen]);
 
   const sendChain = (submission: string) => {
     setFailedSubmission(null);
     void postChain(submission)
-      .then(setAddedChain)
+      .then((chain) => {
+        setAddedChain(chain);
+        setComposerOpen(false);
+        document.getElementById('today-composer-button')?.focus();
+      })
       .catch(() => setFailedSubmission({ text: submission, action: 'chain' }));
   };
   const sendIntent = (submission: string) => {
@@ -124,51 +142,82 @@ export function Today({
   };
 
   return (
-    <div className="grid gap-8 pt-[clamp(48px,12vh,120px)]">
-      <form className="grid gap-3" onSubmit={submit}>
-        <label className="font-display text-[11px] leading-loose" htmlFor="today-intent">
-          What's on your mind?
-        </label>
-        <span className="grid grid-cols-[auto_1fr] items-center gap-2 font-display text-[11px] leading-loose">
-          <span className="text-accent" aria-hidden="true">
-            &gt;
-          </span>
-          <Textarea
-            ref={intentField}
-            id="today-intent"
-            rows={1}
-            autoFocus
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                event.currentTarget.form?.requestSubmit();
-              }
-            }}
-            autoComplete="off"
-            className="resize-none overflow-hidden border-x-0 border-t-0 bg-transparent px-1 font-mono text-[15px] motion-safe:animate-[terminal-caret_1s_steps(2,jump-none)_infinite]"
-          />
-        </span>
-        <div className="min-h-8 text-sm text-muted-foreground" aria-live="polite">
-          {failedSubmission !== null ? (
-            <span>
-              That didn't go through.{' '}
-              <Button
-                variant="ghost"
-                type="button"
-                onClick={() =>
-                  failedSubmission.action === 'chain'
-                    ? sendChain(failedSubmission.text)
-                    : sendIntent(failedSubmission.text)
+    <div className="grid gap-8">
+      {composerOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 min-h-11 bg-background/70"
+          aria-label="Close new message"
+          onClick={() => {
+            setComposerOpen(false);
+            document.getElementById('today-composer-button')?.focus();
+          }}
+        />
+      )}
+      <Card
+        variant="bevel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="New message"
+        id="today-composer"
+        className={
+          composerOpen
+            ? 'fixed bottom-[calc(88px+env(safe-area-inset-bottom))] left-0 right-0 z-40 grid gap-3 p-5 md:bottom-24 md:left-auto md:right-6 md:w-[min(32rem,calc(100vw-3rem))]'
+            : 'sr-only'
+        }
+      >
+        <form className="grid gap-3" onSubmit={submit}>
+          <label className="font-display text-[11px] leading-loose" htmlFor="today-intent">
+            What's on your mind?
+          </label>
+          <span className="grid gap-2">
+            <Textarea
+              ref={intentField}
+              id="today-intent"
+              rows={1}
+              value={text}
+              onFocus={() => setComposerOpen(true)}
+              onChange={(event) => setText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
                 }
-              >
-                Retry
-              </Button>
-            </span>
-          ) : null}
-        </div>
-      </form>
+              }}
+              autoComplete="off"
+              className="resize-none overflow-hidden"
+            />
+          </span>
+          <div className="min-h-8 text-sm text-muted-foreground" aria-live="polite">
+            {failedSubmission !== null ? (
+              <span>
+                That didn't go through.{' '}
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() =>
+                    failedSubmission.action === 'chain'
+                      ? sendChain(failedSubmission.text)
+                      : sendIntent(failedSubmission.text)
+                  }
+                >
+                  Retry
+                </Button>
+              </span>
+            ) : null}
+          </div>
+          <Button
+            variant="retro"
+            type="button"
+            onClick={() => {
+              setComposerOpen(false);
+              document.getElementById('today-composer-button')?.focus();
+            }}
+          >
+            Close
+          </Button>
+        </form>
+      </Card>
       {nextAction !== null &&
         (nextAction.deepLink ? (
           <Card variant="bevel" className="p-0">
@@ -191,9 +240,21 @@ export function Today({
             {nextAction.text}
           </Card>
         ))}
-      <ChainList addedChain={addedChain} onConvert={sendIntent} />
+      <ChainList kind="all" addedChain={addedChain} onConvert={sendIntent} />
       <InFlight />
       <Signals {...signals} rumbles={rumbleCount} demos={demoCount} />
+      <Button
+        id="today-composer-button"
+        variant="retro"
+        type="button"
+        aria-label="New message"
+        aria-expanded={composerOpen}
+        aria-controls="today-composer"
+        onClick={() => setComposerOpen((value) => !value)}
+        className="fixed bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 z-40 size-14 rounded-full p-0 text-xl md:bottom-6 md:right-6"
+      >
+        +
+      </Button>
     </div>
   );
 }

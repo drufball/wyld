@@ -162,7 +162,7 @@ describe('Today', () => {
       ],
     };
     const fetch = vi.fn((url: string, init?: RequestInit) => {
-      if (url === '/api/chains' && init?.method !== 'POST') return jsonResponse([chain]);
+      if (url.startsWith('/api/chains?') && init?.method !== 'POST') return jsonResponse([chain]);
       if (url === '/api/chains/7/close') return jsonResponse({ ...chain, status: 'converted' });
       return jsonResponse(url.startsWith('/api/quests') ? [] : presence);
     });
@@ -197,7 +197,7 @@ describe('Today', () => {
       ],
     };
     const fetch = vi.fn((url: string, init?: RequestInit) => {
-      if (url === '/api/chains' && init?.method !== 'POST') return jsonResponse([chain]);
+      if (url.startsWith('/api/chains?') && init?.method !== 'POST') return jsonResponse([chain]);
       if (url === '/api/chains/9/close') return jsonResponse({ ...chain, status: 'converted' });
       if (url === '/api/events') return jsonResponse({}, false);
       return jsonResponse(url.startsWith('/api/quests') ? [] : presence);
