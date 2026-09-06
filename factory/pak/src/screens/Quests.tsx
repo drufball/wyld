@@ -10,6 +10,10 @@ import {
   postQuestNote,
 } from '../api/client.js';
 import { ChainList } from '../components/ChainList.js';
+import { Badge } from '../components/ui/badge.js';
+import { Button } from '../components/ui/button.js';
+import { Card } from '../components/ui/card.js';
+import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 
 function AskComposer({ questId, onSent }: { questId: string; onSent: (chain: Chain) => void }) {
@@ -39,16 +43,17 @@ function AskComposer({ questId, onSent }: { questId: string; onSent: (chain: Cha
   };
 
   return (
-    <div className="ask-composer">
-      <form onSubmit={submit}>
+    <div className="mt-5 grid gap-3 border-t-2 border-bevel-dark pt-3">
+      <form className="grid gap-2" onSubmit={submit}>
         <label htmlFor={`ask-${questId}`}>Ask about this quest</label>
-        <span className="ask-composer__input">
-          <textarea
+        <span className="flex flex-wrap gap-2">
+          <Textarea
             ref={askField}
             id={`ask-${questId}`}
             rows={1}
             value={text}
             onChange={(event) => setText(event.target.value)}
+            className="min-w-0 flex-[1_1_190px] resize-none overflow-hidden"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
@@ -56,15 +61,15 @@ function AskComposer({ questId, onSent }: { questId: string; onSent: (chain: Cha
               }
             }}
           />
-          <button type="submit">Send</button>
+          <Button type="submit">Send</Button>
         </span>
       </form>
       {failedText !== null && (
-        <p className="quest-retry">
+        <p className="m-0 text-muted-foreground">
           That didn't go through.{' '}
-          <button type="button" onClick={() => send(failedText)}>
+          <Button variant="ghost" type="button" onClick={() => send(failedText)}>
             Retry
-          </button>
+          </Button>
         </p>
       )}
     </div>
@@ -102,90 +107,122 @@ export function QuestCard({
     nudgeTimer.current = setTimeout(() => setNudged(false), 3000);
   };
   const parked = quest.status === 'parked';
+  const tone =
+    quest.status === 'demo'
+      ? 'ok'
+      : quest.status === 'building'
+        ? 'accent'
+        : quest.status === 'parked'
+          ? 'warn'
+          : undefined;
   const togglePark = () => {
     if (!parked) previousStatus.current = quest.status === 'idea' ? 'idea' : 'building';
     return patchQuestStatus(quest.id, parked ? previousStatus.current : 'parked');
   };
 
   return (
-    <article className="quest-card">
-      <header>
-        <div>
-          <div className="quest-card__heading">
-            <h2>{quest.title}</h2>
-            <span className="world-tag">{worldName}</span>
+    <Card asChild variant="bevel" data-tone={tone}>
+      <article className="quest-card grid min-w-0 gap-3 p-5">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-[1_1_240px]">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <h2 className="m-0 wrap-anywhere text-xl leading-snug">{quest.title}</h2>
+              <Badge variant="outline">{worldName}</Badge>
+            </div>
+            <p className="my-2 wrap-anywhere text-muted-foreground">{quest.pitch}</p>
           </div>
-          <p>{quest.pitch}</p>
-        </div>
-        <span className={`quest-status quest-status--${quest.status}`}>{quest.status}</span>
-      </header>
-      <div
-        className="quest-progress"
-        role="progressbar"
-        aria-label={`${quest.title} progress`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(quest.progress * 100)}
-      >
-        <span style={{ width: `${quest.progress * 100}%` }} />
-      </div>
-      {(quest.sinceYouLooked || (quest.lastNote && quest.lastNote.toLowerCase() !== 'nudge')) && (
-        <div className="quest-context">
-          {quest.sinceYouLooked && <p>{quest.sinceYouLooked}</p>}
-          {quest.lastNote && quest.lastNote.toLowerCase() !== 'nudge' && <p>{quest.lastNote}</p>}
-        </div>
-      )}
-      <div className="quest-actions">
-        <button
-          type="button"
-          onClick={() =>
-            act(
-              () => postQuestNote(quest.id, { author: 'human', text: 'Nudge', intent: 'nudge' }),
-              acknowledgeNudge,
-            )
-          }
+          <Badge variant="tone" data-tone={tone}>
+            {quest.status}
+          </Badge>
+        </header>
+        <div
+          className="h-2.5 overflow-hidden bg-muted"
+          role="progressbar"
+          aria-label={`${quest.title} progress`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(quest.progress * 100)}
         >
-          Nudge
-        </button>
-        <button type="button" onClick={() => act(togglePark)}>
-          {parked ? 'Unpark' : 'Park'}
-        </button>
-        {quest.status !== 'done' && !parked && (
-          <button type="button" onClick={() => act(() => patchQuestStatus(quest.id, 'done'))}>
-            Done
-          </button>
+          <span
+            className="block h-full bg-dracula-green transition-[width] duration-400 motion-reduce:transition-none"
+            style={{ width: `${quest.progress * 100}%` }}
+          />
+        </div>
+        {(quest.sinceYouLooked || (quest.lastNote && quest.lastNote.toLowerCase() !== 'nudge')) && (
+          <div className="grid gap-2 border-l-2 border-l-primary bg-muted p-3 text-muted-foreground">
+            {quest.sinceYouLooked && (
+              <p className="m-0 wrap-anywhere whitespace-pre-wrap">{quest.sinceYouLooked}</p>
+            )}
+            {quest.lastNote && quest.lastNote.toLowerCase() !== 'nudge' && (
+              <p className="m-0 wrap-anywhere whitespace-pre-wrap">{quest.lastNote}</p>
+            )}
+          </div>
         )}
-        <button type="button" aria-expanded={asking} onClick={() => setAsking((value) => !value)}>
-          Ask
-        </button>
-        <span className="quest-demo">
-          <button type="button" disabled>
-            Demo
-          </button>{' '}
-          <small>not yet</small>
-        </span>
-      </div>
-      {nudged && (
-        <p className="today-ack" aria-live="polite">
-          Nudged. Fable's on it.
-        </p>
-      )}
-      {failedAction !== null && (
-        <p className="quest-retry">
-          That didn't go through. <button onClick={failedAction}>Retry</button>
-        </p>
-      )}
-      {asking && (
-        <AskComposer
-          questId={quest.id}
-          onSent={(chain) => {
-            setNewChain(chain);
-            setAsking(false);
-          }}
-        />
-      )}
-      <ChainList quest={quest.id} showQuestChip={false} addedChain={newChain} />
-    </article>
+        <div className="quest-actions flex flex-wrap gap-2">
+          <Button
+            variant="retro"
+            type="button"
+            onClick={() =>
+              act(
+                () => postQuestNote(quest.id, { author: 'human', text: 'Nudge', intent: 'nudge' }),
+                acknowledgeNudge,
+              )
+            }
+          >
+            Nudge
+          </Button>
+          <Button variant="retro" type="button" onClick={() => act(togglePark)}>
+            {parked ? 'Unpark' : 'Park'}
+          </Button>
+          {quest.status !== 'done' && !parked && (
+            <Button
+              variant="retro"
+              type="button"
+              onClick={() => act(() => patchQuestStatus(quest.id, 'done'))}
+            >
+              Done
+            </Button>
+          )}
+          <Button
+            variant="retro"
+            type="button"
+            aria-expanded={asking}
+            onClick={() => setAsking((value) => !value)}
+          >
+            Ask
+          </Button>
+          <span className="inline-flex items-center gap-2 text-muted-foreground">
+            <Button variant="retro" type="button" disabled>
+              Demo
+            </Button>{' '}
+            <small>not yet</small>
+          </span>
+        </div>
+        {nudged && (
+          <p className="today-ack" aria-live="polite">
+            Nudged. Fable's on it.
+          </p>
+        )}
+        {failedAction !== null && (
+          <p className="m-0 text-muted-foreground">
+            That didn't go through.{' '}
+            <Button variant="ghost" type="button" onClick={failedAction}>
+              Retry
+            </Button>
+          </p>
+        )}
+        {asking && (
+          <AskComposer
+            questId={quest.id}
+            onSent={(chain) => {
+              setNewChain(chain);
+              setAsking(false);
+            }}
+          />
+        )}
+        <ChainList quest={quest.id} showQuestChip={false} addedChain={newChain} />
+      </article>
+    </Card>
   );
 }
 
@@ -263,16 +300,17 @@ export function Quests() {
   };
 
   return (
-    <section className="world-quests">
+    <section className="grid max-w-[1100px] gap-5">
       <h1>Quests</h1>
       {selectedQuest ? (
-        <div className="quest-list">
+        <div className="grid gap-5">
           <QuestCard
             quest={selectedQuest}
             worldName={worldNames.get(selectedQuest.worldId) ?? selectedQuest.worldId}
             onChange={replaceQuest}
           />
-          <button
+          <Button
+            variant="retro"
             type="button"
             onClick={() => {
               const next = new URLSearchParams(searchParams);
@@ -281,28 +319,32 @@ export function Quests() {
             }}
           >
             Show all quests
-          </button>
+          </Button>
         </div>
       ) : (
         <>
-          <div className="quest-filters">
-            <div className="quest-filter" aria-label="World filter">
-              <strong>World</strong>
+          <div className="mb-5 grid gap-3">
+            <div className="flex flex-wrap items-center gap-2" aria-label="World filter">
+              <strong className="min-w-16 font-display text-[10px] uppercase">World</strong>
               {[{ id: 'all', name: 'All' }, ...worlds].map((world) => (
-                <button
+                <Button
+                  variant={selectedWorld === world.id ? 'retro' : 'outline'}
+                  className="rounded-full"
                   key={world.id}
                   type="button"
                   aria-pressed={selectedWorld === world.id}
                   onClick={() => chooseWorld(world.id)}
                 >
                   {world.name}
-                </button>
+                </Button>
               ))}
             </div>
-            <div className="quest-filter" aria-label="Status filter">
-              <strong>Status</strong>
+            <div className="flex flex-wrap items-center gap-2" aria-label="Status filter">
+              <strong className="min-w-16 font-display text-[10px] uppercase">Status</strong>
               {statusFilters.map((filter) => (
-                <button
+                <Button
+                  variant={status === filter.id ? 'retro' : 'outline'}
+                  className="rounded-full"
                   key={filter.id}
                   type="button"
                   aria-pressed={status === filter.id}
@@ -312,11 +354,11 @@ export function Quests() {
                   }}
                 >
                   {filter.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
-          <div className="quest-list">
+          <div className="grid gap-5">
             {activeQuests.map((quest) => (
               <QuestCard
                 key={quest.id}
@@ -326,15 +368,16 @@ export function Quests() {
               />
             ))}
             {doneQuests.length > 0 && (
-              <section className="done-quests">
-                <button
-                  className="done-quests__toggle"
+              <section className="grid gap-5">
+                <Button
+                  variant="ghost"
+                  className="justify-start border-b-2 border-b-bevel-light font-display text-[10px]"
                   type="button"
                   aria-expanded={doneExpanded}
                   onClick={() => setDoneExpanded((expanded) => !expanded)}
                 >
                   Done ({doneQuests.length})
-                </button>
+                </Button>
                 {doneExpanded &&
                   doneQuests.map((quest) => (
                     <QuestCard
@@ -347,7 +390,9 @@ export function Quests() {
               </section>
             )}
           </div>
-          {filtered.length === 0 && <p className="pak-dim">No quests match these filters.</p>}
+          {filtered.length === 0 && (
+            <p className="text-muted-foreground">No quests match these filters.</p>
+          )}
         </>
       )}
     </section>
