@@ -22,7 +22,6 @@ const defaultEventSourceFactory: EventSourceFactory = (url) => new EventSource(u
 
 type LiveEventsValue = {
   connected: boolean;
-  lastEvent: WyldEvent | null;
   subscribe: (kind: EventKind, handler: EventHandler) => () => void;
 };
 
@@ -36,7 +35,6 @@ export function LiveEventsProvider({
   eventSourceFactory?: EventSourceFactory;
 }) {
   const [connected, setConnected] = useState(false);
-  const [lastEvent, setLastEvent] = useState<WyldEvent | null>(null);
   const handlers = useRef(new Map<EventKind, Set<EventHandler>>());
   const subscribe = useCallback((kind: EventKind, handler: EventHandler) => {
     const kindHandlers = handlers.current.get(kind) ?? new Set<EventHandler>();
@@ -71,7 +69,6 @@ export function LiveEventsProvider({
         console.error('Dropped invalid live event', parsed.error);
         return;
       }
-      setLastEvent(parsed.data);
       for (const handler of handlers.current.get(parsed.data.kind) ?? []) handler(parsed.data);
     };
     source.addEventListener('open', open);
@@ -85,10 +82,7 @@ export function LiveEventsProvider({
     };
   }, [eventSourceFactory]);
 
-  const value = useMemo(
-    () => ({ connected, lastEvent, subscribe }),
-    [connected, lastEvent, subscribe],
-  );
+  const value = useMemo(() => ({ connected, subscribe }), [connected, subscribe]);
   return <LiveEventsContext.Provider value={value}>{children}</LiveEventsContext.Provider>;
 }
 

@@ -1,7 +1,7 @@
 import type { HealthSnapshot } from '@wyld/shared';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getHealthSnapshot } from '../api/client.js';
-import { Panel } from '../components/Panel.js';
+import { Card } from '../components/ui/card.js';
 import { relativeTime } from '../words.js';
 
 type Tone = 'ok' | 'warn' | 'bad';
@@ -35,11 +35,11 @@ function Tile({
   tone?: Tone;
 }) {
   return (
-    <Panel className="debug-tile" data-tone={tone}>
-      <h2>{label}</h2>
-      <strong className="debug-tile__value">{value}</strong>
-      <p>{detail}</p>
-    </Panel>
+    <Card variant="bevel" className="min-w-0 border-t-muted-foreground p-5" data-tone={tone}>
+      <h2 className="m-0 text-[13px] font-medium text-muted-foreground">{label}</h2>
+      <strong className="my-2 block wrap-anywhere font-display text-lg">{value}</strong>
+      <p className="m-0 wrap-anywhere text-sm text-muted-foreground">{detail}</p>
+    </Card>
   );
 }
 
@@ -109,7 +109,7 @@ function Tiles({ snapshot }: { snapshot: HealthSnapshot }) {
         : `of ${groupedNumber.format(snapshot.github.rateLimit)} requests this hour`;
 
   return (
-    <div className="debug-grid">
+    <div className="debug-grid grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 max-[480px]:grid-cols-1">
       <Tile
         label="Am I awake?"
         value={
@@ -212,12 +212,18 @@ export function Debug() {
   }, [load]);
 
   return (
-    <div className="debug-menu">
+    <div className="min-w-0">
       <h1>Debug Menu</h1>
       {!snapshot && !failed && <p>Reading the factory…</p>}
-      {failed && <p className="debug-error">Can't reach the factory right now</p>}
+      {failed && (
+        <p className="wrap-anywhere text-sm text-muted-foreground">
+          Can't reach the factory right now
+        </p>
+      )}
       {snapshot?.pausedReason && (
-        <Panel className="debug-pause">Paused — {snapshot.pausedReason}</Panel>
+        <Card variant="bevel" data-tone="warn" className="mb-3 p-5">
+          Paused — {snapshot.pausedReason}
+        </Card>
       )}
       {snapshot && <Tiles snapshot={snapshot} />}
     </div>

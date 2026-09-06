@@ -1,4 +1,4 @@
-import { Panel } from './Panel.js';
+import { Card } from './ui/card.js';
 
 type NotYetProps = {
   name: string;
@@ -7,10 +7,10 @@ type NotYetProps = {
 
 export function NotYet({ name, purpose }: NotYetProps) {
   return (
-    <Panel>
+    <Card variant="bevel" className="p-5">
       <h1>{name}</h1>
       <p>{purpose}</p>
-      <p className="pak-dim">This part of the Pak is resting for now.</p>
-    </Panel>
+      <p className="text-muted-foreground">This part of the Pak is resting for now.</p>
+    </Card>
   );
 }

@@ -2,6 +2,10 @@ import type { Demo } from '@wyld/shared';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { buildDemo, listDemos, postFeedback } from '../api/client.js';
+import { Badge } from '../components/ui/badge.js';
+import { Button } from '../components/ui/button.js';
+import { Card } from '../components/ui/card.js';
+import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { relativeTime } from '../words.js';
 
@@ -51,44 +55,60 @@ function DemoGrid() {
   };
 
   return (
-    <div className="demo-screen">
+    <div className="mx-auto max-w-[1100px]">
       <h1>Demo Discs</h1>
       {demos.length === 0 && <p>No discs yet.</p>}
-      <div className="demo-grid">
-        {demos.map((demo) => (
-          <article className="demo-card" key={demo.id}>
-            <h2>{demo.title}</h2>
-            {demo.status === 'ready' && (
-              <>
-                <p>Ready · built {relativeTime(demo.builtAt!, new Date())}</p>
-                <Link className="demo-play" to={`/demos/${encodeURIComponent(demo.id)}`}>
-                  Play
-                </Link>
-              </>
-            )}
-            {demo.status === 'building' && <p>Building this now…</p>}
-            {demo.status === 'failed' && (
-              <>
-                <p>This one didn't build.</p>
-                <button
-                  type="button"
-                  disabled={rebuilding === demo.id}
-                  onClick={() => rebuild(demo)}
-                >
-                  Rebuild
-                </button>
-                {failed === demo.id && (
-                  <p>
-                    That didn't go through.{' '}
-                    <button type="button" onClick={() => rebuild(demo)}>
-                      Retry
-                    </button>
-                  </p>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-5">
+        {demos.map((demo) => {
+          const tone =
+            demo.status === 'ready' ? 'ok' : demo.status === 'building' ? 'accent' : 'bad';
+          return (
+            <Card asChild variant="bevel" data-tone={tone} key={demo.id}>
+              <article className="demo-card grid content-start gap-3 p-5">
+                <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                  <h2 className="m-0 wrap-anywhere text-xl leading-snug">{demo.title}</h2>
+                  <Badge variant="tone" data-tone={tone}>
+                    {demo.status}
+                  </Badge>
+                </header>
+                {demo.status === 'ready' && (
+                  <>
+                    <p className="m-0 text-muted-foreground">
+                      Ready · built {relativeTime(demo.builtAt!, new Date())}
+                    </p>
+                    <Button asChild variant="retro">
+                      <Link to={`/demos/${encodeURIComponent(demo.id)}`}>Play</Link>
+                    </Button>
+                  </>
                 )}
-              </>
-            )}
-          </article>
-        ))}
+                {demo.status === 'building' && (
+                  <p className="m-0 text-muted-foreground">Building this now…</p>
+                )}
+                {demo.status === 'failed' && (
+                  <>
+                    <p className="m-0">This one didn't build.</p>
+                    <Button
+                      variant="retro"
+                      type="button"
+                      disabled={rebuilding === demo.id}
+                      onClick={() => rebuild(demo)}
+                    >
+                      Rebuild
+                    </Button>
+                    {failed === demo.id && (
+                      <p className="m-0 text-muted-foreground">
+                        That didn't go through.{' '}
+                        <Button variant="ghost" type="button" onClick={() => rebuild(demo)}>
+                          Retry
+                        </Button>
+                      </p>
+                    )}
+                  </>
+                )}
+              </article>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
@@ -144,23 +164,25 @@ function DemoPlayer({ id }: { id: string }) {
   };
 
   return (
-    <div className="demo-player">
-      <Link className="demo-back" to="/demos">
-        Back to discs
-      </Link>
+    <div className="fixed inset-0 z-[60] bg-card">
+      <Button asChild variant="retro" className="absolute left-3 top-3 z-2">
+        <Link to="/demos">Back to discs</Link>
+      </Button>
       <iframe
+        className="size-full border-0"
         ref={iframe}
         src={`/play/${encodeURIComponent(id)}/`}
         title={demo?.title ?? 'Demo'}
         scrolling="no"
       />
       {thanks && (
-        <p className="demo-thanks" role="status">
-          Got it — thanks.
-        </p>
+        <Card asChild variant="flat" className="absolute bottom-20 right-3 z-2 p-2">
+          <p role="status">Got it — thanks.</p>
+        </Card>
       )}
-      <button
-        className="demo-feedback-button"
+      <Button
+        variant="retro"
+        className="absolute bottom-3 right-3 z-2"
         type="button"
         onClick={() => {
           setOpen(true);
@@ -168,32 +190,39 @@ function DemoPlayer({ id }: { id: string }) {
         }}
       >
         Feedback
-      </button>
+      </Button>
       {open && (
-        <form className="demo-feedback-panel" onSubmit={(event) => void send(event)}>
-          <label htmlFor="demo-feedback">What did you think?</label>
-          <textarea
-            id="demo-feedback"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-          />
-          {failed && (
-            <p>
-              That didn't go through.{' '}
-              <button type="button" onClick={() => void send()}>
-                Retry
-              </button>
-            </p>
-          )}
-          <div>
-            <button type="submit" disabled={sending}>
-              Send
-            </button>
-            <button type="button" onClick={() => setOpen(false)}>
-              Cancel
-            </button>
-          </div>
-        </form>
+        <Card
+          asChild
+          variant="bevel"
+          className="absolute bottom-3 right-3 z-2 grid w-[min(340px,calc(100%-24px))] gap-2 p-3"
+        >
+          <form onSubmit={(event) => void send(event)}>
+            <label htmlFor="demo-feedback">What did you think?</label>
+            <Textarea
+              className="min-h-24 resize-y"
+              id="demo-feedback"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+            />
+            {failed && (
+              <p className="m-0 text-muted-foreground">
+                That didn't go through.{' '}
+                <Button variant="ghost" type="button" onClick={() => void send()}>
+                  Retry
+                </Button>
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button variant="retro" type="submit" disabled={sending}>
+                Send
+              </Button>
+              <Button variant="retro" type="button" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Card>
       )}
     </div>
   );
