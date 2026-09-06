@@ -75,8 +75,9 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
 5. When `pak-theme` is done, spawn a lead for `paused` unit C (Pak banner/Resume/VMU — only if units A/B have merged), then the `improved-chains` lead (Open-items bullet has the design).
    It touches server + wake + pak, so it runs alone.
 6. From now on, after a merge that adds a `pak_*` tool, `pnpm --filter @wyld/wake build` in the
-   live checkout is enough — the adapter reloads and the tool appears next turn (verified on the
-   plain MCP path; confirm once under the channels flag and note the result here). A schema that
+   live checkout is enough — the adapter reloads and the tool appears next turn. **Confirmed under
+   the channels flag 2026-09-06 07:47:** `pak_notify` (merged in #98) appeared in the live Planner
+   session as a deferred tool without a restart. A schema that
    lives in `@wyld/shared` still needs a Planner restart to change shape.
 7. Restarting the Planner still needs Dru's keypress at the channels warning (quest
    `unattended-restart` is parked on that). Restart only at a clean boundary, tell him first via
