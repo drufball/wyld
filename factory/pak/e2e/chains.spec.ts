@@ -124,6 +124,15 @@ test('snoozes a collapsed chain from the actions menu at mobile width', async ({
 
   await card.getByRole('button', { name: 'More actions' }).click();
   await card.getByRole('menuitem', { name: 'Snooze' }).click();
+  const presets = ['Later today', 'Tomorrow morning', 'Next week'];
+  for (const preset of presets) {
+    await expect(card.getByRole('menuitem', { name: preset })).toBeVisible();
+  }
+  const menuBox = await card.getByRole('menu').boundingBox();
+  const navBox = await page.getByRole('navigation', { name: 'Main navigation' }).boundingBox();
+  expect(menuBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(navBox!.y);
   await card.getByRole('menuitem', { name: 'Tomorrow morning' }).click();
   await expect(card).toHaveCount(0);
 

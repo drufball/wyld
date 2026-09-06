@@ -201,6 +201,22 @@ describe('ChainList', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('closes the actions menu from the card body without expanding the card', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url === '/api/chains' ? [question] : [])),
+    );
+    const { container } = renderList();
+    await screen.findByText('Why?');
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menu')).not.toBeNull();
+    fireEvent.click(container.querySelector('.chain-card p')!);
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByLabelText('Follow up')).toBeNull();
+  });
+
   it('suppresses the quest chip and does not load quest names when requested', async () => {
     const targeted = { ...question, questId: 'quest-one' };
     vi.stubGlobal(

@@ -341,7 +341,7 @@ export function ChainCard({
 
   return (
     <Card
-      className="chain-card relative grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
+      className="chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
       onClick={(event) => {
         if (
           (event.target as HTMLElement).closest(
@@ -349,6 +349,11 @@ export function ChainCard({
           )
         )
           return;
+        if (menuOpen) {
+          setMenuOpen(false);
+          setSnoozeOpen(false);
+          return;
+        }
         setOpen((value) => !value);
       }}
     >
@@ -360,7 +365,7 @@ export function ChainCard({
             </Badge>
           )}
         </div>
-        <div className="flex shrink-0">
+        <div className="relative flex shrink-0">
           <Button
             ref={openTrigger}
             variant="ghost"
@@ -386,6 +391,87 @@ export function ChainCard({
           >
             ⋯
           </Button>
+          {menuOpen && (
+            <div
+              ref={menu}
+              id={`chain-menu-${chain.id}`}
+              role="menu"
+              className="absolute right-0 top-full z-20 mt-1 grid w-max max-w-[calc(100vw-3rem)] gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
+            >
+              {onConvert && (
+                <Button
+                  role="menuitem"
+                  variant="ghost"
+                  type="button"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    close('converted');
+                  }}
+                >
+                  Make this a quest
+                </Button>
+              )}
+              {snoozed ? (
+                <Button
+                  role="menuitem"
+                  variant="ghost"
+                  type="button"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    act(() => unsnoozeChain(chain.id), onChange);
+                  }}
+                >
+                  Unsnooze
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    aria-expanded={snoozeOpen}
+                    onClick={() => setSnoozeOpen((value) => !value)}
+                  >
+                    Snooze
+                  </Button>
+                  {snoozeOpen && (
+                    <>
+                      <Button
+                        role="menuitem"
+                        variant="ghost"
+                        type="button"
+                        className="w-full justify-start"
+                        onClick={() => chooseSnooze('later')}
+                      >
+                        Later today
+                      </Button>
+                      <Button
+                        role="menuitem"
+                        variant="ghost"
+                        type="button"
+                        className="w-full justify-start"
+                        onClick={() => chooseSnooze('tomorrow')}
+                      >
+                        Tomorrow morning
+                      </Button>
+                      <Button
+                        role="menuitem"
+                        variant="ghost"
+                        type="button"
+                        className="w-full justify-start"
+                        onClick={() => chooseSnooze('week')}
+                      >
+                        Next week
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {messages}
@@ -403,87 +489,6 @@ export function ChainCard({
         </div>
       )}
       {failure}
-      {menuOpen && (
-        <div
-          ref={menu}
-          id={`chain-menu-${chain.id}`}
-          role="menu"
-          className="absolute right-0 top-full z-20 mt-1 grid w-max max-w-full gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
-        >
-          {onConvert && (
-            <Button
-              role="menuitem"
-              variant="ghost"
-              type="button"
-              className="w-full justify-start"
-              onClick={() => {
-                setMenuOpen(false);
-                close('converted');
-              }}
-            >
-              Make this a quest
-            </Button>
-          )}
-          {snoozed ? (
-            <Button
-              role="menuitem"
-              variant="ghost"
-              type="button"
-              className="w-full justify-start"
-              onClick={() => {
-                setMenuOpen(false);
-                act(() => unsnoozeChain(chain.id), onChange);
-              }}
-            >
-              Unsnooze
-            </Button>
-          ) : (
-            <>
-              <Button
-                role="menuitem"
-                variant="ghost"
-                type="button"
-                className="w-full justify-start"
-                aria-expanded={snoozeOpen}
-                onClick={() => setSnoozeOpen((value) => !value)}
-              >
-                Snooze
-              </Button>
-              {snoozeOpen && (
-                <>
-                  <Button
-                    role="menuitem"
-                    variant="ghost"
-                    type="button"
-                    className="w-full justify-start"
-                    onClick={() => chooseSnooze('later')}
-                  >
-                    Later today
-                  </Button>
-                  <Button
-                    role="menuitem"
-                    variant="ghost"
-                    type="button"
-                    className="w-full justify-start"
-                    onClick={() => chooseSnooze('tomorrow')}
-                  >
-                    Tomorrow morning
-                  </Button>
-                  <Button
-                    role="menuitem"
-                    variant="ghost"
-                    type="button"
-                    className="w-full justify-start"
-                    onClick={() => chooseSnooze('week')}
-                  >
-                    Next week
-                  </Button>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      )}
     </Card>
   );
 }
