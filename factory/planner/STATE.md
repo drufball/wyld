@@ -90,6 +90,28 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **Restart in progress (11:52):** all four leads reported; the Planner is respawning the host to pick up #124
+  (self-heartbeat) and #129 (`run=` in alarm tags, five new sleep tools). **If you are the resumed session and this
+  line is still here:** `kill $(cat /tmp/wyld-planner-pulse.pid)` (the shell pulse), confirm `pak_read_sleep` is in your
+  tools, move `planner-in-pak` → `demo` with a note, then delete this bullet.
+- **`new-home` unit shipped 11:49 (#132 / PR #133, two fix rounds).** `pnpm factory:export [out.tgz]` → `~/Desktop/
+  wyld-factory-<stamp>.tgz` (600): `.backup` snapshots of `pak.sqlite` + `wake.sqlite` (proved against live WAL: 10/10
+  rows vs 0/10 for `cp`), `env` (600), `feedback/`, `ntfy/`, `export-manifest.json`; excludes demos/worktrees/
+  planner-session/logs. `pnpm factory:import <tgz>` refuses over an existing db (`--force` moves the old aside to
+  `pre-import-<stamp>/`), restores, runs bootstrap (non-fatal), prints ok/manual/warn lines and a loud HOSTNAME REVIEW
+  block, exits 1 on hard misses (Node 22, `gh auth`, `docker info`, Tailscale running). Doctor gained fresh-machine and
+  hostname-mismatch checks (34 ok here). `FACTORY_DIR` now honoured by bootstrap/doctor too. **`NEW-MACHINE.md`** (repo
+  root, 148 lines) starts from a blank macOS: §0 human prelude (Setup Assistant → `git` for CLT → Claude Code install →
+  `claude` login → clone → "follow NEW-MACHINE.md"), then the assistant installs Homebrew, `node@22` (keg-only — needs the
+  `~/.zprofile` PATH line), Tailscale cask **plus the `/usr/local/bin/tailscale` shim the cask does not create**, Colima
+  (`brew services start colima`), `gh`; stops only for Tailscale sign-in + Serve, `gh auth login` (HTTPS), Codex login.
+  Rancher Desktop is no longer assumed anywhere (Dru, 11:29).
+  Sharp edges: (1) **`factory/ntfy/server.yml` `base-url` is tracked and hardcodes `macbook-pro-6.taild72c8d.ts.net:8443`**
+  — must be hand-edited on the new Mac (dirty tree) or iOS instant push breaks; templating it from env is a small
+  follow-up unit worth doing before the move. (2) An export while the factory is up checkpoints the live WAL — the
+  `-wal` shrinking to 0 afterwards is expected. (3) `pnpm format:check` is red on `main` for 13 unrelated files (not in
+  CI) — Sweep material. (4) `~/.claude` is not migrated by design.
+
 - **Host restart pending (as of 11:22):** the live host still runs the pre-#124/#129 dist — no self-heartbeat, and
   `framing.ts` omits `run=` on `sleep.alarm` tags (use `pak_read_sleep` for the id until then). Restart at the next
   lead boundary (`quiet-chain-cards` merging, `new-home` unit with Codex), then **kill the shell pulse**
