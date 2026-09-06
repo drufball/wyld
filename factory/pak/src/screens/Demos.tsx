@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/badge.js';
 import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
+import { cn } from '../lib/utils.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { relativeTime } from '../words.js';
 
@@ -19,7 +20,15 @@ type FeedbackExtras = () => Promise<{
   state?: Record<string, unknown>;
 }>;
 
-function FeedbackForm({ demoId, getExtras }: { demoId: string; getExtras?: FeedbackExtras }) {
+function FeedbackForm({
+  demoId,
+  getExtras,
+  formClassName,
+}: {
+  demoId: string;
+  getExtras?: FeedbackExtras;
+  formClassName?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -64,7 +73,7 @@ function FeedbackForm({ demoId, getExtras }: { demoId: string; getExtras?: Feedb
         <Card
           asChild
           variant="bevel"
-          className="grid w-[min(340px,calc(100vw-24px))] min-w-0 gap-2 p-3"
+          className={cn('grid w-full min-w-0 gap-2 p-3', formClassName)}
         >
           <form onSubmit={(event) => void send(event)}>
             <label htmlFor={`demo-feedback-${demoId}`}>What did you think?</label>
@@ -300,7 +309,11 @@ function DemoPlayer({ id }: { id: string }) {
         scrolling="no"
       />
       <div className="absolute bottom-3 right-3 z-2 w-fit">
-        <FeedbackForm demoId={id} getExtras={getExtras} />
+        <FeedbackForm
+          demoId={id}
+          getExtras={getExtras}
+          formClassName="w-[min(340px,calc(100vw-24px))]"
+        />
       </div>
     </div>
   );

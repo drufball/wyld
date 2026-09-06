@@ -96,6 +96,9 @@ describe('Demos', () => {
     expect(screen.getByText('A starter forest')).not.toBeNull();
     expect(screen.getByRole('link', { name: 'Try it' }).getAttribute('href')).toBe(live.deepLink);
     fireEvent.click(screen.getByRole('button', { name: 'Feedback' }));
+    const formClasses = screen.getByLabelText('What did you think?').closest('form')?.className;
+    expect(formClasses).toContain('w-full');
+    expect(formClasses).not.toContain('w-[min(340px,calc(100vw-24px))]');
     fireEvent.change(screen.getByLabelText('What did you think?'), { target: { value: 'Useful' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() =>
@@ -122,6 +125,9 @@ describe('Demos', () => {
     vi.stubGlobal('fetch', fetch);
     show('/demos/main');
     fireEvent.click(await screen.findByRole('button', { name: 'Feedback' }));
+    expect(screen.getByLabelText('What did you think?').closest('form')?.className).toContain(
+      'w-[min(340px,calc(100vw-24px))]',
+    );
     fireEvent.change(screen.getByLabelText('What did you think?'), { target: { value: 'Fun' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() =>
