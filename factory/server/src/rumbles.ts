@@ -20,7 +20,10 @@ type Dependencies = {
   resumePause?: (lane: string, options?: { decideRumble?: boolean }) => Promise<number>;
 };
 
-const RumbleQuery = z.object({ status: z.enum(['open', 'decided']).optional() });
+const RumbleQuery = z.object({
+  status: z.enum(['open', 'decided']).optional(),
+  includeSnoozed: z.enum(['1', 'true']).optional(),
+});
 export type RumbleRow = typeof chains.$inferSelect;
 
 export const compareRumbles = (left: RumbleRow, right: RumbleRow) => {
@@ -41,13 +44,24 @@ export const compareRumbles = (left: RumbleRow, right: RumbleRow) => {
   return (left.slug ?? '').localeCompare(right.slug ?? '');
 };
 
-export function listOrderedRumbleRows(database: AppDatabase, status?: 'open' | 'decided') {
+export function listOrderedRumbleRows(
+  database: AppDatabase,
+  status?: 'open' | 'decided',
+  options: { includeSnoozed?: boolean; now?: () => Date } = {},
+) {
+  const now = options.now ?? (() => new Date());
   return database.db
     .select()
     .from(chains)
     .where(eq(chains.kind, 'rumble'))
     .all()
     .filter((row) => status === undefined || (status === 'open') === (row.chosen === null))
+    .filter(
+      (row) =>
+        options.includeSnoozed === true ||
+        row.snoozedUntil === null ||
+        row.snoozedUntil <= now().toISOString(),
+    )
     .sort(compareRumbles);
 }
 
@@ -150,7 +164,12 @@ export function createRumbleRoutes({ database, now, storeEvent, resumePause }: D
   app.get('/rumbles', (c) => {
     const parsed = RumbleQuery.safeParse(c.req.query());
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
-    return c.json(listOrderedRumbleRows(database, parsed.data.status).map(parseRumble));
+    return c.json(
+      listOrderedRumbleRows(database, parsed.data.status, {
+        includeSnoozed: parsed.data.includeSnoozed !== undefined,
+        now,
+      }).map(parseRumble),
+    );
   });
 
   app.post('/rumbles', async (c) => {
