@@ -105,8 +105,7 @@ this file, the Pak, and GitHub._
   failures logged and swallowed. Built in the live checkout; **the live host still runs the old build until
   `tmux respawn-window -k -t wyld:planner` with the launcher command from `scripts/factory-up.sh`.** A restart
   kills the session's running leads (they are subagents), so restart only at a lead boundary — the plan is to do it
-  once the `sleep-mode` lead reports. **Bridge until then:** a session-only CronCreate job (`*/4 * * * *`) sends a
-  heartbeat; a fresh session must recreate it if the restart has not happened yet.
+  once the `sleep-mode` lead reports. **Bridge until then:** a detached shell loop started by the Planner (`nohup … curl -X POST localhost:8787/api/health/report` every 120 s with camelCase `plannerState`/`currentTask`; pid in `/tmp/wyld-planner-pulse.pid`). **Kill it after the restart** (`kill $(cat /tmp/wyld-planner-pulse.pid)`) or the tile will lie. **CronCreate does not fire under the host** (jobs need an idle REPL; there is none) — the first attempt at a cron bridge silently did nothing, the watchdog paused lane `planner` twice (10:39, 10:41; both auto-resumed by 10:45), and Dru got the outage buzz.
   Sharp edges from the lead:
   1. `WAKE_SECRET` is **not** in the tmux environment (`tmux show-environment -t wyld` carries only `NTFY_*`,
      `PAK_PUBLIC_URL`, ssh vars) — it lives only in `.factory/env` and the process env. A scratch host should use a
