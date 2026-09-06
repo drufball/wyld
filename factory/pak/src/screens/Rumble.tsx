@@ -44,13 +44,6 @@ export function Rumble() {
     void decideRumble(id, chosen)
       .then(() => {
         load();
-        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-          try {
-            navigator.vibrate([40, 30, 40]);
-          } catch {
-            /* Haptics are optional. */
-          }
-        }
       })
       .catch(() => setFailed((value) => ({ ...value, [id]: chosen })))
       .finally(() => setDeciding((value) => ({ ...value, [id]: false })));
