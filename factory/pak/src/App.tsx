@@ -6,6 +6,7 @@ import { CatchUp } from './screens/CatchUp.js';
 import { Debug } from './screens/Debug.js';
 import { Demos } from './screens/Demos.js';
 import { Memory } from './screens/Memory.js';
+import { Sleep } from './screens/Sleep.js';
 import { Rumble } from './screens/Rumble.js';
 import { Today } from './screens/Today.js';
 import { Vmu } from './screens/Vmu.js';
@@ -47,6 +48,7 @@ export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFa
           <Route path="rumble" element={<Rumble />} />
           <Route path="debug" element={<Debug />} />
           <Route path="memory" element={<Memory />} />
+          <Route path="sleep" element={<Sleep />} />
         </Route>
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>

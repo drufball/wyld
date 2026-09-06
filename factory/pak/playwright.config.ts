@@ -26,6 +26,7 @@ const config = defineConfig({
       PAK_DIST: path.resolve('dist'),
       WAKE_URL: '',
       WAKE_SECRET: '',
+      SLEEP_SCHEDULE: 'off',
     },
     url: `http://localhost:${port}/api/health`,
     reuseExistingServer: false,
