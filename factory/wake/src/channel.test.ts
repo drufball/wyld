@@ -373,6 +373,7 @@ describe('Pak tools', () => {
       'pak_pause',
       'pak_resume',
       'pak_close_chain',
+      'pak_reopen_chain',
     ]);
     expect(result.tools?.every(({ description }) => description.length > 10)).toBe(true);
     expect(
@@ -420,12 +421,37 @@ describe('Pak tools', () => {
       {
         properties: {
           quest: { type: 'string' },
-          kind: { type: 'string', enum: ['question', 'message', 'rumble', 'all'] },
+          kind: { type: 'string' },
+          status: { type: 'string', enum: ['open', 'settled', 'all'], default: 'open' },
           include_snoozed: { type: 'boolean' },
         },
         additionalProperties: false,
       },
     );
+    expect(result.tools?.find(({ name }) => name === 'pak_read_chains')?.description).toBe(
+      "Read Dru's cards as chains: question, message, rumble, demo (a try-it card or disc), action (the next action) and unlock (an achievement). kind takes one kind, a comma-separated list of them, or all; leave it off for question and message. status defaults to open — pass settled or all to see what has been put away. A chain Dru snoozed is hidden until its time comes round unless include_snoozed is set.",
+    );
+    expect(result.tools?.find(({ name }) => name === 'pak_reopen_chain')).toMatchObject({
+      description:
+        'Reopen a settled card — a demo card comes back to Demos and its quest returns to demo; use it to undo a Mark done or a Hide.',
+      inputSchema: {
+        properties: { chain: { type: 'integer', minimum: 1 } },
+        required: ['chain'],
+        additionalProperties: false,
+      },
+    });
+    expect(result.tools?.find(({ name }) => name === 'pak_close_chain')).toMatchObject({
+      description:
+        'Settle a card once it is genuinely done with, so it folds away on Today. Pass reason done to also mark the quest done — that is only valid on a demo card that belongs to a quest. Dru can settle a card himself, and quiet chains settle on their own after a day. Undo either with pak_reopen_chain.',
+      inputSchema: {
+        properties: {
+          chain: { type: 'integer', minimum: 1 },
+          reason: { type: 'string', enum: ['settled', 'done'], default: 'settled' },
+        },
+        required: ['chain'],
+        additionalProperties: false,
+      },
+    });
     expect(
       result.tools?.find(({ name }) => name === 'pak_send_message')?.inputSchema,
     ).toMatchObject({
@@ -822,6 +848,20 @@ describe('Pak tools', () => {
       'POST',
       { reason: 'settled', source: 'planner' },
     ],
+    [
+      'pak_close_chain',
+      { chain: 7, reason: 'done' },
+      'http://pak/api/chains/7/close',
+      'POST',
+      { reason: 'done', source: 'planner' },
+    ],
+    [
+      'pak_reopen_chain',
+      { chain: 7 },
+      'http://pak/api/chains/7/reopen',
+      'POST',
+      { source: 'planner' },
+    ],
   ] as const)('calls the chain API for %s', async (name, args, url, method, body) => {
     const fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
     const [, call] = handlers(fetch as typeof globalThis.fetch);
@@ -836,11 +876,16 @@ describe('Pak tools', () => {
 
   it.each([
     [{}, 'http://pak/api/chains'],
-    [{ kind: 'rumble' }, 'http://pak/api/chains?kind=rumble'],
+    [{ kind: 'demo' }, 'http://pak/api/chains?kind=demo'],
+    [{ kind: 'demo,action,unlock' }, 'http://pak/api/chains?kind=demo%2Caction%2Cunlock'],
+    [{ kind: 'all' }, 'http://pak/api/chains?kind=all'],
+    [{ status: 'settled' }, 'http://pak/api/chains?status=settled'],
+    [{ status: 'all' }, 'http://pak/api/chains?status=all'],
+    [{ status: 'open' }, 'http://pak/api/chains'],
     [{ include_snoozed: true }, 'http://pak/api/chains?includeSnoozed=1'],
     [
-      { quest: 'wake & queue', kind: 'all', include_snoozed: true },
-      'http://pak/api/chains?quest=wake+%26+queue&kind=all&includeSnoozed=1',
+      { quest: 'wake & queue', kind: 'demo,unlock', status: 'settled', include_snoozed: true },
+      'http://pak/api/chains?quest=wake+%26+queue&kind=demo%2Cunlock&status=settled&includeSnoozed=1',
     ],
     [{ include_snoozed: false }, 'http://pak/api/chains'],
   ] as const)('reads chains with filters %j', async (arguments_, url) => {
@@ -851,6 +896,36 @@ describe('Pak tools', () => {
       (await call!({ params: { name: 'pak_read_chains', arguments: arguments_ } })).isError,
     ).toBeUndefined();
     expect(fetch).toHaveBeenCalledWith(url, { method: 'GET', headers: {} });
+  });
+
+  it.each([
+    { kind: 'chores' },
+    { kind: '' },
+    { kind: 'demo,' },
+    { kind: 'all,demo' },
+    { status: 'converted' },
+  ])('rejects invalid pak_read_chains arguments: %j', async (arguments_) => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const [, call] = handlers(fetch);
+
+    expect(
+      await call!({ params: { name: 'pak_read_chains', arguments: arguments_ } }),
+    ).toMatchObject({ isError: true });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['pak_close_chain', { chain: 7, reason: 'converted' }],
+    ['pak_reopen_chain', { chain: 0 }],
+    ['pak_reopen_chain', {}],
+  ])('rejects invalid %s arguments: %j', async (name, arguments_) => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const [, call] = handlers(fetch);
+
+    expect(await call!({ params: { name, arguments: arguments_ } })).toMatchObject({
+      isError: true,
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it.each([{}, { text: '' }, { text: 'No', kind: 'rumble' }, { text: 'No', kind: 'other' }])(
@@ -1151,7 +1226,7 @@ describe('Pak tools', () => {
     },
   );
 
-  it.each(['pak_read_chains', 'pak_answer_chain', 'pak_close_chain'])(
+  it.each(['pak_read_chains', 'pak_answer_chain', 'pak_close_chain', 'pak_reopen_chain'])(
     'reports an HTTP failure for %s',
     async (name) => {
       const fetch = vi.fn(async () => new Response('unavailable', { status: 503 }));

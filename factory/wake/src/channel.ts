@@ -6,6 +6,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import {
+  ChainKind,
   CiState,
   DemoKind,
   type HealthReport,
@@ -272,10 +273,21 @@ const RegisterDemoArgs = z
   });
 const ReadDemosArgs = z.object({}).strict();
 const ReadFeedbackArgs = z.object({ demo: z.string().optional() }).strict();
+const ChainKindsArg = z.string().superRefine((value, context) => {
+  const kinds = value.split(',');
+  if (value === 'all') return;
+  if (kinds.length === 0 || kinds.some((kind) => !ChainKind.safeParse(kind).success)) {
+    context.addIssue({
+      code: 'custom',
+      message: 'kind must be all or a comma-separated list of chain kinds',
+    });
+  }
+});
 const ReadChainsArgs = z
   .object({
     quest: z.string().optional(),
-    kind: z.enum(['question', 'message', 'rumble', 'all']).optional(),
+    kind: ChainKindsArg.optional(),
+    status: z.enum(['open', 'settled', 'all']).default('open'),
     include_snoozed: z.boolean().optional(),
   })
   .strict();
@@ -289,7 +301,13 @@ const SendMessageArgs = z
 const AnswerChainArgs = z
   .object({ chain: z.number().int().positive(), text: z.string().min(1) })
   .strict();
-const CloseChainArgs = z.object({ chain: z.number().int().positive() }).strict();
+const CloseChainArgs = z
+  .object({
+    chain: z.number().int().positive(),
+    reason: z.enum(['settled', 'done']).default('settled'),
+  })
+  .strict();
+const ReopenChainArgs = z.object({ chain: z.number().int().positive() }).strict();
 const NotifyArgs = z
   .object({
     title: z.string().min(1).max(120),
@@ -721,12 +739,16 @@ const tools = [
   {
     name: 'pak_read_chains',
     description:
-      "Read the open chains — Dru's messages and yours, each chain's kind and id, and its quest if any. A chain Dru snoozed is hidden until its time comes round unless include_snoozed is set. Rumble chains are returned only when kind is rumble or all; use pak_read_rumbles to read decisions. Closed chains are never returned.",
+      "Read Dru's cards as chains: question, message, rumble, demo (a try-it card or disc), action (the next action) and unlock (an achievement). kind takes one kind, a comma-separated list of them, or all; leave it off for question and message. status defaults to open — pass settled or all to see what has been put away. A chain Dru snoozed is hidden until its time comes round unless include_snoozed is set.",
     inputSchema: {
       type: 'object' as const,
       properties: {
         quest: { type: 'string' },
-        kind: { type: 'string', enum: ['question', 'message', 'rumble', 'all'] },
+        kind: {
+          type: 'string',
+          description: 'One chain kind, a comma-separated list of chain kinds, or all.',
+        },
+        status: { type: 'string', enum: ['open', 'settled', 'all'], default: 'open' },
         include_snoozed: { type: 'boolean' },
       },
       additionalProperties: false,
@@ -807,7 +829,21 @@ const tools = [
   {
     name: 'pak_close_chain',
     description:
-      'Settle a question chain once it is genuinely answered, so it folds away on Today. Dru can also settle it himself, and quiet chains settle on their own after a day.',
+      'Settle a card once it is genuinely done with, so it folds away on Today. Pass reason done to also mark the quest done — that is only valid on a demo card that belongs to a quest. Dru can settle a card himself, and quiet chains settle on their own after a day. Undo either with pak_reopen_chain.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        chain: { type: 'integer', minimum: 1 },
+        reason: { type: 'string', enum: ['settled', 'done'], default: 'settled' },
+      },
+      required: ['chain'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_reopen_chain',
+    description:
+      'Reopen a settled card — a demo card comes back to Demos and its quest returns to demo; use it to undo a Mark done or a Hide.',
     inputSchema: {
       type: 'object' as const,
       properties: { chain: { type: 'integer', minimum: 1 } },
@@ -1112,6 +1148,7 @@ export function createToolRegistry(options: {
       const query = new URLSearchParams();
       if (parsed.data.quest !== undefined) query.set('quest', parsed.data.quest);
       if (parsed.data.kind !== undefined) query.set('kind', parsed.data.kind);
+      if (parsed.data.status !== 'open') query.set('status', parsed.data.status);
       if (parsed.data.include_snoozed === true) query.set('includeSnoozed', '1');
       const suffix = query.size === 0 ? '' : `?${query.toString()}`;
       return getTool(request, `${options.pakUrl}/api/chains${suffix}`);
@@ -1138,7 +1175,14 @@ export function createToolRegistry(options: {
       const parsed = CloseChainArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
       return postTool(request, `${options.pakUrl}/api/chains/${parsed.data.chain}/close`, {
-        reason: 'settled',
+        reason: parsed.data.reason,
+        source: 'planner',
+      });
+    }
+    if (params.name === 'pak_reopen_chain') {
+      const parsed = ReopenChainArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/chains/${parsed.data.chain}/reopen`, {
         source: 'planner',
       });
     }
