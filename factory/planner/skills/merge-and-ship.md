@@ -44,8 +44,36 @@ pak_link_issue  quest=<id> gh_kind=issue gh_ref=<N> state=closed   # the issue `
 Then move the quest, per `PROTOCOL.md` §1:
 
 - More units still open → stays `building`.
-- Last unit merged, something runnable exists → `demo` (register the Demo Disc, 1.7).
+- Last unit merged, something runnable exists → `demo`, **and register its try-it card** (below).
 - Last unit merged, nothing to try → `done`.
+
+### Every quest reaching `demo` gets a try-it card (Dru's rule, 2026-09-06)
+
+A card is what Dru sees on the Demos screen and behind the quest card's Try it button: what changed at a
+glance, numbered steps to try it, and the test data you put in place. Register it with the same
+tool that registers a game disc:
+
+```bash
+# factory / Pak change — tried against the live Pak (the default):
+pak_register_demo  slug=<questId> kind=live ref=<merge sha> quest=<questId> \
+                   summary="<1–2 sentences: what changed, in his words>" \
+                   steps='["Open …", "Tap …", "You should see …"]' \
+                   seeded='["<what you put there for him to find>"]' \
+                   deep_link=/<screen where step 1 starts>
+# game change — a Demo Disc, as before:
+pak_register_demo  slug=<questId> ref=<branch or sha> quest=<questId>
+```
+
+- **Seed first, then register.** Put the sample data in through the live API (`localhost:8787/api/...`)
+  before the card exists, so step 1 works the moment he taps. Never seed anything destructive, and
+  never through a scratch server — the card points at the live Pak.
+- Steps are things *he* does, one action each, in order, ending with what he should see. No
+  GitHub numbers, branches or CI words anywhere on the card.
+- Re-registering the same slug updates the card in place — do that when a follow-up round changes
+  what he'd see.
+- **Branch build first** (kind `pak`, once unit 4 of `try-it-cards` ships) for big or risky factory
+  changes, or anything that alters how Dru works: register the branch build before merging, let him
+  try it, then land it and re-register as `live`. The Planner picks per quest.
 
 ```bash
 pak_set_quest_status      quest=<id> status=<next>
