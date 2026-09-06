@@ -98,6 +98,20 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **Factory un-quieted 14:24 BST on Dru's word** ("just get started, no need to wait on phone"; he'll tap Done on
+  `new-home-prep` after a race). Old laptop confirmed silent on the tailnet 14:20. **Lead spawned 14:24 for quest
+  `try-it-cards`** (`planning`; scratchpad `/tmp/wyld-leads/try-it-cards/`), four sequenced units, all on `demos`:
+  (1) shared+server — `demos.kind` `disc|live` (+`pak` in unit 4), `summary`, `steps[]`, `seeded[]`, `deep_link`; a live
+  demo is `ready` at once, no builder; catch-up line uses the summary; (2) wake — `pak_register_demo` gains `kind/summary/
+  steps/seeded/deep_link` (adapter respawn needed after shared shape changes); (3) pak — one Demos grid for discs and live
+  cards (`TRY IT` badge, numbered steps, "What's already there", Try it → deep link, Feedback form), `/demos/:id` full-page
+  card for live, quest card's Demo button becomes Try it/Play when a demo row exists; (4) `kind: 'pak'` branch builds of
+  the Pak under `/play/<slug>/` (`PAK_BASE`, router basename, no SW when base ≠ `/`). Branches `codex/try-it-shared-server`,
+  `-wake`, `-pak`, `-branch-build`. The lead registers this quest's own live card after unit 3. **Planner to-do when the
+  tool lands:** rewrite `skills/merge-and-ship.md` §3 so every quest reaching `demo` registers a try-it card (summary,
+  steps, seeded), and say in lead briefs that seeding test data is part of shipping.
+- `skills/merge-and-ship.md` now names `/Users/crawnk/wyld` as the live checkout (38b9200).
+
 - **Move done 2026-09-06 14:54 BST; waiting on Dru's Done on Rumble `new-home-prep`** (re-filed in place with the two
   closing steps: `pnpm factory:down` on the old laptop, phone ntfy re-subscribed to the new `:8443/wyld-pak`). As of 14:56 the
   **old laptop's factory was still up** (its snapshot answered on the tailnet, Planner idle, queue empty) — harmless while
