@@ -1,4 +1,5 @@
 import type { Chain } from '@wyld/shared';
+import { Ellipsis } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import {
   closeChain,
@@ -360,123 +361,25 @@ export function ChainCard({
         setOpen((value) => !value);
       }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap gap-2">
-          {showQuestChip && chain.questId !== null && (
-            <Badge variant="tone" data-tone="accent">
-              {questName ?? chain.questId}
-            </Badge>
-          )}
+      <Button
+        ref={openTrigger}
+        variant="retro"
+        type="button"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-30"
+        aria-expanded={open}
+        aria-controls={`chain-actions-${chain.id}`}
+        aria-label={open ? 'Close' : 'Reply or settle'}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {open ? 'Close' : 'Reply or settle'}
+      </Button>
+      {showQuestChip && chain.questId !== null && (
+        <div className="flex items-start gap-2">
+          <Badge variant="tone" data-tone="accent">
+            {questName ?? chain.questId}
+          </Badge>
         </div>
-        <div className="relative flex shrink-0">
-          <Button
-            ref={openTrigger}
-            variant="ghost"
-            size="icon"
-            type="button"
-            aria-expanded={open}
-            aria-controls={`chain-actions-${chain.id}`}
-            aria-label={open ? 'Close' : 'Reply or settle'}
-            onClick={() => setOpen((value) => !value)}
-          >
-            {open ? '⌃' : '⌄'}
-          </Button>
-          <Button
-            ref={menuTrigger}
-            variant="ghost"
-            size="icon"
-            type="button"
-            aria-label="More actions"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-controls={`chain-menu-${chain.id}`}
-            onClick={() => setMenuOpen((value) => !value)}
-          >
-            ⋯
-          </Button>
-          {menuOpen && (
-            <div
-              ref={menu}
-              id={`chain-menu-${chain.id}`}
-              role="menu"
-              className="absolute right-0 top-full z-20 mt-1 grid w-max max-w-[calc(100vw-3rem)] gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
-            >
-              {onConvert && (
-                <Button
-                  role="menuitem"
-                  variant="ghost"
-                  type="button"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    close('converted');
-                  }}
-                >
-                  Make this a quest
-                </Button>
-              )}
-              {snoozed ? (
-                <Button
-                  role="menuitem"
-                  variant="ghost"
-                  type="button"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    act(() => unsnoozeChain(chain.id), onChange);
-                  }}
-                >
-                  Unsnooze
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    role="menuitem"
-                    variant="ghost"
-                    type="button"
-                    className="w-full justify-start"
-                    aria-expanded={snoozeOpen}
-                    onClick={() => setSnoozeOpen((value) => !value)}
-                  >
-                    Snooze
-                  </Button>
-                  {snoozeOpen && (
-                    <>
-                      <Button
-                        role="menuitem"
-                        variant="ghost"
-                        type="button"
-                        className="w-full justify-start"
-                        onClick={() => chooseSnooze('later')}
-                      >
-                        Later today
-                      </Button>
-                      <Button
-                        role="menuitem"
-                        variant="ghost"
-                        type="button"
-                        className="w-full justify-start"
-                        onClick={() => chooseSnooze('tomorrow')}
-                      >
-                        Tomorrow morning
-                      </Button>
-                      <Button
-                        role="menuitem"
-                        variant="ghost"
-                        type="button"
-                        className="w-full justify-start"
-                        onClick={() => chooseSnooze('week')}
-                      >
-                        Next week
-                      </Button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      )}
       {messages}
       {snoozed && (
         <span className="text-muted-foreground">
@@ -486,9 +389,105 @@ export function ChainCard({
       {open && (
         <div id={`chain-actions-${chain.id}`} className="grid gap-2">
           {form}
-          <Button variant="retro" type="button" onClick={() => close('settled')}>
-            Settled
-          </Button>
+          <div className="relative flex flex-wrap items-center gap-2">
+            <Button variant="retro" type="button" onClick={() => close('settled')}>
+              Settled
+            </Button>
+            <Button
+              ref={menuTrigger}
+              variant="retro"
+              size="icon"
+              type="button"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-controls={`chain-menu-${chain.id}`}
+              onClick={() => setMenuOpen((value) => !value)}
+            >
+              <Ellipsis size={20} aria-hidden />
+            </Button>
+            {menuOpen && (
+              <div
+                ref={menu}
+                id={`chain-menu-${chain.id}`}
+                role="menu"
+                className="absolute right-0 bottom-full z-20 mb-1 grid w-max max-w-[calc(100vw-3rem)] gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
+              >
+                {onConvert && (
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      close('converted');
+                    }}
+                  >
+                    Make this a quest
+                  </Button>
+                )}
+                {snoozed ? (
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      act(() => unsnoozeChain(chain.id), onChange);
+                    }}
+                  >
+                    Unsnooze
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      role="menuitem"
+                      variant="ghost"
+                      type="button"
+                      className="w-full justify-start"
+                      aria-expanded={snoozeOpen}
+                      onClick={() => setSnoozeOpen((value) => !value)}
+                    >
+                      Snooze
+                    </Button>
+                    {snoozeOpen && (
+                      <>
+                        <Button
+                          role="menuitem"
+                          variant="ghost"
+                          type="button"
+                          className="w-full justify-start"
+                          onClick={() => chooseSnooze('later')}
+                        >
+                          Later today
+                        </Button>
+                        <Button
+                          role="menuitem"
+                          variant="ghost"
+                          type="button"
+                          className="w-full justify-start"
+                          onClick={() => chooseSnooze('tomorrow')}
+                        >
+                          Tomorrow morning
+                        </Button>
+                        <Button
+                          role="menuitem"
+                          variant="ghost"
+                          type="button"
+                          className="w-full justify-start"
+                          onClick={() => chooseSnooze('week')}
+                        >
+                          Next week
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
       {failure}
