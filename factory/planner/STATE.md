@@ -90,6 +90,27 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **Quest `new-home` "Move to the always-on laptop" — TODAY (Dru, 2026-09-06 11:12; the work laptop leaves Monday).**
+  Lead spawned 11:13 for the buildable unit (branch `codex/factory-move`): `scripts/factory-export.sh` (sqlite
+  `.backup` of `pak.sqlite` **and** `wake.sqlite` — both WAL — plus `.factory/env`, `feedback/`, `ntfy/`; excludes
+  `demos/`, `worktrees/`, `planner-session.json`, logs) and `scripts/factory-import.sh <tgz>` (refuses over an existing
+  db without `--force`, restores, runs bootstrap, prints a checklist: gh login, Tailscale login + Serve 8443→8790,
+  container runtime, Node 22, Codex login; **warns that `PAK_PUBLIC_URL`/`NTFY_URL` embed the old hostname
+  `macbook-pro-6.taild72c8d.ts.net` and must be edited by Dru**). Rumble `new-home-prep` (account, blocks the quest)
+  lists his four logins on the new Mac; next action points at it.
+  **Runbook once the scripts merge (Planner on the old laptop):** (1) wait for a lead boundary — no open Codex PR,
+  no lead mid-flight; (2) `pak_send_message` telling Dru the order below; (3) update the Rumble in place (same id) with
+  the exact commands; (4) `pnpm factory:down` here **after** he confirms the import worked there — never two
+  factories on one db/tailnet at once (two Wakes would both claim the queue; two ntfy Serves fight for the name).
+  **Dru's order:** clone the repo on the new Mac → `./scripts/bootstrap.sh` → copy the export tgz over (Tailscale
+  `tailscale file cp <tgz> <new-host>:` or AirDrop) → `pnpm factory:import <tgz>` → edit `PAK_PUBLIC_URL` and
+  `NTFY_URL` to the new tailnet name → `pnpm factory:up` → re-subscribe the phone's ntfy app to
+  `https://<new-host>.taild72c8d.ts.net:8443/wyld-pak` (the old subscription goes dead) → `pnpm factory:doctor`.
+  **The Planner session on the new Mac is fresh** (no transcript there; `planner-session.json` is deliberately not
+  exported): it reads this file, re-adopts open GitHub work, and must **kill nothing** — the shell pulse loop only
+  exists on the old laptop. The Codex cloud environment and its `GH_TOKEN` are unaffected by the move. The old
+  laptop keeps its clone; run `pnpm factory:down` there and leave it.
+
 - **Two rules from Dru, 2026-09-06 ~10:50 (both now in PROTOCOL):** (1) never settle a chain he started — answer and
   leave it open; he taps Settled after reading (`pak_close_chain` only for chains the Planner opened). (2) `demo →
   done` is his acceptance: only he marks a quest done; the "quiet day → done" auto-close is gone.
