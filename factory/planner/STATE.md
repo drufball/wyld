@@ -90,6 +90,12 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **Quest `quiet-chain-cards` "Quieter chain cards" (Dru, 2026-09-06 10:43, answering the Planner's question):**
+  chain cards on Today collapse to just the conversation; tap → follow-up box + Settled; Make this a quest + Snooze
+  behind a "⋯" menu; rumble chains unchanged. Pak-only, one unit. Lead spawned 10:44 (branch
+  `codex/quiet-chain-cards`). Runs alongside the `sleep-mode` lead, whose Pak unit (3) starts only after its
+  server unit merges — the chain-card change is confined to `ChainList.tsx`, so overlap is limited to Today.
+
 - **Host heartbeat landed 2026-09-06 10:21 (#123 / PR #124, zero fix rounds) — takes effect on the next host
   restart.** Found 10:08 by the first host session: only the Planner's `pak_health_report` wrote `health_reports`,
   and the Planner only gets a turn on an event, so a quiet factory read as a dead Planner (ops watchdog pauses lane
