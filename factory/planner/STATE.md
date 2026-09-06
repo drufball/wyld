@@ -26,7 +26,7 @@ step finishes._
 | 1.8 Paused (quest `paused`) | done (2026-09-06 08:47, six PRs, two fix rounds) | #98 `notify()` + `POST /api/notify` + Wake `pak_notify` (no-op when `NTFY_URL` unset); #101 persisted per-lane pause (`pauses` table, idempotent `POST /api/pause`, `POST /api/resume`, `system.paused`/`system.resumed`, outage Rumble whose Resume resumes server-side, `paused` on the health snapshot, absolute `click` from `PAK_PUBLIC_URL`, one retry on the push); #105 `@wyld/ops` quota watchdog (gh rate-limit → pauses lane `github`, missing Planner heartbeat > 15 min → lane `planner`, headroom → resume); #107 Pak calm banner + Resume + VMU row; #109 ntfy container (`binwiederhier/ntfy:v2.28.0`, container `wyld-ntfy`, `--restart unless-stopped`, 127.0.0.1:8790, config `factory/ntfy/server.yml`, cache `.factory/ntfy/`, `tailscale serve --bg --https=8443 8790` → `https://macbook-pro-6.taild72c8d.ts.net:8443`, topic `wyld-pak`; `bootstrap.sh` now appends missing keys to `.factory/env`: `NTFY_PORT`/`NTFY_URL`/`NTFY_TOPIC`/`PAK_PUBLIC_URL`; Rancher Desktop `application.autoStart` is true); #108 Wake buffers only on an `all` pause (`syncWakePause()`; a lane pause keeps delivery running), `pak_pause`/`pak_resume`. Dru's phone is subscribed (card `ntfy-setup` Done 08:30). |
 | `improved-chains` (Dru 2026-09-06 ~09:05: Rumbles as chains, quest-attached chains, snooze, fold-up, Today composer FAB) | done, in `demo` | #113 server (rumbles unified with chains + snoozing), #118 Wake chain kind filters, #119 Pak (unified chains/rumbles/snooze/composer). Main disc rebuilt 09:55. Follow-up raised with Dru as a question chain 10:05 (card chrome: follow-up box + three buttons per card) — build only if he says so |
 | `planner-in-pak` (decided 2026-09-06 08:14) | done, in `demo` | #112 `factory/planner-host` (Agent SDK host, streaming input, claims Wake's queue, resumes session id, `:8789/health`), #121 `factory-up.sh` `PLANNER_MODE` host\|cli + doctor "exactly one Planner". **Cutover executed 09:58**; first host session up 10:00 and announced. `unattended-restart` closed as done 10:01 |
-| 1.10 Sleep Mode + Memory Card (quest `sleep-mode`) | **building** — lead spawned 2026-09-06 10:05 | Units: (1) shared+server tables/routes/scheduler/08:00 guard + forwarder lets `sleep.alarm` through, (2) Wake normalise + `pak_read_sleep`/`pak_advance_sleep`/`pak_end_sleep`/`pak_write_retro`/`pak_read_retros`, (3) Pak `/sleep`, `/memory`, Today card + Goodnight button. Planner-side runbook `skills/sleep-mode.md` + `write-retro.md` are the Planner's own job |
+| 1.10 Sleep Mode + Memory Card (quest `sleep-mode`) | done, in `demo` (2026-09-06 11:20; three PRs, one fix round each) | #125 shared+server (`sleep_runs`/`retros`, `POST /api/sleep/goodnight|:id/phase|:id/end`, `GET /api/sleep/current|runs`, `GET/PUT /api/retros[/:date]`, 30 s scheduler on local time `SLEEP_TZ`/`SLEEP_GOODNIGHT` 23:00/`SLEEP_LAST_CALL` 07:15/`SLEEP_LIGHTS_ON` 08:00/`SLEEP_SCHEDULE`, idempotent alarms in `alarms_fired`, 08:00 guard ends run `timed_out` + mechanical retro + **overwrites the next action** with "Good morning — nothing needs you yet"; forwarder lets only `sleep.alarm` through), #129 Wake (`sleep.alarm` normalised, `run` carried in the WakeMessage/claim/channel tag, tools `pak_read_sleep`/`pak_advance_sleep`/`pak_end_sleep`/`pak_write_retro`/`pak_read_retros`), #131 Pak (`/sleep` GOODNIGHT + phases + countdown + CSS night scene, `/memory` save-file cards, Today moon button + dismissable last-night card, smoke 10/10). Planner-side: `skills/sleep-mode.md`, `skills/write-retro.md`, PROTOCOL §2 rows. **First real night is 2026-09-06 23:00.** |
 | 1.9 Debug Menu explorer/event stream, 1.11 `polish` | not started | see factory-spec.md §11; `polish` is an `idea` quest (Serve already on; make `factory:up`/doctor check it) |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -89,6 +89,23 @@ this file, the Pak, and GitHub._
    not (hot reload).
 
 ## Open items
+
+- **Host restart pending (as of 11:22):** the live host still runs the pre-#124/#129 dist — no self-heartbeat, and
+  `framing.ts` omits `run=` on `sleep.alarm` tags (use `pak_read_sleep` for the id until then). Restart at the next
+  lead boundary (`quiet-chain-cards` merging, `new-home` unit with Codex), then **kill the shell pulse**
+  (`kill $(cat /tmp/wyld-planner-pulse.pid)`) and move `planner-in-pak` → `demo` with a note.
+- **Plan for the move (Dru, 11:14):** finish the in-flight quests first, then stop starting work (quiet factory), then
+  move. The `new-home` unit (#132) also ships a repo-root **`NEW-MACHINE.md`** that a fresh Claude session on the new Mac
+  follows end to end; the import script prints pass/fail lines and defers to it. Two-step cutover confirmed: the old
+  laptop's Planner keeps running until the new one is verified.
+- **Sleep Mode sharp edges (lead, 11:20):** (1) `pkill -f 'node factory/server/dist/main.js'` matches nothing — the
+  command line is cwd-relative; kill scratch servers by port (`lsof -ti tcp:$PORT | xargs -r kill`). (2) Pick scratch
+  ports programmatically (8798 was transiently taken; a scratch server POSTed at a stranger). (3) **Any test asserting a
+  formatted time must pin `TZ`** — `factory/pak/src/components/PausedBanner.test.tsx` fails on this laptop (BST) and
+  passes in CI; `TZ=UTC` is green. Pre-existing; a `night:` Sweep item for the first Sleep Mode run, not a daytime task.
+  (4) Unit tests that hand-build queue rows cannot catch a broken projection — anything travelling ingress → queue →
+  Planner needs a test through the real endpoints (the `run` field was silently dropped by `/queue/claim`). (5)
+  `tsx watch` on `@wyld/wake` picks up a rebuilt `@wyld/shared/dist`; the planner-host does not.
 
 - **Quest `new-home` "Move to the always-on laptop" — TODAY (Dru, 2026-09-06 11:12; the work laptop leaves Monday).**
   Lead spawned 11:13 for the buildable unit (branch `codex/factory-move`): `scripts/factory-export.sh` (sqlite
