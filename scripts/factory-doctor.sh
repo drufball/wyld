@@ -22,6 +22,7 @@ PAK_PORT="${PAK_PORT:-8787}"
 WAKE_PORT="${WAKE_PORT:-8788}"
 PLANNER_HOST_PORT="${PLANNER_HOST_PORT:-8789}"
 NTFY_PORT="${NTFY_PORT:-8790}"
+PLANNER_MODE="${PLANNER_MODE:-host}"
 
 for tool in tmux gh claude node pnpm; do
   if command -v "$tool" >/dev/null 2>&1; then
@@ -217,12 +218,35 @@ else
 fi
 check_health 'ntfy' "http://localhost:${NTFY_PORT}/v1/health" ntfy healthy
 
+serve_status=''
+serve_pak_host=''
 if ! command -v tailscale >/dev/null 2>&1; then
   warn 'Tailscale Serve cannot be checked because tailscale is unavailable'
-elif tailscale serve status 2>/dev/null | grep -Eq '(^|[^0-9])8443([^0-9]|$)'; then
-  ok 'Tailscale Serve is configured on port 8443'
 else
-  fail 'Tailscale Serve is not configured on port 8443; run `tailscale serve --bg --https=8443 8790`'
+  serve_status="$(tailscale serve status 2>/dev/null || true)"
+  serve_pak_host="$(printf '%s\n' "$serve_status" | awk -v port="$PAK_PORT" '
+    /^https:\/\/[^ ]+ \(tailnet only\)$/ {
+      hostport = substr($1, index($1, "://") + 3)
+      is443 = (index(hostport, ":") == 0)
+      host = hostport
+      sub(/:.*$/, "", host)
+      next
+    }
+    is443 && $0 ~ ("proxy[ \t]+http://127\\.0\\.0\\.1:" port "([ \t]|$)") { print host; exit }
+  ')"
+  if [[ -n "$serve_pak_host" ]]; then
+    ok "Tailscale Serve proxies the Pak on 443 -> 127.0.0.1:$PAK_PORT ($serve_pak_host)"
+  else
+    fail "Tailscale Serve is not proxying the Pak on 443; run \`tailscale serve --bg --https=443 $PAK_PORT\`"
+  fi
+  if [[ -n "$serve_pak_host" && -n "$public_host" && "$serve_pak_host" != "$public_host" ]]; then
+    warn "PAK_PUBLIC_URL names $public_host but Tailscale Serve publishes the Pak as $serve_pak_host; edit .factory/env"
+  fi
+  if printf '%s\n' "$serve_status" | grep -Eq '(^|[^0-9])8443([^0-9]|$)'; then
+    ok 'Tailscale Serve is configured on port 8443'
+  else
+    fail 'Tailscale Serve is not configured on port 8443; run `tailscale serve --bg --https=8443 8790`'
+  fi
 fi
 
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t wyld 2>/dev/null; then
@@ -231,8 +255,12 @@ if command -v tmux >/dev/null 2>&1 && tmux has-session -t wyld 2>/dev/null; then
     "wake|'pnpm --filter @wyld/wake dev'"
     "ops|'pnpm --filter @wyld/ops dev'"
     "webhook|\"until gh webhook forward --repo drufball/wyld --events '*' --url 'http://localhost:${WAKE_PORT}/gh' --secret \\\"\\\$GH_WEBHOOK_SECRET\\\"; do echo 'webhook forward exited; restarting in 5s'; sleep 5; done\""
-    "planner|'claude --dangerously-load-development-channels server:wake'"
   )
+  if [[ "$PLANNER_MODE" == host ]]; then
+    expected_windows+=("planner|\"set -a; . .factory/env; set +a; until node factory/planner-host/dist/main.js; do echo 'planner host exited; restarting in 5s'; sleep 5; done\"")
+  else
+    expected_windows+=("planner|'claude --dangerously-load-development-channels server:wake'")
+  fi
   if [[ -d factory/pak ]]; then
     expected_windows+=("pak|'pnpm --filter @wyld/pak dev'")
   fi

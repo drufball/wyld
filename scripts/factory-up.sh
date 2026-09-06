@@ -13,6 +13,7 @@ set -a
 source .factory/env
 set +a
 
+PAK_PORT="${PAK_PORT:-8787}"
 WAKE_PORT="${WAKE_PORT:-8788}"
 PLANNER_MODE="${PLANNER_MODE:-host}"
 
@@ -102,6 +103,23 @@ else
   echo 'Windows skipped: none'
 fi
 echo 'tmux attach -t wyld'
+
+if command -v tailscale >/dev/null 2>&1; then
+  serve_status="$(tailscale serve status 2>/dev/null || true)"
+  serve_pak_host="$(printf '%s\n' "$serve_status" | awk -v port="$PAK_PORT" '
+    /^https:\/\/[^ ]+ \(tailnet only\)$/ {
+      hostport = substr($1, index($1, "://") + 3)
+      is443 = (index(hostport, ":") == 0)
+      host = hostport
+      sub(/:.*$/, "", host)
+      next
+    }
+    is443 && $0 ~ ("proxy[ \t]+http://127\\.0\\.0\\.1:" port "([ \t]|$)") { print host; exit }
+  ')"
+  if [[ -n "$serve_pak_host" ]]; then
+    printf 'Pak: https://%s/\n' "$serve_pak_host"
+  fi
+fi
 
 if [[ -t 1 ]]; then
   exec tmux attach -t wyld
