@@ -71,7 +71,7 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
    no fix rounds) and PR #100 (unit 3, one fix round) are merged, deployed to the live Pak and the
    main disc rebuilt; the quest is in `demo`. `factory/pak` is free for the next lead, and the three
    spent issue bodies in `factory/planner/queued/` can be deleted.
-5. When `pak-theme` is done, spawn a lead for `paused` unit C (Pak banner/Resume/VMU — only if units A/B have merged), then the `improved-chains` lead (Open-items bullet has the design).
+5. ~~Spawn a lead for `paused` unit C~~ **Handed to the running `paused` lead 2026-09-06 08:12** (it does unit C after B merges; `factory/pak` is reserved for it). **Then** spawn the `improved-chains` lead (Open-items bullet has the design) — it touches server + wake + pak, so only after the `paused` lead reports.
    It touches server + wake + pak, so it runs alone.
 6. From now on, after a merge that adds a `pak_*` tool, `pnpm --filter @wyld/wake build` in the
    live checkout is enough — the adapter reloads and the tool appears next turn. **Confirmed under
