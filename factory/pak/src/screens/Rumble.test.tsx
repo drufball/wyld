@@ -108,10 +108,13 @@ describe('Rumble', () => {
   it('asks for more with the title and blocking quest', async () => {
     const chain: Chain = {
       id: 1,
+      kind: 'question',
       status: 'open',
       createdAt: '2026-09-05T12:00:00.000Z',
       lastActivityAt: '2026-09-05T12:00:00.000Z',
       questId: 'quest-one',
+      snoozedUntil: null,
+      rumble: null,
       messages: [
         { id: 1, chainId: 1, author: 'human', text: 'More?', ts: '2026-09-05T12:00:00.000Z' },
       ],

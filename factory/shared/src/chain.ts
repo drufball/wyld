@@ -6,6 +6,7 @@ import { Rumble } from './rumble.js';
 export const ChainStatus = z.enum(['open', 'settled', 'converted']);
 export const ChainKind = z.enum(['question', 'message', 'rumble']);
 export type ChainStatus = z.infer<typeof ChainStatus>;
+export type ChainKind = z.infer<typeof ChainKind>;
 
 export const ChainMessage = z.object({
   id: z.number().int().positive(),
@@ -36,4 +37,4 @@ export const Chain = z
         message: 'rumble must be non-null exactly when kind is rumble',
       });
   });
-export type Chain = z.input<typeof Chain>;
+export type Chain = z.infer<typeof Chain>;

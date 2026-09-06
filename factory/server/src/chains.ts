@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, lt, ne, or } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
-import { Chain, ChainKind, ChainStatus, type NewEvent } from '@wyld/shared';
+import { Chain, ChainKind, ChainStatus, Timestamp, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
@@ -25,7 +25,7 @@ const ChainQuery = z.object({
   status: z.union([ChainStatus, z.literal('all')]).default('open'),
   includeSnoozed: z.enum(['1', 'true']).optional(),
 });
-const ChainSnooze = z.object({ until: z.string().datetime({ offset: true }) }).strict();
+const ChainSnooze = z.object({ until: Timestamp }).strict();
 const MessageCreate = z
   .object({ author: z.enum(['human', 'planner']), text: z.string().min(1).max(2000) })
   .strict();
