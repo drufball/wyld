@@ -87,6 +87,7 @@ type Subscriber = (event: Event) => Promise<void>;
 export type AppDependencies = {
   database: AppDatabase;
   version?: string;
+  pakPublicUrl?: string;
   wakeUrl?: string;
   wakeSecret?: string;
   ntfyUrl?: string;
@@ -390,7 +391,15 @@ export function createApp(dependencies: AppDependencies) {
   const resumePause = createPauseService({ database: dependencies.database, now, storeEvent });
   app.route(
     '/api',
-    createPauseRoutes({ database: dependencies.database, now, storeEvent, notify }),
+    createPauseRoutes({
+      database: dependencies.database,
+      now,
+      storeEvent,
+      notify,
+      ...(dependencies.pakPublicUrl === undefined
+        ? {}
+        : { pakPublicUrl: dependencies.pakPublicUrl }),
+    }),
   );
   app.route(
     '/api',

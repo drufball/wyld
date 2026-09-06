@@ -12,6 +12,7 @@ describe('readConfig', () => {
         REPO_DIR: '/tmp/repo',
         PAK_PORT: '9000',
         PAK_DIST: '/tmp/pak-dist',
+        PAK_PUBLIC_URL: 'https://pak.example/base',
         WAKE_URL: 'http://localhost:8788/event',
         WAKE_SECRET: 'shared-secret',
         NTFY_URL: 'https://ntfy.example',
@@ -26,6 +27,7 @@ describe('readConfig', () => {
       feedbackDir: '/tmp/factory/feedback',
       port: 9000,
       pakDist: '/tmp/pak-dist',
+      pakPublicUrl: 'https://pak.example/base',
       wakeUrl: 'http://localhost:8788/event',
       wakeSecret: 'shared-secret',
       ntfyUrl: 'https://ntfy.example',
@@ -50,6 +52,17 @@ describe('readConfig', () => {
     const config = readConfig({ NTFY_URL: '' });
     expect(config.ntfyTopic).toBe('wyld-pak');
     expect(config).not.toHaveProperty('ntfyUrl');
+  });
+
+  it('treats an empty public Pak URL as unset', () => {
+    const config = readConfig({ PAK_PUBLIC_URL: '' });
+    expect(config).not.toHaveProperty('pakPublicUrl');
+  });
+
+  it('rejects a malformed non-empty public Pak URL', () => {
+    expect(() => readConfig({ PAK_PUBLIC_URL: 'not-a-url' })).toThrow(
+      'Invalid server configuration',
+    );
   });
 
   it('rejects a malformed non-empty ntfy URL', () => {

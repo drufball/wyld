@@ -24,9 +24,14 @@ type Dependencies = {
   now: () => Date;
   storeEvent: (event: NewEvent) => Promise<unknown>;
   notify: Notifier;
+  pakPublicUrl?: string;
 };
 
-export function createPauseService({ database, now, storeEvent }: Omit<Dependencies, 'notify'>) {
+export function createPauseService({
+  database,
+  now,
+  storeEvent,
+}: Omit<Dependencies, 'notify' | 'pakPublicUrl'>) {
   return async (lane?: string, options: { decideRumble?: boolean } = {}) => {
     const active = database.db
       .select()
@@ -58,7 +63,7 @@ export function createPauseService({ database, now, storeEvent }: Omit<Dependenc
 }
 
 export function createPauseRoutes(dependencies: Dependencies) {
-  const { database, now, storeEvent, notify } = dependencies;
+  const { database, now, storeEvent, notify, pakPublicUrl } = dependencies;
   const app = new Hono();
   const resumePause = createPauseService(dependencies);
 
@@ -105,7 +110,10 @@ export function createPauseRoutes(dependencies: Dependencies) {
         ...(fix === undefined ? {} : { fix }),
       },
     });
-    notify('The factory paused', reason, { tags: ['warning'], click: '/rumble' });
+    notify('The factory paused', reason, {
+      tags: ['warning'],
+      ...(pakPublicUrl === undefined ? {} : { click: new URL('/rumble', pakPublicUrl).toString() }),
+    });
     return c.json(result, 201);
   });
 

@@ -53,28 +53,50 @@ describe('createNotifier', () => {
     });
   });
 
+  it('retries a failed fetch once without logging when the retry succeeds', async () => {
+    vi.useFakeTimers();
+    const logger = vi.fn();
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(new Response('', { status: 200 }));
+    createNotifier({ ntfyUrl: 'https://ntfy.example', topic: 'topic', fetch, logger })('T', 'M');
+
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(logger).not.toHaveBeenCalled();
+    expect(fetch.mock.calls[0]![1]?.signal).not.toBe(fetch.mock.calls[1]![1]?.signal);
+    vi.useRealTimers();
+  });
+
   it.each([
-    ['a non-2xx response', async () => new Response('', { status: 503 })],
+    ['non-2xx responses', async () => new Response('', { status: 503 })],
     [
-      'a rejected fetch',
+      'rejected fetches',
       async () => {
         throw new Error('offline');
       },
     ],
-  ])('logs %s without throwing', async (_case, implementation) => {
+  ])('retries %s once, then logs exactly once without throwing', async (_case, implementation) => {
+    vi.useFakeTimers();
     const logger = vi.fn();
+    const fetch = vi.fn(implementation);
     const notify = createNotifier({
       ntfyUrl: 'https://ntfy.example',
       topic: 'topic',
-      fetch: vi.fn(implementation),
+      fetch,
       logger,
     });
     expect(() => notify('T', 'M')).not.toThrow();
-    await settle();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(logger).toHaveBeenCalledTimes(1);
     expect(logger).toHaveBeenCalledWith(
       'error',
       'failed to send push notification',
       expect.objectContaining({ error: expect.any(String) }),
     );
+    vi.useRealTimers();
   });
 });

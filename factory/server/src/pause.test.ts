@@ -55,6 +55,7 @@ describe('pause routes', () => {
     expect(second.status).toBe(200);
     expect(await second.json()).toEqual(firstPause);
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).not.toHaveProperty('click');
 
     const events = Event.array().parse(await (await app.request('/api/events')).json());
     expect(events).toHaveLength(1);
@@ -79,6 +80,26 @@ describe('pause routes', () => {
     ]);
     const snapshot = HealthSnapshot.parse(await (await app.request('/api/health/snapshot')).json());
     expect(snapshot.paused).toMatchObject({ lane: 'all', reason: body.reason, fix: body.fix });
+  });
+
+  it('uses the configured public Pak URL for notification tap-through', async () => {
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      now: () => new Date('2026-09-06T12:00:00.000Z'),
+      ntfyUrl: 'https://ntfy.example',
+      pakPublicUrl: 'https://pak.example/base/',
+      fetch: fetcher,
+      logger: () => undefined,
+    });
+
+    await post('/api/pause', { reason: 'Codex quota hit' });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
+      click: 'https://pak.example/rumble',
+    });
   });
 
   it('resumes lanes independently and deciding an outage also resumes it', async () => {

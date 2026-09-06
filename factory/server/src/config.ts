@@ -18,6 +18,7 @@ const Environment = z.object({
   REPO_DIR: z.string().min(1).default(defaultRepoDir),
   PAK_PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   PAK_DIST: z.string().min(1).default(defaultPakDist),
+  PAK_PUBLIC_URL: z.preprocess(emptyStringAsUndefined, z.url().optional()),
   WAKE_URL: z.preprocess(emptyStringAsUndefined, z.url().optional()),
   WAKE_SECRET: z.preprocess(emptyStringAsUndefined, z.string().optional()),
   NTFY_URL: z.preprocess(emptyStringAsUndefined, z.url().optional()),
@@ -33,6 +34,7 @@ export type Config = {
   feedbackDir: string;
   port: number;
   pakDist: string;
+  pakPublicUrl?: string;
   wakeUrl?: string;
   wakeSecret?: string;
   ntfyUrl?: string;
@@ -53,6 +55,9 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     feedbackDir: path.join(result.data.FACTORY_DIR, 'feedback'),
     port: result.data.PAK_PORT,
     pakDist: result.data.PAK_DIST,
+    ...(result.data.PAK_PUBLIC_URL === undefined
+      ? {}
+      : { pakPublicUrl: result.data.PAK_PUBLIC_URL }),
     ...(result.data.WAKE_URL === undefined ? {} : { wakeUrl: result.data.WAKE_URL }),
     ...(result.data.WAKE_SECRET === undefined ? {} : { wakeSecret: result.data.WAKE_SECRET }),
     ...(result.data.NTFY_URL === undefined ? {} : { ntfyUrl: result.data.NTFY_URL }),
