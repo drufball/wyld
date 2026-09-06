@@ -53,5 +53,36 @@ describe('Memory', () => {
     render(<Memory />);
     expect(await screen.findByText('No nights have been recorded yet.')).not.toBeNull();
   });
+  it('shows retros with id fallbacks when quest titles fail', async () => {
+    const retro = {
+      id: 1,
+      date: '2026-09-06',
+      summary: 'Still remembered.',
+      wins: [],
+      misses: [],
+      factoryImprovements: ['unknown-tool'],
+      stats: {},
+      generatedBy: 'planner',
+      createdAt: '2026-09-06T08:00:00Z',
+      updatedAt: '2026-09-06T08:00:00Z',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url === '/api/quests' ? Promise.reject(new Error('offline')) : response([retro]),
+      ),
+    );
+    render(<Memory />);
+    expect(await screen.findByText('Still remembered.')).not.toBeNull();
+    expect(screen.getByText('unknown-tool')).not.toBeNull();
+  });
+  it('shows an error when retros fail', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('offline'))),
+    );
+    render(<Memory />);
+    expect(await screen.findByText("Memory couldn't load. Try again.")).not.toBeNull();
+  });
   it('humanises generic stats', () => expect(humaniseStat('customCount')).toBe('Custom Count'));
 });

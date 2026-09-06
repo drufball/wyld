@@ -228,9 +228,3 @@ export async function postGoodnight() {
 export async function listRetros(limit = 20) {
   return Retro.array().parse(await request(`/api/retros?limit=${limit}`, {}, 'Loading memories'));
 }
-
-export async function getRetro(date: string) {
-  return Retro.parse(
-    await request(`/api/retros/${encodeURIComponent(date)}`, {}, 'Loading memory'),
-  );
-}

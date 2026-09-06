@@ -42,30 +42,30 @@ function Night({ run, lightsOnAt }: { run: SleepRun; lightsOnAt: string }) {
   const currentIndex =
     current === undefined ? 0 : phases.indexOf(current as (typeof phases)[number]);
   return (
-    <Card
-      variant="bevel"
-      data-tone="accent"
-      className="relative isolate grid min-h-80 w-full max-w-full overflow-hidden bg-gradient-to-b from-dracula-current via-dracula-purple/30 to-dracula-bg p-5"
-    >
-      <div
-        aria-hidden="true"
-        className="absolute right-8 top-8 size-16 rounded-full bg-dracula-yellow shadow-[0_0_30px_rgb(241_250_140/0.45)]"
-      />
-      {[
-        ['12%', '15%'],
-        ['29%', '31%'],
-        ['48%', '12%'],
-        ['72%', '38%'],
-        ['89%', '19%'],
-      ].map(([left, top], index) => (
-        <span
-          key={left}
+    <Card variant="bevel" data-tone="accent" className="w-full max-w-full overflow-hidden p-0">
+      <div className="relative h-40 overflow-hidden bg-gradient-to-b from-[#11152f] via-dracula-current to-dracula-purple/30">
+        <div
           aria-hidden="true"
-          className="absolute size-1 rounded-full bg-dracula-fg [animation:sleep-twinkle_2.2s_ease-in-out_infinite]"
-          style={{ left, top, animationDelay: `${index * 0.3}s` }}
+          className="absolute right-7 top-7 size-16 rounded-full bg-dracula-yellow shadow-[0_0_32px_rgb(241_250_140/0.55)]"
         />
-      ))}
-      <div className="relative z-10 mt-auto grid gap-5">
+        {[
+          ['9%', '20%', 'size-1.5'],
+          ['18%', '62%', 'size-1'],
+          ['31%', '34%', 'size-2'],
+          ['45%', '70%', 'size-1'],
+          ['57%', '18%', 'size-1.5'],
+          ['70%', '53%', 'size-1'],
+          ['88%', '72%', 'size-1.5'],
+        ].map(([left, top, size], index) => (
+          <span
+            key={left}
+            aria-hidden="true"
+            className={`absolute ${size} rounded-full bg-white shadow-[0_0_5px_rgb(255_255_255/0.8)] [animation:sleep-twinkle_2.2s_ease-in-out_infinite]`}
+            style={{ left, top, animationDelay: `${index * 0.23}s` }}
+          />
+        ))}
+      </div>
+      <div className="grid gap-5 bg-dracula-bg p-5">
         <Countdown until={lightsOnAt} />
         <ol className="grid gap-2" aria-label="Night phases">
           {phases.map((phase, index) => {
@@ -74,10 +74,11 @@ function Night({ run, lightsOnAt }: { run: SleepRun; lightsOnAt: string }) {
             return (
               <li
                 key={phase}
-                className={`flex items-center justify-between gap-3 rounded border border-dracula-comment/50 bg-dracula-bg/80 px-3 py-2 uppercase ${state === 'current' ? 'text-dracula-pink' : state === 'done' ? 'text-dracula-green' : 'text-muted-foreground'}`}
+                aria-current={state === 'current' ? 'step' : undefined}
+                className={`rounded border border-dracula-comment/50 px-3 py-2 uppercase ${state === 'current' ? 'bg-dracula-current text-dracula-pink shadow-[0_0_12px_rgb(255_121_198/0.12)]' : state === 'done' ? 'text-dracula-green' : 'text-muted-foreground'}`}
               >
                 <span>{phase}</span>
-                <span className="text-xs">{state}</span>
+                {state !== 'ahead' && <span className="sr-only"> ({state})</span>}
               </li>
             );
           })}

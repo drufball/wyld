@@ -25,13 +25,20 @@ function readableDate(date: string) {
 export function Memory() {
   const [retros, setRetros] = useState<Retro[] | null>(null);
   const [titles, setTitles] = useState(new Map<string, string>());
+  const [error, setError] = useState(false);
   useEffect(() => {
-    void Promise.all([listRetros(30), listQuests()]).then(([items, quests]) => {
-      setRetros([...items].sort((a, b) => b.date.localeCompare(a.date)));
-      setTitles(new Map(quests.map((quest) => [quest.id, quest.title])));
-    });
+    void listRetros(30)
+      .then((items) => {
+        setRetros([...items].sort((a, b) => b.date.localeCompare(a.date)));
+        setError(false);
+      })
+      .catch(() => setError(true));
+    void listQuests()
+      .then((quests) => setTitles(new Map(quests.map((quest) => [quest.id, quest.title]))))
+      .catch(() => undefined);
   }, []);
-  if (retros === null) return <p>Loading save files…</p>;
+  if (retros === null)
+    return <p>{error ? "Memory couldn't load. Try again." : 'Loading save files…'}</p>;
   return (
     <div className="grid min-w-0 gap-5">
       <h1 className="m-0">MEMORY</h1>

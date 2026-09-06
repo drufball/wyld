@@ -205,11 +205,10 @@ export function Today({
 
   return (
     <div className="grid gap-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="m-0">TODAY</h1>
+      <div className="flex justify-end">
         <Button asChild variant="retro" size="icon">
-          <Link to="/sleep" aria-label="Goodnight" className="text-xl">
-            ☾
+          <Link to="/sleep" aria-label="Goodnight" className="font-sans text-2xl" title="Goodnight">
+            🌙
           </Link>
         </Button>
       </div>

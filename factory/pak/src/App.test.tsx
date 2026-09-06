@@ -13,10 +13,15 @@ function renderAt(path: string) {
   );
 }
 
-const placeholders = [
-  ['Rumble', 'Decisions only you can make.'],
-  ['Memory', 'Save files — retros, stats, achievements.'],
-] as const;
+const placeholders = [['Rumble', 'Decisions only you can make.']] as const;
+
+const response = (value: unknown) =>
+  Promise.resolve({
+    ok: true,
+    status: 200,
+    json: async () => value,
+    text: async () => '',
+  } as Response);
 
 describe('Pak shell', () => {
   it('navigates to Demo Discs', async () => {
@@ -115,6 +120,17 @@ describe('Pak shell', () => {
 
     expect(screen.getByRole('heading', { name })).not.toBeNull();
     expect(screen.getByText(purpose)).not.toBeNull();
+  });
+
+  it('navigates to Memory and renders its empty state', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => response([])),
+    );
+    renderAt('/memory');
+    expect(await screen.findByRole('heading', { name: 'MEMORY' })).not.toBeNull();
+    expect(screen.getByText('No nights have been recorded yet.')).not.toBeNull();
+    vi.unstubAllGlobals();
   });
 
   it('navigates to Quests', async () => {

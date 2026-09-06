@@ -88,6 +88,8 @@ describe('Sleep', () => {
     );
     expect(await screen.findByRole('list', { name: 'Night phases' })).not.toBeNull();
     expect(screen.getByText(/to lights on/)).not.toBeNull();
+    expect(screen.getByText('drain').closest('li')?.getAttribute('aria-current')).toBe('step');
+    expect(screen.queryByText('AHEAD')).toBeNull();
     expect(screen.queryByRole('button', { name: 'GOODNIGHT' })).toBeNull();
   });
 });
