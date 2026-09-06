@@ -72,11 +72,13 @@ done._
 3. `pak_post_note` on `planner-in-pak`: you are up, running inside the factory, restarts no longer need
    him; `pak_set_quest_status` → `demo`, since-you-looked, and the next action ("Nothing needs you" → `/`
    unless a Rumble is open). Close `unattended-restart` as `done` with a one-line note.
-4. **Re-adopt in-flight work from GitHub, not memory:** `gh pr list` / `gh issue list`. Anything open under
-   quest `improved-chains` belongs to that quest (its lead died with the old session) — if PR #119 (pak unit,
-   `codex/chains-pak`) is still open, spawn a fresh lead for it with the review-pr / merge-and-ship brief
-   (deploy = `pnpm --filter @wyld/pak build` + rebuild the main disc; then quest → `demo`). If it merged
-   already, just check the quest is in `demo` with a note.
+4. **Re-adopt in-flight work from GitHub, not memory:** `gh pr list` / `gh issue list`. At cutover
+   (2026-09-06 ~09:58) both were empty: `improved-chains` shipped (#113 server, #118 wake, #119 pak; quest in
+   `demo`, main disc rebuilt 09:55) and `planner-in-pak` shipped (#112, #121). If anything is open, it was
+   opened after this note — treat it as belonging to the quest in its `<!-- quest:… -->` marker.
+   Follow-up idea from the chains lead, not yet a quest: each chain card still carries a Follow-up box plus
+   Settled / Make this a quest / Snooze, so a card is mostly chrome — same vertical-space complaint Dru made
+   about the old box; worth raising with him as a message, not building unasked.
 5. Leads: spawn one opus lead per quest as before (Agent tool). **Every lead brief must include:** unique
    scratchpad file names per quest+unit, read the marker/Closes line back from GitHub after filing, name the
    branch in the Codex prompt, never post to the live notifier, never touch `.factory/env`, one Codex task per
@@ -136,7 +138,7 @@ to say the channel flag is the fallback path only; delete `factory/planner/queue
   last smoke check sent a junk "x / y" push to Dru's phone). Scratch servers must leave `NTFY_URL` unset; the
   live notifier is for a pause, a new Rumble, or a demo ready — nothing else. Lead briefs must say so.
 
-- **Quest `planner-in-pak` "Planner inside the Pak" — DECIDED 2026-09-06 08:14: "Move the Planner into the Pak". Lead spawned 08:16 (units 1 host + 2 launcher; it waits for #102 to merge before touching `factory/wake`). Rumble `planner-token` is **Done (08:27)**: Dru pasted the `claude setup-token` token into a chain and asked the Planner to install it; the Planner appended `CLAUDE_CODE_OAUTH_TOKEN=` to `.factory/env` (mode 600) at his explicit request — the only sanctioned exception to POLICIES "never touch `.factory/env`" — and redacted the token from `chain_messages`/`events` in `.factory/pak.sqlite` with sqlite3. The host inherits it via `set -a; . .factory/env`. `unattended-restart` stays parked as superseded; close it when the host ships. The cutover (stop the CLI Planner, start the host) is the Planner's own job, announced to Dru first — it is the last attended restart. History of the decision (2026-09-06 08:15, corrected):** Dru asked whether to move the Planner into the Pak via the Claude Agent SDK. **First answer was
+- **Quest `planner-in-pak` "Planner inside the Pak" — DECIDED 2026-09-06 08:14: "Move the Planner into the Pak". Lead spawned 08:16 (units 1 host + 2 launcher; it waits for #102 to merge before touching `factory/wake`). Rumble `planner-token` is **Done (08:27)**: Dru pasted the `claude setup-token` token into a chain and asked the Planner to install it; the Planner appended `CLAUDE_CODE_OAUTH_TOKEN=` to `.factory/env` (mode 600) at his explicit request — the only sanctioned exception to POLICIES "never touch `.factory/env`" — and redacted the token from `chain_messages`/`events` in `.factory/pak.sqlite` with sqlite3. The host inherits it via `set -a; . .factory/env`. `unattended-restart` stays parked as superseded; close it when the host ships. **Cutover executed 2026-09-06 ~09:58 by the CLI session** (`tmux respawn-window -k -t wyld:planner` with the launcher's host command line) after telling Dru; the host started a fresh session. History of the decision (2026-09-06 08:15, corrected):** Dru asked whether to move the Planner into the Pak via the Claude Agent SDK. **First answer was
   wrong** (a guide subagent over-read the developer clause; the Planner relayed it without reading the source —
   Dru caught it). Verified facts, read directly: (a) support.claude.com article 15036540 "Use the Claude Agent
   SDK with your Claude plan" (2026-06-16): "Claude Agent SDK, `claude -p`, and third-party app usage still draw
