@@ -276,6 +276,7 @@ describe('Pak tools', () => {
       'pak_read_chains',
       'pak_send_message',
       'pak_answer_chain',
+      'pak_notify',
       'pak_close_chain',
     ]);
     expect(result.tools?.every(({ description }) => description.length > 10)).toBe(true);
@@ -900,6 +901,40 @@ describe('Pak tools', () => {
         },
       }),
     ).toMatchObject({ isError: true });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('posts valid push notifications', async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ sent: true }), { status: 202 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    await call!({
+      params: {
+        name: 'pak_notify',
+        arguments: { title: 'Paused', message: 'Needs Dru', tags: ['warning'], click: '/today' },
+      },
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      'http://pak/api/notify',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          title: 'Paused',
+          message: 'Needs Dru',
+          tags: ['warning'],
+          click: '/today',
+        }),
+      }),
+    );
+  });
+
+  it('rejects invalid push notification arguments', async () => {
+    const fetch = vi.fn();
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const result = await call!({
+      params: { name: 'pak_notify', arguments: { title: '', message: 'm' } },
+    });
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content?.[0]?.text).toContain('Invalid arguments:');
     expect(fetch).not.toHaveBeenCalled();
   });
 });

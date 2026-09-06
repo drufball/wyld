@@ -20,6 +20,8 @@ const Environment = z.object({
   PAK_DIST: z.string().min(1).default(defaultPakDist),
   WAKE_URL: z.preprocess(emptyStringAsUndefined, z.url().optional()),
   WAKE_SECRET: z.preprocess(emptyStringAsUndefined, z.string().optional()),
+  NTFY_URL: z.preprocess(emptyStringAsUndefined, z.url().optional()),
+  NTFY_TOPIC: z.string().min(1).default('wyld-pak'),
 });
 
 export type Config = {
@@ -33,6 +35,8 @@ export type Config = {
   pakDist: string;
   wakeUrl?: string;
   wakeSecret?: string;
+  ntfyUrl?: string;
+  ntfyTopic: string;
 };
 
 export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config {
@@ -51,5 +55,7 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     pakDist: result.data.PAK_DIST,
     ...(result.data.WAKE_URL === undefined ? {} : { wakeUrl: result.data.WAKE_URL }),
     ...(result.data.WAKE_SECRET === undefined ? {} : { wakeSecret: result.data.WAKE_SECRET }),
+    ...(result.data.NTFY_URL === undefined ? {} : { ntfyUrl: result.data.NTFY_URL }),
+    ntfyTopic: result.data.NTFY_TOPIC,
   };
 }

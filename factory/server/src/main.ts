@@ -29,6 +29,8 @@ const app = createApp({
   builder,
   ...(config.wakeUrl === undefined ? {} : { wakeUrl: config.wakeUrl }),
   ...(config.wakeSecret === undefined ? {} : { wakeSecret: config.wakeSecret }),
+  ...(config.ntfyUrl === undefined ? {} : { ntfyUrl: config.ntfyUrl }),
+  ntfyTopic: config.ntfyTopic,
 });
 
 log(

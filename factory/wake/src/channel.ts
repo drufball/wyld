@@ -253,6 +253,14 @@ const AnswerChainArgs = z
   .object({ chain: z.number().int().positive(), text: z.string().min(1) })
   .strict();
 const CloseChainArgs = z.object({ chain: z.number().int().positive() }).strict();
+const NotifyArgs = z
+  .object({
+    title: z.string().min(1).max(120),
+    message: z.string().min(1).max(500),
+    tags: z.array(z.string()).optional(),
+    click: z.string().optional(),
+  })
+  .strict();
 
 const statusSchema = { type: 'string' as const, enum: QuestStatus.options };
 
@@ -582,6 +590,22 @@ const tools = [
     },
   },
   {
+    name: 'pak_notify',
+    description:
+      "Send one push notification to Dru's phone. Use it only for something that genuinely needs him — the factory Paused, a new Rumble, a Demo Disc ready. Never for progress updates or chatter.",
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', minLength: 1, maxLength: 120 },
+        message: { type: 'string', minLength: 1, maxLength: 500 },
+        tags: { type: 'array', items: { type: 'string' } },
+        click: { type: 'string' },
+      },
+      required: ['title', 'message'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'pak_close_chain',
     description:
       'Settle a question chain once it is genuinely answered, so it folds away on Today. Dru can also settle it himself, and quiet chains settle on their own after a day.',
@@ -844,6 +868,11 @@ export function createToolRegistry(options: {
         reason: 'settled',
         source: 'planner',
       });
+    }
+    if (params.name === 'pak_notify') {
+      const parsed = NotifyArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/notify`, parsed.data);
     }
     return textResult(`Unknown tool: ${params.name}`, true);
   };
