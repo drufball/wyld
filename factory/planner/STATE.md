@@ -90,10 +90,9 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
-- **Restart in progress (11:52):** all four leads reported; the Planner is respawning the host to pick up #124
-  (self-heartbeat) and #129 (`run=` in alarm tags, five new sleep tools). **If you are the resumed session and this
-  line is still here:** `kill $(cat /tmp/wyld-planner-pulse.pid)` (the shell pulse), confirm `pak_read_sleep` is in your
-  tools, move `planner-in-pak` → `demo` with a note, then delete this bullet.
+- **Host restarted 2026-09-06 11:51** (same session resumed; `restarts=0` because the respawn replaced the window). Now running
+  #124 self-heartbeat (`Handling events`/`Waiting for events — last turn HH:MM` rows every 120 s) and #129 framing; the five
+  sleep tools are in the Planner's tool list; the temporary shell pulse is killed. `planner-in-pak` → `demo`.
 - **`new-home` unit shipped 11:49 (#132 / PR #133, two fix rounds).** `pnpm factory:export [out.tgz]` → `~/Desktop/
   wyld-factory-<stamp>.tgz` (600): `.backup` snapshots of `pak.sqlite` + `wake.sqlite` (proved against live WAL: 10/10
   rows vs 0/10 for `cp`), `env` (600), `feedback/`, `ntfy/`, `export-manifest.json`; excludes demos/worktrees/
