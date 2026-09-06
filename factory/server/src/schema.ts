@@ -146,12 +146,30 @@ export const chains = sqliteTable(
   'chains',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    kind: text('kind', { enum: ['question', 'message', 'rumble'] })
+      .notNull()
+      .default('question'),
     status: text('status', { enum: ['open', 'settled', 'converted'] }).notNull(),
     createdAt: text('created_at').notNull(),
     lastActivityAt: text('last_activity_at').notNull(),
     questId: text('quest_id'),
+    snoozedUntil: text('snoozed_until'),
+    slug: text('slug'),
+    title: text('title'),
+    context: text('context'),
+    options: text('options', { mode: 'json' }).$type<string[]>(),
+    chosen: text('chosen'),
+    chosenAt: text('chosen_at'),
+    blockingQuestIds: text('blocking_quest_ids', { mode: 'json' }).$type<string[]>(),
+    rumbleKind: text('rumble_kind', {
+      enum: ['account', 'money', 'model', 'taste', 'scope', 'outage'],
+    }),
   },
-  (table) => [index('chains_status_activity_idx').on(table.status, table.lastActivityAt)],
+  (table) => [
+    index('chains_status_activity_idx').on(table.status, table.lastActivityAt),
+    index('chains_kind_idx').on(table.kind),
+    uniqueIndex('chains_slug_unique').on(table.slug),
+  ],
 );
 
 export const chainMessages = sqliteTable(
@@ -166,24 +184,6 @@ export const chainMessages = sqliteTable(
     ts: text('ts').notNull(),
   },
   (table) => [index('chain_messages_chain_id_idx').on(table.chainId)],
-);
-
-export const rumbles = sqliteTable(
-  'rumbles',
-  {
-    id: text('id').primaryKey(),
-    title: text('title').notNull(),
-    context: text('context').notNull(),
-    options: text('options', { mode: 'json' }).notNull().$type<string[]>(),
-    chosen: text('chosen'),
-    chosenAt: text('chosen_at'),
-    blockingQuestIds: text('blocking_quest_ids', { mode: 'json' }).notNull().$type<string[]>(),
-    kind: text('kind', {
-      enum: ['account', 'money', 'model', 'taste', 'scope', 'outage'],
-    }).notNull(),
-    createdAt: text('created_at').notNull(),
-  },
-  (table) => [index('rumbles_chosen_at_idx').on(table.chosenAt)],
 );
 
 export const demos = sqliteTable('demos', {

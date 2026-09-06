@@ -7,8 +7,8 @@ import type { AppDatabase } from './database.js';
 import type { WakePauseNotifier } from './forwarder.js';
 import type { Notifier } from './notify.js';
 import { formatIssues } from './quests.js';
-import { writeRumble } from './rumbles.js';
-import { pauses, rumbles } from './schema.js';
+import { clearRumbleChoice, decideRumbleRow, writeRumble } from './rumbles.js';
+import { pauses } from './schema.js';
 
 const PausePost = z
   .object({
@@ -58,11 +58,7 @@ export function createPauseService({
       const resolvedAt = now().toISOString();
       database.db.update(pauses).set({ resolvedAt }).where(eq(pauses.id, pause.id)).run();
       if (options.decideRumble !== false && pause.rumbleId !== null) {
-        database.db
-          .update(rumbles)
-          .set({ chosen: 'Resume', chosenAt: resolvedAt })
-          .where(eq(rumbles.id, pause.rumbleId))
-          .run();
+        decideRumbleRow(database, pause.rumbleId, 'Resume', resolvedAt);
       }
       await storeEvent({
         source: 'planner',
@@ -113,11 +109,7 @@ export function createPauseRoutes(dependencies: Dependencies) {
       kind: 'outage',
       blockingQuestIds: [],
     });
-    database.db
-      .update(rumbles)
-      .set({ chosen: null, chosenAt: null })
-      .where(eq(rumbles.id, rumbleId))
-      .run();
+    clearRumbleChoice(database, rumbleId);
     database.db.update(pauses).set({ rumbleId }).where(eq(pauses.id, pause.id)).run();
     const result = { ...pause, rumbleId };
     await storeEvent({

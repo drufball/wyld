@@ -5,10 +5,13 @@ import { Chain } from './chain.js';
 describe('Chain', () => {
   const valid = {
     id: 1,
+    kind: 'question',
     status: 'open',
     createdAt: '2026-09-05T12:00:00.000Z',
     lastActivityAt: '2026-09-05T12:00:00.000Z',
     questId: null,
+    snoozedUntil: null,
+    rumble: null,
     messages: [
       {
         id: 1,
