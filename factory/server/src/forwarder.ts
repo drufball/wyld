@@ -39,3 +39,34 @@ export function createWakeForwarder(dependencies: WakeForwarderDependencies) {
       );
   };
 }
+
+export type WakePauseNotifier = (pausedSince: string | null) => void;
+
+export function createWakePauseNotifier(
+  dependencies: WakeForwarderDependencies,
+): WakePauseNotifier {
+  const logger = dependencies.logger ?? log;
+  const fetcher = dependencies.fetch ?? globalThis.fetch;
+  return (pausedSince): void => {
+    if (dependencies.wakeUrl === undefined || dependencies.wakeSecret === undefined) return;
+    const path = pausedSince === null ? '/resume' : '/pause';
+    void Promise.resolve()
+      .then(() =>
+        fetcher(new URL(path, dependencies.wakeUrl).toString(), {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'X-Wake-Secret': dependencies.wakeSecret!,
+          },
+          body: JSON.stringify(pausedSince === null ? {} : { since: pausedSince }),
+          signal: AbortSignal.timeout(2_000),
+        }),
+      )
+      .then((response) => {
+        if (!response.ok) throw new Error(`Wake returned HTTP ${response.status}`);
+      })
+      .catch((error: unknown) =>
+        logger('error', 'failed to update Wake pause state', { path, error: String(error) }),
+      );
+  };
+}

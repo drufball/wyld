@@ -5,13 +5,15 @@ import { and, asc, inArray, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { enqueueMessage, type AppDatabase } from './database.js';
+import { enqueueMessage, isPaused, setPaused, type AppDatabase } from './database.js';
 import { log, type LogContext, type LogLevel } from './logger.js';
 import { isBotGithubSender, normaliseEvent, normaliseGithub } from './normalise.js';
 import { messages } from './schema.js';
 
 const Claim = z.object({ limit: z.number().int().positive().max(100).default(20) }).strict();
 const Ack = z.object({ ids: z.array(z.number().int().positive()).max(1000) }).strict();
+const Pause = z.object({ since: z.string() }).strict();
+const Resume = z.object({}).strict();
 
 export type WakeAppDependencies = {
   database: AppDatabase;
@@ -87,6 +89,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
       .get() as { lastGithubEventAt: string | null };
     return c.json({
       ok: true,
+      paused: isPaused(database),
       queueDepth: stats.queueDepth,
       lastDeliveryAt: delivery.lastDeliveryAt,
       lastGithubEventAt: github.lastGithubEventAt,
@@ -103,6 +106,8 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
     const parsed = Claim.safeParse(body);
     if (!parsed.success)
       return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400);
+    // Pending rows remain untouched while paused, so the ordinary next claim replays them in ts order.
+    if (isPaused(database)) return c.json({ messages: [] });
     const rows = database.db
       .select()
       .from(messages)
@@ -157,6 +162,26 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
       .where(and(inArray(messages.id, parsed.data.ids), isNull(messages.deliveredAt)))
       .run();
     return c.json({ acked: result.changes });
+  });
+
+  app.post('/pause', async (c) => {
+    if (!equalSecret(c.req.header('X-Wake-Secret'), dependencies.wakeSecret))
+      return c.json({ error: 'Unauthorized' }, 401);
+    const parsed = Pause.safeParse(await c.req.json().catch(() => undefined));
+    if (!parsed.success)
+      return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400);
+    if (!isPaused(database)) setPaused(database, parsed.data.since);
+    return c.json({ paused: true });
+  });
+
+  app.post('/resume', async (c) => {
+    if (!equalSecret(c.req.header('X-Wake-Secret'), dependencies.wakeSecret))
+      return c.json({ error: 'Unauthorized' }, 401);
+    const parsed = Resume.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success)
+      return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400);
+    if (isPaused(database)) setPaused(database, null);
+    return c.json({ paused: false });
   });
   return app;
 }

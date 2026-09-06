@@ -261,6 +261,16 @@ const NotifyArgs = z
     click: z.string().optional(),
   })
   .strict();
+const PauseArgs = z
+  .object({
+    reason: z.string().min(1).max(280),
+    lane: z.enum(['codex', 'github', 'planner', 'all']).optional(),
+    fix: z.string().min(1).max(280).optional(),
+  })
+  .strict();
+const ResumeArgs = z
+  .object({ lane: z.enum(['codex', 'github', 'planner', 'all']).optional() })
+  .strict();
 
 const statusSchema = { type: 'string' as const, enum: QuestStatus.options };
 
@@ -606,6 +616,33 @@ const tools = [
     },
   },
   {
+    name: 'pak_pause',
+    description:
+      'Stop the factory cleanly when something has run out — Codex quota, the GitHub rate limit, or your own headroom. Files an outage card for Dru, sends him one push, and holds incoming events until you resume. Give the reason in plain English, and a fix if you know it.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        reason: { type: 'string', minLength: 1, maxLength: 280 },
+        lane: { type: 'string', enum: ['codex', 'github', 'planner', 'all'] },
+        fix: { type: 'string', minLength: 1, maxLength: 280 },
+      },
+      required: ['reason'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_resume',
+    description:
+      'Start the factory again after a pause, once whatever ran out is back. Clears the outage card and releases the events that queued up while it was stopped.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        lane: { type: 'string', enum: ['codex', 'github', 'planner', 'all'] },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'pak_close_chain',
     description:
       'Settle a question chain once it is genuinely answered, so it folds away on Today. Dru can also settle it himself, and quiet chains settle on their own after a day.',
@@ -873,6 +910,16 @@ export function createToolRegistry(options: {
       const parsed = NotifyArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
       return postTool(request, `${options.pakUrl}/api/notify`, parsed.data);
+    }
+    if (params.name === 'pak_pause') {
+      const parsed = PauseArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/pause`, parsed.data);
+    }
+    if (params.name === 'pak_resume') {
+      const parsed = ResumeArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/resume`, parsed.data);
     }
     return textResult(`Unknown tool: ${params.name}`, true);
   };

@@ -4,6 +4,7 @@ import { PauseLane, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
+import type { WakePauseNotifier } from './forwarder.js';
 import type { Notifier } from './notify.js';
 import { formatIssues } from './quests.js';
 import { writeRumble } from './rumbles.js';
@@ -25,12 +26,14 @@ type Dependencies = {
   storeEvent: (event: NewEvent) => Promise<unknown>;
   notify: Notifier;
   pakPublicUrl?: string;
+  notifyWake?: WakePauseNotifier;
 };
 
 export function createPauseService({
   database,
   now,
   storeEvent,
+  notifyWake = () => undefined,
 }: Omit<Dependencies, 'notify' | 'pakPublicUrl'>) {
   return async (lane?: string, options: { decideRumble?: boolean } = {}) => {
     const active = database.db
@@ -58,12 +61,25 @@ export function createPauseService({
         payload: { summary: `The factory resumed (${pause.lane}).`, lane: pause.lane },
       });
     }
+    if (
+      active.length > 0 &&
+      database.db.select().from(pauses).where(isNull(pauses.resolvedAt)).get() === undefined
+    ) {
+      notifyWake(null);
+    }
     return active.length;
   };
 }
 
 export function createPauseRoutes(dependencies: Dependencies) {
-  const { database, now, storeEvent, notify, pakPublicUrl } = dependencies;
+  const {
+    database,
+    now,
+    storeEvent,
+    notify,
+    pakPublicUrl,
+    notifyWake = () => undefined,
+  } = dependencies;
   const app = new Hono();
   const resumePause = createPauseService(dependencies);
 
@@ -114,6 +130,7 @@ export function createPauseRoutes(dependencies: Dependencies) {
       tags: ['warning'],
       ...(pakPublicUrl === undefined ? {} : { click: new URL('/rumble', pakPublicUrl).toString() }),
     });
+    notifyWake(pause.since);
     return c.json(result, 201);
   });
 

@@ -112,6 +112,68 @@ describe('Wake app', () => {
     expect(await response.json()).toMatchObject({ messages: [{ summary: 'Dru: build it' }] });
   });
 
+  it('persists pause state and releases untouched messages after resume', async () => {
+    await app.request('/event', {
+      method: 'POST',
+      headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+      body: validEvent,
+    });
+    const authenticated = {
+      method: 'POST' as const,
+      headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+    };
+    expect(
+      await (await app.request('/queue/claim', { ...authenticated, body: '{}' })).json(),
+    ).toMatchObject({ messages: [{ summary: 'Dru: build it' }] });
+
+    expect(
+      await (
+        await app.request('/pause', {
+          ...authenticated,
+          body: JSON.stringify({ since: '2026-09-06T12:00:00.000Z' }),
+        })
+      ).json(),
+    ).toEqual({ paused: true });
+    expect(await queueDepth()).toBe(1);
+    expect(await (await app.request('/health')).json()).toMatchObject({ paused: true });
+    expect(
+      await (await app.request('/queue/claim', { ...authenticated, body: '{}' })).json(),
+    ).toEqual({ messages: [] });
+    expect(await queueDepth()).toBe(1);
+
+    database.sqlite.close();
+    database = openDatabase(path.join(directory, 'wake.sqlite'), migrations);
+    app = createWakeApp({ database, wakeSecret, githubWebhookSecret, logger: () => undefined });
+    expect(await (await app.request('/health')).json()).toMatchObject({
+      paused: true,
+      queueDepth: 1,
+    });
+    expect(await (await app.request('/resume', { ...authenticated, body: '{}' })).json()).toEqual({
+      paused: false,
+    });
+    expect(
+      await (await app.request('/queue/claim', { ...authenticated, body: '{}' })).json(),
+    ).toMatchObject({ messages: [{ summary: 'Dru: build it' }] });
+  });
+
+  it.each(['/pause', '/resume'])('secret-gates %s and allows repeated requests', async (route) => {
+    const body = route === '/pause' ? { since: '2026-09-06T12:00:00.000Z' } : {};
+    expect((await app.request(route, { method: 'POST', body: JSON.stringify(body) })).status).toBe(
+      401,
+    );
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      expect(
+        (
+          await app.request(route, {
+            method: 'POST',
+            headers: { 'X-Wake-Secret': wakeSecret, 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+        ).status,
+      ).toBe(200);
+    }
+  });
+
   it('returns a chain id when claiming a question', async () => {
     await app.request('/event', {
       method: 'POST',

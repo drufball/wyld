@@ -216,7 +216,7 @@ describe('Pak server', () => {
 
   it('copies valid optional Wake health fields', async () => {
     for (const body of [
-      { queueDepth: 3, oldestPendingTs: 'old', lastDeliveryAt: 'delivery' },
+      { queueDepth: 3, oldestPendingTs: 'old', lastDeliveryAt: 'delivery', paused: true },
       { queueDepth: 1, lastGithubEventAt: 'github' },
       { queueDepth: 'invalid', lastDeliveryAt: 'valid' },
     ]) {
@@ -228,9 +228,9 @@ describe('Pak server', () => {
         fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify(body))),
         logger: silentLogger,
       });
-      const snapshot = HealthSnapshot.parse(
-        await (await app.request('/api/health/snapshot')).json(),
-      );
+      const responseBody = await (await app.request('/api/health/snapshot')).json();
+      if (body.paused === true) expect(responseBody).toMatchObject({ wake: { paused: true } });
+      const snapshot = HealthSnapshot.parse(responseBody);
       expect(snapshot.wake.reachable).toBe(true);
       if (typeof body.queueDepth === 'number')
         expect(snapshot.wake.queueDepth).toBe(body.queueDepth);

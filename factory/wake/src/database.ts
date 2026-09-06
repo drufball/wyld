@@ -8,7 +8,7 @@ import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
 import * as schema from './schema.js';
-import { messages } from './schema.js';
+import { messages, wakeState } from './schema.js';
 
 export type AppDatabase = { db: BetterSQLite3Database<typeof schema>; sqlite: Database.Database };
 
@@ -18,7 +18,19 @@ export function openDatabase(databasePath: string, migrationsFolder: string): Ap
   sqlite.pragma('journal_mode = WAL');
   const db = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder });
+  db.insert(wakeState).values({ id: 1, pausedSince: null }).onConflictDoNothing().run();
   return { db, sqlite };
+}
+
+export function setPaused(database: AppDatabase, since: string | null): void {
+  database.db.update(wakeState).set({ pausedSince: since }).where(eq(wakeState.id, 1)).run();
+}
+
+export function isPaused(database: AppDatabase): boolean {
+  return (
+    (database.db.select().from(wakeState).where(eq(wakeState.id, 1)).get()?.pausedSince ?? null) !==
+    null
+  );
 }
 
 export function enqueueMessage(database: AppDatabase, message: WakeMessage, now: Date): number {
