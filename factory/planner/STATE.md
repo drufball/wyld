@@ -112,6 +112,49 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
   options: launcher → unpark `unattended-restart`, ask for the script path; wait → note both quests and park.
   **Lesson (Planner):** never put a legal/policy claim from a subagent on a Rumble without reading the primary
   page yourself.
+  - **Unit 1 landed 2026-09-06 09:21 — #110 / PR #112** (one fix round). New package
+    `factory/planner-host` (`@wyld/planner-host`): one long-lived `query()` in streaming-input mode that claims
+    Wake's queue itself, renders each message as a `<channel …>` tag, feeds it in as a turn, persists/resumes the
+    session id and restarts itself. **Exact SDK options:** `cwd` = repo root, `model` `claude-fable-5-1`,
+    `settingSources: ['project']`, `permissionMode: 'bypassPermissions'`, `allowedTools` incl. `mcp__wake__*`,
+    `mcpServers.wake` = stdio `node factory/wake/dist/channel-main.js` with `WAKE_CHANNEL_PUSH=0`,
+    `abortController`, `stderr` **callback**, `resume` when a session file exists. Deliberately **not** set:
+    `Options.env` (it *replaces* the parent env, killing PATH and the OAuth token), `agents`, `persistSession`.
+    **Env flag:** `WAKE_CHANNEL_PUSH` (`0`/`false` ⇒ the adapter serves tools + hot reload only). **Health port:**
+    `PLANNER_HOST_PORT`, default **8789**, `GET /health` → `{ ok, sessionId, lastTurnAt, queueDepthSeen, restarts }`.
+    Session id in `.factory/planner-session.json`. Verified live against a scratch stack: fresh start → event
+    claimed *during* the bootstrap turn and correctly held → one turn per batch → `pak_answer_chain` reply →
+    ack drained the queue → killing the subprocess restarted it resuming the **same** session id.
+    Sharp edges found the hard way, all of which cost time or would have:
+    1. **The real `<channel>` tag is NOT what `CHANNEL_INSTRUCTIONS` documents.** Ground truth (read out of the
+       Planner's own transcripts, `~/.claude/projects/-Users-drufball-code-wyld/*.jsonl`): `source` appears
+       **twice** — `source="wake"` added by Claude Code from the MCP server name, then the message's own
+       `source="github"`/`"human"` from `meta`; the order is `source="wake"`, `kind`, `ts`, `source`, `quest`,
+       `issue`, `pr`, `chain`, `url` (the `meta` insertion order of `notificationFor`); and the summary sits on
+       **its own line**. If you ever re-render these, copy real tags out of a transcript rather than trusting the
+       docstring.
+    2. **`stderr` is a callback `(data: string) => void`, not a boolean.** Codex cast `true` into it; the SDK does
+       `this.options.stderr?.(y)` from the subprocess's stderr `data` handler, so `true?.(y)` throws an uncaught
+       `TypeError` that kills the host. It fires **zero** times on a healthy run (the CLI writes nothing to stderr
+       when all is well), so it is invisible until the moment something goes wrong. General rule: **an
+       `as unknown as` cast to satisfy a type means the value is wrong.**
+    3. **A new dep version trips `minimumReleaseAge`, not `allowBuilds`.** The SDK has no install scripts anywhere
+       in its 103-package tree, so no `allowBuilds:` entry was needed; what CI wanted was
+       `minimumReleaseAgeExclude` entries for `@anthropic-ai/claude-agent-sdk@0.3.263` **and each of its eight
+       platform optional deps**.
+    4. **Without `WAKE_CHANNEL_PUSH=0` the adapter silently eats every event** — reproduced: it claims the row,
+       emits a channel notification the SDK cannot receive, and acks it. The queue drains, `lastDeliveryAt`
+       advances, the Pak looks healthy, and the Planner never hears a thing.
+    5. **`ANTHROPIC_API_KEY` outranks `CLAUDE_CODE_OAUTH_TOKEN`** — an API key in the environment silently moves
+       billing off the subscription. The host warns (never printing the value) if either it or `ANTHROPIC_AUTH_TOKEN`
+       is set.
+    6. **A bad `resume` id does not throw.** It yields **no `init` at all**, then one `result` with
+       `is_error: true`. That is the only reliable tell. Note `system:init` arrives **once per turn**, not once per
+       query, so "have I seen an init for this query" is the right check, not "exactly one".
+    7. The query yields **undocumented message types** (`rate_limit_event` seen live) — never switch exhaustively.
+    8. The SDK transcript lands in `~/.claude/projects/<cwd, every non-alphanumeric → '-'>/<session-id>.jsonl` with
+       the same `message.usage` keys `factory/ops/src/usage.ts` sums, so **the Debug Menu's token tile keeps
+       working only while `cwd` is the repo root** and `persistSession` is left alone.
 - **`wake-hot-reload` is done (2026-09-05 ~23:20)** — #88/#90 (tolerant claim path) and #92/#93
   (tool hot reload). Quest `unattended-restart` stays **parked**: the half that needs Dru is
   unchanged — Claude Code's development-channels warning at launch, which the auto-mode classifier
