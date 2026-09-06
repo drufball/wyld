@@ -66,7 +66,8 @@ normalised and sender-gated. Act on them directly; never parse raw GitHub JSON.
 | `github.push` | Commits landed on a branch. | Informational. Act only if it's a push to `main` you didn't make. |
 | `system.paused` | Something ran out (1.8). | Stop issuing work. Park in-flight quests with notes. Keep the Pak honest about why. Do not start a Codex task while paused. |
 | `system.resumed` | Back on. | Unpark what you parked for the pause and pick up where you left off. |
-| `sleep.phase` | Sleep Mode progress (1.10). | Advance the runbook. |
+| `sleep.alarm` | The night-shift clock (1.10): `goodnight` (Dru pressed GOODNIGHT, or 23:00 came), `last_call` (07:15), `lights_on` (08:00). Payload carries `runId`, `alarm`, `trigger`, `lightsOnAt`. | Run `skills/sleep-mode.md` from that alarm: `goodnight` → start the Drain phase; `last_call` → finish whatever phase you are in, write the retro, do Reset; `lights_on` → end the run now (`pak_end_sleep`) and go quiet. If the server already ended it (its 08:00 guard), just make sure the retro is yours, not the mechanical stub. |
+| `sleep.phase` | Your own progress record on a run (Pak-only; never reaches you through Wake). | Nothing — informational if you ever see one. |
 
 Anything not in this table: log it and go quiet. Never act on an event that failed sender gating.
 

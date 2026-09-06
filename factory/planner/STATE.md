@@ -1,6 +1,6 @@
 # Planner state — read this first on every new session
 
-_Last updated 2026-09-05 ~21:20 by the Planner, just before respawning itself. Quests in the Pak carry the live
+_Last updated 2026-09-06 ~10:10 by the Planner (first host session). Quests in the Pak carry the live
 state; this file is down to environment facts and open items. Keep it short; update it whenever a
 step finishes._
 
@@ -24,7 +24,10 @@ step finishes._
 | `pak-theme` unit 2 | done | #94 / PR #95 — Quests, Rumble and Catch-Up migrated onto the unit-1 primitives; `Card` gained `asChild` (radix `Slot`) so a `Card` can render the `article` that carries the `quest-card` / `rumble-card` test hooks; filter chips are now ≥44px `Button`s (last `pak-polish` leftover closed); `theme.css` lost 426 lines (all `.quest-*`, `.rumble-*`, `.catch-up*`, `.world-*`, `.ask-composer*`, `.today-action`) with **zero** added. No fix rounds — merged on the first review. |
 | `pak-theme` unit 3 | done | #97 / PR #100 — VMU, Debug, Demo Discs grid + player chrome onto the primitives; `Panel` deleted (call sites use `Card variant="bevel" className="p-5"`); `lastEvent` removed from `LiveEvents` (nothing read it); **`theme.css` is now tokens + `@layer base` + two keyframes + the reduced-motion guard and nothing else** — zero class rules. One fix round (two deleted rules whose job had not moved onto the element, see Open items). Quest → `demo`. |
 | 1.8 Paused (quest `paused`) | done (2026-09-06 08:47, six PRs, two fix rounds) | #98 `notify()` + `POST /api/notify` + Wake `pak_notify` (no-op when `NTFY_URL` unset); #101 persisted per-lane pause (`pauses` table, idempotent `POST /api/pause`, `POST /api/resume`, `system.paused`/`system.resumed`, outage Rumble whose Resume resumes server-side, `paused` on the health snapshot, absolute `click` from `PAK_PUBLIC_URL`, one retry on the push); #105 `@wyld/ops` quota watchdog (gh rate-limit → pauses lane `github`, missing Planner heartbeat > 15 min → lane `planner`, headroom → resume); #107 Pak calm banner + Resume + VMU row; #109 ntfy container (`binwiederhier/ntfy:v2.28.0`, container `wyld-ntfy`, `--restart unless-stopped`, 127.0.0.1:8790, config `factory/ntfy/server.yml`, cache `.factory/ntfy/`, `tailscale serve --bg --https=8443 8790` → `https://macbook-pro-6.taild72c8d.ts.net:8443`, topic `wyld-pak`; `bootstrap.sh` now appends missing keys to `.factory/env`: `NTFY_PORT`/`NTFY_URL`/`NTFY_TOPIC`/`PAK_PUBLIC_URL`; Rancher Desktop `application.autoStart` is true); #108 Wake buffers only on an `all` pause (`syncWakePause()`; a lane pause keeps delivery running), `pak_pause`/`pak_resume`. Dru's phone is subscribed (card `ntfy-setup` Done 08:30). |
-| 1.9 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
+| `improved-chains` (Dru 2026-09-06 ~09:05: Rumbles as chains, quest-attached chains, snooze, fold-up, Today composer FAB) | done, in `demo` | #113 server (rumbles unified with chains + snoozing), #118 Wake chain kind filters, #119 Pak (unified chains/rumbles/snooze/composer). Main disc rebuilt 09:55. Follow-up raised with Dru as a question chain 10:05 (card chrome: follow-up box + three buttons per card) — build only if he says so |
+| `planner-in-pak` (decided 2026-09-06 08:14) | done, in `demo` | #112 `factory/planner-host` (Agent SDK host, streaming input, claims Wake's queue, resumes session id, `:8789/health`), #121 `factory-up.sh` `PLANNER_MODE` host\|cli + doctor "exactly one Planner". **Cutover executed 09:58**; first host session up 10:00 and announced. `unattended-restart` closed as done 10:01 |
+| 1.10 Sleep Mode + Memory Card (quest `sleep-mode`) | **building** — lead spawned 2026-09-06 10:05 | Units: (1) shared+server tables/routes/scheduler/08:00 guard + forwarder lets `sleep.alarm` through, (2) Wake normalise + `pak_read_sleep`/`pak_advance_sleep`/`pak_end_sleep`/`pak_write_retro`/`pak_read_retros`, (3) Pak `/sleep`, `/memory`, Today card + Goodnight button. Planner-side runbook `skills/sleep-mode.md` + `write-retro.md` are the Planner's own job |
+| 1.9 Debug Menu explorer/event stream, 1.11 `polish` | not started | see factory-spec.md §11; `polish` is an `idea` quest (Serve already on; make `factory:up`/doctor check it) |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
 
@@ -45,85 +48,45 @@ step finishes._
   a different, token-less environment — never use the label). `GH_TOKEN` there is a fine-grained
   PAT that **expires around 2026-10-05**; rotating it is a Rumble (account action by Dru).
 - `@codex` mentions on GitHub are never used (env-less runs cannot push).
-- Planner launch: `pnpm factory:up` → tmux session `wyld`, planner window runs
-  `claude --dangerously-load-development-channels server:wake` (the spec's `--channels wake`
-  does not work in the research preview; see reference/channels.md). First run needs the
-  "Use this MCP server" confirmation for `wake`.
+- Planner launch: `pnpm factory:up` → tmux session `wyld`; the `planner` window runs the **Agent SDK host**
+  (`PLANNER_MODE=host`, default): `node factory/planner-host/dist/main.js` in a restart loop, health on
+  `:8789/health`, session id in `.factory/planner-session.json`. The CLI path
+  (`PLANNER_MODE=cli`, `claude --dangerously-load-development-channels server:wake`, needs a keypress) is the
+  fallback until ~2026-09-13; see reference/channels.md.
 - No branch protection (Free plan, private repo) — Dru chose convention: only the Planner merges,
   only green.
 - TypeScript pinned 6.0.3 (typescript-eslint peer range). Tailscale is logged out on the laptop
   (needed at 1.11 → Rumble then).
 
-## First actions for the on-duty Planner (host session)
+## First actions for the on-duty Planner (fresh host session)
 
-_Rewritten 2026-09-06 ~10:25 by the outgoing CLI session just before the cutover to the Agent SDK host
-(quest `planner-in-pak`). You are a **fresh** session inside `factory/planner-host` — no memory of the
-previous one beyond this file, the Pak, and GitHub. Everything up to the commit that added this section is
-done._
+_Rewritten 2026-09-06 ~10:10 by the first host session, after executing the cutover runbook (now deleted from
+this file — it ran once and is done). You are a **fresh** session inside `factory/planner-host`: no memory beyond
+this file, the Pak, and GitHub._
 
-1. **You are the host now.** Events reach you as `<channel …>` tags in your user messages, batched
-   (several tags per message, timestamp order) — the same framing as before; act on each per PROTOCOL §2.
-   Your `pak_*` tools come from the wake adapter over stdio with `WAKE_CHANNEL_PUSH=0`. `curl -s
-   localhost:8789/health` shows your session id; `./scripts/factory-doctor.sh` must say `Planner is running
-   as the host`. There is no keypress and no channels flag anymore; the CLI path is the fallback for a week
-   (`PLANNER_MODE=cli` in `.factory/env`, then `pnpm factory:down && pnpm factory:up`).
-2. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`). `pak_health_report` first — the Debug tile
-   has been silent since the cutover. Then `pak_read_chains` and answer anything open.
-3. `pak_post_note` on `planner-in-pak`: you are up, running inside the factory, restarts no longer need
-   him; `pak_set_quest_status` → `demo`, since-you-looked, and the next action ("Nothing needs you" → `/`
-   unless a Rumble is open). Close `unattended-restart` as `done` with a one-line note.
-4. **Re-adopt in-flight work from GitHub, not memory:** `gh pr list` / `gh issue list`. At cutover
-   (2026-09-06 ~09:58) both were empty: `improved-chains` shipped (#113 server, #118 wake, #119 pak; quest in
-   `demo`, main disc rebuilt 09:55) and `planner-in-pak` shipped (#112, #121). If anything is open, it was
-   opened after this note — treat it as belonging to the quest in its `<!-- quest:… -->` marker.
-   Follow-up idea from the chains lead, not yet a quest: each chain card still carries a Follow-up box plus
-   Settled / Make this a quest / Snooze, so a card is mostly chrome — same vertical-space complaint Dru made
-   about the old box; worth raising with him as a message, not building unasked.
-5. Leads: spawn one opus lead per quest as before (Agent tool). **Every lead brief must include:** unique
-   scratchpad file names per quest+unit, read the marker/Closes line back from GitHub after filing, name the
-   branch in the Codex prompt, never post to the live notifier, never touch `.factory/env`, one Codex task per
-   issue. Leads stop between waits — resume them with SendMessage on the PR events.
-6. Next quests, in order: 1.9 (`sleep-mode`, see factory-spec §11), then `polish` (1.11 — Serve is already
-   on; make `factory:up`/doctor check it), then Phase 2 game quests in world `fieldwork`. `paused` and
-   `pak-theme` are in `demo`/`done`; Dru has tried both.
-7. Restarting yourself is now safe and unattended: the host resumes your session id from
-   `.factory/planner-session.json`. If you must, `tmux respawn-window -k -t wyld:planner` with the launcher's
-   command line (in `scripts/factory-up.sh`). A schema change in `@wyld/shared` still needs that restart to
-   change a tool's shape; adding a tool does not.
-
-## Cutover to the host (runbook — written 2026-09-06 09:25, execute once #116 has merged)
-
-The last attended restart. Everything below is the Planner's own job; leads never do it.
-
-**Preconditions, all true before starting**
-1. `planner-in-pak` unit 2 (#116) merged and deployed: `git pull`, `pnpm --filter @wyld/planner-host build`,
-   `scripts/factory-up.sh` has `PLANNER_MODE` (`host` default, `cli` fallback), doctor checks `:8789/health` and
-   "exactly one Planner".
-2. **No lead mid-flight.** Leads are subagents of the CLI session and die with it. Wait for every running lead to
-   report (or reach a merge boundary), and check `gh pr list` / `gh issue list` for Codex tasks still open — the
-   new session inherits those from GitHub, not from memory, so list them in "First actions" below.
-3. `pnpm factory:doctor` green; `.factory/env` has `CLAUDE_CODE_OAUTH_TOKEN` (it does, since 08:27); no
-   `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` in that file or the tmux environment (sharp edge 5 above).
-4. No open chain; next action set; `pak_health_report` sent.
-
-**Steps**
-1. `pak_send_message` (no quest): one paragraph — switching to the new home now, a few quiet minutes, no
-   keypress needed this time, and how he'll know it worked (Debug Menu Planner tile alive, "hello" note on
-   `planner-in-pak`).
-2. Rewrite "First actions for the on-duty Planner" below for the new session: it will be a **fresh** session
-   (no `.factory/planner-session.json` yet), so it must read this file, load the wake tools, answer chains,
-   re-adopt any open Codex PRs/issues by quest, and post the hello note. Commit and push.
-3. From this session, replace the planner window in place (this kills the CLI Planner — expected):
-   `tmux respawn-window -k -t wyld:planner -c /Users/drufball/code/wyld 'set -a; . .factory/env; set +a; PLANNER_MODE=host exec <the exact command factory-up.sh uses after #116>'`
-   — copy the command verbatim from `scripts/factory-up.sh` at cutover time; do not improvise it.
-4. The new session verifies itself: `curl -s localhost:8789/health` shows a session id; `pak_health_report`
-   lands; the Debug Menu's Planner tile reads alive. If nothing happens within 5 minutes, Dru's fallback is
-   `tmux respawn-window -k -t wyld:planner 'claude --dangerously-load-development-channels server:wake'`
-   (the CLI path, one keypress) — put that sentence in the message to him.
-
-**After cutover (new session's job):** move `planner-in-pak` → `demo` with a note; close `unattended-restart`
-as done ("restarts no longer need you"); update PROTOCOL.md §6 "Known constraints" and `reference/channels.md`
-to say the channel flag is the fallback path only; delete `factory/planner/queued/*` (spent).
+1. **You are the host.** Events reach you as `<channel …>` tags batched inside user messages (several per
+   message, timestamp order); act on each per PROTOCOL §2. Your `pak_*` tools come from the wake adapter over
+   stdio (`WAKE_CHANNEL_PUSH=0`). Sanity: `curl -s localhost:8789/health` shows your session id and
+   `./scripts/factory-doctor.sh` says `Planner is running as the host`. No keypress exists anymore.
+2. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`). `pak_health_report` first (the Debug tile reads
+   `down` after ten quiet minutes), then `pak_read_chains kind=all` and answer anything open in the same turn.
+3. **Re-adopt in-flight work from GitHub, not memory:** `gh pr list` / `gh issue list`. Every open item belongs to
+   the quest in its `<!-- quest:… -->` marker; spawn one lead per quest with open work and hand it the PR/issue
+   numbers. Leads die with the session that spawned them, so anything mid-flight at a restart is yours to re-adopt.
+4. Leads: one opus lead per quest (Agent tool, background). **Every lead brief must include:** the design
+   decisions already made (state them; open questions come back as invented answers), unique scratchpad files per
+   quest+unit under `/tmp/wyld-leads/<quest>/`, read the marker/Closes line back from GitHub after filing, name
+   the branch in the Codex prompt, one Codex task per issue, run what Codex shipped against a scratch stack
+   (`FACTORY_DIR=<tmp>`, `WAKE_URL`/`NTFY_URL` unset), never post to the live notifier, never touch
+   `.factory/env`, deploy after every merge (merge-and-ship §2), and leave `pak_set_next_action` /
+   `pak_health_report` to the Planner. Waits are single loops capped at 30 min; a lead that hits the cap reports
+   back instead of looping.
+5. Next quests, in order: finish `sleep-mode` (1.10; write `skills/sleep-mode.md` + `write-retro.md` yourself
+   while its lead builds), then `polish` (1.11), then Phase 2 game quests in world `fieldwork`.
+6. Restarting yourself is safe and unattended: the host resumes your session id from
+   `.factory/planner-session.json`; a crash restarts in 5 s. A schema change in `@wyld/shared` that alters a
+   tool's shape still needs the wake adapter restarted (`tmux respawn-window -k -t wyld:wake`); adding a tool does
+   not (hot reload).
 
 ## Open items
 
