@@ -102,6 +102,73 @@ describe('pause routes', () => {
     });
   });
 
+  it('notifies Wake when the factory pauses and resumes', async () => {
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      now: () => new Date('2026-09-06T12:00:00.000Z'),
+      wakeUrl: 'http://wake.example/base',
+      wakeSecret: 'shared-secret',
+      fetch: fetcher,
+      logger: () => undefined,
+    });
+
+    await post('/api/pause', { reason: 'Codex quota hit' });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    expect(fetcher).toHaveBeenNthCalledWith(
+      1,
+      'http://wake.example/pause',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'X-Wake-Secret': 'shared-secret' }),
+        body: JSON.stringify({ since: '2026-09-06T12:00:00.000Z' }),
+      }),
+    );
+
+    await post('/api/resume', {});
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      'http://wake.example/resume',
+      expect.objectContaining({ method: 'POST', body: '{}' }),
+    );
+  });
+
+  it('only pauses Wake for an all-lane pause', async () => {
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      now: () => new Date('2026-09-06T12:00:00.000Z'),
+      wakeUrl: 'http://wake.example/base',
+      wakeSecret: 'shared-secret',
+      fetch: fetcher,
+      logger: () => undefined,
+    });
+
+    await post('/api/pause', { reason: 'GitHub unavailable', lane: 'github' });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    expect(fetcher.mock.calls[0]?.[0]).toBe('http://wake.example/resume');
+    expect(fetcher.mock.calls.map(([url]) => url)).not.toContain('http://wake.example/pause');
+
+    await post('/api/pause', { reason: 'Factory unavailable', lane: 'all' });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      'http://wake.example/pause',
+      expect.objectContaining({ body: JSON.stringify({ since: '2026-09-06T12:00:00.000Z' }) }),
+    );
+
+    await post('/api/resume', { lane: 'github' });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+    expect(fetcher.mock.calls[2]?.[0]).toBe('http://wake.example/pause');
+
+    await post('/api/resume', { lane: 'all' });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(4));
+    expect(fetcher.mock.calls[3]?.[0]).toBe('http://wake.example/resume');
+  });
+
   it('resumes lanes independently and deciding an outage also resumes it', async () => {
     await post('/api/pause', { reason: 'Codex unavailable', lane: 'codex' });
     await post('/api/pause', { reason: 'GitHub unavailable', lane: 'github' });

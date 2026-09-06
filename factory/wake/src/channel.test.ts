@@ -277,6 +277,8 @@ describe('Pak tools', () => {
       'pak_send_message',
       'pak_answer_chain',
       'pak_notify',
+      'pak_pause',
+      'pak_resume',
       'pak_close_chain',
     ]);
     expect(result.tools?.every(({ description }) => description.length > 10)).toBe(true);
@@ -933,6 +935,29 @@ describe('Pak tools', () => {
     const result = await call!({
       params: { name: 'pak_notify', arguments: { title: '', message: 'm' } },
     });
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content?.[0]?.text).toContain('Invalid arguments:');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['pak_pause', '/api/pause', { reason: 'Codex quota hit', lane: 'codex', fix: 'Wait' }],
+    ['pak_resume', '/api/resume', { lane: 'codex' }],
+  ])('lists and posts valid %s requests', async (name, path, arguments_) => {
+    const fetch = vi.fn(async () => new Response('{}', { status: 200 }));
+    const [list, call] = handlers(fetch as typeof globalThis.fetch);
+    expect((await list!({})).tools?.map((tool) => tool.name)).toContain(name);
+    await call!({ params: { name, arguments: arguments_ } });
+    expect(fetch).toHaveBeenCalledWith(
+      `http://pak${path}`,
+      expect.objectContaining({ method: 'POST', body: JSON.stringify(arguments_) }),
+    );
+  });
+
+  it.each(['pak_pause', 'pak_resume'])('rejects invalid %s arguments', async (name) => {
+    const fetch = vi.fn();
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const result = await call!({ params: { name, arguments: { lane: 'everything' } } });
     expect(result).toMatchObject({ isError: true });
     expect(result.content?.[0]?.text).toContain('Invalid arguments:');
     expect(fetch).not.toHaveBeenCalled();

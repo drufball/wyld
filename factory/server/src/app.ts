@@ -22,7 +22,7 @@ import { log, type LogContext } from './logger.js';
 import { catchups, events, healthReports, pauses, presence, quests } from './schema.js';
 import { mechanicalDigest } from './catchup.js';
 import { createStaticHandler } from './static.js';
-import { createWakeForwarder } from './forwarder.js';
+import { createWakeForwarder, createWakePauseNotifier } from './forwarder.js';
 import { createQuestRoutes, formatIssues } from './quests.js';
 import { createChainRoutes } from './chains.js';
 import { createOpsRoutes, latestOpsReport } from './ops.js';
@@ -79,6 +79,7 @@ const WakeHealth = z
     oldestPendingTs: z.string().optional().catch(undefined),
     lastDeliveryAt: z.string().optional().catch(undefined),
     lastGithubEventAt: z.string().optional().catch(undefined),
+    paused: z.boolean().optional().catch(undefined),
   })
   .passthrough();
 
@@ -154,6 +155,12 @@ export function createApp(dependencies: AppDependencies) {
   };
 
   const forwardToWake = createWakeForwarder({
+    wakeUrl: dependencies.wakeUrl,
+    wakeSecret: dependencies.wakeSecret,
+    fetch: dependencies.fetch,
+    logger,
+  });
+  const notifyWakePause = createWakePauseNotifier({
     wakeUrl: dependencies.wakeUrl,
     wakeSecret: dependencies.wakeSecret,
     fetch: dependencies.fetch,
@@ -388,7 +395,12 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', createQuestRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
-  const resumePause = createPauseService({ database: dependencies.database, now, storeEvent });
+  const resumePause = createPauseService({
+    database: dependencies.database,
+    now,
+    storeEvent,
+    notifyWake: notifyWakePause,
+  });
   app.route(
     '/api',
     createPauseRoutes({
@@ -396,6 +408,7 @@ export function createApp(dependencies: AppDependencies) {
       now,
       storeEvent,
       notify,
+      notifyWake: notifyWakePause,
       ...(dependencies.pakPublicUrl === undefined
         ? {}
         : { pakPublicUrl: dependencies.pakPublicUrl }),
@@ -470,56 +483,52 @@ export function createApp(dependencies: AppDependencies) {
     ).toISOString();
     const eventsToday =
       db.select({ value: count() }).from(events).where(gte(events.ts, dayStart)).get()?.value ?? 0;
-    return c.json(
-      HealthSnapshot.parse({
-        ts: current.toISOString(),
-        planner: {
-          state: stale ? 'down' : latest?.plannerState,
-          ...(!stale && latest?.currentTask !== null ? { currentTask: latest?.currentTask } : {}),
-          ...(latest === undefined ? {} : { lastReportAt: latest.ts }),
-        },
-        server: { ...serverHealth(), eventsToday },
-        wake,
-        github: opsFresh
-          ? {
-              ciState: latestOps.ciState,
-              ...(latestOps.ciDetail === null ? {} : { ciDetail: latestOps.ciDetail }),
-              ...(latestOps.ghRateRemaining === null
-                ? {}
-                : { rateRemaining: latestOps.ghRateRemaining }),
-              ...(latestOps.ghRateLimit === null ? {} : { rateLimit: latestOps.ghRateLimit }),
-              codexPrsOpen: latestOps.codexPrsOpen,
-              reportedAt: latestOps.ts,
-              source: 'ops',
-            }
-          : latest === undefined
-            ? { ciState: 'unknown', source: 'none' }
-            : {
-                ciState: latest.ciState ?? 'unknown',
-                ...(latest.ghRateRemaining === null
-                  ? {}
-                  : { rateRemaining: latest.ghRateRemaining }),
-                ...(latest.codexPrsOpen === null ? {} : { codexPrsOpen: latest.codexPrsOpen }),
-                reportedAt: latest.ts,
-                source: 'planner',
-              },
-        ...(opsFresh && latestOps.tokensToday !== null
-          ? { tokensToday: latestOps.tokensToday }
-          : {}),
-        ...(latest?.costToday == null ? {} : { costToday: latest.costToday }),
-        ...(latest?.pausedReason == null ? {} : { pausedReason: latest.pausedReason }),
-        ...(activePause === undefined
-          ? {}
+    const snapshot = HealthSnapshot.parse({
+      ts: current.toISOString(),
+      planner: {
+        state: stale ? 'down' : latest?.plannerState,
+        ...(!stale && latest?.currentTask !== null ? { currentTask: latest?.currentTask } : {}),
+        ...(latest === undefined ? {} : { lastReportAt: latest.ts }),
+      },
+      server: { ...serverHealth(), eventsToday },
+      wake,
+      github: opsFresh
+        ? {
+            ciState: latestOps.ciState,
+            ...(latestOps.ciDetail === null ? {} : { ciDetail: latestOps.ciDetail }),
+            ...(latestOps.ghRateRemaining === null
+              ? {}
+              : { rateRemaining: latestOps.ghRateRemaining }),
+            ...(latestOps.ghRateLimit === null ? {} : { rateLimit: latestOps.ghRateLimit }),
+            codexPrsOpen: latestOps.codexPrsOpen,
+            reportedAt: latestOps.ts,
+            source: 'ops',
+          }
+        : latest === undefined
+          ? { ciState: 'unknown', source: 'none' }
           : {
-              paused: {
-                lane: activePause.lane,
-                reason: activePause.reason,
-                ...(activePause.fix === null ? {} : { fix: activePause.fix }),
-                since: activePause.since,
-              },
-            }),
-      }),
-    );
+              ciState: latest.ciState ?? 'unknown',
+              ...(latest.ghRateRemaining === null ? {} : { rateRemaining: latest.ghRateRemaining }),
+              ...(latest.codexPrsOpen === null ? {} : { codexPrsOpen: latest.codexPrsOpen }),
+              reportedAt: latest.ts,
+              source: 'planner',
+            },
+      ...(opsFresh && latestOps.tokensToday !== null ? { tokensToday: latestOps.tokensToday } : {}),
+      ...(latest?.costToday == null ? {} : { costToday: latest.costToday }),
+      ...(latest?.pausedReason == null ? {} : { pausedReason: latest.pausedReason }),
+      ...(activePause === undefined
+        ? {}
+        : {
+            paused: {
+              lane: activePause.lane,
+              reason: activePause.reason,
+              ...(activePause.fix === null ? {} : { fix: activePause.fix }),
+              since: activePause.since,
+            },
+          }),
+    });
+    // WakeHealth is intentionally passthrough so Wake can add diagnostics between Pak releases.
+    return c.json({ ...snapshot, wake });
   });
 
   app.all('/play/:slug', (c) => {

@@ -20,3 +20,8 @@ export const messages = sqliteTable(
   },
   (table) => [index('messages_delivered_at_idx').on(table.deliveredAt)],
 );
+
+export const wakeState = sqliteTable('wake_state', {
+  id: integer('id').primaryKey(),
+  pausedSince: text('paused_since'),
+});

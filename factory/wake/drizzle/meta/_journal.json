@@ -15,6 +15,13 @@
       "when": 1788628443296,
       "tag": "0001_yellow_xavin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788682604262,
+      "tag": "0002_naive_surge",
+      "breakpoints": true
     }
   ]
 }
