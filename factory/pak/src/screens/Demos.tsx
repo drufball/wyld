@@ -164,7 +164,7 @@ function DemoPlayer({ id }: { id: string }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-card">
+    <div className="fixed inset-x-0 top-0 bottom-[72px] bg-card">
       <Button asChild variant="retro" className="absolute left-3 top-3 z-2">
         <Link to="/demos">Back to discs</Link>
       </Button>
