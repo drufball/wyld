@@ -3,11 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
-const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wyld-e2e-'));
+const testDir = (process.env.WYLD_E2E_DIR ??= fs.mkdtempSync(path.join(os.tmpdir(), 'wyld-e2e-')));
 const factoryDir = path.join(testDir, 'factory');
 const repoDir = path.join(testDir, 'repo');
-fs.mkdirSync(factoryDir);
-fs.mkdirSync(repoDir);
+fs.mkdirSync(factoryDir, { recursive: true });
+fs.mkdirSync(repoDir, { recursive: true });
 const port = 8799;
 process.env.WYLD_E2E_DEMOS_DIR = path.join(factoryDir, 'demos');
 
