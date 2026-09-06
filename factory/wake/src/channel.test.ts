@@ -1048,13 +1048,17 @@ describe('Pak tools', () => {
     });
 
     expect(result.isError).toBeUndefined();
-    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
-      id: 'branch-pak',
-      ref: 'feature/pak',
-      kind: 'pak',
-      summary: 'Try the branch.',
-      steps: ['Open Sleep.'],
-      deepLink: '/sleep',
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/demos', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: 'branch-pak',
+        ref: 'feature/pak',
+        kind: 'pak',
+        summary: 'Try the branch.',
+        steps: ['Open Sleep.'],
+        deepLink: '/sleep',
+      }),
     });
   });
 
