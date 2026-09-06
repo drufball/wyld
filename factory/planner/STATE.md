@@ -114,8 +114,13 @@ this file, the Pak, and GitHub._
   candidate, `night:`): `factory/planner-host` passes those three only to the adapter child (`mcpServers.wake.env`) and deletes
   them from its own `process.env` before the query starts, so subagent shells never see them. The tell stays: a `human.*` event
   absent from `pak_read_events` is a leak.
-- Units left on `one-mechanism`: (2) wake tools — `pak_read_chains` new kinds + comma list, `pak_close_chain reason`, new
-  `pak_reopen_chain` (host restart at a lead boundary for the changed shape); (3) Pak — Today renders every kind as a card
+- **`one-mechanism` unit 2 landed 20:15 (#166 / PR #167, zero fix rounds):** `pak_read_chains kind` = one kind | comma list | `all`,
+  plus `status` (`open`|`settled`|`all`); `pak_close_chain reason` (`settled`|`done`); new `pak_reopen_chain`. Lead drove the built
+  registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
+  restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
+  `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **Unit 3 (Pak) starts at lights-on tomorrow, not tonight** (21:16 decision: biggest unit, would straddle the 23:00 Drain).
+  Then (4) retire special cases. Units left on `one-mechanism`: (3) Pak — Today renders every kind as a card
   (demo cards with Mark done/Hide/Snooze, action card, unlock card), sunset uses `needsYou`, Demos/Rumble/VMU become filters over
   chains; (4) retire the special cases (`GET /api/rumbles` snooze, questless `building/failed` cards, unhide UI = reopen).
 - **`try-it-cards` unit 7 Hide landed 19:17 (#162 / PR #163, zero fix rounds)** — `demos.hidden_at` (migration 0015),
