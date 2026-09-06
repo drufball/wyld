@@ -103,11 +103,33 @@ export async function postQuestNote(
   );
 }
 
-export async function listChains(options: { quest?: string } = {}): Promise<ChainType[]> {
+export async function listChains(
+  options: {
+    quest?: string;
+    kind?: 'question' | 'message' | 'rumble' | 'all';
+    status?: 'open' | 'settled' | 'converted' | 'all';
+    includeSnoozed?: boolean;
+  } = {},
+): Promise<ChainType[]> {
   const params = new URLSearchParams();
   if (options.quest) params.set('quest', options.quest);
+  if (options.kind) params.set('kind', options.kind);
+  if (options.status) params.set('status', options.status);
+  if (options.includeSnoozed) params.set('includeSnoozed', '1');
   const query = params.size > 0 ? `?${params.toString()}` : '';
   return Chain.array().parse(await request(`/api/chains${query}`, {}, 'Loading chains'));
+}
+
+export async function snoozeChain(id: number, until: string): Promise<ChainType> {
+  return Chain.parse(
+    await request(`/api/chains/${id}/snooze`, json('POST', { until }), 'Snoozing chain'),
+  );
+}
+
+export async function unsnoozeChain(id: number): Promise<ChainType> {
+  return Chain.parse(
+    await request(`/api/chains/${id}/unsnooze`, { method: 'POST' }, 'Unsnoozing chain'),
+  );
 }
 
 export async function postChain(text: string, questId?: string): Promise<ChainType> {
