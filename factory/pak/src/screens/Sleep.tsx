@@ -5,6 +5,7 @@ import { getSleepCurrent, listSleepRuns, postGoodnight } from '../api/client.js'
 import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
+import { playSound } from '../lib/feedback.js';
 
 const phases = ['drain', 'sweep', 'qa', 'retro', 'reset'] as const;
 const outcomes = {
@@ -108,6 +109,7 @@ export function Sleep() {
     return () => stops.forEach((stop) => stop());
   }, [load, subscribe]);
   const goodnight = () => {
+    playSound('power-off');
     setError(false);
     void postGoodnight()
       .then(load)

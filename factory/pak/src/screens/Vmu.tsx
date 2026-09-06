@@ -8,6 +8,7 @@ import {
   listRumbles,
 } from '../api/client.js';
 import { Card } from '../components/ui/card.js';
+import { SfxToggle } from '../components/SfxToggle.js';
 import { countInWords } from '../words.js';
 
 export function Vmu() {
@@ -110,6 +111,7 @@ export function Vmu() {
         </Link>
       )}
       {quiet && <p className="m-0 text-muted-foreground">Controller's quiet.</p>}
+      <SfxToggle className="max-w-full justify-self-start text-[9px] text-muted-foreground" />
     </main>
   );
 }

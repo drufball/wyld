@@ -1,4 +1,5 @@
 import { Button } from './ui/button.js';
+import { vibrate } from '../lib/feedback.js';
 
 export function DecisionButtons({
   id,
@@ -23,7 +24,10 @@ export function DecisionButtons({
             key={option}
             type="button"
             disabled={deciding}
-            onClick={() => decide(id, option)}
+            onClick={() => {
+              vibrate([30, 40, 60]);
+              decide(id, option);
+            }}
           >
             {option}
           </Button>

@@ -23,6 +23,7 @@ import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
+import { playSound } from '../lib/feedback.js';
 
 function AskComposer({ questId, onSent }: { questId: string; onSent: (chain: Chain) => void }) {
   const [text, setText] = useState('');
@@ -188,7 +189,10 @@ export function QuestCard({
             <Button
               variant="retro"
               type="button"
-              onClick={() => act(() => patchQuestStatus(quest.id, 'done'))}
+              onClick={() => {
+                playSound('save');
+                act(() => patchQuestStatus(quest.id, 'done'));
+              }}
             >
               Done
             </Button>

@@ -2,6 +2,7 @@ import type { HealthSnapshot } from '@wyld/shared';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { getHealthSnapshot } from '../api/client.js';
 import { Card } from '../components/ui/card.js';
+import { SfxToggle } from '../components/SfxToggle.js';
 import { relativeTime } from '../words.js';
 
 type Tone = 'ok' | 'warn' | 'bad';
@@ -214,6 +215,7 @@ export function Debug() {
   return (
     <div className="min-w-0">
       <h1>Debug Menu</h1>
+      <SfxToggle className="mb-3" />
       {!snapshot && !failed && <p>Reading the factory…</p>}
       {failed && (
         <p className="wrap-anywhere text-sm text-muted-foreground">
