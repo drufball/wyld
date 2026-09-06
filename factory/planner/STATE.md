@@ -22,7 +22,7 @@ step finishes._
 | `wake-hot-reload` (half of quest `unattended-restart`; Dru 2026-09-05 21:20) | done | #90 tolerant claim path (`WakeMessageWire`, per-message drop + ack, `/queue/claim` retires unserialisable rows, `pak_read_events`/`pak_log_event` unfrozen, `.claude/settings.json` checked in), #93 tool hot reload (swappable registry + `reload.ts`: `fs.watch` on `dist/` and `SIGHUP`, `notifications/tools/list_changed`). Claude Code **does** honour `list_changed` — verified live. The quest stays `parked`: the launch-warning keypress still needs Dru |
 | `pak-theme` unit 1 (Dru 2026-09-05 21:43: "Dracula console look") | done | #89 / PR #91 — Tailwind v4 via `@tailwindcss/vite` (no `tailwind.config.js`, CSS-first `@theme`), Dracula tokens + shadcn token names in `theme.css`, shadcn primitives hand-copied into `factory/pak/src/components/ui/` (`button`/`card`/`badge`/`input`/`textarea`) + `src/lib/utils.ts` `cn()`, `Panel` reimplemented over `Card variant="bevel"` (`Panel.css` deleted), app shell + `Nav` + `Today` + `ChainList` + `InFlight` migrated, body in the system mono stack and the pixel font on headings/badges/labels only. Two fix rounds. Unit 3 is written and ready to file: `factory/planner/queued/pak-theme-unit-3.md` |
 | `pak-theme` unit 2 | done | #94 / PR #95 — Quests, Rumble and Catch-Up migrated onto the unit-1 primitives; `Card` gained `asChild` (radix `Slot`) so a `Card` can render the `article` that carries the `quest-card` / `rumble-card` test hooks; filter chips are now ≥44px `Button`s (last `pak-polish` leftover closed); `theme.css` lost 426 lines (all `.quest-*`, `.rumble-*`, `.catch-up*`, `.world-*`, `.ask-composer*`, `.today-action`) with **zero** added. No fix rounds — merged on the first review. |
-| 1.8 Paused (quest `paused`) | **in progress — pulled forward 2026-09-06 07:22** after Dru asked about the ntfy card. Lead spawned by the Planner: unit A = self-hosted ntfy (`.factory/bin/ntfy`, tmux window `ntfy`, Tailscale Serve on a second HTTPS port `:8443`, server `notify()` + `POST /api/notify` + Wake `pak_notify`, then re-file Rumble `ntfy-phone` with the real address), unit B = pause/resume state + `pak_pause`/`pak_resume` + Wake buffering + ops watchdog. **Unit C (Pak banner + Resume button + VMU) is NOT started — it waits for `pak-theme` to finish, then needs its own lead.** Runs in parallel with the `pak-theme` lead (disjoint packages) | — |
+| 1.8 Paused (quest `paused`) | **in progress — pulled forward 2026-09-06 07:22** after Dru asked about the ntfy card. Lead spawned by the Planner: unit A = self-hosted ntfy (`.factory/bin/ntfy`, tmux window `ntfy`, Tailscale Serve on a second HTTPS port `:8443`, server `notify()` + `POST /api/notify` + Wake `pak_notify`, then re-file Rumble `ntfy-phone` with the real address), unit B = pause/resume state + `pak_pause`/`pak_resume` + Wake buffering + ops watchdog. **Unit C (Pak banner + Resume button + VMU) is NOT started — it waits for `pak-theme` to finish, then needs its own lead.** Runs in parallel with the `pak-theme` lead (disjoint packages) | **#96 / PR #98 landed 2026-09-06 07:44** — the transport-agnostic half of unit A: `factory/server/src/notify.ts` `createNotifier()` (fire-and-forget, copies `createWakeForwarder`'s shape), `POST /api/notify {title,message,tags?,click?}` → 202 `{sent}`, `NTFY_URL`/`NTFY_TOPIC` config (empty `NTFY_URL` = silent no-op, one startup warning — same discipline as `WAKE_URL`), Wake `pak_notify` (schema in `channel.ts`, hot-reloads), doctor warns when `NTFY_URL` is unset. Verified end-to-end against a real ntfy server: title/message/tags/click all arrive. No fix rounds. **Self-hosting ntfy on this laptop is impossible** — see the sharp edge below; Rumble `ntfy-phone` now asks Dru to choose the transport and unit A cannot finish until he taps. |
 | 1.9 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
 ## How to work (summary; PROTOCOL.md is authoritative)
@@ -157,6 +157,26 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
   check it rather than set it up. ntfy (1.8) still needs its own address on that host — pick a path
   under Serve (`tailscale serve --bg --set-path /ntfy <port>`) rather than a second hostname.
   macOS has no `timeout`; the Serve command blocks while Serve is disabled on the tailnet.
+
+- **ntfy's server does not run on macOS (found 2026-09-06 by the 1.8 lead, the hard way).** The official
+  darwin release `ntfy_2.28.0_darwin_all.tar.gz` is **client-only**: it has `publish` and `subscribe` and no
+  `serve` command at all (`ntfy serve` prints `No help topic for 'serve'`). ntfy's own install docs say it
+  outright: "Only the ntfy CLI is supported on macOS. ntfy server is currently not supported." Homebrew's
+  formula is the same CLI-only build. So factory-spec §10's "ntfy, self-hosted on the laptop" is not
+  buildable as written, and the `tailscale serve --https=8443` plan for it is moot. The two real options,
+  now on Rumble `ntfy-phone`: the free hosted ntfy.sh with an unguessable random topic (verified working
+  from this laptop — publish and `?poll=1` both fine, title/tags/click all survive), or the linux/arm64
+  image `binwiederhier/ntfy:v2.28.0` under the already-installed Rancher Desktop (image confirmed to exist;
+  the VM would have to stay up). Useful facts either way: health is `GET /v1/health` → `{"healthy":true}`
+  (not `{"ok":true}`, so doctor's `check_health` helper cannot be reused as-is); ntfy has **no sub-path
+  support**, so it can never live under a path on the existing Serve; `upstream-base-url: https://ntfy.sh`
+  is what makes iOS push instant for a self-hosted server and forwards only a topic hash and poll id, never
+  the message text; release checksums are in `checksums.txt`, not a `SHA256SUMS` file.
+- **POLICIES "Never touch `.factory/env`" beat a lead brief that allowed appending to it** (2026-09-06).
+  The lead was told it could append `NTFY_URL`/`NTFY_TOPIC`; POLICIES #5 says never, so it did not, and
+  `NTFY_URL` is simply unset on the live box (doctor warns, pushes are a no-op). Whoever finishes the
+  transport needs a sanctioned way in: let `bootstrap.sh` append only *missing* keys to an existing
+  `.factory/env`, which is the one script that already owns that file.
 
 - **Rumbles API facts (1.6):** rumble ids are stable slugs, so re-filing one updates it in place;
   filing with `chosen` records a past decision **without** an event, while `/decide` always emits
