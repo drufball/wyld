@@ -100,6 +100,22 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **Roadmap direction from Dru (18:07–18:14, chain settled):** he wants the build managed as an *app*, never markdown/brain dumps —
+  Claude-artifact-style interactive HTML explainers with Figma-style comment pins on any element that open a chain there. Two
+  `idea` quests: **`artifacts`** "Explainer artifacts" (machinery: the Planner publishes a self-contained interactive piece per
+  quest, rendered in the Pak; pin-a-comment → chain anchored to the element; per-quest explainer is never an issue list) and
+  **`roadmap`** "Roadmap artifact" (the standing what-and-why: Now/Next/Later + reasoning, kept current). **Order (proposed, he
+  settled the chain without objecting): `polish` → `artifacts` → `roadmap` → Phase 2 game work, each game quest then shipping its
+  own explainer.** Design thoughts for planning `artifacts`: server table `artifacts` (quest?, slug, html, version, ts) +
+  `pak_publish_artifact` tool; sandboxed iframe render with a pin overlay (anchor = artifact slug + element `data-pin` id +
+  label) → `POST /api/chains` with `anchor`; pins shown while the chain is open; Planner (or a lead) authors the HTML — treat it
+  like a catch-up: Planner output, not app code.
+- **`polish` progress:** unit 2 achievements landed 18:03 (#152 / PR #153, one fix round: a Memory empty-state test broke on the
+  new wall + a locale-order date assertion); live wall unlocked 4/7 from real history (first-quest-done, five-done,
+  first-feedback, first-rumble). Unit 3 SFX PR #157 open 18:14. **Two feedback-driven follow-ups from try-it cards (both via the
+  Feedback button — the loop works):** 18:03 `quiet-chain-cards` → `building`, #155 right-align the actions row (lead, branch
+  `codex/quiet-chain-cards-3`); 18:05 `try-it-cards` → `building`, #156 Mark done on cards + hide demos of done quests (lead,
+  branch `codex/try-it-dismiss`). Three leads in `factory/pak` at once on disjoint files.
 - **Host restarted 16:45 at the lead boundary (`tmux respawn-window -k -t wyld:planner`) — session resumed, and the
   restart DID refresh the stale `pak_register_demo` schema.** So the rule is: a changed tool *shape* needs a host restart at a
   lead boundary; a new tool does not.
