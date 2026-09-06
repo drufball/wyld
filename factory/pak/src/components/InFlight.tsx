@@ -48,14 +48,17 @@ export function InFlight() {
                 </Badge>
               </header>
               <div
-                className="quest-progress"
+                className="my-3 h-2.5 overflow-hidden bg-muted"
                 role="progressbar"
                 aria-label={`${quest.title} progress`}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={Math.round(quest.progress * 100)}
               >
-                <span style={{ width: `${quest.progress * 100}%` }} />
+                <span
+                  className="block h-full bg-dracula-green transition-[width] duration-400 motion-reduce:transition-none"
+                  style={{ width: `${quest.progress * 100}%` }}
+                />
               </div>
               <p className="my-2 wrap-anywhere whitespace-pre-wrap text-muted-foreground">
                 {quest.sinceYouLooked || quest.pitch}

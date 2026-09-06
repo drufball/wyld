@@ -2,6 +2,10 @@ import type { Chain, Rumble as RumbleType } from '@wyld/shared';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { decideRumble, listChains, listRumbles, postChain } from '../api/client.js';
 import { ChainCard } from '../components/ChainList.js';
+import { Badge } from '../components/ui/badge.js';
+import { Button } from '../components/ui/button.js';
+import { Card } from '../components/ui/card.js';
+import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 
 function DecisionButtons({
@@ -19,24 +23,26 @@ function DecisionButtons({
 }) {
   return (
     <>
-      <div className="rumble-options">
+      <div className="grid gap-2 sm:grid-cols-2">
         {options.map((option) => (
-          <button
+          <Button
+            className="w-full wrap-anywhere"
+            variant="retro"
             key={option}
             type="button"
             disabled={deciding}
             onClick={() => decide(rumble, option)}
           >
             {option}
-          </button>
+          </Button>
         ))}
       </div>
       {failed !== null && (
-        <p className="rumble-retry">
+        <p className="m-0 text-muted-foreground">
           That didn't go through.{' '}
-          <button type="button" onClick={() => decide(rumble, failed)}>
+          <Button variant="ghost" type="button" onClick={() => decide(rumble, failed)}>
             Retry
-          </button>
+          </Button>
         </p>
       )}
     </>
@@ -107,7 +113,7 @@ export function Rumble() {
           try {
             navigator.vibrate([40, 30, 40]);
           } catch {
-            // Haptics are optional and must never turn a recorded decision into an error.
+            /* Haptics are optional. */
           }
         }
       })
@@ -116,9 +122,9 @@ export function Rumble() {
   };
   const ask = (event: FormEvent, rumble: RumbleType) => {
     event.preventDefault();
-    const text = questions[rumble.id]?.trim();
-    if (!text) return;
-    void postChain(`About "${rumble.title}": ${text}`, rumble.blockingQuestIds[0])
+    const question = questions[rumble.id]?.trim();
+    if (!question) return;
+    void postChain(`About "${rumble.title}": ${question}`, rumble.blockingQuestIds[0])
       .then((chain) => {
         setChains((value) => ({ ...value, [rumble.id]: chain }));
         setQuestions((value) => ({ ...value, [rumble.id]: '' }));
@@ -127,49 +133,61 @@ export function Rumble() {
   };
   const open = rumbles.filter(({ chosen }) => chosen === null);
   const decided = rumbles.filter(({ chosen }) => chosen !== null);
-
-  return (
-    <div className="rumble-screen">
-      <h1>Rumble</h1>
-      <p className="pak-dim">Decisions only you can make.</p>
-      {open.length === 0 && <p>Controller's quiet.</p>}
-      <div className="rumble-list">
-        {open.map((rumble) => (
-          <article
-            key={rumble.id}
-            className={`rumble-card${rumble.kind === 'outage' ? ' rumble-card--outage' : ''}`}
-          >
-            <span className="rumble-kind">{rumble.kind}</span>
-            <h2>{rumble.title}</h2>
-            <p className="rumble-context">{rumble.context}</p>
-            <DecisionButtons
-              rumble={rumble}
-              options={rumble.options}
-              deciding={deciding[rumble.id] ?? false}
-              failed={failed[rumble.id] ?? null}
-              decide={decide}
-            />
-            <button
-              className="rumble-ask"
+  const card = (rumble: RumbleType, isOpen: boolean) => (
+    <Card
+      asChild
+      variant="bevel"
+      data-tone={rumble.kind === 'outage' ? 'bad' : 'accent'}
+      key={rumble.id}
+    >
+      <article className="rumble-card grid min-w-0 gap-3 p-5">
+        {isOpen && (
+          <Badge variant="tone" data-tone={rumble.kind === 'outage' ? 'bad' : 'accent'}>
+            {rumble.kind}
+          </Badge>
+        )}
+        <h2 className="m-0 wrap-anywhere text-xl leading-snug">{rumble.title}</h2>
+        {isOpen ? (
+          <p className="m-0 wrap-anywhere whitespace-pre-line text-muted-foreground">
+            {rumble.context}
+          </p>
+        ) : (
+          <p className="m-0">
+            Chosen: <strong>{rumble.chosen}</strong>
+          </p>
+        )}
+        <DecisionButtons
+          rumble={rumble}
+          options={
+            isOpen ? rumble.options : rumble.options.filter((option) => option !== rumble.chosen)
+          }
+          deciding={deciding[rumble.id] ?? false}
+          failed={failed[rumble.id] ?? null}
+          decide={decide}
+        />
+        {isOpen && (
+          <>
+            <Button
+              variant="retro"
               type="button"
               disabled={deciding[rumble.id] ?? false}
               onClick={() => setAsking((value) => ({ ...value, [rumble.id]: !value[rumble.id] }))}
             >
               Ask for more
-            </button>
+            </Button>
             {asking[rumble.id] && (
-              <form className="rumble-question" onSubmit={(event) => ask(event, rumble)}>
+              <form className="grid gap-2" onSubmit={(event) => ask(event, rumble)}>
                 <label htmlFor={`rumble-question-${rumble.id}`}>
                   What else do you need to know?
                 </label>
-                <textarea
+                <Textarea
                   id={`rumble-question-${rumble.id}`}
                   value={questions[rumble.id] ?? ''}
                   onChange={(event) =>
                     setQuestions((value) => ({ ...value, [rumble.id]: event.target.value }))
                   }
                 />
-                <button type="submit">Send</button>
+                <Button type="submit">Send</Button>
               </form>
             )}
             {chains[rumble.id] && (
@@ -186,32 +204,26 @@ export function Rumble() {
                 }
               />
             )}
-          </article>
-        ))}
+          </>
+        )}
+      </article>
+    </Card>
+  );
+
+  return (
+    <div className="mx-auto grid max-w-[760px] gap-5">
+      <div>
+        <h1>Rumble</h1>
+        <p className="text-muted-foreground">Decisions only you can make.</p>
       </div>
+      {open.length === 0 && <p>Controller's quiet.</p>}
+      <div className="grid gap-5">{open.map((rumble) => card(rumble, true))}</div>
       {decided.length > 0 && (
-        <details className="rumble-decided">
-          <summary>Already decided ({decided.length})</summary>
-          <div className="rumble-list">
-            {decided.map((rumble) => (
-              <article
-                key={rumble.id}
-                className={`rumble-card${rumble.kind === 'outage' ? ' rumble-card--outage' : ''}`}
-              >
-                <h2>{rumble.title}</h2>
-                <p>
-                  Chosen: <strong>{rumble.chosen}</strong>
-                </p>
-                <DecisionButtons
-                  rumble={rumble}
-                  options={rumble.options.filter((option) => option !== rumble.chosen)}
-                  deciding={deciding[rumble.id] ?? false}
-                  failed={failed[rumble.id] ?? null}
-                  decide={decide}
-                />
-              </article>
-            ))}
-          </div>
+        <details className="mt-3">
+          <summary className="flex min-h-11 cursor-pointer items-center py-2 font-display text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            Already decided ({decided.length})
+          </summary>
+          <div className="grid gap-5 pt-3">{decided.map((rumble) => card(rumble, false))}</div>
         </details>
       )}
     </div>
