@@ -9,9 +9,9 @@ Nearly everything Dru sends now arrives as `human.question` on a chain — Today
 modes, so the message itself does not tell you whether it is a question or a piece of work. You
 decide (`PROTOCOL.md` §5a). Read it and pick one:
 
-- **A question** → answer it in the chain and stop. Create nothing.
+- **A question** → answer it in the chain and stop. Create nothing. Do not settle the chain — Dru does.
 - **Clearly work** → create the quest (steps 2–4), then reply in the chain with one sentence saying
-  you made it, and close the chain. Anything you are ≥ 80% sure about, decide yourself
+  you made it, and leave the chain open for him to settle. Anything you are ≥ 80% sure about, decide yourself
   (`POLICIES.md`) — don't ask permission to build what he just asked for.
 - **Genuinely ambiguous** (two plausible readings that lead to different builds) → ask **one**
   clarifying question in the chain and leave it open. One question, never two.
