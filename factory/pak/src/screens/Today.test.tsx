@@ -126,6 +126,60 @@ describe('Today', () => {
   });
 
   it.each([
+    ['shows', [], false],
+    [
+      'does not show',
+      [
+        {
+          id: 1,
+          kind: 'message',
+          status: 'open',
+          createdAt: presence.lastSeenAt,
+          lastActivityAt: presence.lastSeenAt,
+          questId: null,
+          snoozedUntil: null,
+          rumble: null,
+          messages: [],
+        },
+      ],
+      true,
+    ],
+  ])(
+    '%s the panel based on the chains response when an open Rumble exists',
+    async (_, chains, hidden) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) => {
+          if (url === '/api/presence')
+            return jsonResponse({ ...presence, nextAction: { text: 'Nothing needs you today' } });
+          if (url.startsWith('/api/chains?')) return jsonResponse(chains);
+          if (url.startsWith('/api/rumbles?'))
+            return jsonResponse([
+              {
+                id: 'rumble',
+                title: 'Choose',
+                context: 'A choice',
+                options: ['A', 'B'],
+                chosen: null,
+                chosenAt: null,
+                blockingQuestIds: [],
+                kind: 'taste',
+              },
+            ]);
+          return jsonResponse([]);
+        }),
+      );
+      const { container } = renderToday();
+      if (hidden) {
+        await waitFor(() => expect(container.querySelector('.chain-card')).not.toBeNull());
+        expect(container.querySelector('.today-go-outside')).toBeNull();
+      } else {
+        await waitFor(() => expect(container.querySelector('.today-go-outside')).not.toBeNull());
+      }
+    },
+  );
+
+  it.each([
     ['different text', 'Keep going', [], []],
     [
       'an open chain',
@@ -156,7 +210,28 @@ describe('Today', () => {
     [
       'an open Rumble',
       'Nothing needs you today',
-      [],
+      [
+        {
+          id: 1,
+          kind: 'rumble',
+          status: 'open',
+          createdAt: presence.lastSeenAt,
+          lastActivityAt: presence.lastSeenAt,
+          questId: null,
+          snoozedUntil: null,
+          rumble: {
+            id: 'rumble',
+            title: 'Choose',
+            context: 'A choice',
+            options: ['A', 'B'],
+            chosen: null,
+            chosenAt: null,
+            blockingQuestIds: [],
+            kind: 'taste',
+          },
+          messages: [],
+        },
+      ],
       [
         {
           id: 'rumble',

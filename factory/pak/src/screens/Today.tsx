@@ -340,11 +340,12 @@ export function Today({
     sendChain(intent);
   };
 
+  // /api/chains excludes snoozed items and includes Rumbles, so zero means nothing open and
+  // unsnoozed is waiting on him.
   const goOutside =
     nextAction !== null &&
     /^nothing needs you/i.test(nextAction.text.trimStart()) &&
-    chainCount === 0 &&
-    rumbleCount === 0;
+    chainCount === 0;
 
   return (
     <div className="grid gap-8">
