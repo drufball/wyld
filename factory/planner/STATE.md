@@ -22,6 +22,7 @@ step finishes._
 | `wake-hot-reload` (half of quest `unattended-restart`; Dru 2026-09-05 21:20) | done | #90 tolerant claim path (`WakeMessageWire`, per-message drop + ack, `/queue/claim` retires unserialisable rows, `pak_read_events`/`pak_log_event` unfrozen, `.claude/settings.json` checked in), #93 tool hot reload (swappable registry + `reload.ts`: `fs.watch` on `dist/` and `SIGHUP`, `notifications/tools/list_changed`). Claude Code **does** honour `list_changed` — verified live. The quest stays `parked`: the launch-warning keypress still needs Dru |
 | `pak-theme` unit 1 (Dru 2026-09-05 21:43: "Dracula console look") | done | #89 / PR #91 — Tailwind v4 via `@tailwindcss/vite` (no `tailwind.config.js`, CSS-first `@theme`), Dracula tokens + shadcn token names in `theme.css`, shadcn primitives hand-copied into `factory/pak/src/components/ui/` (`button`/`card`/`badge`/`input`/`textarea`) + `src/lib/utils.ts` `cn()`, `Panel` reimplemented over `Card variant="bevel"` (`Panel.css` deleted), app shell + `Nav` + `Today` + `ChainList` + `InFlight` migrated, body in the system mono stack and the pixel font on headings/badges/labels only. Two fix rounds. Unit 3 is written and ready to file: `factory/planner/queued/pak-theme-unit-3.md` |
 | `pak-theme` unit 2 | done | #94 / PR #95 — Quests, Rumble and Catch-Up migrated onto the unit-1 primitives; `Card` gained `asChild` (radix `Slot`) so a `Card` can render the `article` that carries the `quest-card` / `rumble-card` test hooks; filter chips are now ≥44px `Button`s (last `pak-polish` leftover closed); `theme.css` lost 426 lines (all `.quest-*`, `.rumble-*`, `.catch-up*`, `.world-*`, `.ask-composer*`, `.today-action`) with **zero** added. No fix rounds — merged on the first review. |
+| `pak-theme` unit 3 | done | #97 / PR #100 — VMU, Debug, Demo Discs grid + player chrome onto the primitives; `Panel` deleted (call sites use `Card variant="bevel" className="p-5"`); `lastEvent` removed from `LiveEvents` (nothing read it); **`theme.css` is now tokens + `@layer base` + two keyframes + the reduced-motion guard and nothing else** — zero class rules. One fix round (two deleted rules whose job had not moved onto the element, see Open items). Quest → `demo`. |
 | 1.8 Paused (quest `paused`) | **in progress — pulled forward 2026-09-06 07:22** after Dru asked about the ntfy card. Lead spawned by the Planner: unit A = self-hosted ntfy (`.factory/bin/ntfy`, tmux window `ntfy`, Tailscale Serve on a second HTTPS port `:8443`, server `notify()` + `POST /api/notify` + Wake `pak_notify`, then re-file Rumble `ntfy-phone` with the real address), unit B = pause/resume state + `pak_pause`/`pak_resume` + Wake buffering + ops watchdog. **Unit C (Pak banner + Resume button + VMU) is NOT started — it waits for `pak-theme` to finish, then needs its own lead.** Runs in parallel with the `pak-theme` lead (disjoint packages) | **#96 / PR #98 landed 2026-09-06 07:44** — the transport-agnostic half of unit A: `factory/server/src/notify.ts` `createNotifier()` (fire-and-forget, copies `createWakeForwarder`'s shape), `POST /api/notify {title,message,tags?,click?}` → 202 `{sent}`, `NTFY_URL`/`NTFY_TOPIC` config (empty `NTFY_URL` = silent no-op, one startup warning — same discipline as `WAKE_URL`), Wake `pak_notify` (schema in `channel.ts`, hot-reloads), doctor warns when `NTFY_URL` is unset. Verified end-to-end against a real ntfy server: title/message/tags/click all arrive. No fix rounds. **Self-hosting ntfy on this laptop is impossible** — see the sharp edge below; Rumble `ntfy-phone` now asks Dru to choose the transport and unit A cannot finish until he taps. |
 | 1.9 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
@@ -110,19 +111,35 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
   his Claude settings and say so. What shipped instead, and what is now true, is in the two struck
   items below. `.claude/settings.json` (`{"enabledMcpjsonServers": ["wake"]}`) is now checked in, so
   a fresh clone never sees the `.mcp.json` approval prompt.
-- **Quest `pak-theme` "Dracula console look" — unit 1 landed 2026-09-05 ~23:26 (#89 / PR #91),
-  unit 2 landed 2026-09-06 ~07:35 (#94 / PR #95, no fix rounds: Quests + Rumble + Catch-Up on the
-  primitives, filter chips to 44px, 426 lines of `theme.css` deleted and none added). Only unit 3
-  is left; the lead files it verbatim from `factory/planner/queued/pak-theme-unit-3.md`.** Dru's ask, verbatim: "I really like
+- **Quest `pak-theme` "Dracula console look" is DONE and in `demo` (2026-09-06 ~08:06).** Unit 1
+  #89 / PR #91, unit 2 #94 / PR #95 (no fix rounds), unit 3 #97 / PR #100 (one fix round). Every
+  Pak screen now runs on the one design system and `theme.css` holds no class rules at all. The
+  three files in `factory/planner/queued/` are spent and can be deleted whenever.
+  **The rule that made this cheap, worth reusing on the next migration:** the failure mode is never
+  the new markup, it is a deleted CSS rule whose job did not move onto the element. Both unit-3
+  regressions and both unit-1 ones were that, and none of them are caught by typecheck, lint, the
+  unit tests, the Playwright suite or CI — only by looking at the built app at 375px. Diff the
+  deleted selectors against `src/**/*.tsx` *and* read what each deleted rule actually did before
+  accepting its replacement. Dru's ask, verbatim: "I really like
   the retro card style of debug page, and I like that it only uses game font for headings/accents.
   Redesign the home page and all the other pages to use a shared shadcn design system and make it
   look a bit more code editor Dracula theme, with retro game accents." Taste is decided — never
   re-ask. This supersedes the 1.11 "theme pass" and folds in the `pak-polish` leftovers (the filter
   chips, now 34px, and the raw `rem` rules) — unit 2 fixes both.
-  - ~~**Unit 2** = Quests + Rumble + Catch-Up onto the primitives, filter chips to 44px, their CSS
-    deleted.~~ **done.** **Unit 3** = VMU + Debug (keep the look, just move it onto the primitives)
-    + Demo Discs grid/player chrome, `theme.css` reduced to tokens/base/keyframes, and the optional
-    `lastEvent` removal from `LiveEvents.tsx`.
+  - ~~**Unit 2** = Quests + Rumble + Catch-Up.~~ ~~**Unit 3** = VMU + Debug + Demo Discs +
+    `theme.css` clean-up + the `lastEvent` removal.~~ **Both done.**
+  - **Unit 3's two regressions (one fix round), both the deleted-rule trap:** (a) `theme.css` had
+    `@media (min-width: 360px) { .pak-nav__label--mobile { display: none } .pak-nav__label--desktop
+    { display: inline } }`, while `Nav.tsx` carried `md:hidden` / `hidden md:inline` underneath it.
+    Deleting the rule moved the switch from 360px to Tailwind's `md` (768px), so a 375px phone
+    silently started reading `TODAY QUEST DEMOS RMBL DEBUG MEM`. Fixed with `min-[360px]:hidden` /
+    `hidden min-[360px]:inline`. **Lesson: a legacy rule and a Tailwind class on the same element
+    can disagree about the breakpoint, and the legacy one may be the one that was winning.**
+    (b) `.demo-player` was `inset: 0 0 72px 0` — the 72px was deliberate room for the fixed bottom
+    nav. It became `inset-0 z-[60]`, which covered the nav on a phone and left the back button as
+    the only way out. Restored to `fixed inset-x-0 top-0 bottom-[72px]` with no z-index.
+    **Lesson: an inset that is not zero on one side is usually reserving space for something —
+    find out what before flattening it to `inset-0`.**
   - **New from unit 2 (no fix rounds; these are what made it clean):** `Card` needed an `asChild`
     prop (`@radix-ui/react-slot`, already a dep) so a `Card` can *be* the `<article>` that carries
     the `quest-card` / `rumble-card` test hook — wrapping a `Card` around an `article` would have
@@ -240,10 +257,10 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
   rules use raw `rem` instead of `--pak-space-*` tokens. Reminder proven twice there: a Codex
   branch cut from stale main can silently drop newer `App.tsx` wiring — always check the base.
 
-- Pak theme is a clean baseline, not yet the chunky bevelled console look — planned for 1.11
-  unless Dru asks sooner.
-- Pak `LiveEventsProvider` still keeps `lastEvent` in provider state (needless re-render per event).
-  1.3 consumes events via `subscribe(kind, …)` and never reads `lastEvent` — it can be deleted.
+- ~~Pak theme is a clean baseline, not yet the chunky bevelled console look~~ **done 2026-09-06 by
+  quest `pak-theme` (PRs #91, #95, #100). The 1.11 "theme pass" is spent — 1.11 should not re-do it.**
+- ~~Pak `LiveEventsProvider` still keeps `lastEvent` in provider state~~ **removed in PR #100** —
+  nothing read it; every consumer uses `subscribe(kind, …)`. No more whole-tree re-render per event.
 - Quest lists are ordered by quest id, so `done` and `idea` quests interleave. Fine for now; revisit
   if a world gets busy.
 - Service-worker registration errored in the sandboxed in-app browser; unconfirmed on a real phone.
