@@ -2,6 +2,7 @@
 set -euo pipefail
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FACTORY_DIR="${FACTORY_DIR:-$PWD/.factory}"
 
 ok_count=0
 warn_count=0
@@ -11,10 +12,10 @@ ok() { echo "ok: $*"; ok_count=$((ok_count + 1)); }
 warn() { echo "warn: $*"; warn_count=$((warn_count + 1)); }
 fail() { echo "fail: $*"; fail_count=$((fail_count + 1)); }
 
-if [[ -f .factory/env ]]; then
+if [[ -f "$FACTORY_DIR/env" ]]; then
   set -a
   # shellcheck disable=SC1091
-  source .factory/env
+  source "$FACTORY_DIR/env"
   set +a
 fi
 PAK_PORT="${PAK_PORT:-8787}"
@@ -53,13 +54,13 @@ else
   fail 'GitHub CLI authentication is unavailable; run `gh auth login`'
 fi
 
-if [[ ! -f .factory/env ]]; then
+if [[ ! -f "$FACTORY_DIR/env" ]]; then
   fail '.factory/env is missing; run ./scripts/bootstrap.sh'
 else
   if [[ "$(uname -s)" == Darwin ]]; then
-    env_mode="$(stat -f '%Lp' .factory/env 2>/dev/null || echo unknown)"
+    env_mode="$(stat -f '%Lp' "$FACTORY_DIR/env" 2>/dev/null || echo unknown)"
   else
-    env_mode="$(stat -c '%a' .factory/env 2>/dev/null || echo unknown)"
+    env_mode="$(stat -c '%a' "$FACTORY_DIR/env" 2>/dev/null || echo unknown)"
   fi
   if [[ "$env_mode" == 600 ]]; then
     ok '.factory/env has mode 600'
@@ -67,17 +68,42 @@ else
     fail ".factory/env has mode $env_mode, not 600; run \`chmod 600 .factory/env\`"
   fi
   for key in WAKE_SECRET GH_WEBHOOK_SECRET; do
-    value="$(sed -n "s/^${key}=//p" .factory/env | tail -n 1)"
+    value="$(sed -n "s/^${key}=//p" "$FACTORY_DIR/env" | tail -n 1)"
     if [[ -n "$value" && "$value" != replace-me ]]; then
       ok "$key is set"
     else
       fail "$key is unset or still a placeholder; run ./scripts/bootstrap.sh"
     fi
   done
-  if [[ -n "$(sed -n 's/^NTFY_URL=//p' .factory/env | tail -n 1)" ]]; then
+  if [[ -n "$(sed -n 's/^NTFY_URL=//p' "$FACTORY_DIR/env" | tail -n 1)" ]]; then
     ok 'push notifications are configured'
   else
     warn 'NTFY_URL is unset; push notifications are disabled'
+  fi
+fi
+
+if [[ -f "$FACTORY_DIR/pak.sqlite" ]]; then
+  ok '.factory/pak.sqlite is present'
+else
+  fail '.factory/pak.sqlite is missing; this looks like a fresh machine — restore it with ./scripts/factory-import.sh <bundle.tgz> (see NEW-MACHINE.md)'
+fi
+
+public_host="${PAK_PUBLIC_URL:-}"
+public_host="${public_host#*://}"
+public_host="${public_host%%/*}"
+public_host="${public_host%%:*}"
+if [[ "$public_host" == *.ts.net ]]; then
+  if command -v tailscale >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+    machine_tailnet="$(tailscale status --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write((JSON.parse(s).Self.DNSName||"").replace(/\.$/,""))}catch{process.exit(1)}})' 2>/dev/null || true)"
+    if [[ -n "$machine_tailnet" && "$public_host" == "$machine_tailnet" ]]; then
+      ok "PAK_PUBLIC_URL tailnet hostname matches this machine ($machine_tailnet)"
+    elif [[ -n "$machine_tailnet" ]]; then
+      warn "PAK_PUBLIC_URL names $public_host but this machine is $machine_tailnet; edit .factory/env"
+    else
+      warn 'PAK_PUBLIC_URL tailnet hostname could not be checked with tailscale status --json'
+    fi
+  else
+    warn 'PAK_PUBLIC_URL tailnet hostname could not be checked because tailscale or node is unavailable'
   fi
 fi
 
