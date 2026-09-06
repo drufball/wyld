@@ -3,6 +3,8 @@ set -euo pipefail
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+./scripts/ntfy-down.sh
+
 if ! command -v tmux >/dev/null 2>&1; then
   echo 'Nothing stopped: tmux is not installed, so the wyld session is not running.'
   exit 0

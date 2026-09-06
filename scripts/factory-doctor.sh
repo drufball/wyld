@@ -19,6 +19,7 @@ if [[ -f .factory/env ]]; then
 fi
 PAK_PORT="${PAK_PORT:-8787}"
 WAKE_PORT="${WAKE_PORT:-8788}"
+NTFY_PORT="${NTFY_PORT:-8790}"
 
 for tool in tmux gh claude node pnpm; do
   if command -v "$tool" >/dev/null 2>&1; then
@@ -79,7 +80,7 @@ else
   fi
 fi
 
-for port in "$PAK_PORT" "$WAKE_PORT"; do
+for port in "$PAK_PORT" "$WAKE_PORT" "$NTFY_PORT"; do
   if command -v lsof >/dev/null 2>&1; then
     listeners="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $1 "(pid " $2 ")"}' | sort -u | paste -sd, - || true)"
     if [[ -n "$listeners" ]]; then
@@ -93,21 +94,21 @@ for port in "$PAK_PORT" "$WAKE_PORT"; do
 done
 
 check_health() {
-  local name="$1" url="$2" detail="$3" output
+  local name="$1" url="$2" detail="$3" field="${4:-ok}" output
   if ! command -v node >/dev/null 2>&1; then
     fail "$name health cannot be checked without node; install Node 22 and run pnpm factory:doctor"
     return
   fi
   if output="$(node -e '
-    const [url, detail] = process.argv.slice(1);
+    const [url, detail, field] = process.argv.slice(1);
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
       const body = await response.json();
-      if (!response.ok || body.ok !== true) process.exit(1);
+      if (!response.ok || body[field] !== true) process.exit(1);
       if (detail === "wake") process.stdout.write(`queueDepth=${body.queueDepth} lastDeliveryAt=${body.lastDeliveryAt ?? "never"}`);
       else process.stdout.write("healthy");
     } catch { process.exit(1); }
-  ' "$url" "$detail" 2>/dev/null)"; then
+  ' "$url" "$detail" "$field" 2>/dev/null)"; then
     ok "$name health is $output"
   else
     fail "$name health check failed at $url; run pnpm factory:up"
@@ -116,6 +117,30 @@ check_health() {
 
 check_health 'Pak server' "http://localhost:${PAK_PORT}/api/health" pak
 check_health 'Wake' "http://localhost:${WAKE_PORT}/health" wake
+
+if ! command -v docker >/dev/null 2>&1; then
+  export PATH="$HOME/.rd/bin:$PATH"
+fi
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  ok 'the container runtime is answering'
+  ntfy_image="$(docker ps --filter name=wyld-ntfy --filter status=running --format '{{.Image}}')"
+  if [[ "$ntfy_image" == 'binwiederhier/ntfy:v2.28.0' ]]; then
+    ok 'wyld-ntfy is running with binwiederhier/ntfy:v2.28.0'
+  else
+    fail 'wyld-ntfy is not running with binwiederhier/ntfy:v2.28.0; run ./scripts/ntfy-up.sh'
+  fi
+else
+  fail 'the container runtime is not answering; start Rancher Desktop'
+fi
+check_health 'ntfy' "http://localhost:${NTFY_PORT}/v1/health" ntfy healthy
+
+if ! command -v tailscale >/dev/null 2>&1; then
+  warn 'Tailscale Serve cannot be checked because tailscale is unavailable'
+elif tailscale serve status 2>/dev/null | grep -Eq '(^|[^0-9])8443([^0-9]|$)'; then
+  ok 'Tailscale Serve is configured on port 8443'
+else
+  fail 'Tailscale Serve is not configured on port 8443; run `tailscale serve --bg --https=8443 8790`'
+fi
 
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t wyld 2>/dev/null; then
   expected_windows=(

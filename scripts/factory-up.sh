@@ -15,6 +15,16 @@ set +a
 
 WAKE_PORT="${WAKE_PORT:-8788}"
 
+started=()
+skipped=()
+
+if ./scripts/ntfy-up.sh; then
+  echo 'ntfy container is running.'
+else
+  echo 'warning: ntfy failed to start; continuing without push notifications.' >&2
+  skipped+=('ntfy (container failed to start)')
+fi
+
 if ! command -v tmux >/dev/null 2>&1; then
   echo 'error: tmux is not installed' >&2
   exit 1
@@ -28,9 +38,6 @@ if tmux has-session -t wyld 2>/dev/null; then
   fi
   exit 0
 fi
-
-started=()
-skipped=()
 
 tmux new-session -d -s wyld -n server -c "$PWD" 'pnpm --filter @wyld/server dev'
 started+=(server)
