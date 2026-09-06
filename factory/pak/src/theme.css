@@ -98,6 +98,12 @@
   }
 }
 
+@keyframes sunset-shimmer {
+  50% {
+    opacity: 0.78;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

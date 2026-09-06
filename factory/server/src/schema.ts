@@ -101,6 +101,7 @@ export const presence = sqliteTable('presence', {
   lastCatchupEventId: integer('last_catchup_event_id'),
   nextActionText: text('next_action_text'),
   nextActionLink: text('next_action_link'),
+  nextActionBackAt: text('next_action_back_at'),
 });
 
 export const catchups = sqliteTable(

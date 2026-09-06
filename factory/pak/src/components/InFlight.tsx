@@ -9,7 +9,7 @@ import { Card } from './ui/card.js';
 
 const liveKinds = ['planner.quest_updated', 'planner.note', 'human.park'] as const;
 
-export function InFlight() {
+export function InFlight({ heading = true }: { heading?: boolean }) {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [worldNames, setWorldNames] = useState(new Map<string, string>());
   const { subscribe } = useLiveEvents();
@@ -31,9 +31,11 @@ export function InFlight() {
   if (quests.length === 0) return null;
   return (
     <section className="grid gap-3">
-      <h2 className="m-0 font-display text-[11px] leading-loose">
-        Cranking on {countInWords(quests.length)} {quests.length === 1 ? 'quest' : 'quests'}.
-      </h2>
+      {heading && (
+        <h2 className="m-0 font-display text-[11px] leading-loose">
+          Cranking on {countInWords(quests.length)} {quests.length === 1 ? 'quest' : 'quests'}.
+        </h2>
+      )}
       <div className="grid gap-2">
         {quests.map((quest) => (
           <Card variant="bevel" className="p-0" key={quest.id}>

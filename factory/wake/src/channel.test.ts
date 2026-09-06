@@ -504,6 +504,22 @@ describe('Pak tools', () => {
     expect(result.content?.[0]?.text).toContain('not implemented yet');
   });
 
+  it('forwards the optional next-action ETA only when supplied', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response('{}'));
+    const [, call] = handlers(fetch);
+    await call!({
+      params: {
+        name: 'pak_set_next_action',
+        arguments: { text: 'Rest', back_at: '2026-09-06T16:30:00.000Z' },
+      },
+    });
+    await call!({ params: { name: 'pak_set_next_action', arguments: { text: 'Rest' } } });
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+      backAt: '2026-09-06T16:30:00.000Z',
+    });
+    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).not.toHaveProperty('backAt');
+  });
+
   it.each([
     [
       'pak_upsert_quest',

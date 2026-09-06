@@ -1,0 +1,1 @@
+ALTER TABLE `presence` ADD `next_action_back_at` text;

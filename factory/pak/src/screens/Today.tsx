@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import {
   getPresence,
   listDemos,
+  listQuests,
   listRetros,
   listRumbles,
   postChain,
@@ -15,6 +16,7 @@ import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
+import { countInWords } from '../words.js';
 
 export type TodaySignals = { rumbles: number; demos: number; memory: string | null };
 
@@ -38,6 +40,78 @@ export function Signals({ rumbles, demos, memory }: TodaySignals) {
       )}
       {memory !== null && <p className="m-0">{memory}</p>}
     </section>
+  );
+}
+
+export function GoOutside({ action, building }: { action: NextAction; building: number }) {
+  const actionText = action.deepLink ? (
+    <Link
+      aria-label={action.text}
+      to={action.deepLink}
+      className="min-h-11 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {action.text}
+    </Link>
+  ) : (
+    <p className="m-0">{action.text}</p>
+  );
+  return (
+    <Card variant="bevel" className="today-go-outside overflow-hidden p-0">
+      <div aria-hidden="true" className="relative h-40 overflow-hidden">
+        <svg
+          viewBox="0 0 320 160"
+          className="absolute inset-0 size-full"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="sunset-sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#282a36" />
+              <stop offset="0.28" stopColor="#6272a4" />
+              <stop offset="0.52" stopColor="#bd93f9" />
+              <stop offset="0.75" stopColor="#ff79c6" />
+              <stop offset="1" stopColor="#ffb86c" />
+            </linearGradient>
+          </defs>
+          <rect width="320" height="160" fill="url(#sunset-sky)" />
+          <polygon points="0,113 73,100 145,116 230,101 320,114 320,160 0,160" fill="#6272a4" />
+          <polygon points="0,129 82,111 157,132 235,110 320,126 320,160 0,160" fill="#44475a" />
+          <polygon points="0,143 66,126 145,141 220,123 320,139 320,160 0,160" fill="#282a36" />
+        </svg>
+        <div className="absolute right-[18%] top-7 size-12 rounded-full bg-dracula-yellow shadow-[0_0_36px_rgb(241_250_140/0.55)] [animation:sunset-shimmer_6s_ease-in-out_infinite]" />
+        <svg
+          viewBox="0 0 48 40"
+          preserveAspectRatio="xMidYMid meet"
+          className="absolute bottom-5 right-[29%] h-9 w-10"
+        >
+          <g fill="#21222c">
+            <polygon points="10,35 12,23 19,16 30,18 34,25 33,35" />
+            <polygon points="18,17 21,8 30,7 36,13 34,21 25,22" />
+            <polygon points="21,9 25,1 29,8" />
+            <polygon points="34,12 43,15 35,18" />
+            <polygon points="10,24 5,17 3,8 7,6 10,15 16,20" />
+            <polygon points="8,35 13,32 18,34 17,38 8,38" />
+            <polygon points="28,33 35,32 37,38 28,38" />
+          </g>
+        </svg>
+      </div>
+      <div className="grid gap-2 p-5">
+        {actionText}
+        <p className="m-0 text-muted-foreground">
+          {building === 0
+            ? 'Nothing cooking right now.'
+            : `Cranking on ${countInWords(building)} ${building === 1 ? 'quest' : 'quests'}.`}
+        </p>
+        {action.backAt && (
+          <p className="m-0 text-muted-foreground">
+            Back around{' '}
+            {new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(
+              new Date(action.backAt),
+            )}
+            .
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -105,6 +179,8 @@ export function Today({
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const [rumbleCount, setRumbleCount] = useState(signals.rumbles);
   const [demoCount, setDemoCount] = useState(signals.demos);
+  const [chainCount, setChainCount] = useState(0);
+  const [buildingCount, setBuildingCount] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
   const intentField = useRef<HTMLTextAreaElement>(null);
   const composerButton = useRef<HTMLButtonElement>(null);
@@ -152,6 +228,17 @@ export function Today({
     ];
     return () => stops.forEach((stop) => stop());
   }, [loadDemos, subscribe]);
+  const loadBuilding = useCallback(
+    () =>
+      void listQuests({ status: 'building' })
+        .then((items) => setBuildingCount(items.length))
+        .catch(() => undefined),
+    [],
+  );
+  useEffect(() => {
+    loadBuilding();
+    return subscribe('planner.quest_updated', loadBuilding);
+  }, [loadBuilding, subscribe]);
   useLayoutEffect(() => {
     const field = intentField.current;
     if (!field) return;
@@ -202,6 +289,12 @@ export function Today({
     setText('');
     sendChain(intent);
   };
+
+  const goOutside =
+    nextAction !== null &&
+    /^nothing needs you/i.test(nextAction.text.trimStart()) &&
+    chainCount === 0 &&
+    rumbleCount === 0;
 
   return (
     <div className="grid gap-8">
@@ -278,8 +371,10 @@ export function Today({
           </Button>
         </form>
       </Card>
-      {nextAction !== null &&
-        (nextAction.deepLink ? (
+      {goOutside && nextAction !== null ? (
+        <GoOutside action={nextAction} building={buildingCount} />
+      ) : nextAction !== null ? (
+        nextAction.deepLink ? (
           <Card variant="bevel" className="p-0">
             <Link
               aria-label={nextAction.text}
@@ -299,9 +394,15 @@ export function Today({
           <Card variant="flat" className="p-5">
             {nextAction.text}
           </Card>
-        ))}
-      <ChainList kind="all" addedChain={addedChain} onConvert={sendIntent} />
-      <InFlight />
+        )
+      ) : null}
+      <ChainList
+        kind="all"
+        addedChain={addedChain}
+        onConvert={sendIntent}
+        onCountChange={setChainCount}
+      />
+      <InFlight heading={!goOutside} />
       <Signals {...signals} rumbles={rumbleCount} demos={demoCount} />
       <Button
         ref={composerButton}

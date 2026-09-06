@@ -151,7 +151,11 @@ const LogEventArgs = z.object({
   summary: z.string(),
   quest: z.string().optional(),
 });
-const NextActionArgs = z.object({ text: z.string(), deep_link: z.string().default('/') });
+const NextActionArgs = z.object({
+  text: z.string(),
+  deep_link: z.string().default('/'),
+  back_at: z.string().optional(),
+});
 const QuestStatus = Quest.shape.status;
 const UpsertQuestArgs = z
   .object({
@@ -411,6 +415,10 @@ const tools = [
       properties: {
         text: { type: 'string', description: 'The next action to display.' },
         deep_link: { type: 'string', description: 'Optional Pak deep link; defaults to /.' },
+        back_at: {
+          type: 'string',
+          description: 'Optional ISO-8601 time the Planner expects to have something to show.',
+        },
       },
       required: ['text'],
       additionalProperties: false,
@@ -904,7 +912,11 @@ export function createToolRegistry(options: {
       return postTool(
         request,
         `${options.pakUrl}/api/presence/next-action`,
-        { text: parsed.data.text, deepLink: parsed.data.deep_link },
+        {
+          text: parsed.data.text,
+          deepLink: parsed.data.deep_link,
+          ...(parsed.data.back_at === undefined ? {} : { backAt: parsed.data.back_at }),
+        },
         true,
       );
     }
