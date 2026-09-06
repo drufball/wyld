@@ -194,7 +194,7 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     fail 'wyld-ntfy is not running with binwiederhier/ntfy:v2.28.0; run ./scripts/ntfy-up.sh'
   fi
 else
-  fail 'the container runtime is not answering; start Rancher Desktop'
+  fail 'the container runtime is not answering; start your Docker runtime (see NEW-MACHINE.md)'
 fi
 check_health 'ntfy' "http://localhost:${NTFY_PORT}/v1/health" ntfy healthy
 

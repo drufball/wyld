@@ -17,11 +17,11 @@ if ! command -v docker >/dev/null 2>&1; then
   export PATH="$HOME/.rd/bin:$PATH"
 fi
 if ! command -v docker >/dev/null 2>&1; then
-  echo 'error: docker was not found; install and start Rancher Desktop' >&2
+  echo 'error: docker was not found; install and start your Docker runtime (see NEW-MACHINE.md)' >&2
   exit 1
 fi
 if ! docker info >/dev/null 2>&1; then
-  echo 'error: the container runtime is not answering; start Rancher Desktop' >&2
+  echo 'error: the container runtime is not answering; start your Docker runtime (see NEW-MACHINE.md)' >&2
   exit 1
 fi
 

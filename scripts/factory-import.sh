@@ -26,18 +26,19 @@ trap 'rm -f "$manifest_tmp"' EXIT
 if ! tar -xOzf "$bundle" ./export-manifest.json >"$manifest_tmp" 2>/dev/null; then
   echo "fail: $bundle is not a WYLD export bundle (export-manifest.json is missing)" >&2; exit 1
 fi
-if ! manifest_values="$(node - "$manifest_tmp" <<'NODE'
+if ! manifest_summary="$(node - "$manifest_tmp" <<'NODE'
 import fs from 'node:fs';
 try {
   const value = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
   if (value.kind !== 'wyld-factory-export') process.exit(1);
-  for (const key of ['createdAt', 'hostname', 'tailnetName']) console.log(`${key}=${value[key] ?? 'null'}`);
+  const field = (key) => value[key] ?? 'unknown';
+  console.log(`ok: bundle created ${field('createdAt')} on ${field('hostname')} (tailnet ${field('tailnetName')})`);
 } catch { process.exit(1); }
 NODE
 )"; then
   echo "fail: $bundle is not a WYLD export bundle (invalid manifest kind)" >&2; exit 1
 fi
-printf '%s\n' "$manifest_values"
+printf '%s\n' "$manifest_summary"
 
 mkdir -p "$FACTORY_DIR"
 if [[ -f "$FACTORY_DIR/pak.sqlite" && "$force" != true ]]; then
@@ -61,7 +62,10 @@ if [[ ! -f "$FACTORY_DIR/env" ]]; then echo 'fail: imported bundle has no env fi
 chmod 600 "$FACTORY_DIR/env"
 if [[ "$(uname -s)" == Darwin ]]; then env_mode="$(stat -f '%Lp' "$FACTORY_DIR/env")"; else env_mode="$(stat -c '%a' "$FACTORY_DIR/env")"; fi
 [[ "$env_mode" == 600 ]] || { echo "fail: imported env has mode $env_mode, not 600" >&2; exit 1; }
-if [[ "$bootstrap" == true ]]; then FACTORY_DIR="$FACTORY_DIR" ./scripts/bootstrap.sh; fi
+bootstrap_ok=true
+if [[ "$bootstrap" == true ]]; then
+  FACTORY_DIR="$FACTORY_DIR" ./scripts/bootstrap.sh || bootstrap_ok=false
+fi
 
 hard_failures=()
 record_fail() { echo "fail: $*"; hard_failures+=("$*"); }
@@ -71,7 +75,8 @@ node_major="${node_version#v}"; node_major="${node_major%%.*}"
 if [[ "$node_major" == 22 ]]; then echo "ok: Node version is $node_version"; else record_fail "Node version is $node_version, but Node 22 is required; see NEW-MACHINE.md"; fi
 if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then echo 'ok: GitHub CLI authentication is valid'; else record_fail 'GitHub CLI authentication is unavailable; run `gh auth login`; see NEW-MACHINE.md'; fi
 if ! command -v docker >/dev/null 2>&1; then export PATH="$HOME/.rd/bin:$PATH"; fi
-if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then echo 'ok: the container runtime is answering'; else record_fail 'the container runtime is not answering; start Rancher Desktop; see NEW-MACHINE.md'; fi
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then echo 'ok: the container runtime is answering'; else record_fail 'a Docker-compatible runtime (Colima, Docker Desktop, OrbStack or Rancher Desktop) is required and must answer `docker info`; see NEW-MACHINE.md'; fi
+if [[ "$bootstrap_ok" == false ]]; then record_fail './scripts/bootstrap.sh failed; re-run it once the prerequisites above are satisfied'; fi
 
 tailscale_json=''
 if command -v tailscale >/dev/null 2>&1; then tailscale_json="$(tailscale status --json 2>/dev/null || true)"; fi
