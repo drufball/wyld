@@ -26,6 +26,10 @@ const Environment = z.object({
     emptyStringAsUndefined,
     z.coerce.number().int().min(1).max(65535).default(8789),
   ),
+  PLANNER_HOST_HEARTBEAT_SECONDS: z.preprocess(
+    emptyStringAsUndefined,
+    z.coerce.number().int().min(0).default(120),
+  ),
   PLANNER_HOST_MODEL: z.preprocess(
     emptyStringAsUndefined,
     z.string().min(1).default('claude-fable-5-1'),
@@ -49,6 +53,7 @@ export type Config = {
   wakeSecret: string;
   pakUrl: string;
   port: number;
+  heartbeatSeconds: number;
   model: string;
   pollMs: number;
   idleTimeoutMs: number;
@@ -70,6 +75,7 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     wakeSecret: d.WAKE_SECRET,
     pakUrl: d.PAK_URL,
     port: d.PLANNER_HOST_PORT,
+    heartbeatSeconds: d.PLANNER_HOST_HEARTBEAT_SECONDS,
     model: d.PLANNER_HOST_MODEL,
     pollMs: d.PLANNER_HOST_POLL_MS,
     idleTimeoutMs: d.PLANNER_HOST_IDLE_TIMEOUT_MS,

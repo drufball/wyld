@@ -1,4 +1,5 @@
 import { readConfig } from './config.js';
+import { createHeartbeat } from './heartbeat.js';
 import { startHealthServer } from './health.js';
 import { createHost } from './host.js';
 import { log } from './logger.js';
@@ -17,7 +18,13 @@ const queue = createQueueClient({
   wakeSecret: config.wakeSecret,
   log,
 });
-const host = createHost({ config, queue, log });
+const heartbeat = createHeartbeat({
+  pakUrl: config.pakUrl,
+  intervalSeconds: config.heartbeatSeconds,
+  state: () => host.heartbeatState(),
+  log,
+});
+const host = createHost({ config, queue, log, onSessionReady: () => heartbeat.start() });
 const resumed = host.start();
 const health = startHealthServer(config.port, host.health, log);
 log('info', 'planner host started', {
@@ -25,6 +32,7 @@ log('info', 'planner host started', {
   model: config.model,
   cwd: config.repoRoot,
   session: resumed ? 'resumed' : 'fresh',
+  heartbeatSeconds: config.heartbeatSeconds,
 });
 
 let shuttingDown = false;
@@ -33,6 +41,7 @@ const shutdown = () => {
   shuttingDown = true;
   log('info', 'planner host shutting down');
   host.stop();
+  heartbeat.stop();
   health.close(() => process.exit(0));
 };
 process.on('SIGINT', shutdown);
