@@ -305,6 +305,25 @@ to say the channel flag is the fallback path only; delete `factory/planner/queue
   - Cheap trap hit while doing that: background jobs do not survive between Bash calls, so `kill %1`
     in a later call is a no-op and the old server keeps the port — the new one dies with `EADDRINUSE`
     and you silently test the *old* build. Kill by port (`lsof -ti :PORT`), not by job number.
+  - **Unit 3 (wake) is DONE — #115 / PR #118, merged and deployed 2026-09-06 09:36, no fix rounds.**
+    `pak_send_message` gained `kind` (`question` | `message`, default `message`; `rumble` is rejected
+    — a Rumble is still raised with `pak_request_rumble`), and `pak_read_chains` gained `kind`
+    (`question`/`message`/`rumble`/`all`) and `include_snoozed`. A no-argument `pak_read_chains` still
+    requests exactly `/api/chains`, so nothing the Planner already does changed. **No snooze tool was
+    added, deliberately** — snoozing is Dru's action in the Pak, and the Planner must never snooze a
+    chain. Deployed with `pnpm --filter @wyld/wake build`; the adapter hot-reloads, no restart.
+  - **Two leads sharing one scratchpad directory collided on filenames (2026-09-06 ~09:30) and it
+    cost a whole duplicate PR.** Both this lead and the `planner-in-pak` lead wrote their issue body
+    to a generically-named file in the same scratchpad; the second write won, so the Codex prompt for
+    *this* quest's pak unit (#114) carried the *other* issue's publishing instructions. Result: PR
+    #117 contained this quest's `factory/pak` work but was pushed to `codex/planner-launcher` with
+    `Closes #116`, while the intended task also produced PR #119 on `codex/chains-pak` with
+    `Closes #114`. #119 was kept (green, correct branch and marker, and it updated the Pak unit tests
+    that #117 left failing); #117 was closed and its branch deleted; #116 was closed as a duplicate.
+    **Rule for every lead from now on: name every issue-body and review file after the quest and unit
+    (`<scratchpad>/<quest>-unit-<n>.md`), and after filing, read the `Closes` line and the
+    `<!-- quest: -->` marker back from GitHub before starting Codex.** Cheap to do, and the failure is
+    invisible until two PRs exist for one issue.
 - **Tailscale Serve is on (2026-09-05 ~21:30):** Dru enabled Serve on the tailnet; `tailscale serve
   --bg 8787` now proxies `https://macbook-pro-6.taild72c8d.ts.net/` → `127.0.0.1:8787` (tailnet
   only, persists across restarts; `tailscale serve status` to check, `tailscale serve --https=443
