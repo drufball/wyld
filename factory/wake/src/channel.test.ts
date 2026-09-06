@@ -1020,8 +1020,8 @@ describe('Pak tools', () => {
   });
 
   it.each([
-    [undefined, 'http://pak/api/rumbles'],
-    ['open', 'http://pak/api/rumbles?status=open'],
+    [undefined, 'http://pak/api/rumbles?includeSnoozed=1'],
+    ['open', 'http://pak/api/rumbles?status=open&includeSnoozed=1'],
   ] as const)('reads Rumbles with status %s', async (status, url) => {
     const fetch = vi.fn(async () => new Response('[]', { status: 200 }));
     const [, call] = handlers(fetch as typeof globalThis.fetch);

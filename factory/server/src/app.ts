@@ -339,7 +339,7 @@ export function createApp(dependencies: AppDependencies) {
           .select({ id: demos.id, questId: demos.questId, summary: demos.summary })
           .from(demos)
           .all(),
-        openRumbles: listOrderedRumbleRows(dependencies.database, 'open').map(
+        openRumbles: listOrderedRumbleRows(dependencies.database, 'open', { now }).map(
           ({ slug, title }) => ({
             id: slug!,
             title: title!,

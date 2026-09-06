@@ -1106,11 +1106,10 @@ export function createToolRegistry(options: {
     if (params.name === 'pak_read_rumbles') {
       const parsed = ReadRumblesArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
-      const suffix =
-        parsed.data.status === undefined
-          ? ''
-          : `?${new URLSearchParams({ status: parsed.data.status }).toString()}`;
-      return getTool(request, `${options.pakUrl}/api/rumbles${suffix}`);
+      const query = new URLSearchParams();
+      if (parsed.data.status !== undefined) query.set('status', parsed.data.status);
+      query.set('includeSnoozed', '1');
+      return getTool(request, `${options.pakUrl}/api/rumbles?${query.toString()}`);
     }
     if (params.name === 'pak_register_demo') {
       const parsed = RegisterDemoArgs.safeParse(params.arguments);

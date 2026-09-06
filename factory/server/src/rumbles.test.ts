@@ -125,6 +125,36 @@ describe('rumble routes', () => {
     ).toEqual([tied.id, older.id]);
   });
 
+  it('hides future-snoozed rumbles by default and includes expired or requested snoozes', async () => {
+    const visible = await create('Visible', { id: 'a-visible' });
+    const snoozed = await create('Snoozed', { id: 'b-snoozed' });
+    const chains = (await (
+      await app.request('/api/chains?kind=rumble&includeSnoozed=1')
+    ).json()) as { id: number; rumble?: { id: string } }[];
+    const snoozedChain = chains.find(({ rumble }) => rumble?.id === snoozed.id)!;
+    const until = new Date(clock.getTime() + 60_000).toISOString();
+    await post(`/api/chains/${snoozedChain.id}/snooze`, { until });
+
+    for (const url of ['/api/rumbles', '/api/rumbles?status=open']) {
+      expect(Rumble.array().parse(await (await app.request(url)).json())).toEqual([visible]);
+    }
+    expect(
+      Rumble.array()
+        .parse(await (await app.request('/api/rumbles?includeSnoozed=1')).json())
+        .map(({ id }) => id),
+    ).toEqual([visible.id, snoozed.id]);
+    expect(
+      Rumble.array().parse(await (await app.request('/api/rumbles?includeSnoozed=true')).json()),
+    ).toHaveLength(2);
+
+    clock = new Date(new Date(until).getTime() + 1);
+    expect(
+      Rumble.array()
+        .parse(await (await app.request('/api/rumbles')).json())
+        .map(({ id }) => id),
+    ).toEqual([visible.id, snoozed.id]);
+  });
+
   it('decides and re-decides while storing exactly one complete event each time', async () => {
     const rumble = await create('Pick one', { blockingQuestIds: ['quest-a', 'quest-b'] });
     const first = Rumble.parse(
@@ -171,10 +201,18 @@ describe('rumble routes', () => {
     expect(Event.array().parse(await (await app.request('/api/events')).json())).toEqual([]);
   });
 
-  it('shows only open rumbles in catch-up order', async () => {
+  it('shows only unsnoozed open rumbles in catch-up order', async () => {
     const regular = await create('Regular');
     const outage = await create('Outage', { kind: 'outage' });
     await post(`/api/rumbles/${regular.id}/decide`, { chosen: 'Yes' });
+    const snoozed = await create('Snoozed');
+    const snoozedChains = (await (
+      await app.request('/api/chains?kind=rumble&includeSnoozed=1')
+    ).json()) as { id: number; rumble?: { id: string } }[];
+    const snoozedChain = snoozedChains.find(({ rumble }) => rumble?.id === snoozed.id)!;
+    await post(`/api/chains/${snoozedChain.id}/snooze`, {
+      until: new Date(clock.getTime() + 60_000).toISOString(),
+    });
     const view = (await (await app.request('/api/catchup')).json()) as {
       catchup: { digest: { rumbles: unknown[] } };
     };
