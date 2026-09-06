@@ -34,6 +34,7 @@ import { createNotifier } from './notify.js';
 import { createPauseRoutes, createPauseService } from './pause.js';
 import { createSleepRoutes, createSleepScheduler, type SleepConfig } from './sleep.js';
 import { createAchievements } from './achievements.js';
+import { countNeedsYou, replaceActionChain } from './chain-cards.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -291,6 +292,7 @@ export function createApp(dependencies: AppDependencies) {
               ...(row.nextActionLink === null ? {} : { deepLink: row.nextActionLink }),
               ...(row.nextActionBackAt === null ? {} : { backAt: row.nextActionBackAt }),
             },
+      needsYou: countNeedsYou(dependencies.database, now().toISOString()),
     });
   };
 
@@ -416,10 +418,17 @@ export function createApp(dependencies: AppDependencies) {
     deepLink: string | null,
     backAt: string | null = null,
   ) {
+    const ts = now().toISOString();
     db.update(presence)
       .set({ nextActionText: text, nextActionLink: deepLink, nextActionBackAt: backAt })
       .where(eq(presence.id, 1))
       .run();
+    const action = replaceActionChain(dependencies.database, { text, deepLink, backAt }, ts);
+    await storeEvent({
+      source: 'planner',
+      kind: 'planner.chain_updated',
+      payload: { chainId: action.id, text },
+    });
     await storeEvent({
       source: 'planner',
       kind: 'planner.next_action',

@@ -69,6 +69,9 @@ describe('rumble routes', () => {
       chosen: 'Yes',
       chosenAt: '2026-09-05T12:00:00.000Z',
     });
+    expect(database.sqlite.prepare('SELECT tags FROM chains WHERE slug = ?').get(first.id)).toEqual(
+      { tags: JSON.stringify(['rumble', 'scope']) },
+    );
   });
 
   it('creates an already-decided rumble silently and includes it in decided results', async () => {

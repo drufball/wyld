@@ -64,6 +64,17 @@ describe('achievements', () => {
     await verify('first-quest-done', () =>
       database.sqlite.prepare("UPDATE quests SET status = 'done'").run(),
     );
+    expect(
+      database.sqlite
+        .prepare("SELECT kind, status, tags, payload FROM chains WHERE kind = 'unlock'")
+        .get(),
+    ).toMatchObject({
+      kind: 'unlock',
+      status: 'open',
+      tags: JSON.stringify(['unlock']),
+      payload: expect.stringContaining('first-quest-done'),
+    });
+    expect(storeEvent).toHaveBeenCalledTimes(1);
   });
   it('unlocks five completions at five, not four', async () => {
     world();

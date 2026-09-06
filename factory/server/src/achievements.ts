@@ -3,6 +3,7 @@ import { Achievement, type Event, type NewEvent } from '@wyld/shared';
 
 import type { AppDatabase } from './database.js';
 import { achievements, chains, events, feedback, quests, retros, sleepRuns } from './schema.js';
+import { createUnlockChain } from './chain-cards.js';
 
 export const ACHIEVEMENT_CATALOGUE = [
   {
@@ -147,6 +148,7 @@ export function createAchievements(options: {
       if (!changed) continue;
       const achievement = Achievement.parse(changed);
       unlocked.push(achievement);
+      createUnlockChain(options.database, achievement, unlockedAt);
       await options.storeEvent({
         source: 'pak',
         kind: 'pak.achievement_unlocked',

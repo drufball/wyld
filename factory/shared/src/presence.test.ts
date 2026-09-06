@@ -52,11 +52,12 @@ describe('presence schemas', () => {
     expect(Presence.parse({ ...presence, nextAction: null })).toEqual({
       ...presence,
       nextAction: null,
+      needsYou: 0,
     });
   });
 
   it('parses presence and catchups', () => {
-    expect(Presence.parse(presence)).toEqual(presence);
+    expect(Presence.parse(presence)).toEqual({ ...presence, needsYou: 0 });
     expect(Catchup.parse(catchup)).toEqual(catchup);
     expect(
       CatchupView.parse({ show: false, awaySeconds: 0, unseenCount: 0, catchup, nextAction: null }),

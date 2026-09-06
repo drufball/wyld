@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, lt, ne, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 import { Chain, ChainKind, ChainStatus, Timestamp, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import { formatIssues } from './quests.js';
 import { compareRumbles } from './rumbles.js';
-import { chainMessages, chains, quests } from './schema.js';
+import { chainMessages, chains, demos, quests } from './schema.js';
 
 export const CHAIN_QUIET_SECONDS = 86_400;
 export const CHAIN_LIMIT = 5;
@@ -16,12 +16,12 @@ const ChainCreate = z
     text: z.string().min(1).max(2000),
     questId: z.string().min(1).optional(),
     author: z.enum(['human', 'planner']).default('human'),
-    kind: ChainKind.exclude(['rumble']).optional(),
+    kind: ChainKind.exclude(['rumble', 'demo', 'action', 'unlock']).optional(),
   })
   .strict();
 const ChainQuery = z.object({
   quest: z.string().min(1).optional(),
-  kind: z.union([ChainKind, z.literal('all')]).optional(),
+  kind: z.string().optional(),
   status: z.union([ChainStatus, z.literal('all')]).default('open'),
   includeSnoozed: z.enum(['1', 'true']).optional(),
 });
@@ -31,10 +31,11 @@ const MessageCreate = z
   .strict();
 const ChainClose = z
   .object({
-    reason: z.enum(['settled', 'converted']),
+    reason: z.enum(['settled', 'converted', 'done']).default('settled'),
     source: z.enum(['human', 'planner']).default('human'),
   })
   .strict();
+const ChainReopen = z.object({ source: z.enum(['human', 'planner']).default('human') }).strict();
 
 type Dependencies = {
   database: AppDatabase;
@@ -76,6 +77,23 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
   app.get('/chains', (c) => {
     const parsed = ChainQuery.safeParse(c.req.query());
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    const requestedKinds: string[] =
+      parsed.data.kind === undefined
+        ? (['question', 'message'] as const)
+        : parsed.data.kind === 'all'
+          ? ChainKind.options
+          : parsed.data.kind.split(',');
+    const invalidKind = requestedKinds.find((kind) => !ChainKind.safeParse(kind).success);
+    if (invalidKind !== undefined)
+      return c.json(
+        {
+          error: 'Invalid request',
+          issues: [
+            { code: 'custom', path: ['kind'], message: `Unknown chain kind: ${invalidKind}` },
+          ],
+        },
+        400,
+      );
     if (
       parsed.data.quest !== undefined &&
       db.select().from(quests).where(eq(quests.id, parsed.data.quest)).get() === undefined
@@ -87,7 +105,7 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
       .where(
         and(
           eq(chains.status, 'open'),
-          ne(chains.kind, 'rumble'),
+          inArray(chains.kind, ['question', 'message']),
           lt(chains.lastActivityAt, cutoff),
           or(isNull(chains.snoozedUntil), lt(chains.snoozedUntil, cutoff)),
         ),
@@ -102,26 +120,24 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
       parsed.data.quest === undefined ? undefined : eq(chains.questId, parsed.data.quest),
       visible,
     );
-    const includeNormal =
-      parsed.data.kind === undefined || parsed.data.kind === 'all' || parsed.data.kind !== 'rumble';
-    const includeRumble = parsed.data.kind === 'rumble' || parsed.data.kind === 'all';
-    const normalRows = includeNormal
-      ? db
-          .select()
-          .from(chains)
-          .where(
-            and(
-              common,
-              parsed.data.kind === 'question' || parsed.data.kind === 'message'
-                ? eq(chains.kind, parsed.data.kind)
-                : ne(chains.kind, 'rumble'),
-            ),
-          )
-          .orderBy(desc(chains.lastActivityAt))
-          .limit(CHAIN_LIMIT)
-          .all()
-      : [];
-    const rumbleRows = includeRumble
+    const conversationalKinds = requestedKinds.filter(
+      (kind): kind is 'question' | 'message' => kind === 'question' || kind === 'message',
+    );
+    const cardKinds = requestedKinds.filter(
+      (kind): kind is 'demo' | 'action' | 'unlock' =>
+        kind === 'demo' || kind === 'action' || kind === 'unlock',
+    );
+    const normalRows =
+      conversationalKinds.length > 0
+        ? db
+            .select()
+            .from(chains)
+            .where(and(common, inArray(chains.kind, conversationalKinds)))
+            .orderBy(desc(chains.lastActivityAt))
+            .limit(CHAIN_LIMIT)
+            .all()
+        : [];
+    const rumbleRows = requestedKinds.includes('rumble')
       ? db
           .select()
           .from(chains)
@@ -129,7 +145,16 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
           .all()
           .sort(compareRumbles)
       : [];
-    const rows = [...rumbleRows, ...normalRows];
+    const cardRows =
+      cardKinds.length === 0
+        ? []
+        : db
+            .select()
+            .from(chains)
+            .where(and(common, inArray(chains.kind, cardKinds)))
+            .orderBy(desc(chains.lastActivityAt))
+            .all();
+    const rows = [...rumbleRows, ...normalRows, ...cardRows];
     if (rows.length === 0) return c.json([]);
     const messages = db
       .select()
@@ -182,6 +207,7 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
         createdAt: ts,
         lastActivityAt: ts,
         questId: parsed.data.questId ?? null,
+        tags: [parsed.data.kind ?? (parsed.data.author === 'human' ? 'question' : 'message')],
       })
       .returning({ id: chains.id })
       .get();
@@ -231,10 +257,40 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
     if (current === undefined) return notFound(c);
     const parsed = ChainClose.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
-    db.update(chains).set({ status: parsed.data.reason }).where(eq(chains.id, id)).run();
+    if (parsed.data.reason === 'done' && (current.kind !== 'demo' || current.questId === null))
+      return c.json(
+        {
+          error: 'Invalid request',
+          issues: [
+            {
+              code: 'custom',
+              path: ['reason'],
+              message: 'done requires a demo chain with a quest',
+            },
+          ],
+        },
+        400,
+      );
+    if (parsed.data.reason === 'done') {
+      const quest = db.select().from(quests).where(eq(quests.id, current.questId!)).get()!;
+      db.update(quests).set({ status: 'done' }).where(eq(quests.id, quest.id)).run();
+      await storeEvent({
+        source: 'planner',
+        kind: 'planner.quest_updated',
+        questId: quest.id,
+        payload: { summary: `Quest "${quest.title}" is now done`, status: 'done' },
+      });
+    }
+    if (current.kind === 'demo' && current.demoId !== null)
+      db.update(demos)
+        .set({ hiddenAt: now().toISOString() })
+        .where(and(eq(demos.id, current.demoId), isNull(demos.hiddenAt)))
+        .run();
+    const status = parsed.data.reason === 'done' ? 'settled' : parsed.data.reason;
+    db.update(chains).set({ status }).where(eq(chains.id, id)).run();
     const firstText = current.messages[0]?.text ?? '';
     const text =
-      `${parsed.data.reason === 'settled' ? 'Settled' : 'Made a quest of'}: ${firstText}`.slice(
+      `${parsed.data.reason === 'settled' ? 'Settled' : parsed.data.reason === 'done' ? 'Done' : 'Made a quest of'}: ${firstText}`.slice(
         0,
         160,
       );
@@ -255,6 +311,52 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
               text,
               ...(current.questId === null ? {} : { questId: current.questId }),
             },
+    });
+    return c.json(readChain(id)!);
+  });
+
+  app.post('/chains/:id/reopen', async (c) => {
+    const id = Number(c.req.param('id'));
+    const current = Number.isInteger(id) ? readChain(id) : undefined;
+    if (current === undefined) return notFound(c);
+    const parsed = ChainReopen.safeParse(await c.req.json().catch(() => undefined));
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    if (current.kind === 'rumble')
+      return c.json(
+        {
+          error: 'Invalid request',
+          issues: [{ code: 'custom', path: ['id'], message: 'rumbles use the rumble route' }],
+        },
+        400,
+      );
+    if (current.status === 'open') return c.json(current);
+    const ts = now().toISOString();
+    db.update(chains).set({ status: 'open', lastActivityAt: ts }).where(eq(chains.id, id)).run();
+    if (current.kind === 'demo' && current.demoId !== null) {
+      db.update(demos).set({ hiddenAt: null }).where(eq(demos.id, current.demoId)).run();
+      if (current.questId !== null) {
+        const quest = db.select().from(quests).where(eq(quests.id, current.questId)).get();
+        if (quest?.status === 'done') {
+          db.update(quests).set({ status: 'demo' }).where(eq(quests.id, quest.id)).run();
+          await storeEvent({
+            source: 'planner',
+            kind: 'planner.quest_updated',
+            questId: quest.id,
+            payload: { summary: `Quest "${quest.title}" is now demo`, status: 'demo' },
+          });
+        }
+      }
+    }
+    const text = `Reopened: ${current.messages[0]?.text ?? ''}`.slice(0, 160);
+    await storeEvent({
+      source: 'planner',
+      kind: 'planner.chain_updated',
+      ...(current.questId === null ? {} : { questId: current.questId }),
+      payload: {
+        chainId: id,
+        text,
+        ...(current.questId === null ? {} : { questId: current.questId }),
+      },
     });
     return c.json(readChain(id)!);
   });

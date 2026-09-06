@@ -4,7 +4,7 @@ import { Id, Timestamp } from './ids.js';
 import { Rumble } from './rumble.js';
 
 export const ChainStatus = z.enum(['open', 'settled', 'converted']);
-export const ChainKind = z.enum(['question', 'message', 'rumble']);
+export const ChainKind = z.enum(['question', 'message', 'rumble', 'demo', 'action', 'unlock']);
 export type ChainStatus = z.infer<typeof ChainStatus>;
 export type ChainKind = z.infer<typeof ChainKind>;
 
@@ -26,6 +26,9 @@ export const Chain = z
     lastActivityAt: Timestamp,
     questId: Id.nullable(),
     snoozedUntil: Timestamp.nullable().default(null),
+    tags: z.array(z.string()).default([]),
+    demoId: Id.nullable().default(null),
+    payload: z.record(z.string(), z.unknown()).nullable().default(null),
     rumble: Rumble.nullable().default(null),
     messages: ChainMessage.array(),
   })
@@ -35,6 +38,12 @@ export const Chain = z
         code: 'custom',
         path: ['rumble'],
         message: 'rumble must be non-null exactly when kind is rumble',
+      });
+    if ((chain.kind === 'demo') !== (chain.demoId !== null))
+      context.addIssue({
+        code: 'custom',
+        path: ['demoId'],
+        message: 'demoId must be non-null exactly when kind is demo',
       });
   });
 export type Chain = z.infer<typeof Chain>;
