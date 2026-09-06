@@ -199,7 +199,10 @@ export function QuestCard({
           </span>
         </div>
         {nudged && (
-          <p className="today-ack" aria-live="polite">
+          <p
+            className="motion-safe:animate-[acknowledgement_3s_ease-out_forwards]"
+            aria-live="polite"
+          >
             Nudged. Fable's on it.
           </p>
         )}
