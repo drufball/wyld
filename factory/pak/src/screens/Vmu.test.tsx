@@ -108,6 +108,27 @@ describe('VMU', () => {
     renderScreen();
     expect(await screen.findByText("Controller's quiet.")).not.toBeNull();
   });
+  it('uses the singular label for one open rumble', async () => {
+    vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
+    vi.mocked(listQuests).mockResolvedValue([]);
+    vi.mocked(listRumbles).mockResolvedValue([
+      {
+        id: 'single-rumble',
+        title: 'Pick one',
+        context: 'Only one decision is open.',
+        options: ['A', 'B'],
+        chosen: null,
+        chosenAt: null,
+        blockingQuestIds: [],
+        kind: 'taste',
+      },
+    ]);
+    vi.mocked(listDemos).mockResolvedValue([]);
+    renderScreen();
+    expect((await screen.findByRole('link', { name: 'one Rumble' })).getAttribute('href')).toBe(
+      '/rumble',
+    );
+  });
   it('counts the open rumbles returned by the default filtered request', async () => {
     vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
     vi.mocked(listQuests).mockResolvedValue([]);
