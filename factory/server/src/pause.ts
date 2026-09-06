@@ -29,6 +29,15 @@ type Dependencies = {
   notifyWake?: WakePauseNotifier;
 };
 
+function syncWakePause(database: AppDatabase, notifyWake: WakePauseNotifier): void {
+  const activeFactoryPause = database.db
+    .select({ since: pauses.since })
+    .from(pauses)
+    .where(and(eq(pauses.lane, 'all'), isNull(pauses.resolvedAt)))
+    .get();
+  notifyWake(activeFactoryPause?.since ?? null);
+}
+
 export function createPauseService({
   database,
   now,
@@ -61,12 +70,7 @@ export function createPauseService({
         payload: { summary: `The factory resumed (${pause.lane}).`, lane: pause.lane },
       });
     }
-    if (
-      active.length > 0 &&
-      database.db.select().from(pauses).where(isNull(pauses.resolvedAt)).get() === undefined
-    ) {
-      notifyWake(null);
-    }
+    syncWakePause(database, notifyWake);
     return active.length;
   };
 }
@@ -130,7 +134,7 @@ export function createPauseRoutes(dependencies: Dependencies) {
       tags: ['warning'],
       ...(pakPublicUrl === undefined ? {} : { click: new URL('/rumble', pakPublicUrl).toString() }),
     });
-    notifyWake(pause.since);
+    syncWakePause(database, notifyWake);
     return c.json(result, 201);
   });
 
