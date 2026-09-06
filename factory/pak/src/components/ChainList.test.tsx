@@ -187,6 +187,7 @@ describe('ChainList', () => {
     expect(actions?.contains(settled)).toBe(true);
     expect(actions?.contains(moreActions)).toBe(true);
     expect(settled.parentElement).toBe(moreActions.parentElement);
+    expect(settled.parentElement?.className).toContain('justify-end');
   });
 
   it('opens the actions menu, snoozes with presets, and closes on Escape', async () => {
