@@ -64,7 +64,7 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
 2. The channel queue replays a short backlog — all handled. Everything up to `f85baab` is done.
 3. Open Rumbles: `ntfy-phone` (waits on 1.8's ntfy server + a path under Tailscale Serve) and
    `rotate-build-token` (before ~2026-10-05). Both wait on Dru or on later steps.
-4. **Spawn the `pak-theme` lead again** for units 2 and 3 — the issue bodies are written verbatim
+4. ~~Spawn the `pak-theme` lead again~~ **Spawned 2026-09-06 07:18 by the respawned Planner (chains 9/10 handled, demo tools confirmed live). Do not spawn a second one; if the session is lost mid-run, check `gh pr list`/`gh issue list` for the unit in flight before doing anything.** Brief was: file units 2 and 3 — the issue bodies are written verbatim
    in `factory/planner/queued/pak-theme-unit-2.md` and `-unit-3.md`; file them one at a time
    (both touch `factory/pak`). Same brief as before (see the `pak-theme` Open-items bullet):
    verify by screenshots at 375×812 and 1280×900, deploy each merge to the live Pak
