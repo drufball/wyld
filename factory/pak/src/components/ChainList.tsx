@@ -125,12 +125,16 @@ export function ChainCard({
   const content = (
     <>
       <div className="flex flex-wrap gap-2">
-        <Badge
-          variant="tone"
-          data-tone={chain.kind === 'rumble' && chain.rumble?.kind === 'outage' ? 'bad' : 'accent'}
-        >
-          {chain.kind}
-        </Badge>
+        {(!rumbleCard || chain.kind !== 'rumble') && (
+          <Badge variant="tone" data-tone="accent">
+            {chain.kind}
+          </Badge>
+        )}
+        {chain.kind === 'rumble' && chain.rumble !== null && (
+          <Badge variant="tone" data-tone={chain.rumble.kind === 'outage' ? 'bad' : 'accent'}>
+            {chain.rumble.kind}
+          </Badge>
+        )}
         {showQuestChip && chain.questId !== null && (
           <Badge variant="tone" data-tone="accent">
             {questName ?? chain.questId}

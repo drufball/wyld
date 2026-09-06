@@ -73,6 +73,9 @@ describe('Rumble', () => {
     const cards = document.querySelectorAll('.rumble-card');
     expect(cards[0]?.textContent).toContain('First choice');
     expect(cards[1]?.textContent).toContain('Second choice');
+    expect(within(cards[0] as HTMLElement).getByText('taste')).not.toBeNull();
+    expect(within(cards[1] as HTMLElement).getByText('outage')).not.toBeNull();
+    expect(screen.queryByText('rumble')).toBeNull();
     await act(async () => {
       fireEvent.click(within(cards[0] as HTMLElement).getByRole('button', { name: 'A' }));
       await Promise.resolve();

@@ -146,7 +146,7 @@ export function Today({
       {composerOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-30 min-h-11 bg-background/70"
+          className="fixed inset-0 z-30 min-h-11 bg-black/60 backdrop-blur-sm"
           aria-label="Close new message"
           onClick={() => {
             setComposerOpen(false);
@@ -162,7 +162,7 @@ export function Today({
         id="today-composer"
         className={
           composerOpen
-            ? 'fixed bottom-[calc(88px+env(safe-area-inset-bottom))] left-0 right-0 z-40 grid gap-3 p-5 md:bottom-24 md:left-auto md:right-6 md:w-[min(32rem,calc(100vw-3rem))]'
+            ? 'fixed bottom-[calc(53px+env(safe-area-inset-bottom))] left-0 right-0 z-40 grid gap-3 p-5 md:bottom-24 md:left-auto md:right-6 md:w-[min(32rem,calc(100vw-3rem))]'
             : 'sr-only'
         }
       >
@@ -251,7 +251,9 @@ export function Today({
         aria-expanded={composerOpen}
         aria-controls="today-composer"
         onClick={() => setComposerOpen((value) => !value)}
-        className="fixed bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 z-40 size-14 rounded-full p-0 text-xl md:bottom-6 md:right-6"
+        className={`fixed bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 z-40 size-14 rounded-full p-0 text-xl md:bottom-6 md:right-6 ${
+          composerOpen ? 'invisible pointer-events-none md:visible md:pointer-events-auto' : ''
+        }`}
       >
         +
       </Button>
