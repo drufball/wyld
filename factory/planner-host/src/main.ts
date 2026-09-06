@@ -19,7 +19,7 @@ const queue = createQueueClient({
 });
 const host = createHost({ config, queue, log });
 const resumed = host.start();
-const health = startHealthServer(config.port, host.health);
+const health = startHealthServer(config.port, host.health, log);
 log('info', 'planner host started', {
   port: config.port,
   model: config.model,

@@ -87,6 +87,7 @@ export function createHost(deps: HostDependencies) {
   let abort: AbortController | undefined;
   let stopped = false;
   let restarting = false;
+  let generation = 0;
 
   const compose = () => {
     if (turnInFlight || pending.length === 0) return;
@@ -159,7 +160,7 @@ export function createHost(deps: HostDependencies) {
         },
       },
       abortController: controller,
-      stderr: true as unknown as (data: string) => void,
+      stderr: (data) => deps.log('debug', 'claude stderr', { data: data.trim().slice(0, 500) }),
       ...(resume === null ? {} : { resume }),
       ...(deps.config.maxTurns === undefined ? {} : { maxTurns: deps.config.maxTurns }),
       ...(deps.config.claudePath === undefined
@@ -171,6 +172,7 @@ export function createHost(deps: HostDependencies) {
   const restart = async (reason: string) => {
     if (stopped || restarting) return;
     restarting = true;
+    generation++;
     abort?.abort();
     input.close();
     pending = [...inFlight, ...pending];
@@ -186,10 +188,11 @@ export function createHost(deps: HostDependencies) {
       startQuery();
     }
   };
-  const consume = async (stream: Query, resumed: boolean) => {
+  const consume = async (stream: Query, resumed: boolean, streamGeneration: number) => {
     let sawInit = false;
     try {
       for await (const raw of stream) {
+        if (streamGeneration !== generation) return;
         const message = raw as SDKMessage;
         lastMessageAt = now();
         if (message.type === 'system' && message.subtype === 'init') {
@@ -215,6 +218,7 @@ export function createHost(deps: HostDependencies) {
             inFlight = [];
             turnInFlight = false;
             deps.log('warn', 'planner session resume failed; starting fresh');
+            generation++;
             abort?.abort();
             input.close();
             restarting = true;
@@ -238,12 +242,14 @@ export function createHost(deps: HostDependencies) {
           compose();
         }
       }
-      if (!stopped && !restarting) await restart('query ended');
+      if (streamGeneration === generation && !stopped && !restarting) await restart('query ended');
     } catch (error) {
-      if (!stopped && !restarting) await restart(`query failed: ${String(error)}`);
+      if (streamGeneration === generation && !stopped && !restarting)
+        await restart(`query failed: ${String(error)}`);
     }
   };
   const startQuery = () => {
+    const streamGeneration = ++generation;
     input = createInputQueue();
     abort = new AbortController();
     const resumed = sessionId !== null;
@@ -252,7 +258,7 @@ export function createHost(deps: HostDependencies) {
       turnInFlight = true;
     }
     const stream = query({ prompt: input, options: options(sessionId, abort) });
-    void consume(stream, resumed);
+    void consume(stream, resumed, streamGeneration);
     compose();
   };
   const watchdog = () => {
