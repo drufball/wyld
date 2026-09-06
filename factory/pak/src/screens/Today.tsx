@@ -43,16 +43,13 @@ export function Signals({ rumbles, demos, memory }: TodaySignals) {
   );
 }
 
-export function GoOutside({
-  action,
-  building,
-}: {
-  action: NextAction;
-  building: number;
-  chainCount: number;
-}) {
+export function GoOutside({ action, building }: { action: NextAction; building: number }) {
   const actionText = action.deepLink ? (
-    <Link aria-label={action.text} to={action.deepLink} className="min-h-11 text-foreground">
+    <Link
+      aria-label={action.text}
+      to={action.deepLink}
+      className="min-h-11 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       {action.text}
     </Link>
   ) : (
@@ -64,7 +61,7 @@ export function GoOutside({
         <svg
           viewBox="0 0 320 160"
           className="absolute inset-0 size-full"
-          preserveAspectRatio="xMidYMid slice"
+          preserveAspectRatio="none"
         >
           <defs>
             <linearGradient id="sunset-sky" x1="0" y1="0" x2="0" y2="1">
@@ -76,23 +73,24 @@ export function GoOutside({
             </linearGradient>
           </defs>
           <rect width="320" height="160" fill="url(#sunset-sky)" />
-          <circle cx="242" cy="101" r="23" fill="#f1fa8c" opacity="0.18" />
-          <circle
-            cx="242"
-            cy="101"
-            r="14"
-            fill="#f1fa8c"
-            className="[animation:sunset-shimmer_6s_ease-in-out_infinite]"
-          />
-          <polygon points="0,103 73,72 145,108 230,77 320,109 320,160 0,160" fill="#6272a4" />
-          <polygon points="0,122 82,92 157,126 235,93 320,119 320,160 0,160" fill="#44475a" />
-          <polygon points="0,139 66,112 145,137 220,110 320,134 320,160 0,160" fill="#282a36" />
+          <polygon points="0,113 73,100 145,116 230,101 320,114 320,160 0,160" fill="#6272a4" />
+          <polygon points="0,129 82,111 157,132 235,110 320,126 320,160 0,160" fill="#44475a" />
+          <polygon points="0,143 66,126 145,141 220,123 320,139 320,160 0,160" fill="#282a36" />
+        </svg>
+        <div className="absolute right-[18%] top-7 size-12 rounded-full bg-dracula-yellow shadow-[0_0_36px_rgb(241_250_140/0.55)] [animation:sunset-shimmer_6s_ease-in-out_infinite]" />
+        <svg
+          viewBox="0 0 48 40"
+          preserveAspectRatio="xMidYMid meet"
+          className="absolute bottom-5 right-[29%] h-9 w-10"
+        >
           <g fill="#21222c">
-            <polygon points="238,119 251,116 258,137 235,137" />
-            <polygon points="241,111 253,109 258,119 239,121" />
-            <polygon points="241,111 244,103 248,110" />
-            <polygon points="251,110 255,103 256,114" />
-            <polygon points="257,135 263,116 266,119 263,137" />
+            <polygon points="10,35 12,23 19,16 30,18 34,25 33,35" />
+            <polygon points="18,17 21,8 30,7 36,13 34,21 25,22" />
+            <polygon points="21,9 25,1 29,8" />
+            <polygon points="34,12 43,15 35,18" />
+            <polygon points="10,24 5,17 3,8 7,6 10,15 16,20" />
+            <polygon points="8,35 13,32 18,34 17,38 8,38" />
+            <polygon points="28,33 35,32 37,38 28,38" />
           </g>
         </svg>
       </div>
@@ -374,7 +372,7 @@ export function Today({
         </form>
       </Card>
       {goOutside && nextAction !== null ? (
-        <GoOutside action={nextAction} building={buildingCount} chainCount={chainCount} />
+        <GoOutside action={nextAction} building={buildingCount} />
       ) : nextAction !== null ? (
         nextAction.deepLink ? (
           <Card variant="bevel" className="p-0">

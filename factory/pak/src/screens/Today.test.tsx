@@ -32,7 +32,6 @@ describe('Today', () => {
         <GoOutside
           action={{ text: 'Nothing needs you.', backAt: '2026-09-06T16:30:00.000Z' }}
           building={3}
-          chainCount={0}
         />
       </MemoryRouter>,
     );
@@ -40,7 +39,7 @@ describe('Today', () => {
     expect(screen.getByText(/Back around \d{1,2}:\d{2}/)).not.toBeNull();
     rerender(
       <MemoryRouter>
-        <GoOutside action={{ text: 'Nothing needs you.' }} building={0} chainCount={0} />
+        <GoOutside action={{ text: 'Nothing needs you.' }} building={0} />
       </MemoryRouter>,
     );
     expect(screen.getByText('Nothing cooking right now.')).not.toBeNull();

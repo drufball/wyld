@@ -505,10 +505,8 @@ describe('Pak tools', () => {
   });
 
   it('forwards the optional next-action ETA only when supplied', async () => {
-    const fetch = vi.fn(
-      async (..._args: Parameters<typeof globalThis.fetch>) => new Response('{}'),
-    );
-    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response('{}'));
+    const [, call] = handlers(fetch);
     await call!({
       params: {
         name: 'pak_set_next_action',
