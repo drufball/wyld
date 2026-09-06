@@ -85,6 +85,23 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
 
 ## Open items
 
+- **Quest `planner-in-pak` "Planner inside the Pak" — parked on Rumble `planner-home` (2026-09-06 07:58).**
+  Dru asked whether to move the Planner into the Pak via the Claude Agent SDK. Researched against the
+  official docs (guide agent, sources: code.claude.com agent-sdk overview / streaming-vs-single-mode /
+  sessions, channels, cli-reference, legal-and-compliance): (1) the SDK has **no channels** — they are
+  CLI-only research preview — but **streaming-input mode** (an `AsyncGenerator` of user messages, each
+  yield = a turn) would let Wake's queue feed the Planner directly; MCP servers, subagents, skills,
+  hooks, permission modes, CLAUDE.md via `settingSources`, session resume all carry over. (2) **The SDK
+  may not run on a Pro/Max subscription** — legal-and-compliance and the SDK quickstart say SDK apps must
+  use an API key and may not route through Free/Pro/Max credentials. (3) `--dangerously-load-development-
+  channels` **prompts even in non-interactive mode**; no env var / settings bypass exists. Proposal is the
+  note on the quest; recommendation = stay in the terminal on the plan. Rumble options: launcher written by
+  Dru / restarts wait for Dru / move to SDK on an API key. On `human.decision`: option 1 → unpark
+  `unattended-restart`, ask Dru for the launcher path and wire it into `factory-up.sh` via Codex; option 2
+  → mark both quests done/parked with a note; option 3 → plan `planner-in-pak` as one Codex unit (Node
+  host in `factory/planner-host/` or `factory/wake`, streaming input off the queue, `ANTHROPIC_API_KEY`
+  from `.factory/env` — a Rumble for the key itself).
+
 - **`wake-hot-reload` is done (2026-09-05 ~23:20)** — #88/#90 (tolerant claim path) and #92/#93
   (tool hot reload). Quest `unattended-restart` stays **parked**: the half that needs Dru is
   unchanged — Claude Code's development-channels warning at launch, which the auto-mode classifier
