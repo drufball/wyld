@@ -16,6 +16,26 @@ const Environment = z.object({
   ),
   OPS_REPO: z.preprocess(emptyStringAsUndefined, z.string().min(1).default('drufball/wyld')),
   OPS_USAGE_DIR: z.preprocess(emptyStringAsUndefined, z.string().min(1).optional()),
+  // Separate pause/resume thresholds provide hysteresis, preventing boundary flapping.
+  OPS_GH_RATE_PAUSE_BELOW: z.preprocess(
+    emptyStringAsUndefined,
+    z.coerce.number().int().min(0).default(200),
+  ),
+  OPS_GH_RATE_RESUME_ABOVE: z.preprocess(
+    emptyStringAsUndefined,
+    z.coerce.number().int().min(0).default(500),
+  ),
+  OPS_PLANNER_STALE_MINUTES: z.preprocess(
+    emptyStringAsUndefined,
+    z.coerce.number().positive().default(15),
+  ),
+  OPS_WATCHDOG: z.preprocess(
+    emptyStringAsUndefined,
+    z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .default(true),
+  ),
 });
 
 export type Config = {
@@ -23,6 +43,10 @@ export type Config = {
   intervalSeconds: number;
   repo: string;
   usageDir: string;
+  ghRatePauseBelow: number;
+  ghRateResumeAbove: number;
+  plannerStaleMinutes: number;
+  watchdogEnabled: boolean;
 };
 
 export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config {
@@ -34,6 +58,10 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     pakUrl: result.data.PAK_URL,
     intervalSeconds: result.data.OPS_INTERVAL_SECONDS,
     repo: result.data.OPS_REPO,
+    ghRatePauseBelow: result.data.OPS_GH_RATE_PAUSE_BELOW,
+    ghRateResumeAbove: result.data.OPS_GH_RATE_RESUME_ABOVE,
+    plannerStaleMinutes: result.data.OPS_PLANNER_STALE_MINUTES,
+    watchdogEnabled: result.data.OPS_WATCHDOG,
     usageDir:
       result.data.OPS_USAGE_DIR ??
       path.join(os.homedir(), '.claude', 'projects', repoRoot.replaceAll('/', '-')),

@@ -3,6 +3,7 @@ import { readConfig } from './config.js';
 import { readGithubStatus } from './github.js';
 import { log } from './logger.js';
 import { readTokensToday } from './usage.js';
+import { runWatchdog } from './watchdog.js';
 
 const config = readConfig();
 let stopped = false;
@@ -26,6 +27,15 @@ async function cycle(): Promise<void> {
     });
     if (!response.ok) throw new Error(`Pak returned HTTP ${response.status}`);
     log('info', 'ops report posted', { report });
+    if (config.watchdogEnabled) {
+      try {
+        await runWatchdog(config, github.ghRateRemaining, new Date());
+      } catch (error) {
+        log('error', 'watchdog cycle failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   } catch (error) {
     log('error', 'ops report cycle failed', {
       error: error instanceof Error ? error.message : String(error),

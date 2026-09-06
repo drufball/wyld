@@ -16,6 +16,10 @@ describe('readConfig', () => {
       pakUrl: 'http://localhost:8787',
       intervalSeconds: 120,
       repo: 'drufball/wyld',
+      ghRatePauseBelow: 200,
+      ghRateResumeAbove: 500,
+      plannerStaleMinutes: 15,
+      watchdogEnabled: true,
     });
     expect(config.usageDir).toBe(
       path.join(
@@ -33,13 +37,22 @@ describe('readConfig', () => {
         OPS_INTERVAL_SECONDS: '30',
         OPS_REPO: 'a/b',
         OPS_USAGE_DIR: '/tmp/usage',
+        OPS_GH_RATE_PAUSE_BELOW: '100',
+        OPS_GH_RATE_RESUME_ABOVE: '600',
+        OPS_PLANNER_STALE_MINUTES: '20',
+        OPS_WATCHDOG: 'false',
       }),
     ).toEqual({
       pakUrl: 'http://example.test',
       intervalSeconds: 30,
       repo: 'a/b',
       usageDir: '/tmp/usage',
+      ghRatePauseBelow: 100,
+      ghRateResumeAbove: 600,
+      plannerStaleMinutes: 20,
+      watchdogEnabled: false,
     });
     expect(() => readConfig({ OPS_INTERVAL_SECONDS: '29' })).toThrow('Invalid ops configuration');
+    expect(() => readConfig({ OPS_WATCHDOG: 'yes' })).toThrow('Invalid ops configuration');
   });
 });
