@@ -84,8 +84,7 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
 
 ## Open items
 
-- **Quest `planner-in-pak` "Planner inside the Pak" — parked on Rumble `planner-home` (2026-09-06 08:15,
-  corrected).** Dru asked whether to move the Planner into the Pak via the Claude Agent SDK. **First answer was
+- **Quest `planner-in-pak` "Planner inside the Pak" — DECIDED 2026-09-06 08:14: "Move the Planner into the Pak". Lead spawned 08:16 (units 1 host + 2 launcher; it waits for #102 to merge before touching `factory/wake`). Rumble `planner-token` (account) asks Dru for `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` in `.factory/env`. `unattended-restart` stays parked as superseded; close it when the host ships. The cutover (stop the CLI Planner, start the host) is the Planner's own job, announced to Dru first — it is the last attended restart. History of the decision (2026-09-06 08:15, corrected):** Dru asked whether to move the Planner into the Pak via the Claude Agent SDK. **First answer was
   wrong** (a guide subagent over-read the developer clause; the Planner relayed it without reading the source —
   Dru caught it). Verified facts, read directly: (a) support.claude.com article 15036540 "Use the Claude Agent
   SDK with your Claude plan" (2026-06-16): "Claude Agent SDK, `claude -p`, and third-party app usage still draw
