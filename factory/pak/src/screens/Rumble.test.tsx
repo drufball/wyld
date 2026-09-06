@@ -83,6 +83,8 @@ describe('Rumble', () => {
     await waitFor(() => expect(decideRumble).toHaveBeenCalledWith(first.id, 'A'));
     const details = await screen.findByText('Already decided (1)');
     fireEvent.click(details);
+    expect(within(cards[0] as HTMLElement).getByText('taste')).not.toBeNull();
+    expect(screen.queryByText('rumble')).toBeNull();
     vi.mocked(decideRumble).mockResolvedValue(decided(first, 'B'));
     fireEvent.click(screen.getByRole('button', { name: 'B' }));
     await waitFor(() => expect(decideRumble).toHaveBeenLastCalledWith(first.id, 'B'));

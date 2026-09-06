@@ -50,6 +50,8 @@ export function Today({
   const [demoCount, setDemoCount] = useState(signals.demos);
   const [composerOpen, setComposerOpen] = useState(false);
   const intentField = useRef<HTMLTextAreaElement>(null);
+  const composerButton = useRef<HTMLButtonElement>(null);
+  const composerWasOpened = useRef(false);
   const { subscribe } = useLiveEvents();
 
   const loadPresence = useCallback(
@@ -100,13 +102,17 @@ export function Today({
     field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
   }, [text]);
   useEffect(() => {
-    if (composerOpen) intentField.current?.focus();
+    if (composerOpen) {
+      composerWasOpened.current = true;
+      intentField.current?.focus();
+    } else if (composerWasOpened.current) {
+      composerButton.current?.focus();
+    }
   }, [composerOpen]);
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && composerOpen) {
         setComposerOpen(false);
-        document.getElementById('today-composer-button')?.focus();
       }
     };
     document.addEventListener('keydown', escape);
@@ -119,7 +125,6 @@ export function Today({
       .then((chain) => {
         setAddedChain(chain);
         setComposerOpen(false);
-        document.getElementById('today-composer-button')?.focus();
       })
       .catch(() => setFailedSubmission({ text: submission, action: 'chain' }));
   };
@@ -148,10 +153,7 @@ export function Today({
           type="button"
           className="fixed inset-0 z-30 min-h-11 bg-black/60 backdrop-blur-sm"
           aria-label="Close new message"
-          onClick={() => {
-            setComposerOpen(false);
-            document.getElementById('today-composer-button')?.focus();
-          }}
+          onClick={() => setComposerOpen(false)}
         />
       )}
       <Card
@@ -206,14 +208,7 @@ export function Today({
               </span>
             ) : null}
           </div>
-          <Button
-            variant="retro"
-            type="button"
-            onClick={() => {
-              setComposerOpen(false);
-              document.getElementById('today-composer-button')?.focus();
-            }}
-          >
+          <Button variant="retro" type="button" onClick={() => setComposerOpen(false)}>
             Close
           </Button>
         </form>
@@ -244,6 +239,7 @@ export function Today({
       <InFlight />
       <Signals {...signals} rumbles={rumbleCount} demos={demoCount} />
       <Button
+        ref={composerButton}
         id="today-composer-button"
         variant="retro"
         type="button"

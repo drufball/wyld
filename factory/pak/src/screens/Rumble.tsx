@@ -95,7 +95,7 @@ export function Rumble() {
                 >
                   <article className="rumble-card grid min-w-0 gap-3 p-5">
                     <Badge variant="tone" data-tone={rumble.kind === 'outage' ? 'bad' : 'accent'}>
-                      rumble
+                      {rumble.kind}
                     </Badge>
                     <h2 className="m-0 wrap-anywhere text-xl leading-snug">{rumble.title}</h2>
                     <p className="m-0">
