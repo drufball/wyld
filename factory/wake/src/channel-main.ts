@@ -43,12 +43,20 @@ reloader.watch(watching);
 process.on('SIGHUP', () => void reloader.reload('SIGHUP'));
 channelLog('info', 'wake channel hot reload armed', { pid: process.pid, watching });
 
-const daemonPost = createDaemonPost({ wakeUrl, wakeSecret, log: channelLog });
-
-createDeliveryLoop({
-  claim: async () =>
-    parseClaimResponse(await (await daemonPost('/queue/claim', { limit: 20 })).json(), channelLog),
-  ack: async (ids) => void (await daemonPost('/queue/ack', { ids })),
-  emit: async (notification) => void (await mcp.notification(notification)),
-  log: channelLog,
-}).start();
+// The Agent SDK host claims events itself; disabling push prevents two consumers racing.
+const channelPush = !['0', 'false'].includes((process.env.WAKE_CHANNEL_PUSH ?? '').toLowerCase());
+if (channelPush) {
+  const daemonPost = createDaemonPost({ wakeUrl, wakeSecret, log: channelLog });
+  createDeliveryLoop({
+    claim: async () =>
+      parseClaimResponse(
+        await (await daemonPost('/queue/claim', { limit: 20 })).json(),
+        channelLog,
+      ),
+    ack: async (ids) => void (await daemonPost('/queue/ack', { ids })),
+    emit: async (notification) => void (await mcp.notification(notification)),
+    log: channelLog,
+  }).start();
+} else {
+  channelLog('info', 'wake channel push disabled');
+}
