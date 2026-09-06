@@ -32,6 +32,7 @@ import { DEMO_SLUG, type DemoBuilder } from './builder.js';
 import { resolveStaticFile } from './static.js';
 import { createNotifier } from './notify.js';
 import { createPauseRoutes, createPauseService } from './pause.js';
+import { createSleepRoutes, createSleepScheduler, type SleepConfig } from './sleep.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -100,6 +101,7 @@ export type AppDependencies = {
   demosDir: string;
   feedbackDir: string;
   builder?: DemoBuilder;
+  sleepConfig?: SleepConfig;
 };
 
 export function createApp(dependencies: AppDependencies) {
@@ -372,17 +374,21 @@ export function createApp(dependencies: AppDependencies) {
     const body: unknown = await c.req.json().catch(() => undefined);
     const parsed = NextAction.safeParse(body);
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    await setNextAction(parsed.data.text, parsed.data.deepLink ?? null);
+    return c.json(readPresence());
+  });
+
+  async function setNextAction(text: string, deepLink: string | null) {
     db.update(presence)
-      .set({ nextActionText: parsed.data.text, nextActionLink: parsed.data.deepLink ?? null })
+      .set({ nextActionText: text, nextActionLink: deepLink })
       .where(eq(presence.id, 1))
       .run();
     await storeEvent({
       source: 'planner',
       kind: 'planner.next_action',
-      payload: parsed.data,
+      payload: { text, ...(deepLink === null ? {} : { deepLink }) },
     });
-    return c.json(readPresence());
-  });
+  }
 
   app.post('/api/presence/seen', async (c) => {
     const seenAt = now().toISOString();
@@ -395,6 +401,24 @@ export function createApp(dependencies: AppDependencies) {
   });
 
   app.route('/api', createQuestRoutes({ database: dependencies.database, now, storeEvent }));
+  const sleepConfig = dependencies.sleepConfig ?? {
+    timeZone: 'UTC',
+    goodnight: '23:00',
+    lastCall: '07:15',
+    lightsOn: '08:00',
+    enabled: false,
+  };
+  app.route(
+    '/api',
+    createSleepRoutes({ database: dependencies.database, now, storeEvent, config: sleepConfig }),
+  );
+  createSleepScheduler({
+    database: dependencies.database,
+    now,
+    storeEvent,
+    config: sleepConfig,
+    setNextAction,
+  }).start();
   app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
   const resumePause = createPauseService({

@@ -19,22 +19,28 @@ describe('operations schemas', () => {
     ).toBeTruthy();
     expect(
       SleepRun.parse({
-        id: 'sleep-1',
+        id: 1,
         started: ts,
         ended: ts,
-        phases: ['review'],
-        outcome: 'complete',
+        trigger: 'human',
+        phases: [{ phase: 'drain', at: ts }],
+        alarmsFired: ['goodnight'],
+        outcome: 'clean',
         leftoversParked: ['quest-2'],
       }),
     ).toBeTruthy();
     expect(
       Retro.parse({
-        id: 'retro-1',
+        id: 1,
         date: '2026-09-05',
+        summary: 'A night',
         wins: ['Shipped'],
         misses: [],
         factoryImprovements: ['quest-3'],
         stats: { shipped: 1 },
+        generatedBy: 'planner',
+        createdAt: ts,
+        updatedAt: ts,
       }),
     ).toBeTruthy();
     expect(

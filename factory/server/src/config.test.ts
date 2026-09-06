@@ -32,6 +32,13 @@ describe('readConfig', () => {
       wakeSecret: 'shared-secret',
       ntfyUrl: 'https://ntfy.example',
       ntfyTopic: 'custom-topic',
+      sleep: {
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        goodnight: '23:00',
+        lastCall: '07:15',
+        lightsOn: '08:00',
+        enabled: true,
+      },
     });
   });
 
