@@ -100,9 +100,18 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
-- **No lead running as of 16:47; nothing open on GitHub.** Next: plan `polish` (1.11) — check what of factory-spec §11's list is
-  already done (Serve on, PWA/SW exist, `factory up/down/doctor` exist) and quest only what is left; then Phase 2 (`fieldwork`).
-  First Sleep Mode night tonight at 23:00 local — leave nothing non-draft open by then.
+- **Host restarted 16:45 at the lead boundary (`tmux respawn-window -k -t wyld:planner`) — session resumed, and the
+  restart DID refresh the stale `pak_register_demo` schema.** So the rule is: a changed tool *shape* needs a host restart at a
+  lead boundary; a new tool does not.
+- **`polish` (1.11) lead spawned 16:49** (scratchpad `/tmp/wyld-leads/polish/`). Already done from the spec's list: PWA manifest/SW,
+  Serve, `factory up/down/doctor`. Units: (1) Go Outside — `NextAction.backAt?` + `pak_set_next_action back_at` + Today's sunset
+  panel when the next action starts "Nothing needs you" and no open chains/Rumbles (`codex/polish-go-outside`, #148 / PR #151);
+  (2) achievements — table + seeded catalogue (First Light, Five Alive, Playtester, Night Shift, Decider, Early Bird, Three in a
+  Row), rules in `factory/server/src/achievements.ts` evaluated per stored event, `pak.achievement_unlocked` event kind,
+  `GET /api/achievements`, Memory wall + Today toast; (3) SFX/haptics — WebAudio chimes (no assets), `navigator.vibrate` on
+  decisions, `wyld.sfx` in localStorage, off by default on coarse-pointer devices, switch on Debug; (4) doctor Serve-on-443 check +
+  `factory-up` prints the public URL — **landed 17:09 (#149 / PR #150), doctor 36 ok.** Lead registers the try-it card at the end.
+  First Sleep Mode night tonight at 23:00 local — leave nothing non-draft open by then. Then Phase 2 (`fieldwork`).
 - **try-it lead's sharp edges (16:45):** (1) a builder path that only runs in production needs one *real* run before it counts as
   verified — `kind: 'pak'` shipped dead in #145 (fresh worktree lacks `factory/shared/dist`; the smoke spec ran inside a checkout
   that had it) and only the live run found it. (2) `playwright.config.ts` is evaluated once per process (runner + each
