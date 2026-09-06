@@ -3,10 +3,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 import { Link } from 'react-router-dom';
 import {
   getPresence,
+  listChains,
   listDemos,
   listQuests,
   listRetros,
-  listRumbles,
   postChain,
   postEvent,
 } from '../api/client.js';
@@ -250,7 +250,7 @@ export function Today({
   }, [loadPresence, subscribe]);
   const loadRumbles = useCallback(
     () =>
-      void listRumbles({ status: 'open' })
+      void listChains({ kind: 'rumble' })
         .then((items) => setRumbleCount(items.length))
         .catch(() => undefined),
     [],
@@ -260,6 +260,8 @@ export function Today({
     const stops = [
       subscribe('human.decision', loadRumbles),
       subscribe('planner.next_action', loadRumbles),
+      subscribe('planner.chain_updated', loadRumbles),
+      subscribe('human.chain_closed', loadRumbles),
     ];
     return () => stops.forEach((stop) => stop());
   }, [loadRumbles, subscribe]);
@@ -340,11 +342,12 @@ export function Today({
     sendChain(intent);
   };
 
+  // /api/chains excludes snoozed items and includes Rumbles, so zero means nothing open and
+  // unsnoozed is waiting on him.
   const goOutside =
     nextAction !== null &&
     /^nothing needs you/i.test(nextAction.text.trimStart()) &&
-    chainCount === 0 &&
-    rumbleCount === 0;
+    chainCount === 0;
 
   return (
     <div className="grid gap-8">
