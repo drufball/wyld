@@ -1,7 +1,7 @@
 import type { Demo } from '@wyld/shared';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { buildDemo, listDemos, patchQuestStatus, postFeedback } from '../api/client.js';
+import { buildDemo, hideDemo, listDemos, patchQuestStatus, postFeedback } from '../api/client.js';
 import { Badge } from '../components/ui/badge.js';
 import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
@@ -132,16 +132,48 @@ function MarkDone({
   );
 }
 
+function Hide({
+  onHide,
+  hiding,
+  failed,
+}: {
+  onHide: () => void;
+  hiding: boolean;
+  failed: boolean;
+}) {
+  return (
+    <>
+      <Button variant="retro" type="button" disabled={hiding} onClick={onHide}>
+        Hide
+      </Button>
+      {failed && (
+        <p className="m-0 basis-full text-muted-foreground">
+          That didn't go through.{' '}
+          <Button variant="ghost" type="button" onClick={onHide}>
+            Retry
+          </Button>
+        </p>
+      )}
+    </>
+  );
+}
+
 function LiveDemoContent({
   demo,
   onMarkDone,
   markingDone = false,
   markDoneFailed = false,
+  onHide,
+  hiding = false,
+  hideFailed = false,
 }: {
   demo: Demo;
   onMarkDone?: () => void;
   markingDone?: boolean;
   markDoneFailed?: boolean;
+  onHide?: () => void;
+  hiding?: boolean;
+  hideFailed?: boolean;
 }) {
   return (
     <>
@@ -184,6 +216,9 @@ function LiveDemoContent({
         {demo.questId !== null && onMarkDone && (
           <MarkDone onMarkDone={onMarkDone} marking={markingDone} failed={markDoneFailed} />
         )}
+        {demo.questId === null && onHide && (
+          <Hide onHide={onHide} hiding={hiding} failed={hideFailed} />
+        )}
       </div>
       <FeedbackForm demoId={demo.id} />
     </>
@@ -196,6 +231,8 @@ function DemoGrid() {
   const [failed, setFailed] = useState<string | null>(null);
   const [markingDone, setMarkingDone] = useState<string | null>(null);
   const [markDoneFailed, setMarkDoneFailed] = useState<string | null>(null);
+  const [hiding, setHiding] = useState<string | null>(null);
+  const [hideFailed, setHideFailed] = useState<string | null>(null);
   const { subscribe } = useLiveEvents();
   const load = useCallback(
     () =>
@@ -238,6 +275,14 @@ function DemoGrid() {
       .catch(() => setMarkDoneFailed(demo.id))
       .finally(() => setMarkingDone(null));
   };
+  const hide = (demo: Demo) => {
+    setHiding(demo.id);
+    setHideFailed(null);
+    void hideDemo(demo.id)
+      .then(() => setDemos((items) => items.filter((item) => item.id !== demo.id)))
+      .catch(() => setHideFailed(demo.id))
+      .finally(() => setHiding(null));
+  };
   return (
     <div className="mx-auto max-w-[1100px]">
       <h1>Demos</h1>
@@ -255,6 +300,9 @@ function DemoGrid() {
                     onMarkDone={() => markDone(demo)}
                     markingDone={markingDone === demo.id}
                     markDoneFailed={markDoneFailed === demo.id}
+                    onHide={() => hide(demo)}
+                    hiding={hiding === demo.id}
+                    hideFailed={hideFailed === demo.id}
                   />
                 ) : (
                   <>
@@ -278,6 +326,13 @@ function DemoGrid() {
                               onMarkDone={() => markDone(demo)}
                               marking={markingDone === demo.id}
                               failed={markDoneFailed === demo.id}
+                            />
+                          )}
+                          {demo.questId === null && (
+                            <Hide
+                              onHide={() => hide(demo)}
+                              hiding={hiding === demo.id}
+                              failed={hideFailed === demo.id}
                             />
                           )}
                         </div>
@@ -322,6 +377,8 @@ function DemoPlayer({ id }: { id: string }) {
   const [demo, setDemo] = useState<Demo | null | undefined>(undefined);
   const [markingDone, setMarkingDone] = useState(false);
   const [markDoneFailed, setMarkDoneFailed] = useState(false);
+  const [hiding, setHiding] = useState(false);
+  const [hideFailed, setHideFailed] = useState(false);
   const navigate = useNavigate();
   const iframe = useRef<HTMLIFrameElement>(null);
   useEffect(() => {
@@ -337,6 +394,15 @@ function DemoPlayer({ id }: { id: string }) {
       .then(() => navigate('/demos'))
       .catch(() => setMarkDoneFailed(true))
       .finally(() => setMarkingDone(false));
+  };
+  const hide = () => {
+    if (demo == null) return;
+    setHiding(true);
+    setHideFailed(false);
+    void hideDemo(demo.id)
+      .then(() => navigate('/demos'))
+      .catch(() => setHideFailed(true))
+      .finally(() => setHiding(false));
   };
   if (demo === undefined) return null;
   if (demo === null)
@@ -361,6 +427,9 @@ function DemoPlayer({ id }: { id: string }) {
               onMarkDone={markDone}
               markingDone={markingDone}
               markDoneFailed={markDoneFailed}
+              onHide={hide}
+              hiding={hiding}
+              hideFailed={hideFailed}
             />
           </article>
         </Card>

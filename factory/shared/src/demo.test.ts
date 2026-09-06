@@ -16,6 +16,7 @@ const demo = {
   builtAt: '2026-09-05T12:30:00Z',
   status: 'ready',
   error: null,
+  hiddenAt: null,
 };
 const feedback = {
   id: 1,
@@ -42,6 +43,7 @@ describe('demo schemas', () => {
       steps: string[];
       seeded: string[];
       deepLink: string | null;
+      hiddenAt: string | null;
     }>();
   });
   it('rejects malformed demos and feedback', () => {

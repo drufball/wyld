@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { desc, eq, isNull, ne, or } from 'drizzle-orm';
+import { and, desc, eq, isNull, ne, or } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { Demo, Feedback, NewDemo, NewFeedback, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
@@ -74,10 +74,15 @@ export function createDemoRoutes({
       .select({ demo: demos })
       .from(demos)
       .leftJoin(quests, eq(demos.questId, quests.id));
+    // includeDone=1 is the escape hatch for the complete archive: done quests and hidden demos.
     const rows = (
       parsed.data.includeDone === '1'
         ? query.all()
-        : query.where(or(isNull(quests.status), ne(quests.status, 'done'))).all()
+        : query
+            .where(
+              and(isNull(demos.hiddenAt), or(isNull(quests.status), ne(quests.status, 'done'))),
+            )
+            .all()
     )
       .map(({ demo }) => demo)
       .sort((a, b) => {
@@ -116,6 +121,7 @@ export function createDemoRoutes({
         status: live ? 'ready' : 'building',
         builtAt,
         error: null,
+        hiddenAt: null,
       })
       .onConflictDoUpdate({
         target: demos.id,
@@ -131,6 +137,7 @@ export function createDemoRoutes({
           status: live ? 'ready' : 'building',
           builtAt,
           error: null,
+          hiddenAt: null,
         },
       })
       .run();
@@ -165,11 +172,13 @@ export function createDemoRoutes({
           status: 'building',
           builtAt: null,
           error: null,
+          hiddenAt: null,
         })
         .run();
       row = db.select().from(demos).where(eq(demos.id, id)).get()!;
     }
     if (row.kind === 'live') return c.json({ error: 'Live demos are not built' }, 400);
+    db.update(demos).set({ hiddenAt: null }).where(eq(demos.id, id)).run();
     if (!builder.isBuilding(id)) {
       db.update(demos).set({ status: 'building', error: null }).where(eq(demos.id, id)).run();
       finishBuild(
@@ -178,6 +187,32 @@ export function createDemoRoutes({
       );
     }
     return c.json(parseDemo(db.select().from(demos).where(eq(demos.id, id)).get()!), 202);
+  });
+
+  const setHidden = (id: string, hiddenAt: string | null) => {
+    if (!validSlug(id)) return { error: 'invalid' as const };
+    const row = db.select().from(demos).where(eq(demos.id, id)).get();
+    if (row === undefined) return { error: 'missing' as const };
+    db.update(demos).set({ hiddenAt }).where(eq(demos.id, id)).run();
+    return { demo: parseDemo(db.select().from(demos).where(eq(demos.id, id)).get()!) };
+  };
+
+  app.post('/demos/:id/hide', (c) => {
+    const result = setHidden(c.req.param('id'), now().toISOString());
+    if ('error' in result)
+      return result.error === 'invalid'
+        ? c.json({ error: 'Invalid demo slug' }, 400)
+        : c.json({ error: 'Demo not found' }, 404);
+    return c.json(result.demo);
+  });
+
+  app.post('/demos/:id/unhide', (c) => {
+    const result = setHidden(c.req.param('id'), null);
+    if ('error' in result)
+      return result.error === 'invalid'
+        ? c.json({ error: 'Invalid demo slug' }, 400)
+        : c.json({ error: 'Demo not found' }, 404);
+    return c.json(result.demo);
   });
 
   app.get('/feedback', (c) => {

@@ -199,6 +199,12 @@ export async function buildDemo(id?: string): Promise<DemoType> {
   );
 }
 
+export async function hideDemo(id: string): Promise<DemoType> {
+  return Demo.parse(
+    await request(`/api/demos/${encodeURIComponent(id)}/hide`, json('POST', {}), 'Hiding demo'),
+  );
+}
+
 export async function listFeedback(demo?: string): Promise<FeedbackType[]> {
   const query = demo === undefined ? '' : `?demo=${encodeURIComponent(demo)}`;
   return Feedback.array().parse(await request(`/api/feedback${query}`, {}, 'Loading feedback'));

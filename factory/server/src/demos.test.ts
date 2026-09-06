@@ -109,6 +109,44 @@ describe('demo and feedback routes', () => {
     expect(all.map(({ id }) => id)).toEqual(['main', 'done-demo', 'open-demo']);
   });
 
+  it('hides and unhides questless demos, while fresh registration and builds restore them', async () => {
+    build.mockImplementation(() => new Promise(() => undefined));
+    await post('/api/demos', { id: 'hide-me', ref: 'main' });
+
+    const hidden = await post('/api/demos/hide-me/hide', {});
+    expect(hidden.status).toBe(200);
+    expect(Demo.parse(await hidden.json()).hiddenAt).toBe(clock.toISOString());
+    expect(await (await app.request('/api/demos')).json()).toEqual([]);
+    expect(
+      Demo.array()
+        .parse(await (await app.request('/api/demos?includeDone=1')).json())
+        .map(({ id }) => id),
+    ).toEqual(['hide-me']);
+
+    const unhidden = await post('/api/demos/hide-me/unhide', {});
+    expect(unhidden.status).toBe(200);
+    expect(Demo.parse(await unhidden.json()).hiddenAt).toBeNull();
+    expect(Demo.array().parse(await (await app.request('/api/demos')).json())).toHaveLength(1);
+
+    await post('/api/demos/hide-me/hide', {});
+    expect((await post('/api/demos', { id: 'hide-me', ref: 'fresh' })).status).toBe(201);
+    expect(
+      database.db.select().from(demos).where(eq(demos.id, 'hide-me')).get()?.hiddenAt,
+    ).toBeNull();
+
+    await post('/api/demos/hide-me/hide', {});
+    building.add('hide-me');
+    expect((await post('/api/demos/build', { id: 'hide-me' })).status).toBe(202);
+    expect(
+      database.db.select().from(demos).where(eq(demos.id, 'hide-me')).get()?.hiddenAt,
+    ).toBeNull();
+  });
+
+  it('returns not found from hide and unhide for an unknown demo', async () => {
+    expect((await post('/api/demos/missing/hide', {})).status).toBe(404);
+    expect((await post('/api/demos/missing/unhide', {})).status).toBe(404);
+  });
+
   it('upserts demos and defaults their title from the quest', async () => {
     database.db
       .insert(worlds)
