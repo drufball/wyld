@@ -114,6 +114,18 @@ this file, the Pak, and GitHub._
   live rows `ready` at once, build on live → 400, migration 0012 verified on the live db; 14:51 #138/PR #139 wake —
   `pak_register_demo` gained `kind/summary/steps/seeded/deep_link`, live needs a summary + ≥1 step, `deep_link` rejected on a
   disc). Zero fix rounds on both. Unit 3 (pak) next, then 4 (branch builds).
+- **15:01 Dru tapped Done on `new-home-prep`**; old laptop answers 502 via its lingering Serve (factory down there — fine).
+  `new-home` stays `demo` until he marks it done.
+- **`try-it-cards` unit 3 landed 15:33** (#140 / PR #141, two fix rounds, both disc-player chrome regressions only a browser
+  showed: the extracted `FeedbackForm` lost the ack's `Card variant="flat"` background, and a width on the shared form made
+  the player's Feedback trigger a full-width bar — fixed by scoping the width to the player). Unit 4 (branch Pak builds) next.
+  The lead registers this quest's own live card after deploying (curl fallback if its tool schema is stale).
+- **`quiet-chain-cards` reopened → `building` 15:04 on Dru's feedback** (verbatim: no open/closed arrow — "obvious by the
+  buttons appearing"; ⋯ next to Settled, no extra top row; then 15:05: "use an icon instead of the '...'"). Second lead
+  spawned 15:05 (scratchpad `/tmp/wyld-leads/quiet-chain-cards/`, branch `codex/quiet-chain-cards-2`, #142 / PR #143):
+  toggle kept as `sr-only focus:not-sr-only` so specs + keyboard access survive, header row only with a quest chip, menu
+  button moved into the actions row beside Settled, `lucide-react` `Ellipsis` icon (Dru pre-approved lucide during the
+  theme work). Runs alongside the try-it lead on disjoint Pak files.
 - **Sharp edge (14:53): the host session does NOT see a hot-reloaded tool *shape*.** After PR #139 the rebuilt adapter
   (`dist/channel.js` has `deep_link`) and a `kill -HUP` on the Planner's stdio adapter child (`pgrep -f channel-main.js`)
   still left `pak_register_demo` with the old four-arg schema in this session's tool list. New tools appearing live was
