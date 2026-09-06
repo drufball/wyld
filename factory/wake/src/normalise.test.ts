@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { normaliseEvent, normaliseGithub } from './normalise.js';
 
@@ -300,6 +300,53 @@ describe('normaliseGithub', () => {
     );
     expect(result!.summary.length).toBeLessThanOrEqual(280);
     expect(result?.summary.endsWith('…')).toBe(true);
+  });
+});
+
+describe('sleep alarms', () => {
+  const originalTimezone = process.env.TZ;
+
+  beforeAll(() => {
+    // Production deliberately formats alarm summaries in the machine's own timezone.
+    process.env.TZ = 'UTC';
+  });
+
+  afterAll(() => {
+    if (originalTimezone === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTimezone;
+  });
+
+  const event = (alarm: string, trigger = 'schedule', payload = {}) => ({
+    id: 1,
+    ts: timestamp,
+    source: 'sleep',
+    kind: 'sleep.alarm',
+    payload: {
+      runId: 12,
+      alarm,
+      trigger,
+      lightsOnAt: '2026-01-01T08:05:00.000Z',
+      ...payload,
+    },
+  });
+
+  it.each([
+    ['goodnight', 'schedule', 'Goodnight — Sleep Mode started (scheduled); lights on at 08:05'],
+    ['goodnight', 'human', 'Goodnight — Sleep Mode started (by Dru); lights on at 08:05'],
+    ['last_call', 'schedule', 'Last call — lights on at 08:05, wrap up the night'],
+    ['lights_on', 'schedule', 'Lights on — end the run and reset Today'],
+  ])('normalises %s (%s)', (alarm, trigger, summary) => {
+    expect(normaliseEvent(event(alarm, trigger))).toMatchObject({
+      source: 'sleep',
+      kind: 'sleep.alarm',
+      run: 12,
+      summary,
+    });
+  });
+
+  it('drops bad alarms and every other sleep event', () => {
+    expect(normaliseEvent(event('bad'))).toBeUndefined();
+    expect(normaliseEvent({ ...event('goodnight'), kind: 'sleep.phase' })).toBeUndefined();
   });
 });
 

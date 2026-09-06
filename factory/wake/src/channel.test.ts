@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   createDaemonPost,
+  createToolRegistry,
   createDeliveryLoop,
   createStreamLogger,
   notificationFor,
@@ -24,6 +25,7 @@ const later: QueuedMessage = {
   pr: 99,
   chain: 7,
   url: 'https://example.com/pr/99',
+  run: 12,
 };
 const earlier: QueuedMessage = {
   id: 1,
@@ -79,6 +81,7 @@ describe('Wake channel delivery', () => {
       pr: '99',
       chain: '7',
       url: 'https://example.com/pr/99',
+      run: '12',
     });
     expect(Object.keys(notification.params.meta).every((key) => /^[A-Za-z0-9_]+$/.test(key))).toBe(
       true,
@@ -221,6 +224,91 @@ describe('Wake channel delivery', () => {
   });
 });
 
+describe('Sleep tools', () => {
+  it('lists and dispatches all sleep and retro tools', async () => {
+    const request = vi.fn(async (url: string | URL | Request) => {
+      const value = String(url);
+      const body = value.endsWith('/current')
+        ? JSON.stringify({ run: { id: 12 }, schedule: { lightsOnAt: '2026-01-01T00:00:00.000Z' } })
+        : value.includes('/runs')
+          ? JSON.stringify([{ id: 11 }])
+          : 'OK';
+      return new Response(body);
+    }) as typeof fetch;
+    const registry = createToolRegistry({ pakUrl: 'http://pak', fetch: request });
+    expect(registry.tools.map(({ name }) => name)).toEqual(
+      expect.arrayContaining([
+        'pak_read_sleep',
+        'pak_advance_sleep',
+        'pak_end_sleep',
+        'pak_write_retro',
+        'pak_read_retros',
+      ]),
+    );
+    const read = await registry.callTool({ name: 'pak_read_sleep', arguments: {} });
+    const content = read.content[0];
+    if (content?.type !== 'text') throw new Error('Expected text tool result');
+    expect(read.isError, content.text).toBeFalsy();
+    expect(JSON.parse(content.text)).toEqual({
+      run: { id: 12 },
+      schedule: { lightsOnAt: '2026-01-01T00:00:00.000Z' },
+      recent: [{ id: 11 }],
+    });
+    await registry.callTool({
+      name: 'pak_advance_sleep',
+      arguments: { run: 12, phase: 'qa', note: 'clean' },
+    });
+    await registry.callTool({
+      name: 'pak_end_sleep',
+      arguments: { run: 12, outcome: 'clean', leftovers_parked: ['q1'] },
+    });
+    await registry.callTool({
+      name: 'pak_write_retro',
+      arguments: {
+        date: '2026-01-01',
+        summary: 'Good',
+        wins: [],
+        misses: [],
+        factory_improvements: ['q1'],
+      },
+    });
+    await registry.callTool({ name: 'pak_read_retros', arguments: {} });
+    expect(request).toHaveBeenCalledWith(
+      'http://pak/api/sleep/12/phase',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ phase: 'qa', note: 'clean' }),
+      }),
+    );
+    expect(request).toHaveBeenCalledWith(
+      'http://pak/api/sleep/12/end',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ outcome: 'clean', leftoversParked: ['q1'] }),
+      }),
+    );
+    expect(request).toHaveBeenCalledWith(
+      'http://pak/api/retros/2026-01-01',
+      expect.objectContaining({ method: 'PUT' }),
+    );
+    expect(request).toHaveBeenCalledWith(
+      'http://pak/api/retros?limit=10',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it.each(['pak_advance_sleep', 'pak_end_sleep', 'pak_write_retro', 'pak_read_retros'])(
+    'rejects invalid %s arguments',
+    async (name) => {
+      const result = await createToolRegistry({ pakUrl: 'http://pak' }).callTool({
+        name,
+        arguments: { nope: true },
+      });
+      expect(result.isError).toBe(true);
+    },
+  );
+});
+
 describe('Pak tools', () => {
   type CapturedHandler = (request: {
     params?: { name: string; arguments?: Record<string, unknown> };
@@ -254,6 +342,11 @@ describe('Pak tools', () => {
     const [list] = handlers(vi.fn());
     const result = await list!({});
     expect(result.tools?.map(({ name }) => name)).toEqual([
+      'pak_read_sleep',
+      'pak_advance_sleep',
+      'pak_end_sleep',
+      'pak_write_retro',
+      'pak_read_retros',
       'pak_log_event',
       'pak_set_next_action',
       'pak_upsert_quest',

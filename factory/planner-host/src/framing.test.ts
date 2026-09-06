@@ -57,6 +57,15 @@ describe('channel framing', () => {
       }),
       '<channel source="wake" kind="human.chain_closed" ts="2026-09-05T21:32:28.261Z" source="human" quest="polish" chain="6">\nSettled: The Pak has a proper address now: https://...\n</channel>',
     ],
+    [
+      message({
+        source: 'sleep',
+        kind: 'sleep.alarm',
+        run: 12,
+        summary: 'Last call — wrap up the night',
+      }),
+      '<channel source="wake" kind="sleep.alarm" ts="2026-09-05T15:37:04Z" source="sleep" run="12">\nLast call — wrap up the night\n</channel>',
+    ],
   ])('reproduces a real transcript tag', (input, expected) =>
     expect(renderChannelTag(input)).toBe(expected),
   );
@@ -68,12 +77,12 @@ describe('channel framing', () => {
   it('includes every optional attribute in order', () =>
     expect(
       renderChannelTag(
-        message({ quest: 'q', issue: 1, pr: 2, chain: 3, url: 'https://x.test' }),
+        message({ quest: 'q', issue: 1, pr: 2, chain: 3, url: 'https://x.test', run: 4 }),
       ).split('\n')[0],
-    ).toContain('quest="q" issue="1" pr="2" chain="3" url="https://x.test"'));
+    ).toContain('quest="q" issue="1" pr="2" chain="3" url="https://x.test" run="4"'));
   it('omits absent optional attributes', () =>
     expect(renderChannelTag(message()).split('\n')[0]).not.toMatch(
-      /quest=|issue=|pr=|chain=|url=/,
+      /quest=|issue=|pr=|chain=|url=|run=/,
     ));
   it('sorts one three-tag batch by timestamp then id', () => {
     const output = renderBatch([

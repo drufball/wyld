@@ -17,6 +17,7 @@ export function renderChannelTag(message: QueuedMessage): string {
     ['pr', message.pr],
     ['chain', message.chain],
     ['url', message.url],
+    ['run', message.run],
   ];
   const rendered = attrs
     .filter((entry): entry is [string, string | number] => entry[1] !== undefined)

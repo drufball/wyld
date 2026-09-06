@@ -14,7 +14,8 @@ export const GITHUB_KINDS = [
   'github.ci_completed',
   'github.push',
 ] as const;
-export const SUPPORTED_DEV_KINDS = [...HUMAN_KINDS, ...GITHUB_KINDS] as const;
+export const SLEEP_KINDS = ['sleep.alarm'] as const;
+export const SUPPORTED_DEV_KINDS = [...HUMAN_KINDS, ...GITHUB_KINDS, ...SLEEP_KINDS] as const;
 
 export const DevEventInput = z.object({
   kind: z.string().optional(),
@@ -133,6 +134,27 @@ export function buildDevRequest(
         source: 'human',
         kind,
         payload: { summary: input.summary },
+      }),
+    };
+  }
+  if ((SLEEP_KINDS as readonly string[]).includes(kind)) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(8, 0, 0, 0);
+    return {
+      path: '/event',
+      headers: { 'content-type': 'application/json', 'X-Wake-Secret': secrets.wakeSecret },
+      body: JSON.stringify({
+        id: Date.now(),
+        ts: new Date().toISOString(),
+        source: 'sleep',
+        kind,
+        payload: {
+          runId: 1,
+          alarm: 'goodnight',
+          trigger: 'schedule',
+          lightsOnAt: tomorrow.toISOString(),
+        },
       }),
     };
   }
