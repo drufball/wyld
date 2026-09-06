@@ -29,7 +29,10 @@ const parseDemo = (row: typeof demos.$inferSelect) =>
     ...row,
     steps: row.steps ?? [],
     seeded: row.seeded ?? [],
-    url: row.kind === 'disc' ? `/play/${row.id}/` : (row.deepLink ?? '/'),
+    url:
+      row.kind === 'live'
+        ? (row.deepLink ?? '/')
+        : `/play/${row.id}/${(row.deepLink ?? '/').replace(/^\//, '')}`,
   });
 const parseFeedback = (row: typeof feedback.$inferSelect) =>
   Feedback.parse({ ...row, hasScreenshot: row.screenshotPath !== null });
@@ -122,7 +125,13 @@ export function createDemoRoutes({
         },
       })
       .run();
-    if (!live) finishBuild(parsed.data.id, builder.build(parsed.data.id, parsed.data.ref));
+    if (!live)
+      finishBuild(
+        parsed.data.id,
+        kind === 'pak'
+          ? builder.build(parsed.data.id, parsed.data.ref, 'pak')
+          : builder.build(parsed.data.id, parsed.data.ref),
+      );
     return c.json(
       parseDemo(db.select().from(demos).where(eq(demos.id, parsed.data.id)).get()!),
       201,
@@ -151,10 +160,13 @@ export function createDemoRoutes({
         .run();
       row = db.select().from(demos).where(eq(demos.id, id)).get()!;
     }
-    if (row.kind !== 'disc') return c.json({ error: 'Live demos are not built' }, 400);
+    if (row.kind === 'live') return c.json({ error: 'Live demos are not built' }, 400);
     if (!builder.isBuilding(id)) {
       db.update(demos).set({ status: 'building', error: null }).where(eq(demos.id, id)).run();
-      finishBuild(id, builder.build(id, row.ref));
+      finishBuild(
+        id,
+        row.kind === 'pak' ? builder.build(id, row.ref, 'pak') : builder.build(id, row.ref),
+      );
     }
     return c.json(parseDemo(db.select().from(demos).where(eq(demos.id, id)).get()!), 202);
   });

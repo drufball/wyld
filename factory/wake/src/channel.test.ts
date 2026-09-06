@@ -386,7 +386,7 @@ describe('Pak tools', () => {
         ref: { type: 'string' },
         quest: { type: 'string' },
         title: { type: 'string' },
-        kind: { type: 'string', enum: ['disc', 'live'], default: 'disc' },
+        kind: { type: 'string', enum: ['disc', 'live', 'pak'], default: 'disc' },
         summary: { type: 'string', minLength: 1, maxLength: 400 },
         steps: {
           type: 'array',
@@ -404,7 +404,7 @@ describe('Pak tools', () => {
       additionalProperties: false,
     });
     expect(result.tools?.find(({ name }) => name === 'pak_register_demo')?.description).toBe(
-      'Register what Dru can try for a quest: a Demo Disc (a game build) or a live try-it card (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
+      'Register what Dru can try for a quest: a Demo Disc (a game build), a live try-it card, or a branch build of the Pak (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
     );
     expect(result.tools?.find(({ name }) => name === 'pak_read_demos')?.inputSchema).toMatchObject({
       properties: {},
@@ -1029,11 +1029,45 @@ describe('Pak tools', () => {
     });
   });
 
+  it('registers a Pak branch build with its card fields', async () => {
+    const fetch = vi.fn(async () => new Response('{"id":"branch-pak"}', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    const result = await call!({
+      params: {
+        name: 'pak_register_demo',
+        arguments: {
+          slug: 'branch-pak',
+          ref: 'feature/pak',
+          kind: 'pak',
+          summary: 'Try the branch.',
+          steps: ['Open Sleep.'],
+          deep_link: '/sleep',
+        },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/demos', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: 'branch-pak',
+        ref: 'feature/pak',
+        kind: 'pak',
+        summary: 'Try the branch.',
+        steps: ['Open Sleep.'],
+        deepLink: '/sleep',
+      }),
+    });
+  });
+
   it.each([
     { slug: 'Bad Slug', ref: 'main' },
     { slug: 'main', ref: 'main', unknown: true },
     { slug: 'main', ref: 'main', kind: 'live', steps: ['Open it.'] },
     { slug: 'main', ref: 'main', kind: 'live', summary: 'Ready.', steps: [] },
+    { slug: 'main', ref: 'main', kind: 'pak', summary: 'Ready.', steps: [] },
     { slug: 'main', ref: 'main', deep_link: '/quests' },
     { slug: 'main', ref: 'main', steps: Array.from({ length: 13 }, () => 'A step') },
     {

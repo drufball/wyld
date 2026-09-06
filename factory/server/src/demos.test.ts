@@ -147,6 +147,41 @@ describe('demo and feedback routes', () => {
     expect(build).not.toHaveBeenCalled();
   });
 
+  it('builds and rebuilds Pak demos and composes their deep links', async () => {
+    const branch = await post('/api/demos', {
+      id: 'branch-pak',
+      ref: 'feature/pak',
+      kind: 'pak',
+      summary: 'Try the branch.',
+      steps: ['Open Sleep.'],
+      deepLink: '/sleep',
+    });
+    expect(branch.status).toBe(201);
+    expect(Demo.parse(await branch.json())).toMatchObject({
+      kind: 'pak',
+      status: 'building',
+      url: '/play/branch-pak/sleep',
+    });
+    expect(build).toHaveBeenCalledWith('branch-pak', 'feature/pak', 'pak');
+
+    await post('/api/demos', {
+      id: 'branch-root',
+      ref: 'feature/root',
+      kind: 'pak',
+      summary: 'Try the root.',
+      steps: ['Open it.'],
+    });
+    expect(
+      Demo.array()
+        .parse(await (await app.request('/api/demos')).json())
+        .find((item) => item.id === 'branch-root')?.url,
+    ).toBe('/play/branch-root/');
+
+    const rebuild = await post('/api/demos/build', { id: 'branch-pak' });
+    expect(rebuild.status).toBe(202);
+    expect(build).toHaveBeenLastCalledWith('branch-pak', 'feature/pak', 'pak');
+  });
+
   it('accepts feedback on a live demo and stores the human feedback event', async () => {
     await post('/api/demos', { id: 'live-card', ref: 'main', kind: 'live' });
     const response = await post('/api/feedback', { demoId: 'live-card', text: 'Looks good' });

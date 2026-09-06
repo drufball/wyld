@@ -28,6 +28,7 @@ const pwaOptions = {
 } satisfies Parameters<typeof VitePWA>[0];
 
 const config = defineConfig({
+  base: process.env.PAK_BASE ?? '/',
   plugins: [tailwindcss(), react(), VitePWA(pwaOptions)],
   server: {
     proxy: {

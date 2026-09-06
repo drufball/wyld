@@ -227,7 +227,7 @@ export const demos = sqliteTable('demos', {
   questId: text('quest_id'),
   title: text('title').notNull(),
   ref: text('ref').notNull(),
-  kind: text('kind', { enum: ['disc', 'live'] })
+  kind: text('kind', { enum: ['disc', 'live', 'pak'] })
     .notNull()
     .default('disc'),
   summary: text('summary'),

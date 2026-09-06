@@ -111,8 +111,8 @@ function LiveDemoContent({ demo }: { demo: Demo }) {
     <>
       <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <h2 className="m-0 wrap-anywhere text-xl leading-snug">{demo.title}</h2>
-        <Badge variant="tone" data-tone="ok">
-          TRY IT
+        <Badge variant="tone" data-tone={demo.kind === 'pak' ? 'accent' : 'ok'}>
+          {demo.kind === 'pak' ? 'BRANCH' : 'TRY IT'}
         </Badge>
       </header>
       {demo.summary && <p className="m-0 wrap-anywhere">{demo.summary}</p>}
@@ -138,7 +138,11 @@ function LiveDemoContent({ demo }: { demo: Demo }) {
         </section>
       )}
       <Button asChild variant="retro">
-        <Link to={demo.deepLink ?? '/'}>Try it</Link>
+        {demo.kind === 'pak' ? (
+          <a href={demo.url}>Try it</a>
+        ) : (
+          <Link to={demo.deepLink ?? '/'}>Try it</Link>
+        )}
       </Button>
       <FeedbackForm demoId={demo.id} />
     </>
@@ -193,7 +197,7 @@ function DemoGrid() {
           return (
             <Card asChild variant="bevel" data-tone={tone} key={demo.id}>
               <article className="demo-card grid min-w-0 content-start gap-3 p-5">
-                {demo.kind === 'live' ? (
+                {demo.kind === 'live' || (demo.kind === 'pak' && demo.status === 'ready') ? (
                   <LiveDemoContent demo={demo} />
                 ) : (
                   <>
@@ -266,7 +270,7 @@ function DemoPlayer({ id }: { id: string }) {
         </Button>
       </div>
     );
-  if (demo.kind === 'live')
+  if (demo.kind === 'live' || demo.kind === 'pak')
     return (
       <div className="grid gap-4">
         <Button asChild variant="retro">

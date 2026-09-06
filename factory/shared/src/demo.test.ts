@@ -30,14 +30,14 @@ const feedback = {
 describe('demo schemas', () => {
   it('parses demos and feedback', () => {
     expect(Demo.parse(demo)).toEqual(demo);
-    expect(DemoKind.options).toEqual(['disc', 'live']);
+    expect(DemoKind.options).toEqual(['disc', 'live', 'pak']);
     expect(Feedback.parse(feedback)).toEqual(feedback);
     expect(NewDemo.parse({ id: 'main', ref: 'main' })).toEqual({ id: 'main', ref: 'main' });
     expect(NewFeedback.parse({ demoId: 'main', text: 'Nice' })).toMatchObject({ text: 'Nice' });
   });
   it('exports required card fields on the parsed Demo type', () => {
     expectTypeOf<DemoType>().toMatchTypeOf<{
-      kind: 'disc' | 'live';
+      kind: 'disc' | 'live' | 'pak';
       summary: string | null;
       steps: string[];
       seeded: string[];

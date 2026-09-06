@@ -59,6 +59,28 @@ describe('demo builder', () => {
     expect(builder.isBuilding('main')).toBe(false);
   });
 
+  it('builds and publishes a Pak with its branch base', async () => {
+    const calls: Parameters<CommandRunner>[] = [];
+    const { builder } = await setup(async (...args) => {
+      calls.push(args);
+      const [command, commandArgs, options] = args;
+      if (command === 'pnpm' && commandArgs.includes('build')) {
+        const dist = path.join(options.cwd!, 'factory/pak/dist');
+        await fs.mkdir(dist, { recursive: true });
+        await fs.writeFile(path.join(dist, 'index.html'), 'pak');
+      }
+      return {};
+    });
+
+    await expect(builder.build('branch', 'feature/ref', 'pak')).resolves.toEqual({ ok: true });
+    const build = calls.find(([command, args]) => command === 'pnpm' && args.includes('build'))!;
+    expect(build[1]).toEqual(['--filter', '@wyld/pak', 'build']);
+    expect(build[2].env?.PAK_BASE).toBe('/play/branch/');
+    await expect(fs.readFile(path.join(root!, 'demos/branch/index.html'), 'utf8')).resolves.toBe(
+      'pak',
+    );
+  });
+
   it('rejects bad slugs, shares an in-flight promise, and resolves failures', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {

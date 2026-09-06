@@ -108,6 +108,37 @@ describe('Demos', () => {
       ),
     );
   });
+  it('renders a ready Pak as a branch card with a full-navigation anchor', async () => {
+    const pak = {
+      ...demo('branch-pak', 'ready'),
+      kind: 'pak' as const,
+      title: 'Branch Pak',
+      summary: 'Try the branch.',
+      steps: ['Open Sleep.'],
+      url: '/play/branch-pak/sleep',
+      deepLink: '/sleep',
+    };
+    vi.stubGlobal('fetch', vi.fn(() => response([pak])));
+
+    show();
+    expect(await screen.findByText('BRANCH')).not.toBeNull();
+    const link = screen.getByRole('link', { name: 'Try it' });
+    expect(link.tagName).toBe('A');
+    expect(link.getAttribute('href')).toBe('/play/branch-pak/sleep');
+    expect(screen.getByRole('button', { name: 'Feedback' })).not.toBeNull();
+  });
+
+  it('gives building and failed Pak demos the build treatment', async () => {
+    const items = [
+      { ...demo('building-pak', 'building'), kind: 'pak' as const },
+      { ...demo('failed-pak', 'failed'), kind: 'pak' as const },
+    ];
+    vi.stubGlobal('fetch', vi.fn(() => response(items)));
+    show();
+    expect(await screen.findByText('Building this now…')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Rebuild' })).not.toBeNull();
+  });
+
   it('posts text-only feedback without game hooks', async () => {
     const fetch = vi.fn((url: string) =>
       url === '/api/feedback'

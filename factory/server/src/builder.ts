@@ -37,7 +37,7 @@ export function createDemoBuilder(dependencies: Dependencies) {
   const run = dependencies.run ?? realRun;
   const inFlight = new Map<string, Promise<Result>>();
 
-  const buildOnce = async (slug: string, ref: string): Promise<Result> => {
+  const buildOnce = async (slug: string, ref: string, target: 'game' | 'pak'): Promise<Result> => {
     if (!DEMO_SLUG.test(slug)) return { ok: false, error: 'Invalid demo slug' };
     const worktree = path.join(dependencies.worktreesDir, slug);
     const temporary = path.join(dependencies.demosDir, `${slug}.tmp`);
@@ -86,14 +86,20 @@ export function createDemoBuilder(dependencies: Dependencies) {
       ]);
       step = 'install dependencies';
       await command('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], worktree);
-      step = 'build game';
-      await command('pnpm', ['--filter', '@wyld/game', 'build'], worktree, {
+      step = `build ${target}`;
+      const packageName = target === 'game' ? '@wyld/game' : '@wyld/pak';
+      const baseVariable = target === 'game' ? 'GAME_BASE' : 'PAK_BASE';
+      await command('pnpm', ['--filter', packageName, 'build'], worktree, {
         ...process.env,
-        GAME_BASE: `/play/${slug}/`,
+        [baseVariable]: `/play/${slug}/`,
       });
       step = 'publish build';
       await fs.rm(temporary, { recursive: true, force: true });
-      await fs.cp(path.join(worktree, 'game/dist'), temporary, { recursive: true });
+      const source =
+        target === 'game'
+          ? path.join(worktree, 'game/dist')
+          : path.join(worktree, 'factory/pak/dist');
+      await fs.cp(source, temporary, { recursive: true });
       await fs.rm(published, { recursive: true, force: true });
       await fs.rename(temporary, published);
       dependencies.logger('info', 'demo build completed', { slug, ref });
@@ -117,10 +123,10 @@ export function createDemoBuilder(dependencies: Dependencies) {
   };
 
   return {
-    build(slug: string, ref: string): Promise<Result> {
+    build(slug: string, ref: string, target: 'game' | 'pak' = 'game'): Promise<Result> {
       const current = inFlight.get(slug);
       if (current !== undefined) return current;
-      const promise = buildOnce(slug, ref).finally(() => inFlight.delete(slug));
+      const promise = buildOnce(slug, ref, target).finally(() => inFlight.delete(slug));
       inFlight.set(slug, promise);
       return promise;
     },
