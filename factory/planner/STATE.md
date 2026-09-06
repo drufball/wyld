@@ -90,6 +90,19 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **`new-home` unit 2 shipped 12:07 (#134 / PR #135, zero fix rounds) — ntfy address is derived, not tracked.**
+  `factory/ntfy/server.yml` is now `server.yml.tmpl` (`base-url: '${NTFY_BASE_URL}'`); `scripts/ntfy-up.sh` renders it to
+  `.factory/ntfy/server.yml` (bash 3.2 substitution, `--render-only` for tests, honours `FACTORY_DIR`) using
+  `NTFY_BASE_URL` if set, else `https://<tailnet DNSName>:8443` from `tailscale status --self --json`, else exits 1
+  (factory-up treats that as "no push", non-fatal). Container carries `--label wyld.config-sha=<sha>`; a changed
+  config or missing label ⇒ recreate. Doctor: rendered base-url host must match the tailnet name (warn, never fail).
+  Import's HOSTNAME REVIEW reports `NTFY_BASE_URL` instead of the old file. **Any earlier mention in this file of a
+  tracked `factory/ntfy/server.yml` is historical.** The Planner re-ran `./scripts/ntfy-up.sh` on the live factory at
+  12:08 because the old container was bind-mounted from the deleted tracked path (a restart would have broken push).
+  Export bundles the rendered file; harmless — `factory:up` on the new Mac re-renders before starting the container.
+- **Factory is quiet as of 12:08 (Dru's request, 11:14):** no lead running, no open Codex issue/PR. Do not start new
+  work (`try-it-cards`, `polish`, Phase 2) until the move to the new Mac is complete and verified.
+
 - **Host restarted 2026-09-06 11:51** (same session resumed; `restarts=0` because the respawn replaced the window). Now running
   #124 self-heartbeat (`Handling events`/`Waiting for events — last turn HH:MM` rows every 120 s) and #129 framing; the five
   sleep tools are in the Planner's tool list; the temporary shell pulse is killed. `planner-in-pak` → `demo`.
