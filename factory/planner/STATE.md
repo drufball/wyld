@@ -90,14 +90,30 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
-- **The host does not heartbeat on its own (found 2026-09-06 10:08, first host session).** Only the Planner's
-  `pak_health_report` calls write `health_reports`, and the Planner only gets a turn on an event, so a quiet
-  factory reads as a dead Planner: the ops watchdog pauses lane `planner` after 15 min and pushes to Dru's phone.
-  Fix in flight as `planner-in-pak` unit 3 (lead spawned 10:08; `PLANNER_HOST_HEARTBEAT_SECONDS`, default 120,
-  host posts `idle`/`working` to `POST /api/health/report`). **Bridge:** the session runs a CronCreate job every
-  4 min that sends a heartbeat — it is session-only, so a fresh session must recreate it (CronCreate
-  `*/4 * * * *`) until the unit has merged **and the host has been restarted** (`tmux respawn-window -k -t
-  wyld:planner` with the launcher's command from `scripts/factory-up.sh`; the host resumes the same session).
+- **Host heartbeat landed 2026-09-06 10:21 (#123 / PR #124, zero fix rounds) — takes effect on the next host
+  restart.** Found 10:08 by the first host session: only the Planner's `pak_health_report` wrote `health_reports`,
+  and the Planner only gets a turn on an event, so a quiet factory read as a dead Planner (ops watchdog pauses lane
+  `planner` after 15 min and pushes to Dru). Now `factory/planner-host/src/heartbeat.ts` posts `plannerState`
+  (`working` while a turn is in flight, else `idle`) + `currentTask` (`Waiting for events — last turn HH:MM`) every
+  `PLANNER_HOST_HEARTBEAT_SECONDS` (default 120, `0` disables), first beat on `system:init`, one attempt per tick,
+  failures logged and swallowed. Built in the live checkout; **the live host still runs the old build until
+  `tmux respawn-window -k -t wyld:planner` with the launcher command from `scripts/factory-up.sh`.** A restart
+  kills the session's running leads (they are subagents), so restart only at a lead boundary — the plan is to do it
+  once the `sleep-mode` lead reports. **Bridge until then:** a session-only CronCreate job (`*/4 * * * *`) sends a
+  heartbeat; a fresh session must recreate it if the restart has not happened yet.
+  Sharp edges from the lead:
+  1. `WAKE_SECRET` is **not** in the tmux environment (`tmux show-environment -t wyld` carries only `NTFY_*`,
+     `PAK_PUBLIC_URL`, ssh vars) — it lives only in `.factory/env` and the process env. A scratch host should use a
+     throwaway secret and an unused `WAKE_PORT` (e.g. 8797) so it never touches the live Wake; the only cost is
+     `planner queue claim failed; retrying` debug lines.
+  2. A scratch host starts a **real Planner session in `bypassPermissions`** — pin `PLANNER_HOST_MAX_TURNS=1` and an
+     inert `PLANNER_HOST_FIRST_MESSAGE` ("reply OK, use no tools") so it cannot wander.
+  3. The liveness beat is now usually the newest `health` row, and `GET /api/health/snapshot` falls back to the
+     latest *planner* report for `github.*` when the ops report is stale and for `costToday`/`pausedReason` always —
+     those read `unknown`/absent between the Planner's own reports. Consequence of "send nothing else", not a
+     defect; `snapshot.paused` comes from `pauses`. Possible follow-up: snapshot takes each field from the latest
+     report that carries it.
+  4. Drizzle symbol `healthReports` ↔ SQLite table **`health`**.
 
 - **Leads must write issue bodies and reviews to unique scratchpad files** (2026-09-06 09:30, cost two
   Codex runs): two leads used the same file name in the shared scratchpad; the launcher issue (#116) was filed
