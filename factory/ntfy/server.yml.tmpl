@@ -1,7 +1,7 @@
 # ntfy server for the Expansion Pak. Runs in a container; these paths are container paths.
 # Public address the phone talks to. ntfy has no sub-path support, so it gets its own
 # HTTPS port on the tailnet rather than a path under the Pak's existing Tailscale Serve.
-base-url: 'https://macbook-pro-6.taild72c8d.ts.net:8443'
+base-url: '${NTFY_BASE_URL}'
 listen-http: ':80'
 # Tailscale Serve terminates TLS in front of this, so trust the forwarded client IP
 # for rate limiting.

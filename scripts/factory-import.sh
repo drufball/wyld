@@ -97,20 +97,24 @@ echo 'manual: Codex ChatGPT login cannot be checked here; run `npx -y @openai/co
 
 pak_public_url="$(sed -n 's/^PAK_PUBLIC_URL=//p' "$FACTORY_DIR/env" | tail -n 1)"
 ntfy_url="$(sed -n 's/^NTFY_URL=//p' "$FACTORY_DIR/env" | tail -n 1)"
+ntfy_base_url="$(sed -n 's/^NTFY_BASE_URL=//p' "$FACTORY_DIR/env" | tail -n 1)"
 ntfy_topic="$(sed -n 's/^NTFY_TOPIC=//p' "$FACTORY_DIR/env" | tail -n 1)"; ntfy_topic="${ntfy_topic:-wyld-pak}"
-base_url_line="$(sed -n '/^[[:space:]]*base-url:/p' factory/ntfy/server.yml | head -n 1)"
 echo
 echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
 echo '!! HOSTNAME REVIEW — this script will not edit these values'
 echo "warn: PAK_PUBLIC_URL=$pak_public_url"
 echo "warn: NTFY_URL=$ntfy_url"
-echo "warn: factory/ntfy/server.yml: $base_url_line"
+if [[ -n "$ntfy_base_url" ]]; then
+  echo "warn: NTFY_BASE_URL=$ntfy_base_url"
+else
+  echo "ok: NTFY_BASE_URL is unset; it will be derived from this machine's tailnet name at pnpm factory:up"
+fi
 if [[ -z "$current_tailnet" ]]; then
   echo 'warn: this machine tailnet name could not be checked (tailscale or node unavailable); run `tailscale status --json` and inspect Self.DNSName'
   echo "warn: the phone's ntfy subscription address changes with the hostname; re-subscribe it to https://<new tailnet name>:8443/$ntfy_topic"
 else
   echo "ok: this machine tailnet name is $current_tailnet"
-  for labeled_value in "PAK_PUBLIC_URL|$pak_public_url" "NTFY_URL|$ntfy_url" "factory/ntfy/server.yml base-url|$base_url_line"; do
+  for labeled_value in "PAK_PUBLIC_URL|$pak_public_url" "NTFY_URL|$ntfy_url" "NTFY_BASE_URL|$ntfy_base_url"; do
     label="${labeled_value%%|*}"; value="${labeled_value#*|}"
     host="$(node -e 'try{let v=process.argv[1];let m=v.match(/https?:\/\/([^/: '\''"]+)/);process.stdout.write(m?m[1]:"")}catch{}' "$value")"
     if [[ "$host" == *.ts.net && "$host" != "$current_tailnet" ]]; then

@@ -92,9 +92,12 @@ public_host="${PAK_PUBLIC_URL:-}"
 public_host="${public_host#*://}"
 public_host="${public_host%%/*}"
 public_host="${public_host%%:*}"
+machine_tailnet=''
+if command -v tailscale >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+  machine_tailnet="$(tailscale status --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write((JSON.parse(s).Self.DNSName||"").replace(/\.$/,""))}catch{process.exit(1)}})' 2>/dev/null || true)"
+fi
 if [[ "$public_host" == *.ts.net ]]; then
   if command -v tailscale >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
-    machine_tailnet="$(tailscale status --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write((JSON.parse(s).Self.DNSName||"").replace(/\.$/,""))}catch{process.exit(1)}})' 2>/dev/null || true)"
     if [[ -n "$machine_tailnet" && "$public_host" == "$machine_tailnet" ]]; then
       ok "PAK_PUBLIC_URL tailnet hostname matches this machine ($machine_tailnet)"
     elif [[ -n "$machine_tailnet" ]]; then
@@ -104,6 +107,22 @@ if [[ "$public_host" == *.ts.net ]]; then
     fi
   else
     warn 'PAK_PUBLIC_URL tailnet hostname could not be checked because tailscale or node is unavailable'
+  fi
+fi
+
+if [[ ! -f "$FACTORY_DIR/ntfy/server.yml" ]]; then
+  warn 'ntfy config has not been rendered yet; the next `pnpm factory:up` will render it'
+elif [[ -z "$machine_tailnet" ]]; then
+  warn "ntfy config tailnet hostname could not be checked because this machine's tailnet name could not be determined with tailscale status --json"
+else
+  ntfy_base_url="$(sed -n "s/^[[:space:]]*base-url:[[:space:]]*['\"]\{0,1\}\([^'\"]*\)['\"]\{0,1\}[[:space:]]*$/\1/p" "$FACTORY_DIR/ntfy/server.yml" | head -n 1)"
+  ntfy_host="${ntfy_base_url#*://}"
+  ntfy_host="${ntfy_host%%/*}"
+  ntfy_host="${ntfy_host%%:*}"
+  if [[ "$ntfy_host" == "$machine_tailnet" ]]; then
+    ok "ntfy config tailnet hostname matches this machine ($machine_tailnet)"
+  else
+    warn "ntfy config names ${ntfy_host:-an unreadable host} but this machine is $machine_tailnet; set NTFY_BASE_URL in .factory/env (or clear it) and run pnpm factory:up"
   fi
 fi
 
