@@ -246,6 +246,7 @@ export const demos = sqliteTable('demos', {
   status: text('status', { enum: ['building', 'ready', 'failed'] }).notNull(),
   builtAt: text('built_at'),
   error: text('error'),
+  hiddenAt: text('hidden_at'),
 });
 
 export const feedback = sqliteTable(

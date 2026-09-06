@@ -22,6 +22,7 @@ export const Demo = z.object({
   status: DemoStatus,
   builtAt: Timestamp.nullable(),
   error: z.string().nullable(),
+  hiddenAt: Timestamp.nullable().default(null),
 });
 export type Demo = z.infer<typeof Demo>;
 

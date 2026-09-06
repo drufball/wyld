@@ -1,0 +1,1 @@
+ALTER TABLE `demos` ADD `hidden_at` text;

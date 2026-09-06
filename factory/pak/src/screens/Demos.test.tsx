@@ -19,6 +19,7 @@ const demo = (id: string, status: 'ready' | 'building' | 'failed') => ({
   steps: [],
   seeded: [],
   deepLink: null,
+  hiddenAt: null,
 });
 const completedQuest = {
   id: 'quest',
@@ -53,6 +54,27 @@ function show(path = '/demos') {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Demos', () => {
+  it('offers Hide only for questless ready cards and removes a hidden card', async () => {
+    const questless = demo('main', 'ready');
+    const owned = { ...demo('owned', 'ready'), questId: 'quest' };
+    const fetch = vi.fn((url: string) =>
+      url === '/api/demos/main/hide'
+        ? response({ ...questless, hiddenAt: '2026-09-05T12:00:00.000Z' })
+        : response([questless, owned]),
+    );
+    vi.stubGlobal('fetch', fetch);
+    show();
+
+    expect(await screen.findByRole('button', { name: 'Hide' })).not.toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Mark done' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
+    await waitFor(() => expect(screen.queryByText('main disc')).toBeNull());
+    expect(screen.getByText('owned disc')).not.toBeNull();
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/demos/main/hide',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({}) }),
+    );
+  });
   it('renders ready, building, and failed states and rebuilds', async () => {
     const items = [demo('main', 'ready'), demo('work', 'building'), demo('oops', 'failed')];
     const fetch = vi.fn((url: string) =>

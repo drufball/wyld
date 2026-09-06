@@ -148,6 +148,7 @@ describe('VMU', () => {
         status: 'ready',
         builtAt: '2026-09-05T12:00:00.000Z',
         error: null,
+        hiddenAt: null,
       },
     ]);
     renderScreen();
