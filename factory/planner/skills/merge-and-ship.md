@@ -18,10 +18,10 @@ If CI is red instead: read the failing job's log, then run **one** fix round on 
 ## 2. Deploy to the live factory
 
 Merging is not shipping — Dru sees the *built* Pak, not `main`. In the live checkout
-(`/Users/drufball/code/wyld`), after every merge:
+(`/Users/crawnk/wyld`), after every merge:
 
 ```bash
-git -C /Users/drufball/code/wyld pull
+git -C /Users/crawnk/wyld pull
 # touched @wyld/shared?  → rebuild it or the live server crashes on its watcher restart:
 pnpm --filter @wyld/shared build
 # touched factory/pak?   → rebuild the served bundle or Dru keeps seeing the old UI:
