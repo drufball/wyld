@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Demo, Event, Feedback } from '@wyld/shared';
 import { eq } from 'drizzle-orm';
@@ -59,6 +60,14 @@ describe('demo and feedback routes', () => {
     await vi.waitFor(async () => {
       const rows = Demo.array().parse(await (await app.request('/api/demos')).json());
       expect(rows.map(({ id }) => id)).toEqual(['main', 'alpha', 'zeta']);
+      expect(rows[0]).toMatchObject({
+        kind: 'disc',
+        summary: null,
+        steps: [],
+        seeded: [],
+        deepLink: null,
+        url: '/play/main/',
+      });
     });
   });
 
@@ -88,6 +97,66 @@ describe('demo and feedback routes', () => {
     const row = database.db.select().from(demos).where(eq(demos.id, 'preview')).get();
     expect(row).toMatchObject({ title: 'Quest title', ref: 'two', questId: 'quest-one' });
     expect(build).toHaveBeenCalledTimes(2);
+  });
+
+  it('registers and replaces live demo cards without building them', async () => {
+    const first = await post('/api/demos', {
+      id: 'try-card',
+      ref: 'abc123',
+      kind: 'live',
+      title: 'First title',
+      summary: 'A useful screen.',
+      steps: ['Open it', 'Try it'],
+      seeded: ['Example quest'],
+      deepLink: '/sleep',
+    });
+    expect(first.status).toBe(201);
+    expect(Demo.parse(await first.json())).toMatchObject({
+      kind: 'live',
+      status: 'ready',
+      builtAt: clock.toISOString(),
+      error: null,
+      url: '/sleep',
+    });
+    expect(build).not.toHaveBeenCalled();
+
+    clock = new Date('2026-09-05T13:00:00.000Z');
+    const second = await post('/api/demos', {
+      id: 'try-card',
+      ref: 'main',
+      kind: 'live',
+      title: 'Updated title',
+    });
+    expect(second.status).toBe(201);
+    expect(Demo.parse(await second.json())).toMatchObject({
+      ref: 'main',
+      title: 'Updated title',
+      summary: null,
+      steps: [],
+      seeded: [],
+      deepLink: null,
+      url: '/',
+      builtAt: clock.toISOString(),
+    });
+    expect(database.db.select().from(demos).all()).toHaveLength(1);
+    expect(build).not.toHaveBeenCalled();
+
+    const rebuild = await post('/api/demos/build', { id: 'try-card' });
+    expect(rebuild.status).toBe(400);
+    expect(await rebuild.json()).toEqual({ error: 'Live demos are not built' });
+    expect(build).not.toHaveBeenCalled();
+  });
+
+  it('accepts feedback on a live demo and stores the human feedback event', async () => {
+    await post('/api/demos', { id: 'live-card', ref: 'main', kind: 'live' });
+    const response = await post('/api/feedback', { demoId: 'live-card', text: 'Looks good' });
+    expect(response.status).toBe(201);
+    const events = Event.array().parse(await (await app.request('/api/events')).json());
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: 'human.feedback',
+      payload: { demoId: 'live-card', text: 'Looks good' },
+    });
   });
 
   it('builds main on the fly, rejects unknown demos, and avoids a second active build', async () => {
@@ -165,5 +234,35 @@ describe('demo and feedback routes', () => {
     expect((await post('/api/demos/build', { id: '../bad' })).status).toBe(400);
     expect((await app.request('/api/feedback?demo=../bad')).status).toBe(400);
     expect((await post('/api/feedback', { demoId: '../bad', text: 'bad' })).status).toBe(400);
+  });
+});
+
+describe('demo migration', () => {
+  it('backfills existing demos without changing their original fields', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.exec(`CREATE TABLE demos (
+      id text PRIMARY KEY, quest_id text, title text NOT NULL, ref text NOT NULL,
+      status text NOT NULL, built_at text, error text
+    )`);
+    sqlite
+      .prepare('INSERT INTO demos VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run('old-demo', 'quest-one', 'Old title', 'old-ref', 'ready', '2026-09-01T00:00:00Z', null);
+    const migration = fs.readFileSync(path.join(migrations, '0012_greedy_miracleman.sql'), 'utf8');
+    for (const statement of migration.split('--> statement-breakpoint')) sqlite.exec(statement);
+    expect(sqlite.prepare('SELECT * FROM demos').get()).toEqual({
+      id: 'old-demo',
+      quest_id: 'quest-one',
+      title: 'Old title',
+      ref: 'old-ref',
+      status: 'ready',
+      built_at: '2026-09-01T00:00:00Z',
+      error: null,
+      kind: 'disc',
+      summary: null,
+      steps: null,
+      seeded: null,
+      deep_link: null,
+    });
+    sqlite.close();
   });
 });

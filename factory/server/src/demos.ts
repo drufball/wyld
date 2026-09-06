@@ -25,7 +25,12 @@ const BuildRequest = z.object({ id: z.string().optional() });
 const FeedbackQuery = z.object({ demo: z.string().optional() });
 
 const parseDemo = (row: typeof demos.$inferSelect) =>
-  Demo.parse({ ...row, url: `/play/${row.id}/` });
+  Demo.parse({
+    ...row,
+    steps: row.steps ?? [],
+    seeded: row.seeded ?? [],
+    url: row.kind === 'disc' ? `/play/${row.id}/` : (row.deepLink ?? '/'),
+  });
 const parseFeedback = (row: typeof feedback.$inferSelect) =>
   Feedback.parse({ ...row, hasScreenshot: row.screenshotPath !== null });
 const validSlug = (value: string) => DEMO_SLUG.test(value);
@@ -82,14 +87,22 @@ export function createDemoRoutes({
       : undefined;
     const title =
       parsed.data.title ?? quest?.title ?? (parsed.data.id === 'main' ? 'Main' : parsed.data.id);
+    const kind = parsed.data.kind ?? 'disc';
+    const live = kind === 'live';
+    const builtAt = live ? now().toISOString() : null;
     db.insert(demos)
       .values({
         id: parsed.data.id,
         ref: parsed.data.ref,
         questId: parsed.data.questId ?? null,
         title,
-        status: 'building',
-        builtAt: null,
+        kind,
+        summary: parsed.data.summary ?? null,
+        steps: parsed.data.steps ?? [],
+        seeded: parsed.data.seeded ?? [],
+        deepLink: parsed.data.deepLink ?? null,
+        status: live ? 'ready' : 'building',
+        builtAt,
         error: null,
       })
       .onConflictDoUpdate({
@@ -98,12 +111,18 @@ export function createDemoRoutes({
           ref: parsed.data.ref,
           questId: parsed.data.questId ?? null,
           title,
-          status: 'building',
+          kind,
+          summary: parsed.data.summary ?? null,
+          steps: parsed.data.steps ?? [],
+          seeded: parsed.data.seeded ?? [],
+          deepLink: parsed.data.deepLink ?? null,
+          status: live ? 'ready' : 'building',
+          builtAt,
           error: null,
         },
       })
       .run();
-    finishBuild(parsed.data.id, builder.build(parsed.data.id, parsed.data.ref));
+    if (!live) finishBuild(parsed.data.id, builder.build(parsed.data.id, parsed.data.ref));
     return c.json(
       parseDemo(db.select().from(demos).where(eq(demos.id, parsed.data.id)).get()!),
       201,
@@ -132,6 +151,7 @@ export function createDemoRoutes({
         .run();
       row = db.select().from(demos).where(eq(demos.id, id)).get()!;
     }
+    if (row.kind !== 'disc') return c.json({ error: 'Live demos are not built' }, 400);
     if (!builder.isBuilding(id)) {
       db.update(demos).set({ status: 'building', error: null }).where(eq(demos.id, id)).run();
       finishBuild(id, builder.build(id, row.ref));

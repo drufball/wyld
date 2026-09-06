@@ -19,7 +19,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { log, type LogContext } from './logger.js';
-import { catchups, events, healthReports, pauses, presence, quests } from './schema.js';
+import { catchups, demos, events, healthReports, pauses, presence, quests } from './schema.js';
 import { mechanicalDigest } from './catchup.js';
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder, createWakePauseNotifier } from './forwarder.js';
@@ -303,6 +303,10 @@ export function createApp(dependencies: AppDependencies) {
             status: quests.status,
           })
           .from(quests)
+          .all(),
+        demos: db
+          .select({ id: demos.id, questId: demos.questId, summary: demos.summary })
+          .from(demos)
           .all(),
         openRumbles: listOrderedRumbleRows(dependencies.database, 'open').map(
           ({ slug, title }) => ({

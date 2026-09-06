@@ -72,4 +72,21 @@ describe('mechanicalDigest', () => {
       openRumbles.slice(0, 8).map(({ title }) => ({ text: title, deepLink: '/rumble' })),
     );
   });
+
+  it('uses the first demo card summary and deep link, with title fallback', () => {
+    const quests = [quest('card', 'demo'), quest('fallback', 'demo')];
+    const events = [
+      event(1, 'planner.quest_updated', 'card', { status: 'demo' }),
+      event(2, 'planner.quest_updated', 'fallback', { status: 'demo' }),
+    ];
+    const demos = [
+      { id: 'z-card', questId: 'card', summary: 'Later summary' },
+      { id: 'a-card', questId: 'card', summary: 'Try the new flow.' },
+      { id: 'blank', questId: 'fallback', summary: '   ' },
+    ];
+    expect(mechanicalDigest({ events, quests, demos }).demos).toEqual([
+      { text: 'Try the new flow.', deepLink: '/demos/a-card' },
+      { text: 'Quest fallback', deepLink: '/demos/blank' },
+    ]);
+  });
 });

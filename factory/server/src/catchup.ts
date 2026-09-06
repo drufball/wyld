@@ -11,8 +11,13 @@ export function mechanicalDigest(input: {
   events: Event[];
   quests: CatchupQuest[];
   openRumbles?: { id: string; title: string }[];
+  demos?: { id: string; questId: string | null; summary: string | null }[];
 }): CatchupDigest {
   const quests = new Map(input.quests.map((quest) => [quest.id, quest]));
+  const demos = new Map<string, NonNullable<typeof input.demos>[number]>();
+  for (const demo of [...(input.demos ?? [])].sort((a, b) => a.id.localeCompare(b.id))) {
+    if (demo.questId !== null && !demos.has(demo.questId)) demos.set(demo.questId, demo);
+  }
   const seen = {
     shipped: new Set<string>(),
     demos: new Set<string>(),
@@ -34,8 +39,13 @@ export function mechanicalDigest(input: {
     seen[section].add(quest.id);
     if (section === 'shipped' && digest.shipped.length < 8)
       digest.shipped.push({ text: quest.title, deepLink: `/worlds/${quest.worldId}` });
-    if (section === 'demos' && digest.demos.length < 8)
-      digest.demos.push({ text: quest.title, deepLink: '/demos' });
+    if (section === 'demos' && digest.demos.length < 8) {
+      const demo = demos.get(quest.id);
+      digest.demos.push({
+        text: demo?.summary?.trim() ? demo.summary : quest.title,
+        deepLink: demo === undefined ? '/demos' : `/demos/${demo.id}`,
+      });
+    }
     if (section === 'parked') parked.push(`Parked: ${quest.title}.`);
     if (section === 'building') building.push(`Started building: ${quest.title}.`);
   };

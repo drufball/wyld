@@ -227,6 +227,13 @@ export const demos = sqliteTable('demos', {
   questId: text('quest_id'),
   title: text('title').notNull(),
   ref: text('ref').notNull(),
+  kind: text('kind', { enum: ['disc', 'live'] })
+    .notNull()
+    .default('disc'),
+  summary: text('summary'),
+  steps: text('steps', { mode: 'json' }).$type<string[]>(),
+  seeded: text('seeded', { mode: 'json' }).$type<string[]>(),
+  deepLink: text('deep_link'),
   status: text('status', { enum: ['building', 'ready', 'failed'] }).notNull(),
   builtAt: text('built_at'),
   error: text('error'),
