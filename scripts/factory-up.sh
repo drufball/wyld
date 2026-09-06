@@ -14,6 +14,12 @@ source .factory/env
 set +a
 
 WAKE_PORT="${WAKE_PORT:-8788}"
+PLANNER_MODE="${PLANNER_MODE:-host}"
+
+if [[ "$PLANNER_MODE" != host && "$PLANNER_MODE" != cli ]]; then
+  echo "error: PLANNER_MODE must be either 'host' or 'cli'" >&2
+  exit 1
+fi
 
 started=()
 skipped=()
@@ -59,13 +65,24 @@ tmux new-window -d -t wyld -n webhook -c "$PWD" \
   "until gh webhook forward --repo drufball/wyld --events '*' --url 'http://localhost:${WAKE_PORT}/gh' --secret \"\$GH_WEBHOOK_SECRET\"; do echo 'webhook forward exited; restarting in 5s'; sleep 5; done"
 started+=(webhook)
 
-if pnpm --filter @wyld/wake... build; then
-  tmux new-window -d -t wyld -n planner -c "$PWD" \
-    'claude --dangerously-load-development-channels server:wake'
-  started+=(planner)
+if [[ "$PLANNER_MODE" == host ]]; then
+  if pnpm --filter @wyld/wake... --filter @wyld/planner-host... build; then
+    tmux new-window -d -t wyld -n planner -c "$PWD" \
+      "set -a; . .factory/env; set +a; until node factory/planner-host/dist/main.js; do echo 'planner host exited; restarting in 5s'; sleep 5; done"
+    started+=(planner)
+  else
+    echo 'Skipping planner: @wyld/wake or @wyld/planner-host failed to build.' >&2
+    skipped+=('planner (@wyld/wake or @wyld/planner-host build failed)')
+  fi
 else
-  echo 'Skipping planner: @wyld/wake failed to build, so its channel cannot register.' >&2
-  skipped+=('planner (@wyld/wake build failed)')
+  if pnpm --filter @wyld/wake... build; then
+    tmux new-window -d -t wyld -n planner -c "$PWD" \
+      'claude --dangerously-load-development-channels server:wake'
+    started+=(planner)
+  else
+    echo 'Skipping planner: @wyld/wake failed to build, so its channel cannot register.' >&2
+    skipped+=('planner (@wyld/wake build failed)')
+  fi
 fi
 
 if [[ "$(uname -s)" == Darwin ]]; then
@@ -77,6 +94,7 @@ else
 fi
 
 echo 'Factory session: wyld'
+printf 'Planner mode: %s\n' "$PLANNER_MODE"
 printf 'Windows started: %s\n' "${started[*]}"
 if ((${#skipped[@]})); then
   printf 'Windows skipped: %s\n' "${skipped[*]}"

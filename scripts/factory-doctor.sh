@@ -19,6 +19,7 @@ if [[ -f .factory/env ]]; then
 fi
 PAK_PORT="${PAK_PORT:-8787}"
 WAKE_PORT="${WAKE_PORT:-8788}"
+PLANNER_HOST_PORT="${PLANNER_HOST_PORT:-8789}"
 NTFY_PORT="${NTFY_PORT:-8790}"
 
 for tool in tmux gh claude node pnpm; do
@@ -80,7 +81,7 @@ else
   fi
 fi
 
-for port in "$PAK_PORT" "$WAKE_PORT" "$NTFY_PORT"; do
+for port in "$PAK_PORT" "$WAKE_PORT" "$PLANNER_HOST_PORT" "$NTFY_PORT"; do
   if command -v lsof >/dev/null 2>&1; then
     listeners="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $1 "(pid " $2 ")"}' | sort -u | paste -sd, - || true)"
     if [[ -n "$listeners" ]]; then
@@ -93,22 +94,28 @@ for port in "$PAK_PORT" "$WAKE_PORT" "$NTFY_PORT"; do
   fi
 done
 
-check_health() {
-  local name="$1" url="$2" detail="$3" field="${4:-ok}" output
-  if ! command -v node >/dev/null 2>&1; then
-    fail "$name health cannot be checked without node; install Node 22 and run pnpm factory:doctor"
-    return
-  fi
-  if output="$(node -e '
+health_output() {
+  local url="$1" detail="$2" field="${3:-ok}"
+  node -e '
     const [url, detail, field] = process.argv.slice(1);
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
       const body = await response.json();
       if (!response.ok || body[field] !== true) process.exit(1);
       if (detail === "wake") process.stdout.write(`queueDepth=${body.queueDepth} lastDeliveryAt=${body.lastDeliveryAt ?? "never"}`);
+      else if (detail === "planner") process.stdout.write(`sessionId=${body.sessionId ?? "none"} restarts=${body.restarts}`);
       else process.stdout.write("healthy");
     } catch { process.exit(1); }
-  ' "$url" "$detail" "$field" 2>/dev/null)"; then
+  ' "$url" "$detail" "$field" 2>/dev/null
+}
+
+check_health() {
+  local name="$1" url="$2" detail="$3" field="${4:-ok}" output
+  if ! command -v node >/dev/null 2>&1; then
+    fail "$name health cannot be checked without node; install Node 22 and run pnpm factory:doctor"
+    return
+  fi
+  if output="$(health_output "$url" "$detail" "$field")"; then
     ok "$name health is $output"
   else
     fail "$name health check failed at $url; run pnpm factory:up"
@@ -117,6 +124,33 @@ check_health() {
 
 check_health 'Pak server' "http://localhost:${PAK_PORT}/api/health" pak
 check_health 'Wake' "http://localhost:${WAKE_PORT}/health" wake
+
+host_running=false
+planner_detail=''
+if command -v node >/dev/null 2>&1; then
+  if planner_detail="$(health_output "http://127.0.0.1:${PLANNER_HOST_PORT}/health" planner)"; then
+    host_running=true
+  fi
+fi
+
+cli_running=false
+if command -v pgrep >/dev/null 2>&1; then
+  if pgrep -f '[d]angerously-load-development-channels' >/dev/null 2>&1; then
+    cli_running=true
+  fi
+else
+  warn 'CLI Planner process cannot be checked because pgrep is unavailable'
+fi
+
+if [[ "$host_running" == true && "$cli_running" == false ]]; then
+  ok "Planner is running as the host ($planner_detail)"
+elif [[ "$host_running" == false && "$cli_running" == true ]]; then
+  ok 'Planner is running as the CLI session (PLANNER_MODE=cli fallback)'
+elif [[ "$host_running" == true && "$cli_running" == true ]]; then
+  fail 'two Planners are running (host and CLI); they will both claim from the Wake queue and split events between them — stop one'
+else
+  fail 'no Planner is running; run pnpm factory:up'
+fi
 
 if ! command -v docker >/dev/null 2>&1; then
   export PATH="$HOME/.rd/bin:$PATH"
