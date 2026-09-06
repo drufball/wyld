@@ -45,7 +45,11 @@ function FeedbackForm({ demoId, getExtras }: { demoId: string; getExtras?: Feedb
 
   return (
     <div className="grid gap-2">
-      {thanks && <p role="status">Got it — thanks.</p>}
+      {thanks && (
+        <Card asChild variant="flat" className="p-2">
+          <p role="status">Got it — thanks.</p>
+        </Card>
+      )}
       <Button
         variant="retro"
         type="button"
@@ -57,7 +61,11 @@ function FeedbackForm({ demoId, getExtras }: { demoId: string; getExtras?: Feedb
         Feedback
       </Button>
       {open && (
-        <Card asChild variant="bevel" className="grid min-w-0 gap-2 p-3">
+        <Card
+          asChild
+          variant="bevel"
+          className="grid w-[min(340px,calc(100vw-24px))] min-w-0 gap-2 p-3"
+        >
           <form onSubmit={(event) => void send(event)}>
             <label htmlFor={`demo-feedback-${demoId}`}>What did you think?</label>
             <Textarea
@@ -291,7 +299,7 @@ function DemoPlayer({ id }: { id: string }) {
         title={demo.title}
         scrolling="no"
       />
-      <div className="absolute bottom-3 right-3 z-2 w-[min(340px,calc(100%-24px))]">
+      <div className="absolute bottom-3 right-3 z-2 w-fit">
         <FeedbackForm demoId={id} getExtras={getExtras} />
       </div>
     </div>
