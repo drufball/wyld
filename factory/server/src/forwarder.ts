@@ -16,7 +16,10 @@ export function createWakeForwarder(dependencies: WakeForwarderDependencies) {
     logger('error', 'WAKE_URL is configured without WAKE_SECRET; Wake forwarding is disabled');
   }
   return (event: Event): void => {
-    if (event.source !== 'human' || event.kind === 'human.seen') return;
+    const forward =
+      (event.source === 'human' && event.kind !== 'human.seen') ||
+      (event.source === 'sleep' && event.kind === 'sleep.alarm');
+    if (!forward) return;
     if (dependencies.wakeUrl === undefined || dependencies.wakeSecret === undefined) return;
     const url = new URL('/event', dependencies.wakeUrl).toString();
     void Promise.resolve()

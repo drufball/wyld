@@ -1,4 +1,5 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import type { SleepAlarm, SleepPhaseEntry } from '@wyld/shared';
 
 export const events = sqliteTable(
   'events',
@@ -11,6 +12,41 @@ export const events = sqliteTable(
     questId: text('quest_id'),
   },
   (table) => [index('events_ts_idx').on(table.ts), index('events_quest_id_idx').on(table.questId)],
+);
+
+export const sleepRuns = sqliteTable(
+  'sleep_runs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    started: text('started').notNull(),
+    ended: text('ended'),
+    trigger: text('trigger', { enum: ['human', 'schedule'] }).notNull(),
+    phases: text('phases', { mode: 'json' }).$type<SleepPhaseEntry[]>().notNull().default([]),
+    alarmsFired: text('alarms_fired', { mode: 'json' }).$type<SleepAlarm[]>().notNull().default([]),
+    outcome: text('outcome', { enum: ['clean', 'timed_out', 'paused'] }),
+    leftoversParked: text('leftovers_parked', { mode: 'json' })
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+  },
+  (table) => [index('sleep_runs_ended_idx').on(table.ended)],
+);
+
+export const retros = sqliteTable(
+  'retros',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    date: text('date').notNull(),
+    summary: text('summary').notNull(),
+    wins: text('wins', { mode: 'json' }).$type<string[]>().notNull(),
+    misses: text('misses', { mode: 'json' }).$type<string[]>().notNull(),
+    factoryImprovements: text('factory_improvements', { mode: 'json' }).$type<string[]>().notNull(),
+    stats: text('stats', { mode: 'json' }).$type<Record<string, number>>().notNull(),
+    generatedBy: text('generated_by', { enum: ['planner', 'mechanical'] }).notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [uniqueIndex('retros_date_unique').on(table.date)],
 );
 
 export const healthReports = sqliteTable(

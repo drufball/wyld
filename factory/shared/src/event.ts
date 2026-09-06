@@ -33,6 +33,7 @@ export const EVENT_KINDS = [
   'planner.chain_updated',
   'system.paused',
   'system.resumed',
+  'sleep.alarm',
   'sleep.phase',
 ] as const;
 

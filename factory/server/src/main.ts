@@ -32,6 +32,7 @@ const app = createApp({
   ...(config.wakeSecret === undefined ? {} : { wakeSecret: config.wakeSecret }),
   ...(config.ntfyUrl === undefined ? {} : { ntfyUrl: config.ntfyUrl }),
   ntfyTopic: config.ntfyTopic,
+  sleepConfig: config.sleep,
 });
 
 log(

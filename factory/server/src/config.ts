@@ -13,6 +13,9 @@ const defaultPakDist = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const emptyStringAsUndefined = (value: unknown): unknown =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
 
+const WallTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'must be HH:MM (24-hour time)');
+const machineTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 const Environment = z.object({
   FACTORY_DIR: z.string().min(1).default(defaultFactoryDir),
   REPO_DIR: z.string().min(1).default(defaultRepoDir),
@@ -23,6 +26,11 @@ const Environment = z.object({
   WAKE_SECRET: z.preprocess(emptyStringAsUndefined, z.string().optional()),
   NTFY_URL: z.preprocess(emptyStringAsUndefined, z.url().optional()),
   NTFY_TOPIC: z.string().min(1).default('wyld-pak'),
+  SLEEP_TZ: z.preprocess(emptyStringAsUndefined, z.string().min(1).default(machineTimeZone)),
+  SLEEP_GOODNIGHT: WallTime.default('23:00'),
+  SLEEP_LAST_CALL: WallTime.default('07:15'),
+  SLEEP_LIGHTS_ON: WallTime.default('08:00'),
+  SLEEP_SCHEDULE: z.enum(['on', 'off']).default('on'),
 });
 
 export type Config = {
@@ -39,6 +47,13 @@ export type Config = {
   wakeSecret?: string;
   ntfyUrl?: string;
   ntfyTopic: string;
+  sleep: {
+    timeZone: string;
+    goodnight: string;
+    lastCall: string;
+    lightsOn: string;
+    enabled: boolean;
+  };
 };
 
 export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config {
@@ -62,5 +77,12 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     ...(result.data.WAKE_SECRET === undefined ? {} : { wakeSecret: result.data.WAKE_SECRET }),
     ...(result.data.NTFY_URL === undefined ? {} : { ntfyUrl: result.data.NTFY_URL }),
     ntfyTopic: result.data.NTFY_TOPIC,
+    sleep: {
+      timeZone: result.data.SLEEP_TZ,
+      goodnight: result.data.SLEEP_GOODNIGHT,
+      lastCall: result.data.SLEEP_LAST_CALL,
+      lightsOn: result.data.SLEEP_LIGHTS_ON,
+      enabled: result.data.SLEEP_SCHEDULE === 'on',
+    },
   };
 }
