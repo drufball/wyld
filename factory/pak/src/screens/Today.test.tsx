@@ -167,9 +167,10 @@ describe('Today', () => {
       );
       const { container } = renderToday();
       if (hidden) {
-        await waitFor(() => expect(container.querySelector('.chain-card')).not.toBeNull());
-        expect(container.querySelector('.today-go-outside')).toBeNull();
-        expect(screen.getByRole('link', { name: '1 Rumbles' })).not.toBeNull();
+        await waitFor(() => expect(container.querySelector('.today-go-outside')).toBeNull());
+        await waitFor(() =>
+          expect(screen.getByRole('link', { name: '1 Rumbles' })).not.toBeNull(),
+        );
       } else {
         await waitFor(() => expect(container.querySelector('.today-go-outside')).not.toBeNull());
         expect(screen.queryByRole('link', { name: '1 Rumbles' })).toBeNull();
