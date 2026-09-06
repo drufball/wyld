@@ -193,6 +193,34 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
   the Rumble screen). Keep `pak_request_rumble`/`pak_read_rumbles` working; add `pak_snooze_chain`
   or fold snooze into the chain API for the UI only (the Planner never snoozes). **Added 2026-09-06 08:17 (Dru, verbatim: "on mobile the conversations get a bit long. Can we do something like reddit where all the previous messages collapse when I send a message to save room and then I can expand them if I want?"):** in a chain card with more than two exchanges, everything except the latest human message and the latest Planner answer folds into one ≥44px "N earlier messages" row that expands in place; sending a new message re-folds; UI-only, no API change, remember expanded state per chain in component state only. **Added 2026-09-06 09:05 (Dru, verbatim: "I don't really like the styling of the 'what's on your mind?' input. First, I don't like how it has no background and the text just sits on the wallpaper. But second, it takes up a lot of vertical space and kinda feels disconnected from the chains. I'm thinking maybe there's a bottom floating action button in the corner, tapping that expands an input box, I type and hit enter and then that creates a chain."):** Today loses the always-visible textarea; a floating "+" (≥56px) bottom-right above the 72px phone nav opens a composer (bottom sheet ≤md, popover on desktop) with the same placeholder and submit path; Enter sends, Shift+Enter newline, Escape/scrim closes; focus management + `aria-expanded`/`role=dialog`; Today order = next action, chains, in-flight quests. Sent to the improved-chains lead for its pak unit. Plan the split:
   server model + migration → Wake tools → Pak UI (Today cards + Rumble screen + snooze control).
+  - **Unit 1 (server) is DONE — #111 / PR #113, merged and deployed 2026-09-06 09:19, one fix round.**
+    `rumbles` is gone as a table: a Rumble is now a row in `chains` with `kind='rumble'`, a stable
+    `slug` (the old rumble id, unique index), and flat rumble columns (`title`, `context`, `options`,
+    `chosen`, `chosen_at`, `blocking_quest_ids`, `rumble_kind` — renamed so it cannot collide with
+    the chain's own `kind`). Every chain also has `kind` (`question`|`message`|`rumble`, backfilled
+    from the first message's author) and `snoozed_until`. Shared `Chain` gained `kind`,
+    `snoozedUntil` and a nested `rumble: Rumble | null` — nesting, rather than flattening, is what
+    kept `GET /api/rumbles` byte-identical. New routes: `POST /api/chains/:id/snooze {until}` and
+    `/unsnooze`, neither of which emits an event (the Planner must never be woken by a snooze).
+    `GET /api/chains` gained `kind` / `status` / `includeSnoozed`; **with no `kind` it excludes
+    rumble chains**, which is what made this safe to deploy before the Pak unit exists.
+    `listOrderedRumbleRows`, `pause.ts` and the catch-up digest all read chains now.
+  - **New sharp edge — `z.input` vs `z.infer` on a schema with `.default()`.** The first cut typed
+    `export type Chain = z.input<typeof Chain>`, which makes every field carrying a `.default()`
+    **optional** for every downstream consumer: `chain.kind` became `… | undefined` and
+    `chain.rumble` `Rumble | null | undefined`, which would have forced `?? ` noise through the Pak
+    and Wake units for fields the server always sends. Typecheck, lint, tests and CI were all green
+    on it — the only way to see it is to probe the built `.d.ts` from a consumer package. On a
+    response schema, always `z.infer` (the parsed shape); keep the defaults for leniency and export
+    a separate `…Input` type if a call site really needs the loose shape.
+  - **Migration verification worth repeating:** build a scratch server from `origin/main` in one
+    worktree against a throwaway `FACTORY_DIR`, seed it through the API, then start the branch's
+    build against **the same `FACTORY_DIR`** and diff the two `/api/rumbles` payloads. That is what
+    proved the data copy; a fresh-database test proves nothing about a migration. Verified again on
+    the live box after merging: all 22 real Rumbles came back identical.
+  - Cheap trap hit while doing that: background jobs do not survive between Bash calls, so `kill %1`
+    in a later call is a no-op and the old server keeps the port — the new one dies with `EADDRINUSE`
+    and you silently test the *old* build. Kill by port (`lsof -ti :PORT`), not by job number.
 - **Tailscale Serve is on (2026-09-05 ~21:30):** Dru enabled Serve on the tailnet; `tailscale serve
   --bg 8787` now proxies `https://macbook-pro-6.taild72c8d.ts.net/` → `127.0.0.1:8787` (tailnet
   only, persists across restarts; `tailscale serve status` to check, `tailscale serve --https=443
