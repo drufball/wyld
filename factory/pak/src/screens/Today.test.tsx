@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
@@ -24,7 +24,10 @@ function renderToday(signals?: { rumbles: number; demos: number; memory: string 
   );
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 describe('Today', () => {
   it('shows, dismisses, and auto-hides live achievement unlocks', async () => {
     vi.useFakeTimers();
@@ -61,15 +64,14 @@ describe('Today', () => {
         }),
       );
     };
-    emit('First Light');
-    expect(await screen.findByText('Achievement unlocked — First Light')).not.toBeNull();
+    act(() => emit('First Light'));
+    expect(screen.getByText('Achievement unlocked — First Light')).not.toBeNull();
     fireEvent.click(screen.getByLabelText('Dismiss achievement'));
     expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
-    emit('Five Alive');
-    expect(await screen.findByText('Achievement unlocked — Five Alive')).not.toBeNull();
-    await vi.advanceTimersByTimeAsync(8_000);
+    act(() => emit('Five Alive'));
+    expect(screen.getByText('Achievement unlocked — Five Alive')).not.toBeNull();
+    act(() => vi.advanceTimersByTime(8_000));
     expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
-    vi.useRealTimers();
   });
   it('renders the Go Outside details and optional local ETA', () => {
     const { rerender } = render(

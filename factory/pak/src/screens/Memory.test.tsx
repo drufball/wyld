@@ -40,7 +40,11 @@ describe('Memory', () => {
     render(<Memory />);
     expect(await screen.findByLabelText('First Light, unlocked')).not.toBeNull();
     expect(screen.getByText('✨')).not.toBeNull();
-    expect(screen.getByLabelText('First Light, unlocked').textContent).toMatch(/\d{1,2}\s\w{3}/);
+    const unlockedDate = new Intl.DateTimeFormat(undefined, {
+      day: 'numeric',
+      month: 'short',
+    }).format(new Date('2026-09-06T08:00:00Z'));
+    expect(screen.getByLabelText('First Light, unlocked').textContent).toContain(unlockedDate);
     expect(screen.getByLabelText('Five Alive, locked').textContent).toContain('???');
     expect(screen.getByLabelText('Five Alive, locked').querySelector('time')).toBeNull();
   });

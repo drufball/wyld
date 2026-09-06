@@ -114,20 +114,23 @@ export function Memory() {
       {achievements.length > 0 && (
         <section className="grid gap-3" aria-label="Achievements">
           <h2 className="m-0 font-display text-xs text-dracula-pink">ACHIEVEMENTS</h2>
-          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 p-0">
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2 p-0">
             {achievements.map((achievement) => {
               const unlocked = achievement.unlockedAt !== null;
               return (
-                <li key={achievement.id} className="min-w-0">
+                <li
+                  key={achievement.id}
+                  className="min-w-0"
+                  aria-label={`${achievement.name}, ${unlocked ? 'unlocked' : 'locked'}`}
+                >
                   <Card
                     variant="bevel"
-                    aria-label={`${achievement.name}, ${unlocked ? 'unlocked' : 'locked'}`}
-                    className={`achievement-tile grid min-h-24 min-w-0 gap-1 p-3 text-center ${unlocked ? '' : 'opacity-50'}`}
+                    className={`achievement-tile grid h-full min-h-24 min-w-0 gap-1 p-3 text-center ${unlocked ? '' : 'opacity-50'}`}
                   >
                     <span aria-hidden="true" className="text-2xl">
                       {unlocked ? achievement.badge : '???'}
                     </span>
-                    <span className="min-w-0 break-words">{achievement.name}</span>
+                    <span className="min-w-0">{achievement.name}</span>
                     {achievement.unlockedAt !== null && (
                       <time
                         className="text-xs text-muted-foreground"
