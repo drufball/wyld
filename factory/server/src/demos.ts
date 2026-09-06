@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, isNull, ne, or } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { Demo, Feedback, NewDemo, NewFeedback, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
@@ -23,6 +23,7 @@ type Dependencies = {
 };
 const BuildRequest = z.object({ id: z.string().optional() });
 const FeedbackQuery = z.object({ demo: z.string().optional() });
+const DemosQuery = z.object({ includeDone: z.string().optional() });
 
 const parseDemo = (row: typeof demos.$inferSelect) =>
   Demo.parse({
@@ -67,10 +68,18 @@ export function createDemoRoutes({
   };
 
   app.get('/demos', (c) => {
-    const rows = db
-      .select()
+    const parsed = DemosQuery.safeParse(c.req.query());
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    const query = db
+      .select({ demo: demos })
       .from(demos)
-      .all()
+      .leftJoin(quests, eq(demos.questId, quests.id));
+    const rows = (
+      parsed.data.includeDone === '1'
+        ? query.all()
+        : query.where(or(isNull(quests.status), ne(quests.status, 'done'))).all()
+    )
+      .map(({ demo }) => demo)
       .sort((a, b) => {
         if (a.id === 'main' || b.id === 'main') return a.id === 'main' ? -1 : 1;
         if (a.builtAt === null && b.builtAt === null) return a.id.localeCompare(b.id);
