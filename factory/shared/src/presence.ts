@@ -16,6 +16,7 @@ export const Presence = z.object({
   lastSeenAt: Timestamp,
   lastCatchupEventId: EventId.nullable(),
   nextAction: NextAction.nullable(),
+  needsYou: z.number().int().min(0).default(0),
 });
 export type Presence = z.infer<typeof Presence>;
 

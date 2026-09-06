@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { Chain } from './chain.js';
+import { Chain, ChainKind } from './chain.js';
 
 describe('Chain', () => {
   const valid = {
@@ -24,7 +24,38 @@ describe('Chain', () => {
   } as const;
 
   it('parses a valid chain', () => {
-    expect(Chain.parse(valid)).toEqual(valid);
+    expect(Chain.parse(valid)).toEqual({ ...valid, tags: [], demoId: null, payload: null });
+    expect(ChainKind.options).toEqual([
+      'question',
+      'message',
+      'rumble',
+      'demo',
+      'action',
+      'unlock',
+    ]);
+  });
+
+  it('applies card defaults and accepts a demo card', () => {
+    expect(Chain.parse(valid)).toMatchObject({ tags: [], demoId: null, payload: null });
+    expect(
+      Chain.parse({
+        ...valid,
+        kind: 'demo',
+        demoId: 'demo-one',
+        tags: ['demo', 'disc'],
+        payload: { title: 'Demo one' },
+      }),
+    ).toMatchObject({ kind: 'demo', demoId: 'demo-one' });
+  });
+
+  it('enforces the rumble and demo invariants', () => {
+    expect(Chain.safeParse({ ...valid, kind: 'rumble' }).success).toBe(false);
+    expect(Chain.safeParse({ ...valid, rumble: {} }).success).toBe(false);
+    expect(Chain.safeParse({ ...valid, kind: 'demo' }).success).toBe(false);
+    const result = Chain.safeParse({ ...valid, demoId: 'demo-one' });
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues.some(({ path }) => path[0] === 'demoId')).toBe(true);
   });
 
   it('rejects an empty message', () => {

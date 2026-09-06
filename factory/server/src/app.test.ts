@@ -426,6 +426,11 @@ describe('Pak server', () => {
     expect(stored).toMatchObject([
       {
         source: 'planner',
+        kind: 'planner.chain_updated',
+        payload: { text: 'Try the demo' },
+      },
+      {
+        source: 'planner',
         kind: 'planner.next_action',
         payload: {
           text: 'Try the demo',

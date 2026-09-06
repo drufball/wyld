@@ -79,6 +79,7 @@ describe('Catch-Up', () => {
         lastSeenAt: '2026-09-05T12:00:00.000Z',
         lastCatchupEventId: 24,
         nextAction: null,
+        needsYou: 0,
       });
     renderScreen();
     fireEvent.click(await screen.findByRole('button', { name: 'Got it' }));

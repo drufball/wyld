@@ -45,6 +45,9 @@ const rumbleChain = (rumble: RumbleType, id: number): Chain => ({
   lastActivityAt: '2026-09-05T12:00:00.000Z',
   questId: rumble.blockingQuestIds[0] ?? null,
   snoozedUntil: null,
+  tags: ['rumble'],
+  demoId: null,
+  payload: null,
   rumble,
   messages: [],
 });
@@ -132,6 +135,9 @@ describe('Rumble', () => {
       lastActivityAt: '2026-09-05T12:00:00.000Z',
       questId: 'quest-one',
       snoozedUntil: null,
+      tags: ['question'],
+      demoId: null,
+      payload: null,
       rumble: null,
       messages: [
         { id: 1, chainId: 1, author: 'human', text: 'More?', ts: '2026-09-05T12:00:00.000Z' },
