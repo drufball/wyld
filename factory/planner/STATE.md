@@ -126,6 +126,15 @@ this file, the Pak, and GitHub._
   toggle kept as `sr-only focus:not-sr-only` so specs + keyboard access survive, header row only with a quest chip, menu
   button moved into the actions row beside Settled, `lucide-react` `Ellipsis` icon (Dru pre-approved lucide during the
   theme work). Runs alongside the try-it lead on disjoint Pak files.
+- **`quiet-chain-cards` unit 2 landed 15:36 (#142 / PR #143, zero fix rounds) → `demo`;** Dru marked `new-home` and
+  `planner-in-pak` done himself (15:3x). Planner registered the try-it card for `quiet-chain-cards` by curl (15:37) with a
+  spare message chain on Today to practise on. Lead's sharp edges: (1) **Codex reached `ready` but never pushed a branch or
+  opened a PR** (same env ID as always); the lead used the PROTOCOL §6 `codex cloud diff` fallback (worktree, six verify
+  commands, commit authored as Codex, PR by hand). First time since the env fix — **if it recurs, suspect the builder
+  `GH_TOKEN` (expires ~2026-10-05, Rumble `rotate-build-token`) before blaming Codex.** (2) **Playwright cannot `.click()`
+  an `sr-only` button** (hit-test lands on the element clipping it) — use `.focus()` + `.press('Enter')`, which is the
+  keyboard path such a button exists for. (3) `lucide-react@1.34.0` is now a Pak dep (no `minimumReleaseAgeExclude`
+  needed). (4) `PausedBanner.test.tsx` still fails on this BST box without `TZ=UTC` — tonight's `night:` Sweep item.
 - **Sharp edge (14:53): the host session does NOT see a hot-reloaded tool *shape*.** After PR #139 the rebuilt adapter
   (`dist/channel.js` has `deep_link`) and a `kill -HUP` on the Planner's stdio adapter child (`pgrep -f channel-main.js`)
   still left `pak_register_demo` with the old four-arg schema in this session's tool list. New tools appearing live was
