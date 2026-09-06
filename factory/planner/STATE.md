@@ -119,6 +119,20 @@ this file, the Pak, and GitHub._
   registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
   restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
   `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **Sleep Mode run 1 (Dru pressed GOODNIGHT 22:06; ended clean 22:59).** Drain empty; Sweep = four `night:` items via one lead,
+  all merged (#171 Today's ChainList owns its kind set — root cause was wider: Today passed `kind=all`, which #165 expanded to
+  all six kinds, so `action`/`demo` chains were in the *fetch*, not just SSE; #173 `PausedBanner` test TZ-agnostic — `TZ=UTC`
+  no longer needed on this Mac; #170 planner-host `scrub.ts` deletes `WAKE_URL/WAKE_SECRET/NTFY_URL/NTFY_BASE_URL` from
+  `process.env` after `readConfig()` — proved on a scratch host: the `claude` child has none of them, the adapter grandchild has
+  exactly its four; #175 `GET /api/rumbles` excludes future-snoozed unless `includeSnoozed=1`, catch-up digest too,
+  **`pak_read_rumbles` always sends `includeSnoozed=1`** so the Planner still sees them). QA: build + smoke 12/12, all demos
+  `ready` (Main hidden by Dru — never re-register it in QA), doctor 36 ok. Retro written (`2026-09-06`), catch-up + next action
+  set; **rewrite the catch-up at `lights_on`** because overnight events turn it mechanical. Host restarted on #170 at 23:00.
+  Corrections to earlier rules from the night lead: **`ps eww` shows exec-time env** (a runtime `delete` doesn't change it —
+  check the child, not the host); **`mcpServers.<name>.env` MERGES** into the parent env (only `Options.env` replaces);
+  `pnpm --filter A --filter B build` (not `--filter A build --filter B build`); `bootstrap.sh` in a worktree writes a
+  worktree-local `.factory/env`. **Morning: `one-mechanism` unit 3 (Pak) at lights-on**, brief must include: `action` chains
+  never render as Dru's cards and rotation settles are planner-sourced; `unhide` UI = reopen; questless building/failed cards.
 - **Side effect of unit 1 on the live Pak (21:05):** `Today`'s `ChainList` appends any `planner.chain_updated` chain from SSE
   without filtering by kind, so each new `action` chain (every `pak_set_next_action`) appears as a card until reload; Dru settled
   two of them (chains 65, 66). Presence/`needsYou` unaffected. **Tonight's Sweep, first item (`night:`):** ChainList only
