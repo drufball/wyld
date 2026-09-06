@@ -354,6 +354,52 @@ to say the channel flag is the fallback path only; delete `factory/planner/queue
     (`<scratchpad>/<quest>-unit-<n>.md`), and after filing, read the `Closes` line and the
     `<!-- quest: -->` marker back from GitHub before starting Codex.** Cheap to do, and the failure is
     invisible until two PRs exist for one issue.
+  - **Unit 2 (pak) is DONE — #114 / PR #119, merged and deployed 2026-09-06 09:55, two fix rounds.**
+    Today's always-visible box is gone: a 56px floating `+` bottom-right opens a composer (bottom
+    sheet on a phone docked flush above the nav, popover on desktop). Chain cards carry a kind badge,
+    a Snooze button with the three presets, and the Reddit-style fold-up (`N earlier messages` when a
+    chain has more than two messages, keeping the last two, re-folding on send). Open Rumbles now
+    appear on Today as decidable cards; the Rumble screen reads
+    `?kind=rumble&status=all&includeSnoozed=1` and its "Ask for more" posts onto the Rumble's own
+    chain instead of opening a side chain. `DecisionButtons` moved to its own component and `Button`
+    now forwards refs. **The Playwright suite passes with no spec edits.**
+  - **The trick that let Today lose its textarea without touching a spec.** `today.spec.ts` and
+    `catchup.spec.ts` assert `getByText("What's on your mind?")` is *visible*, and `today.spec.ts`
+    plus `chains.spec.ts` `fill()` + `press('Enter')` on `getByLabel("What's on your mind?")` — so the
+    field could not simply be conditionally rendered. The composer form is therefore **always
+    mounted**, wrapped in `sr-only` when closed (Playwright counts a 1×1 clipped element as visible
+    and will happily fill it), and **`onFocus` on the textarea opens the composer** — so `fill()`
+    focuses the field, the sheet opens for real, and the spec exercises the real path rather than a
+    hidden one. It is also genuinely better for a screen reader. **Exactly one element may carry that
+    accessible name**: the floating button and the dialog are both named `New message`, because a
+    second element with the same name makes `getByLabel` ambiguous and fails all three specs under
+    strict mode.
+  - **Both fix rounds were things only a running browser showed**, invisible to typecheck, lint,
+    tests and CI — the pattern this repo keeps re-learning:
+    1. **A scrim the same colour as the page dims nothing.** `bg-background/70` over `background` is
+       a no-op; the open sheet just looked like it was overlapping the card underneath. Needs an
+       actual dim (`bg-black/60 backdrop-blur-sm`).
+    2. **The floating button sat on top of the sheet's Close button** at 375px (button y 660–716
+       inside a sheet at 500–724), and the sheet left a 35px strip of page showing between itself and
+       the nav. Docked it to `bottom-[calc(53px+env(safe-area-inset-bottom))]` — the nav's own height,
+       not a flattened `bottom-0`.
+    3. **`visibility: hidden` elements cannot take focus**, so hiding the button with `invisible` and
+       calling `.focus()` on it in the same handler silently left focus in the now-hidden textarea —
+       a keyboard user pressing Escape was trapped in an invisible input. Fixed by moving focus into
+       a `useEffect` keyed on the open state (effects run after the DOM updates), with a
+       `wasOpened` ref so the page does not steal focus on mount. **Rule: never call `.focus()` on an
+       element in the same handler that makes it visible.**
+    4. A hard-coded `rumble` string in the decided-Rumble badge, where the open cards correctly
+       rendered `{rumble.kind}` — the decided list read `RUMBLE` for everything instead of
+       `TASTE`/`ACCOUNT`. Only caught by reading the rendered badges out of the live DOM.
+  - **How the UI was actually verified, with no browser extension available:** a throwaway
+    `node` script in `factory/pak` importing `@playwright/test`'s `chromium` directly (it must live
+    inside that package to resolve the import), pointed at a scratch server, taking full-page
+    screenshots at 375×812 and 1280×900 *and* measuring the things the acceptance criteria name —
+    `scrollWidth - clientWidth` for horizontal overflow, bounding boxes for the button-vs-nav overlap,
+    every `button`/`a[href]` under 44px, `document.activeElement.id` after open and after Escape. That
+    measurement caught three of the six defects on its own, and is far more reliable than looking at a
+    screenshot. Worth reusing on any Pak unit.
 - **Tailscale Serve is on (2026-09-05 ~21:30):** Dru enabled Serve on the tailnet; `tailscale serve
   --bg 8787` now proxies `https://macbook-pro-6.taild72c8d.ts.net/` → `127.0.0.1:8787` (tailnet
   only, persists across restarts; `tailscale serve status` to check, `tailscale serve --https=443
