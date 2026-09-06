@@ -101,6 +101,23 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **`one-mechanism` unit 1 landed 19:59 (#164 / PR #165, one fix round)** — `ChainKind` + `demo|action|unlock`, `chains.tags/
+  demo_id/payload`, migration 0016 backfill (one demo chain per demo, one action chain from presence), `close {reason:'done'}`
+  marks the quest done, **`POST /chains/:id/reopen` is the un-done**, hide ⇔ settle, `needsYou` on `GET /api/presence`
+  (open + unsnoozed question|message|rumble|demo), `GET /chains` default unchanged, comma kinds + `all`. Helper
+  `factory/server/src/chain-cards.ts`. Fix round: Codex shipped **zero route tests** and a migration defect (`json(steps)` wrote
+  `"steps": null` for NULL columns — the live `main` row). Live: `needsYou: 3`, doctor 36 ok.
+  **LEAK, root cause found:** the Planner host is launched with `set -a; . .factory/env`, so **every lead's Bash inherits
+  `WAKE_URL`/`WAKE_SECRET`/`NTFY_URL`** and any scratch server forwards fixtures to the live Wake (chains 9/4/5/1, `seed-quest`,
+  `q1` arrived 19:44–19:45 as `human.*`). `unset` in one Bash call does not carry to the next. **Rule for every lead brief: prefix
+  every scratch server / test command with `env -u WAKE_URL -u WAKE_SECRET -u NTFY_URL -u NTFY_BASE_URL`.** Proper fix (Sweep
+  candidate, `night:`): `factory/planner-host` passes those three only to the adapter child (`mcpServers.wake.env`) and deletes
+  them from its own `process.env` before the query starts, so subagent shells never see them. The tell stays: a `human.*` event
+  absent from `pak_read_events` is a leak.
+- Units left on `one-mechanism`: (2) wake tools — `pak_read_chains` new kinds + comma list, `pak_close_chain reason`, new
+  `pak_reopen_chain` (host restart at a lead boundary for the changed shape); (3) Pak — Today renders every kind as a card
+  (demo cards with Mark done/Hide/Snooze, action card, unlock card), sunset uses `needsYou`, Demos/Rumble/VMU become filters over
+  chains; (4) retire the special cases (`GET /api/rumbles` snooze, questless `building/failed` cards, unhide UI = reopen).
 - **`try-it-cards` unit 7 Hide landed 19:17 (#162 / PR #163, zero fix rounds)** — `demos.hidden_at` (migration 0015),
   `POST /api/demos/:id/hide|unhide`, default list drops hidden, `?includeDone=1` = everything, re-register/build unhides; Pak
   `Hide` where questless, `Mark done` where quest-owned, never both. Quest back in `demo`, card re-registered. Lead's edges:
