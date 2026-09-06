@@ -134,12 +134,16 @@ if command -v node >/dev/null 2>&1; then
 fi
 
 cli_running=false
-if command -v pgrep >/dev/null 2>&1; then
-  if pgrep -f '[d]angerously-load-development-channels' >/dev/null 2>&1; then
+if command -v tmux >/dev/null 2>&1; then
+  # claude rewrites its process title to its version, so the launch flags are not in any command line.
+  if tmux has-session -t wyld 2>/dev/null \
+    && tmux list-panes -t wyld:planner -F '#{pane_dead} #{pane_start_command}' 2>/dev/null \
+      | awk '$1 == 0' \
+      | grep -q 'dangerously-load-development-channels'; then
     cli_running=true
   fi
 else
-  warn 'CLI Planner process cannot be checked because pgrep is unavailable'
+  warn 'CLI Planner session cannot be checked because tmux is unavailable'
 fi
 
 if [[ "$host_running" == true && "$cli_running" == false ]]; then
