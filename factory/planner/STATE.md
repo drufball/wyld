@@ -54,33 +54,40 @@ step finishes._
 - TypeScript pinned 6.0.3 (typescript-eslint peer range). Tailscale is logged out on the laptop
   (needed at 1.11 → Rumble then).
 
-## First actions for the on-duty Planner (tmux session)
+## First actions for the on-duty Planner (host session)
 
-_Rewritten 2026-09-06 ~23:30 by the outgoing session, which respawned itself (no leads were
-running — the pak-theme lead was stopped at a clean boundary on purpose) to load
-`pak_register_demo`, `pak_read_demos`, `pak_read_feedback` and the hot-reloading wake adapter._
+_Rewritten 2026-09-06 ~10:25 by the outgoing CLI session just before the cutover to the Agent SDK host
+(quest `planner-in-pak`). You are a **fresh** session inside `factory/planner-host` — no memory of the
+previous one beyond this file, the Pak, and GitHub. Everything up to the commit that added this section is
+done._
 
-1. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`) — confirm the three demo tools are
-   visible. `pak_read_chains`; answer any open chain (PROTOCOL §5a). `pak_health_report`. Chain
-   "restart-proofing half is in" (on `unattended-restart`) is the Planner's own heads-up about
-   this restart — close it once you are up.
-2. The channel queue replays a short backlog — all handled. Everything up to `f85baab` is done.
-3. Open Rumbles: `ntfy-phone` (waits on 1.8's ntfy server + a path under Tailscale Serve) and
-   `rotate-build-token` (before ~2026-10-05). Both wait on Dru or on later steps.
-4. ~~Spawn the `pak-theme` lead for units 2 and 3.~~ **Done 2026-09-06 ~08:06.** PR #95 (unit 2,
-   no fix rounds) and PR #100 (unit 3, one fix round) are merged, deployed to the live Pak and the
-   main disc rebuilt; the quest is in `demo`. `factory/pak` is free for the next lead, and the three
-   spent issue bodies in `factory/planner/queued/` can be deleted.
-5. ~~`paused` unit C~~ **`paused` is done (08:47).** `improved-chains` lead **spawned 08:49** — its server and pak units run now; its wake unit waits until `planner-in-pak` unit 1 (#110) merges, because that lead owns `factory/wake` meanwhile.
-   It touches server + wake + pak, so it runs alone.
-6. From now on, after a merge that adds a `pak_*` tool, `pnpm --filter @wyld/wake build` in the
-   live checkout is enough — the adapter reloads and the tool appears next turn. **Confirmed under
-   the channels flag 2026-09-06 07:47:** `pak_notify` (merged in #98) appeared in the live Planner
-   session as a deferred tool without a restart. A schema that
-   lives in `@wyld/shared` still needs a Planner restart to change shape.
-7. Restarting the Planner still needs Dru's keypress at the channels warning (quest
-   `unattended-restart` is parked on that). Restart only at a clean boundary, tell him first via
-   `pak_send_message`, and prefer doing it while he is around.
+1. **You are the host now.** Events reach you as `<channel …>` tags in your user messages, batched
+   (several tags per message, timestamp order) — the same framing as before; act on each per PROTOCOL §2.
+   Your `pak_*` tools come from the wake adapter over stdio with `WAKE_CHANNEL_PUSH=0`. `curl -s
+   localhost:8789/health` shows your session id; `./scripts/factory-doctor.sh` must say `Planner is running
+   as the host`. There is no keypress and no channels flag anymore; the CLI path is the fallback for a week
+   (`PLANNER_MODE=cli` in `.factory/env`, then `pnpm factory:down && pnpm factory:up`).
+2. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`). `pak_health_report` first — the Debug tile
+   has been silent since the cutover. Then `pak_read_chains` and answer anything open.
+3. `pak_post_note` on `planner-in-pak`: you are up, running inside the factory, restarts no longer need
+   him; `pak_set_quest_status` → `demo`, since-you-looked, and the next action ("Nothing needs you" → `/`
+   unless a Rumble is open). Close `unattended-restart` as `done` with a one-line note.
+4. **Re-adopt in-flight work from GitHub, not memory:** `gh pr list` / `gh issue list`. Anything open under
+   quest `improved-chains` belongs to that quest (its lead died with the old session) — if PR #119 (pak unit,
+   `codex/chains-pak`) is still open, spawn a fresh lead for it with the review-pr / merge-and-ship brief
+   (deploy = `pnpm --filter @wyld/pak build` + rebuild the main disc; then quest → `demo`). If it merged
+   already, just check the quest is in `demo` with a note.
+5. Leads: spawn one opus lead per quest as before (Agent tool). **Every lead brief must include:** unique
+   scratchpad file names per quest+unit, read the marker/Closes line back from GitHub after filing, name the
+   branch in the Codex prompt, never post to the live notifier, never touch `.factory/env`, one Codex task per
+   issue. Leads stop between waits — resume them with SendMessage on the PR events.
+6. Next quests, in order: 1.9 (`sleep-mode`, see factory-spec §11), then `polish` (1.11 — Serve is already
+   on; make `factory:up`/doctor check it), then Phase 2 game quests in world `fieldwork`. `paused` and
+   `pak-theme` are in `demo`/`done`; Dru has tried both.
+7. Restarting yourself is now safe and unattended: the host resumes your session id from
+   `.factory/planner-session.json`. If you must, `tmux respawn-window -k -t wyld:planner` with the launcher's
+   command line (in `scripts/factory-up.sh`). A schema change in `@wyld/shared` still needs that restart to
+   change a tool's shape; adding a tool does not.
 
 ## Cutover to the host (runbook — written 2026-09-06 09:25, execute once #116 has merged)
 

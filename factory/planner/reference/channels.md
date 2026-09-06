@@ -1,5 +1,9 @@
 # Claude Code channels — verified contract
 
+> **Fallback path only since 2026-09-06.** The Planner normally runs as the Agent SDK host
+> (`factory/planner-host`), which claims Wake's queue directly and needs no channel flag. This file
+> describes the CLI path used when `PLANNER_MODE=cli`.
+
 Verified 2026-09-05 against Claude Code **v2.1.223** (local) and the official docs.
 
 Sources:

@@ -368,9 +368,12 @@ The CI check context is named `ci`.
 
 - **TypeScript is pinned to 6.0.3** because of the `typescript-eslint` peer range — do not bump it
   without also bumping `typescript-eslint` and confirming the peer range is satisfied.
-- Channel notifications may not reach an idle Claude Code session (upstream bugs
-  anthropics/claude-code #36827, #45563, #61797). If nothing arrives after an intent, suspect that
-  first — and pull the queue yourself with `pak_read_events`.
+- **Since 2026-09-06 the Planner runs as an Agent SDK host** (`factory/planner-host`, quest
+  `planner-in-pak`): events arrive as `<channel …>` tags inside batched user messages, claimed from Wake's
+  queue by the host itself; the wake adapter serves tools only (`WAKE_CHANNEL_PUSH=0`). The CLI + channels
+  path (`claude --dangerously-load-development-channels server:wake`, `reference/channels.md`) is the
+  fallback (`PLANNER_MODE=cli`). On the CLI path, channel notifications may not reach an idle session
+  (upstream bugs anthropics/claude-code #36827, #45563, #61797) — pull the queue with `pak_read_events`.
 
 ## Skills
 
