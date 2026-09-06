@@ -20,7 +20,8 @@ step finishes._
 | `one-box` (Dru 2026-09-05 19:45: Today box has one state; Planner replies as a chain message or by creating quests) | done | #70 `POST /api/chains` with `author` + Wake `pak_send_message` (no new event kind), #75 one "What's on your mind?" box, every submission opens a chain; PROTOCOL §2/§5a + plan-quest rewritten (1fcf0e7). "Make this a quest" still emits `human.intent` from that explicit tap only |
 | 1.7 Demo Discs: `game/` scaffold, worktree builder, `/play/*`, in-Pak player + feedback | done | #80 doctor fails on a missing tmux window (with the exact `tmux new-window` to recreate it), #81 `game/` = `@wyld/game` (Vite+Three.js, `three` + `@types/three` the only new deps; one low-poly creature, `GAME_BASE` sets Vite `base`, `window.__wyld.getState()`/`screenshot()` with `preserveDrawingBuffer`), #85 `demos`/`feedback` tables + `createDemoBuilder` (fetch → worktree → `pnpm install` → `GAME_BASE=/play/<slug>/ pnpm --filter @wyld/game build` → atomic publish) + `GET/POST /api/demos`, `POST /api/demos/build`, `GET/POST /api/feedback`, `GET /api/feedback/:id/screenshot`, `/play/<slug>/*` via `resolveStaticFile`, #84 Wake `pak_register_demo`/`pak_read_demos`/`pak_read_feedback`, #87 `/demos` grid + `/demos/:id` full-screen iframe player + floating feedback + Today/VMU "N demos ready". `/play/main/` is live and registered. **The Planner must respawn to see the three new tools.** |
 | `wake-hot-reload` (half of quest `unattended-restart`; Dru 2026-09-05 21:20) | done | #90 tolerant claim path (`WakeMessageWire`, per-message drop + ack, `/queue/claim` retires unserialisable rows, `pak_read_events`/`pak_log_event` unfrozen, `.claude/settings.json` checked in), #93 tool hot reload (swappable registry + `reload.ts`: `fs.watch` on `dist/` and `SIGHUP`, `notifications/tools/list_changed`). Claude Code **does** honour `list_changed` — verified live. The quest stays `parked`: the launch-warning keypress still needs Dru |
-| `pak-theme` unit 1 (Dru 2026-09-05 21:43: "Dracula console look") | done | #89 / PR #91 — Tailwind v4 via `@tailwindcss/vite` (no `tailwind.config.js`, CSS-first `@theme`), Dracula tokens + shadcn token names in `theme.css`, shadcn primitives hand-copied into `factory/pak/src/components/ui/` (`button`/`card`/`badge`/`input`/`textarea`) + `src/lib/utils.ts` `cn()`, `Panel` reimplemented over `Card variant="bevel"` (`Panel.css` deleted), app shell + `Nav` + `Today` + `ChainList` + `InFlight` migrated, body in the system mono stack and the pixel font on headings/badges/labels only. Two fix rounds. Units 2 and 3 are written and ready to file: `factory/planner/queued/pak-theme-unit-2.md` and `-unit-3.md` |
+| `pak-theme` unit 1 (Dru 2026-09-05 21:43: "Dracula console look") | done | #89 / PR #91 — Tailwind v4 via `@tailwindcss/vite` (no `tailwind.config.js`, CSS-first `@theme`), Dracula tokens + shadcn token names in `theme.css`, shadcn primitives hand-copied into `factory/pak/src/components/ui/` (`button`/`card`/`badge`/`input`/`textarea`) + `src/lib/utils.ts` `cn()`, `Panel` reimplemented over `Card variant="bevel"` (`Panel.css` deleted), app shell + `Nav` + `Today` + `ChainList` + `InFlight` migrated, body in the system mono stack and the pixel font on headings/badges/labels only. Two fix rounds. Unit 3 is written and ready to file: `factory/planner/queued/pak-theme-unit-3.md` |
+| `pak-theme` unit 2 | done | #94 / PR #95 — Quests, Rumble and Catch-Up migrated onto the unit-1 primitives; `Card` gained `asChild` (radix `Slot`) so a `Card` can render the `article` that carries the `quest-card` / `rumble-card` test hooks; filter chips are now ≥44px `Button`s (last `pak-polish` leftover closed); `theme.css` lost 426 lines (all `.quest-*`, `.rumble-*`, `.catch-up*`, `.world-*`, `.ask-composer*`, `.today-action`) with **zero** added. No fix rounds — merged on the first review. |
 | 1.8 Paused (quest `paused`) | **in progress — pulled forward 2026-09-06 07:22** after Dru asked about the ntfy card. Lead spawned by the Planner: unit A = self-hosted ntfy (`.factory/bin/ntfy`, tmux window `ntfy`, Tailscale Serve on a second HTTPS port `:8443`, server `notify()` + `POST /api/notify` + Wake `pak_notify`, then re-file Rumble `ntfy-phone` with the real address), unit B = pause/resume state + `pak_pause`/`pak_resume` + Wake buffering + ops watchdog. **Unit C (Pak banner + Resume button + VMU) is NOT started — it waits for `pak-theme` to finish, then needs its own lead.** Runs in parallel with the `pak-theme` lead (disjoint packages) | — |
 | 1.9 – 1.11 | not started | see factory-spec.md §11; they exist as `idea` quests in the Pak world |
 
@@ -91,19 +92,29 @@ running — the pak-theme lead was stopped at a clean boundary on purpose) to lo
   his Claude settings and say so. What shipped instead, and what is now true, is in the two struck
   items below. `.claude/settings.json` (`{"enabledMcpjsonServers": ["wake"]}`) is now checked in, so
   a fresh clone never sees the `.mcp.json` approval prompt.
-- **Quest `pak-theme` "Dracula console look" — unit 1 landed 2026-09-05 ~23:26 (#89 / PR #91).
-  Units 2 and 3 still to go; the next lead files them verbatim from
-  `factory/planner/queued/pak-theme-unit-2.md` and `factory/planner/queued/pak-theme-unit-3.md`,
-  in that order, one at a time (both touch `factory/pak`).** Dru's ask, verbatim: "I really like
+- **Quest `pak-theme` "Dracula console look" — unit 1 landed 2026-09-05 ~23:26 (#89 / PR #91),
+  unit 2 landed 2026-09-06 ~07:35 (#94 / PR #95, no fix rounds: Quests + Rumble + Catch-Up on the
+  primitives, filter chips to 44px, 426 lines of `theme.css` deleted and none added). Only unit 3
+  is left; the lead files it verbatim from `factory/planner/queued/pak-theme-unit-3.md`.** Dru's ask, verbatim: "I really like
   the retro card style of debug page, and I like that it only uses game font for headings/accents.
   Redesign the home page and all the other pages to use a shared shadcn design system and make it
   look a bit more code editor Dracula theme, with retro game accents." Taste is decided — never
   re-ask. This supersedes the 1.11 "theme pass" and folds in the `pak-polish` leftovers (the filter
   chips, now 34px, and the raw `rem` rules) — unit 2 fixes both.
-  - **Unit 2** = Quests + Rumble + Catch-Up onto the primitives, filter chips to 44px, their CSS
-    deleted. **Unit 3** = VMU + Debug (keep the look, just move it onto the primitives) + Demo
-    Discs grid/player chrome, `theme.css` reduced to tokens/base/keyframes, and the optional
+  - ~~**Unit 2** = Quests + Rumble + Catch-Up onto the primitives, filter chips to 44px, their CSS
+    deleted.~~ **done.** **Unit 3** = VMU + Debug (keep the look, just move it onto the primitives)
+    + Demo Discs grid/player chrome, `theme.css` reduced to tokens/base/keyframes, and the optional
     `lastEvent` removal from `LiveEvents.tsx`.
+  - **New from unit 2 (no fix rounds; these are what made it clean):** `Card` needed an `asChild`
+    prop (`@radix-ui/react-slot`, already a dep) so a `Card` can *be* the `<article>` that carries
+    the `quest-card` / `rumble-card` test hook — wrapping a `Card` around an `article` would have
+    put the hook on the wrong element. Tailwind v4 accepts bare values like `duration-400`
+    (confirmed in the built CSS: `.duration-400{transition-duration:.4s}`); v3's fixed duration
+    scale does not apply. And the *derived* progress bar reads 0 for every quest with no
+    `quest_links`, so a verification server must seed links (`POST /api/quests/<id>/links`) or the
+    green fill never renders and cannot be checked. A leftover `className` whose rule was deleted
+    (`quest-actions`) is harmless when Tailwind utilities do the layout — the trap is only when the
+    deleted rule was doing the work.
   - **Deps are settled** (Dru's explicit ask, nothing else new): `tailwindcss` + `@tailwindcss/vite`
     (v4, dev), `class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/react-slot` (prod),
     all pinned exact. `lucide-react` was allowed but deliberately not added — nothing needed an icon.
