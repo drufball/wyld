@@ -118,6 +118,13 @@ to say the channel flag is the fallback path only; delete `factory/planner/queue
 
 ## Open items
 
+- **Leads must write issue bodies and reviews to unique scratchpad files** (2026-09-06 09:30, cost two
+  Codex runs): two leads used the same file name in the shared scratchpad; the launcher issue (#116) was filed
+  with the chains pak body, its Codex task implemented the wrong unit on branch `codex/planner-launcher` (PR
+  #117, "Closes #116"), and Wake routed everything to the wrong quest. Rule: `<scratchpad>/<quest>-<unit>.md`,
+  read the body/marker/Closes line back from GitHub after filing, and name the branch in the Codex prompt.
+  Planner: put this in every lead brief.
+
 - **Never post to the live `/api/notify` (or call `pak_notify`) from a verification run** (2026-09-06: a lead's
   last smoke check sent a junk "x / y" push to Dru's phone). Scratch servers must leave `NTFY_URL` unset; the
   live notifier is for a pause, a new Rumble, or a demo ready — nothing else. Lead briefs must say so.
