@@ -185,7 +185,8 @@ describe('Today', () => {
     vi.stubGlobal('fetch', fetch);
     renderToday();
     const field = screen.getByLabelText("What's on your mind?") as HTMLTextAreaElement;
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this a quest' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Make this a quest' }));
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
         '/api/events',
@@ -220,7 +221,8 @@ describe('Today', () => {
     });
     vi.stubGlobal('fetch', fetch);
     renderToday();
-    fireEvent.click(await screen.findByRole('button', { name: 'Make this a quest' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Make this a quest' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
     await waitFor(() =>
       expect(fetch.mock.calls.filter(([url]) => url === '/api/events')).toHaveLength(2),

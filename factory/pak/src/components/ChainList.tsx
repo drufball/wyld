@@ -55,11 +55,49 @@ export function ChainCard({
 }) {
   const [text, setText] = useState('');
   const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const collapsible = chain.kind !== 'rumble';
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [asking, setAsking] = useState(!rumbleCard);
   const [deciding, setDeciding] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
+  const openTrigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  const composerWasOpened = useRef(false);
+  useEffect(() => {
+    if (!collapsible) return;
+    if (open) {
+      composerWasOpened.current = true;
+      field.current?.focus();
+    } else if (composerWasOpened.current) {
+      openTrigger.current?.focus();
+    }
+  }, [collapsible, open]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!menu.current?.contains(target) && !menuTrigger.current?.contains(target)) {
+        setMenuOpen(false);
+        setSnoozeOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      setSnoozeOpen(false);
+      menuTrigger.current?.focus();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
   useLayoutEffect(() => {
     if (!field.current) return;
     field.current.style.height = 'auto';
@@ -79,7 +117,7 @@ export function ChainCard({
       () => postChainMessage(chain.id, message),
       (updated) => {
         setText('');
-        setExpanded(false);
+        setHistoryOpen(false);
         onChange(updated);
       },
     );
@@ -98,6 +136,11 @@ export function ChainCard({
       () => snoozeChain(chain.id, presetDate(preset)),
       () => onSnoozed?.(chain.id),
     );
+  const chooseSnooze = (preset: 'later' | 'tomorrow' | 'week') => {
+    setMenuOpen(false);
+    setSnoozeOpen(false);
+    snooze(preset);
+  };
   const decide = (id: string, chosen: string) => {
     setDeciding(true);
     setFailedAction(null);
@@ -122,25 +165,27 @@ export function ChainCard({
     </p>
   );
   const snoozed = chain.snoozedUntil !== null && new Date(chain.snoozedUntil) > new Date();
-  const content = (
+  const messages = (
     <>
-      <div className="flex flex-wrap gap-2">
-        {(!rumbleCard || chain.kind !== 'rumble') && (
-          <Badge variant="tone" data-tone="accent">
-            {chain.kind}
-          </Badge>
-        )}
-        {chain.kind === 'rumble' && chain.rumble !== null && (
-          <Badge variant="tone" data-tone={chain.rumble.kind === 'outage' ? 'bad' : 'accent'}>
-            {chain.rumble.kind}
-          </Badge>
-        )}
-        {showQuestChip && chain.questId !== null && (
-          <Badge variant="tone" data-tone="accent">
-            {questName ?? chain.questId}
-          </Badge>
-        )}
-      </div>
+      {chain.kind === 'rumble' && (
+        <div className="flex flex-wrap gap-2">
+          {!rumbleCard && (
+            <Badge variant="tone" data-tone="accent">
+              {chain.kind}
+            </Badge>
+          )}
+          {chain.rumble !== null && (
+            <Badge variant="tone" data-tone={chain.rumble.kind === 'outage' ? 'bad' : 'accent'}>
+              {chain.rumble.kind}
+            </Badge>
+          )}
+          {showQuestChip && chain.questId !== null && (
+            <Badge variant="tone" data-tone="accent">
+              {questName ?? chain.questId}
+            </Badge>
+          )}
+        </div>
+      )}
       {chain.rumble !== null && (
         <>
           <h2 className="m-0 wrap-anywhere text-xl leading-snug">{chain.rumble.title}</h2>
@@ -166,16 +211,16 @@ export function ChainCard({
             variant="ghost"
             type="button"
             className="w-full"
-            aria-expanded={expanded}
+            aria-expanded={historyOpen}
             aria-controls={`chain-earlier-${chain.id}`}
-            onClick={() => setExpanded((value) => !value)}
+            onClick={() => setHistoryOpen((value) => !value)}
           >
-            {expanded
+            {historyOpen
               ? `Hide ${earlierCount} earlier messages`
               : `${earlierCount} earlier messages`}
           </Button>
         )}
-        {earlierCount > 0 && expanded && (
+        {earlierCount > 0 && historyOpen && (
           <div id={`chain-earlier-${chain.id}`} className="grid gap-2">
             {earlier.map(message)}
           </div>
@@ -187,35 +232,49 @@ export function ChainCard({
           Fable's thinking…
         </p>
       )}
+    </>
+  );
+  const form = (
+    <form className="grid gap-2" onSubmit={submit}>
+      <label htmlFor={`chain-follow-up-${chain.id}`}>
+        {rumbleCard ? 'What else do you need to know?' : 'Follow up'}
+      </label>
+      <span className="flex flex-wrap gap-2">
+        <Textarea
+          ref={field}
+          id={`chain-follow-up-${chain.id}`}
+          rows={1}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          className="min-w-0 flex-[1_1_190px] resize-none overflow-hidden"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
+        />
+        <Button type="submit">Send</Button>
+      </span>
+    </form>
+  );
+  const failure = failedAction !== null && (
+    <p className="m-0 text-destructive">
+      That didn't go through.{' '}
+      <Button variant="ghost" type="button" onClick={failedAction}>
+        Retry
+      </Button>
+    </p>
+  );
+  const rumbleContent = (
+    <>
+      {messages}
       {chain.kind === 'rumble' && rumbleCard && (
         <Button variant="retro" type="button" onClick={() => setAsking((value) => !value)}>
           Ask for more
         </Button>
       )}
-      {asking && (
-        <form className="grid gap-2" onSubmit={submit}>
-          <label htmlFor={`chain-follow-up-${chain.id}`}>
-            {rumbleCard ? 'What else do you need to know?' : 'Follow up'}
-          </label>
-          <span className="flex flex-wrap gap-2">
-            <Textarea
-              ref={field}
-              id={`chain-follow-up-${chain.id}`}
-              rows={1}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              className="min-w-0 flex-[1_1_190px] resize-none overflow-hidden"
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-            <Button type="submit">Send</Button>
-          </span>
-        </form>
-      )}
+      {asking && form}
       {snoozed ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-muted-foreground">
@@ -266,22 +325,166 @@ export function ChainCard({
           )}
         </div>
       )}
-      {failedAction !== null && (
-        <p className="m-0 text-destructive">
-          That didn't go through.{' '}
-          <Button variant="ghost" type="button" onClick={failedAction}>
-            Retry
-          </Button>
-        </p>
-      )}
+      {failure}
     </>
   );
-  return rumbleCard ? (
-    <Card asChild variant="bevel" data-tone={chain.rumble?.kind === 'outage' ? 'bad' : 'accent'}>
-      <article className="rumble-card chain-card grid min-w-0 gap-3 p-5">{content}</article>
+  if (!collapsible)
+    return rumbleCard ? (
+      <Card asChild variant="bevel" data-tone={chain.rumble?.kind === 'outage' ? 'bad' : 'accent'}>
+        <article className="rumble-card chain-card grid min-w-0 gap-3 p-5">{rumbleContent}</article>
+      </Card>
+    ) : (
+      <Card className="chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
+        {rumbleContent}
+      </Card>
+    );
+
+  return (
+    <Card
+      className="chain-card relative grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
+      onClick={(event) => {
+        if (
+          (event.target as HTMLElement).closest(
+            'button, a, input, textarea, select, label, [role="menu"]',
+          )
+        )
+          return;
+        setOpen((value) => !value);
+      }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2">
+          {showQuestChip && chain.questId !== null && (
+            <Badge variant="tone" data-tone="accent">
+              {questName ?? chain.questId}
+            </Badge>
+          )}
+        </div>
+        <div className="flex shrink-0">
+          <Button
+            ref={openTrigger}
+            variant="ghost"
+            size="icon"
+            type="button"
+            aria-expanded={open}
+            aria-controls={`chain-actions-${chain.id}`}
+            aria-label={open ? 'Close' : 'Reply or settle'}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? '⌃' : '⌄'}
+          </Button>
+          <Button
+            ref={menuTrigger}
+            variant="ghost"
+            size="icon"
+            type="button"
+            aria-label="More actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-controls={`chain-menu-${chain.id}`}
+            onClick={() => setMenuOpen((value) => !value)}
+          >
+            ⋯
+          </Button>
+        </div>
+      </div>
+      {messages}
+      {snoozed && (
+        <span className="text-muted-foreground">
+          Snoozed until {noteDate(chain.snoozedUntil!, true)}
+        </span>
+      )}
+      {open && (
+        <div id={`chain-actions-${chain.id}`} className="grid gap-2">
+          {form}
+          <Button variant="retro" type="button" onClick={() => close('settled')}>
+            Settled
+          </Button>
+        </div>
+      )}
+      {failure}
+      {menuOpen && (
+        <div
+          ref={menu}
+          id={`chain-menu-${chain.id}`}
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 grid w-max max-w-full gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
+        >
+          {onConvert && (
+            <Button
+              role="menuitem"
+              variant="ghost"
+              type="button"
+              className="w-full justify-start"
+              onClick={() => {
+                setMenuOpen(false);
+                close('converted');
+              }}
+            >
+              Make this a quest
+            </Button>
+          )}
+          {snoozed ? (
+            <Button
+              role="menuitem"
+              variant="ghost"
+              type="button"
+              className="w-full justify-start"
+              onClick={() => {
+                setMenuOpen(false);
+                act(() => unsnoozeChain(chain.id), onChange);
+              }}
+            >
+              Unsnooze
+            </Button>
+          ) : (
+            <>
+              <Button
+                role="menuitem"
+                variant="ghost"
+                type="button"
+                className="w-full justify-start"
+                aria-expanded={snoozeOpen}
+                onClick={() => setSnoozeOpen((value) => !value)}
+              >
+                Snooze
+              </Button>
+              {snoozeOpen && (
+                <>
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    onClick={() => chooseSnooze('later')}
+                  >
+                    Later today
+                  </Button>
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    onClick={() => chooseSnooze('tomorrow')}
+                  >
+                    Tomorrow morning
+                  </Button>
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    onClick={() => chooseSnooze('week')}
+                  >
+                    Next week
+                  </Button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </Card>
-  ) : (
-    <Card className="chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">{content}</Card>
   );
 }
 
