@@ -78,6 +78,22 @@ describe('Today', () => {
     expect(screen.queryByRole('button', { name: 'Make something instead' })).toBeNull();
   });
 
+  it('returns focus to the composer button after Escape without stealing focus on mount', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse(presence)),
+    );
+    renderToday();
+    const composerButton = screen.getByRole('button', { name: 'New message' });
+    expect(document.activeElement).not.toBe(composerButton);
+
+    fireEvent.click(composerButton);
+    expect(document.activeElement).toBe(screen.getByLabelText("What's on your mind?"));
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(document.activeElement).toBe(composerButton);
+  });
+
   it('keeps a newline and does not submit on Shift+Enter', async () => {
     const fetch = vi.fn((url: string) => {
       void url;
@@ -162,7 +178,7 @@ describe('Today', () => {
       ],
     };
     const fetch = vi.fn((url: string, init?: RequestInit) => {
-      if (url === '/api/chains' && init?.method !== 'POST') return jsonResponse([chain]);
+      if (url.startsWith('/api/chains?') && init?.method !== 'POST') return jsonResponse([chain]);
       if (url === '/api/chains/7/close') return jsonResponse({ ...chain, status: 'converted' });
       return jsonResponse(url.startsWith('/api/quests') ? [] : presence);
     });
@@ -197,7 +213,7 @@ describe('Today', () => {
       ],
     };
     const fetch = vi.fn((url: string, init?: RequestInit) => {
-      if (url === '/api/chains' && init?.method !== 'POST') return jsonResponse([chain]);
+      if (url.startsWith('/api/chains?') && init?.method !== 'POST') return jsonResponse([chain]);
       if (url === '/api/chains/9/close') return jsonResponse({ ...chain, status: 'converted' });
       if (url === '/api/events') return jsonResponse({}, false);
       return jsonResponse(url.startsWith('/api/quests') ? [] : presence);
