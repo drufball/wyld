@@ -150,8 +150,6 @@ export function ChainCard({
     void decideRumble(id, chosen)
       .then(() => {
         onClosed(chain.id);
-        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function')
-          navigator.vibrate([40, 30, 40]);
       })
       .catch(() => setFailedAction(() => () => decide(id, chosen)))
       .finally(() => setDeciding(false));

@@ -17,6 +17,7 @@ import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { countInWords } from '../words.js';
+import { playSound } from '../lib/feedback.js';
 
 export type TodaySignals = { rumbles: number; demos: number; memory: string | null };
 
@@ -189,6 +190,30 @@ export function Today({
   const composerWasOpened = useRef(false);
   const { subscribe } = useLiveEvents();
 
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('wyld.sfx.startup') !== null) return;
+    } catch {
+      // Continue with gesture-gated playback when session storage is unavailable.
+    }
+    const start = () => {
+      playSound('startup');
+      try {
+        sessionStorage.setItem('wyld.sfx.startup', '1');
+      } catch {
+        // Playback is still safe without session persistence.
+      }
+      document.removeEventListener('pointerdown', start);
+      document.removeEventListener('keydown', start);
+    };
+    document.addEventListener('pointerdown', start, { once: true });
+    document.addEventListener('keydown', start, { once: true });
+    return () => {
+      document.removeEventListener('pointerdown', start);
+      document.removeEventListener('keydown', start);
+    };
+  }, []);
+
   const dismissAchievement = useCallback(() => {
     if (achievementTimer.current !== null) clearTimeout(achievementTimer.current);
     achievementTimer.current = null;
@@ -200,6 +225,7 @@ export function Today({
       if (typeof name !== 'string' || name.trim().length === 0) return;
       if (achievementTimer.current !== null) clearTimeout(achievementTimer.current);
       setAchievementName(name);
+      playSound('save');
       achievementTimer.current = setTimeout(() => {
         achievementTimer.current = null;
         setAchievementName(null);

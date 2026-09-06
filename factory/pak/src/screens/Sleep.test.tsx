@@ -2,7 +2,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
+import { playSound } from '../lib/feedback.js';
 import { Sleep } from './Sleep.js';
+
+vi.mock('../lib/feedback.js', () => ({ playSound: vi.fn() }));
 
 const schedule = {
   goodnightAt: '2026-09-06T23:00:00Z',
@@ -55,6 +58,7 @@ describe('Sleep', () => {
       </MemoryRouter>,
     );
     fireEvent.click(await screen.findByRole('button', { name: 'GOODNIGHT' }));
+    expect(playSound).toHaveBeenCalledWith('power-off');
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
         '/api/sleep/goodnight',

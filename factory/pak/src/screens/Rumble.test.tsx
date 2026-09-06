@@ -115,7 +115,7 @@ describe('Rumble', () => {
     vi.mocked(decideRumble).mockResolvedValue(decided(first));
     const view = render(<Rumble />);
     fireEvent.click(await screen.findByRole('button', { name: 'A' }));
-    await waitFor(() => expect(vibrate).toHaveBeenCalledWith([40, 30, 40]));
+    expect(vibrate).toHaveBeenCalledWith([30, 40, 60]);
     view.unmount();
     vi.stubGlobal('navigator', {});
     render(<Rumble />);

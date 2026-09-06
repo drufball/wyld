@@ -2,7 +2,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
+import { playSound } from '../lib/feedback.js';
 import { GoOutside, LastMemoryCard, Signals, Today } from './Today.js';
+
+vi.mock('../lib/feedback.js', () => ({ playSound: vi.fn() }));
 
 const source = () => ({ addEventListener() {}, removeEventListener() {}, close() {} });
 const presence = { lastSeenAt: '2026-09-05T12:00:00Z', lastCatchupEventId: null, nextAction: null };
@@ -29,6 +32,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('Today', () => {
+  it('plays the startup sound once on the first pointer gesture', () => {
+    sessionStorage.clear();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse(presence)),
+    );
+    renderToday();
+
+    fireEvent.pointerDown(document);
+    fireEvent.pointerDown(document);
+
+    expect(playSound).toHaveBeenCalledTimes(1);
+    expect(playSound).toHaveBeenCalledWith('startup');
+  });
   it('shows, dismisses, and auto-hides live achievement unlocks', async () => {
     vi.useFakeTimers();
     vi.stubGlobal(

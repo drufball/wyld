@@ -1,8 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
+import { playSound } from '../lib/feedback.js';
 import { Quests } from './Quests.js';
+
+vi.mock('../lib/feedback.js', () => ({ playSound: vi.fn() }));
 
 const quest = {
   id: 'make-map',
@@ -71,6 +74,12 @@ afterEach(() => {
 });
 
 describe('Quests', () => {
+  it("plays the save sound from a quest card's Done button", async () => {
+    renderScreen(vi.fn(baseFetch));
+    const card = (await screen.findByText(quest.title)).closest('.quest-card');
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Done' }));
+    expect(playSound).toHaveBeenCalledWith('save');
+  });
   it('shows Try it, Play, and not yet actions according to each quest demo', async () => {
     const discQuest = { ...quest, id: 'disc-quest', title: 'Disc quest' };
     const emptyQuest = { ...quest, id: 'empty-quest', title: 'Empty quest' };
