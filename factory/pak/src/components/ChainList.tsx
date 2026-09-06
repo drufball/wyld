@@ -389,7 +389,7 @@ export function ChainCard({
       {open && (
         <div id={`chain-actions-${chain.id}`} className="grid gap-2">
           {form}
-          <div className="relative flex flex-wrap items-center gap-2">
+          <div className="relative flex flex-wrap items-center justify-end gap-2">
             <Button variant="retro" type="button" onClick={() => close('settled')}>
               Settled
             </Button>
