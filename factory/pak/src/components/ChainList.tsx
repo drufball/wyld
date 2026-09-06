@@ -1,6 +1,14 @@
-import type { Chain } from '@wyld/shared';
+import type { Chain, ChainKind } from '@wyld/shared';
 import { Ellipsis } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import {
   closeChain,
   decideRumble,
@@ -511,12 +519,23 @@ export function ChainList({
   const [chains, setChains] = useState<Chain[]>([]);
   const [questNames, setQuestNames] = useState<Record<string, string>>({});
   const { subscribe } = useLiveEvents();
+  const listedKinds: ChainKind[] = useMemo(
+    () =>
+      kind === undefined
+        ? ['question', 'message']
+        : kind === 'all'
+          ? ['question', 'message', 'rumble']
+          : [kind],
+    [kind],
+  );
   const load = useCallback(
     () =>
-      void listChains({ quest, kind })
-        .then(setChains)
+      void listChains({ quest, kind: kind === undefined ? undefined : listedKinds.join(',') })
+        .then((loadedChains) =>
+          setChains(loadedChains.filter((chain) => listedKinds.includes(chain.kind))),
+        )
         .catch(() => undefined),
-    [quest, kind],
+    [quest, kind, listedKinds],
   );
   useEffect(() => {
     load();
@@ -537,11 +556,11 @@ export function ChainList({
     return () => unsubscribe.forEach((stop) => stop());
   }, [load, quest, subscribe]);
   useEffect(() => {
-    if (addedChain)
+    if (addedChain && listedKinds.includes(addedChain.kind))
       setChains((current) =>
         current.some(({ id }) => id === addedChain.id) ? current : [addedChain, ...current],
       );
-  }, [addedChain]);
+  }, [addedChain, listedKinds]);
   useEffect(() => onCountChange?.(chains.length), [chains.length, onCountChange]);
   if (chains.length === 0) return null;
   const remove = (id: number) => setChains((current) => current.filter((item) => item.id !== id));

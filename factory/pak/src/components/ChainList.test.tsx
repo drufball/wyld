@@ -31,6 +31,115 @@ function renderList(
 
 afterEach(() => vi.unstubAllGlobals());
 describe('ChainList', () => {
+  it('does not add an action chain after a live planner update when kind is all', async () => {
+    let receive: EventListener | undefined;
+    const action = { ...question, id: 2, kind: 'action', messages: [] };
+    let chainRequests = 0;
+    const fetch = vi.fn((url: string) => {
+      if (!url.startsWith('/api/chains')) return response([]);
+      chainRequests += 1;
+      return response(chainRequests === 1 ? [question] : [question, action]);
+    });
+    vi.stubGlobal('fetch', fetch);
+    const { container } = render(
+      <LiveEventsProvider
+        eventSourceFactory={() => ({
+          addEventListener(type, listener) {
+            if (type === 'event') receive = listener as EventListener;
+          },
+          removeEventListener() {},
+          close() {},
+        })}
+      >
+        <ChainList kind="all" />
+      </LiveEventsProvider>,
+    );
+    await screen.findByText('Why?');
+    expect(container.querySelectorAll('.chain-card')).toHaveLength(1);
+
+    receive?.(
+      new MessageEvent('event', {
+        data: JSON.stringify({
+          id: 9,
+          ts: timestamp,
+          source: 'planner',
+          kind: 'planner.chain_updated',
+          payload: { chainId: 2 },
+        }),
+      }),
+    );
+
+    await waitFor(() => expect(chainRequests).toBe(2));
+    expect(container.querySelectorAll('.chain-card')).toHaveLength(1);
+  });
+
+  it('adds a question chain after a live planner update when kind is all', async () => {
+    let receive: EventListener | undefined;
+    let chainRequests = 0;
+    const fetch = vi.fn((url: string) => {
+      if (!url.startsWith('/api/chains')) return response([]);
+      chainRequests += 1;
+      return response(chainRequests === 1 ? [] : [question]);
+    });
+    vi.stubGlobal('fetch', fetch);
+    render(
+      <LiveEventsProvider
+        eventSourceFactory={() => ({
+          addEventListener(type, listener) {
+            if (type === 'event') receive = listener as EventListener;
+          },
+          removeEventListener() {},
+          close() {},
+        })}
+      >
+        <ChainList kind="all" />
+      </LiveEventsProvider>,
+    );
+    await waitFor(() => expect(chainRequests).toBe(1));
+
+    receive?.(
+      new MessageEvent('event', {
+        data: JSON.stringify({
+          id: 10,
+          ts: timestamp,
+          source: 'planner',
+          kind: 'planner.chain_updated',
+          payload: { chainId: 1 },
+        }),
+      }),
+    );
+
+    expect(await screen.findByText('Why?')).not.toBeNull();
+  });
+
+  it('requests only conversational kinds when kind is all', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => response([])));
+    render(
+      <LiveEventsProvider
+        eventSourceFactory={() => ({ addEventListener() {}, removeEventListener() {}, close() {} })}
+      >
+        <ChainList kind="all" />
+      </LiveEventsProvider>,
+    );
+
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/chains?kind=question%2Cmessage%2Crumble',
+        {},
+      ),
+    );
+  });
+
+  it('omits the kind query and filters action chains when kind is not provided', async () => {
+    const action = { ...question, kind: 'action', messages: [] };
+    vi.stubGlobal('fetch', vi.fn((url: string) => response(url === '/api/chains' ? [action] : [])));
+    const { container } = renderList();
+
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith('/api/chains', {}));
+    expect(container.querySelector('.today-chains')).toBeNull();
+    expect(container.querySelector('.chain-card')).toBeNull();
+  });
+
   it('renders nothing when there are no chains', async () => {
     vi.stubGlobal(
       'fetch',

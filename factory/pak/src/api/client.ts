@@ -114,7 +114,7 @@ export async function postQuestNote(
 export async function listChains(
   options: {
     quest?: string;
-    kind?: 'question' | 'message' | 'rumble' | 'all';
+    kind?: string;
     status?: 'open' | 'settled' | 'converted' | 'all';
     includeSnoozed?: boolean;
   } = {},
