@@ -52,6 +52,10 @@ export async function getHealthSnapshot() {
   return HealthSnapshot.parse(await request('/api/health/snapshot', {}, 'Loading factory health'));
 }
 
+export async function postResume() {
+  return request('/api/resume', json('POST', {}), 'Resuming factory');
+}
+
 export async function postSeen() {
   return Presence.parse(await request('/api/presence/seen', { method: 'POST' }, 'Recording visit'));
 }
