@@ -4,9 +4,12 @@ import { startHealthServer } from './health.js';
 import { createHost } from './host.js';
 import { log } from './logger.js';
 import { createQueueClient } from './queue.js';
+import { scrubSecrets } from './scrub.js';
 
 process.env.WAKE_CHANNEL_PUSH = '0';
 const config = readConfig();
+const scrubbed = scrubSecrets(process.env);
+log('info', 'planner host environment scrubbed', { keys: Object.keys(scrubbed) });
 if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
   log(
     'warn',
