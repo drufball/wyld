@@ -1,7 +1,7 @@
 # Planner state — read this first on every new session
 
-_Last updated 2026-09-06 ~10:10 by the Planner (first host session). Quests in the Pak carry the live
-state; this file is down to environment facts and open items. Keep it short; update it whenever a
+_Last updated 2026-09-06 ~14:58 BST by the Planner (first session on the new Mac). Quests in the Pak carry the
+live state; this file is down to environment facts and open items. Keep it short; update it whenever a
 step finishes._
 
 ## Where we are
@@ -44,6 +44,14 @@ step finishes._
 
 ## Environment facts
 
+- **The factory lives on the always-on laptop since 2026-09-06 14:54 BST** (quest `new-home`): host `Drus-MacBook-Pro.local`,
+  user `crawnk`, repo `/Users/crawnk/wyld`, tailnet name `drus-macbook-pro-1.taild72c8d.ts.net`. Pak at
+  `https://drus-macbook-pro-1.taild72c8d.ts.net/` (Serve 443 → 8787), ntfy at `…:8443` (→ 8790, topic `wyld-pak`,
+  container `wyld-ntfy` under **Colima** — doctor shows port 8790 owned by `ssh`, that is Colima's port forward, not a
+  stranger). Planner transcripts: `~/.claude/projects/-Users-crawnk-wyld/`. Imported from the old laptop's export
+  (`MacBook-Pro-72.local` / `macbook-pro-6.taild72c8d.ts.net`, taken 13:35Z at commit ccb9e5b); `.factory/env` had
+  `PAK_PUBLIC_URL` re-pointed by the setup session, `NTFY_BASE_URL` left empty (derived from the tailnet). Doctor: 35 ok.
+  Any `macbook-pro-6` / `/Users/drufball/code/wyld` mention further down this file is historical.
 - Codex environment **ID** `6a9be268ad288191b44bbdefcbe977ee` (label `drufball/wyld` resolves to
   a different, token-less environment — never use the label). `GH_TOKEN` there is a fine-grained
   PAT that **expires around 2026-10-05**; rotating it is a Rumble (account action by Dru).
@@ -64,8 +72,8 @@ _Rewritten 2026-09-06 ~10:10 by the first host session, after executing the cuto
 this file — it ran once and is done). You are a **fresh** session inside `factory/planner-host`: no memory beyond
 this file, the Pak, and GitHub._
 
-1. **You are the host.** Events reach you as `<channel …>` tags batched inside user messages (several per
-   message, timestamp order); act on each per PROTOCOL §2. Your `pak_*` tools come from the wake adapter over
+1. **You are the host** on the always-on laptop (`/Users/crawnk/wyld`). Events reach you as `<channel …>` tags batched
+   inside user messages (several per message, timestamp order); act on each per PROTOCOL §2. Your `pak_*` tools come from the wake adapter over
    stdio (`WAKE_CHANNEL_PUSH=0`). Sanity: `curl -s localhost:8789/health` shows your session id and
    `./scripts/factory-doctor.sh` says `Planner is running as the host`. No keypress exists anymore.
 2. Load the wake tools (ToolSearch `select:mcp__wake__pak_*`). `pak_health_report` first (the Debug tile reads
@@ -90,18 +98,23 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
-- **`new-home` unit 2 shipped 12:07 (#134 / PR #135, zero fix rounds) — ntfy address is derived, not tracked.**
-  `factory/ntfy/server.yml` is now `server.yml.tmpl` (`base-url: '${NTFY_BASE_URL}'`); `scripts/ntfy-up.sh` renders it to
-  `.factory/ntfy/server.yml` (bash 3.2 substitution, `--render-only` for tests, honours `FACTORY_DIR`) using
-  `NTFY_BASE_URL` if set, else `https://<tailnet DNSName>:8443` from `tailscale status --self --json`, else exits 1
-  (factory-up treats that as "no push", non-fatal). Container carries `--label wyld.config-sha=<sha>`; a changed
-  config or missing label ⇒ recreate. Doctor: rendered base-url host must match the tailnet name (warn, never fail).
-  Import's HOSTNAME REVIEW reports `NTFY_BASE_URL` instead of the old file. **Any earlier mention in this file of a
-  tracked `factory/ntfy/server.yml` is historical.** The Planner re-ran `./scripts/ntfy-up.sh` on the live factory at
-  12:08 because the old container was bind-mounted from the deleted tracked path (a restart would have broken push).
-  Export bundles the rendered file; harmless — `factory:up` on the new Mac re-renders before starting the container.
-- **Factory is quiet as of 12:08 (Dru's request, 11:14):** no lead running, no open Codex issue/PR. Do not start new
-  work (`try-it-cards`, `polish`, Phase 2) until the move to the new Mac is complete and verified.
+- **Move done 2026-09-06 14:54 BST; waiting on Dru's Done on Rumble `new-home-prep`** (re-filed in place with the two
+  closing steps: `pnpm factory:down` on the old laptop, phone ntfy re-subscribed to the new `:8443/wyld-pak`). As of 14:56 the
+  **old laptop's factory was still up** (its snapshot answered on the tailnet, Planner idle, queue empty) — harmless while
+  nothing is in flight, but two `gh webhook forward`s and two Planners would both act on the next GitHub event, so
+  **do not start Codex work until that card is Done** (or the old snapshot at `https://macbook-pro-6.taild72c8d.ts.net/api/health/snapshot`
+  stops answering). `new-home` is in `demo`; Dru marks it done. After that, un-quiet the factory: `try-it-cards`, then
+  `polish` (1.11), then Phase 2 in world `fieldwork`.
+- **Sharp edge from the import (14:54):** the ops watchdog paused lane `planner` the moment the factory came up here, because
+  the newest Planner heartbeat in the imported db was 19 min old; the host's first beat + `pak_resume planner` cleared it
+  (outage card gone), but Dru got the buzz on the old subscription. Sweep item: after an import (or any cold start) the
+  watchdog should require a beat that is newer than *its own* start before calling the Planner dead — or `factory:up` should
+  report one before starting ops.
+- **Tonight is the first real Sleep Mode night** (23:00 local; `SLEEP_TZ` empty ⇒ this box's zone, BST). Run
+  `skills/sleep-mode.md` from the `goodnight` alarm. `recent` runs is empty — no history to compare against.
+- Dru's last message on the move chain (13:34Z) was answered on the old laptop *after* the export was taken, so on this
+  Pak it looked unanswered; answered again here 13:56Z with the new-Mac state. The pending copy of that event is still in
+  Wake's queue (depth 1) and will arrive as a channel tag — it is already handled, do not answer it a third time.
 
 - **Host restarted 2026-09-06 11:51** (same session resumed; `restarts=0` because the respawn replaced the window). Now running
   #124 self-heartbeat (`Handling events`/`Waiting for events — last turn HH:MM` rows every 120 s) and #129 framing; the five
