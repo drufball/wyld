@@ -1,0 +1,16 @@
+# ntfy server for the Expansion Pak. Runs in a container; these paths are container paths.
+# Public address the phone talks to. ntfy has no sub-path support, so it gets its own
+# HTTPS port on the tailnet rather than a path under the Pak's existing Tailscale Serve.
+base-url: 'https://macbook-pro-6.taild72c8d.ts.net:8443'
+listen-http: ':80'
+# Tailscale Serve terminates TLS in front of this, so trust the forwarded client IP
+# for rate limiting.
+behind-proxy: true
+# Required for *instant* iOS pushes from a self-hosted server: ntfy forwards a poke
+# upstream carrying only a hash of the topic and a poll id. The title and message
+# never leave this machine.
+upstream-base-url: 'https://ntfy.sh'
+cache-file: '/var/lib/ntfy/cache.db'
+cache-duration: '12h'
+# No attachments are ever sent, so the attachment cache stays off.
+attachment-cache-dir: ''

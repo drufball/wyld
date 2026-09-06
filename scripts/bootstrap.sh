@@ -12,7 +12,30 @@ pnpm build
 mkdir -p .factory/{logs,demos,worktrees}
 
 if [[ -f .factory/env ]]; then
-  echo 'Leaving existing .factory/env unchanged'
+  added_keys=()
+  needs_newline=true
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+      key="${BASH_REMATCH[1]}"
+      if [[ "$key" == WAKE_SECRET || "$key" == GH_WEBHOOK_SECRET ]]; then
+        continue
+      fi
+      if ! grep -q "^${key}=" .factory/env; then
+        if [[ "$needs_newline" == true && -s .factory/env && -n "$(tail -c 1 .factory/env)" ]]; then
+          printf '\n' >>.factory/env
+        fi
+        needs_newline=false
+        printf '%s\n' "$line" >>.factory/env
+        added_keys+=("$key")
+      fi
+    fi
+  done <factory/env.example
+  chmod 600 .factory/env
+  if ((${#added_keys[@]})); then
+    printf 'Added missing keys to .factory/env: %s\n' "${added_keys[*]}"
+  else
+    echo 'Leaving existing .factory/env unchanged'
+  fi
 else
   if command -v openssl >/dev/null 2>&1; then
     wake_secret="$(openssl rand -hex 32)"
