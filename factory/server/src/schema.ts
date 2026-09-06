@@ -45,6 +45,20 @@ export const opsReports = sqliteTable(
   (table) => [index('ops_reports_ts_idx').on(table.ts)],
 );
 
+export const pauses = sqliteTable(
+  'pauses',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    lane: text('lane').notNull(),
+    reason: text('reason').notNull(),
+    fix: text('fix'),
+    since: text('since').notNull(),
+    resolvedAt: text('resolved_at'),
+    rumbleId: text('rumble_id'),
+  },
+  (table) => [index('pauses_resolved_at_idx').on(table.resolvedAt)],
+);
+
 export const presence = sqliteTable('presence', {
   id: integer('id').primaryKey(),
   lastSeenAt: text('last_seen_at').notNull(),

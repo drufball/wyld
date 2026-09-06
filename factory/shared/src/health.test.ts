@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { CiState, HealthReport, HealthSnapshot, OpsReport, PlannerState } from './health.js';
+import {
+  CiState,
+  HealthReport,
+  HealthSnapshot,
+  OpsReport,
+  PauseLane,
+  PlannerState,
+} from './health.js';
 
 describe('health schemas', () => {
   it('exports and validates reports', () => {
@@ -25,6 +32,7 @@ describe('health schemas', () => {
   });
 
   it('validates snapshots', () => {
+    expect(PauseLane.options).toEqual(['codex', 'github', 'planner', 'all']);
     expect(
       HealthSnapshot.safeParse({
         ts: '2026-01-01T00:00:00.000Z',
@@ -39,6 +47,12 @@ describe('health schemas', () => {
           source: 'ops',
         },
         tokensToday: 123,
+        paused: {
+          lane: 'codex',
+          reason: 'Quota exhausted',
+          fix: 'Wait for the quota window',
+          since: '2026-01-01T00:00:00.000Z',
+        },
       }).success,
     ).toBe(true);
   });

@@ -27,6 +27,7 @@ const app = createApp({
   demosDir: config.demosDir,
   feedbackDir: config.feedbackDir,
   builder,
+  ...(config.pakPublicUrl === undefined ? {} : { pakPublicUrl: config.pakPublicUrl }),
   ...(config.wakeUrl === undefined ? {} : { wakeUrl: config.wakeUrl }),
   ...(config.wakeSecret === undefined ? {} : { wakeSecret: config.wakeSecret }),
   ...(config.ntfyUrl === undefined ? {} : { ntfyUrl: config.ntfyUrl }),

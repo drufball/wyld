@@ -58,6 +58,24 @@ describe('Pak server', () => {
     });
   }
 
+  it('exposes the preferred active pause in the health snapshot', async () => {
+    const postPause = (body: unknown) =>
+      app.request('/api/pause', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    await postPause({ reason: 'Codex quota hit', lane: 'codex' });
+    await postPause({ reason: 'Everything is unavailable', lane: 'all', fix: 'Wait a while' });
+    const snapshot = HealthSnapshot.parse(await (await app.request('/api/health/snapshot')).json());
+    expect(snapshot.paused).toEqual({
+      lane: 'all',
+      reason: 'Everything is unavailable',
+      fix: 'Wait a while',
+      since: expect.any(String),
+    });
+  });
+
   it('prefers fresh ops measurements without changing Planner state', async () => {
     let clock = new Date('2026-09-05T12:00:00.000Z');
     app = createApp({

@@ -6,6 +6,9 @@ export type PlannerState = z.infer<typeof PlannerState>;
 export const CiState = z.enum(['pass', 'fail', 'pending', 'unknown']);
 export type CiState = z.infer<typeof CiState>;
 
+export const PauseLane = z.enum(['codex', 'github', 'planner', 'all']);
+export type PauseLane = z.infer<typeof PauseLane>;
+
 export const HealthReport = z
   .object({
     plannerState: PlannerState,
@@ -66,6 +69,14 @@ export const HealthSnapshot = z
     tokensToday: z.number().int().min(0).optional(),
     costToday: z.number().min(0).optional(),
     pausedReason: z.string().optional(),
+    paused: z
+      .object({
+        lane: PauseLane,
+        reason: z.string(),
+        fix: z.string().optional(),
+        since: z.string(),
+      })
+      .optional(),
   })
   .strict();
 export type HealthSnapshot = z.infer<typeof HealthSnapshot>;

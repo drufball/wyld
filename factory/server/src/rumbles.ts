@@ -1,6 +1,12 @@
 import { eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
-import { NewRumble, Rumble, RumbleDecision, type NewEvent } from '@wyld/shared';
+import {
+  NewRumble,
+  Rumble,
+  RumbleDecision,
+  type NewEvent,
+  type NewRumble as NewRumbleType,
+} from '@wyld/shared';
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
@@ -11,6 +17,7 @@ type Dependencies = {
   database: AppDatabase;
   now: () => Date;
   storeEvent: (event: NewEvent) => Promise<unknown>;
+  resumePause?: (lane: string, options?: { decideRumble?: boolean }) => Promise<number>;
 };
 
 const RumbleQuery = z.object({ status: z.enum(['open', 'decided']).optional() });
@@ -43,7 +50,7 @@ export function listOrderedRumbleRows(database: AppDatabase, status?: 'open' | '
     .sort(compareRumbles);
 }
 
-const parseRumble = (row: RumbleRow) =>
+export const parseRumble = (row: RumbleRow) =>
   Rumble.parse({
     id: row.id,
     title: row.title,
@@ -55,7 +62,52 @@ const parseRumble = (row: RumbleRow) =>
     kind: row.kind,
   });
 
-export function createRumbleRoutes({ database, now, storeEvent }: Dependencies) {
+export function writeRumble(database: AppDatabase, now: () => Date, data: NewRumbleType) {
+  const { db } = database;
+  let id = data.id;
+  if (id === undefined) {
+    const base =
+      data.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 60)
+        .replace(/-$/, '') || 'rumble';
+    id = base;
+    let suffix = 2;
+    while (db.select({ id: rumbles.id }).from(rumbles).where(eq(rumbles.id, id)).get())
+      id = `${base}-${suffix++}`;
+  }
+  const existing = db.select().from(rumbles).where(eq(rumbles.id, id)).get();
+  if (existing === undefined) {
+    db.insert(rumbles)
+      .values({
+        ...data,
+        id,
+        chosen: data.chosen ?? null,
+        chosenAt: data.chosen === undefined ? null : (data.chosenAt ?? now().toISOString()),
+        createdAt: now().toISOString(),
+      })
+      .run();
+  } else {
+    db.update(rumbles)
+      .set({
+        title: data.title,
+        context: data.context,
+        options: data.options,
+        kind: data.kind,
+        blockingQuestIds: data.blockingQuestIds,
+        ...(data.chosen === undefined
+          ? {}
+          : { chosen: data.chosen, chosenAt: data.chosenAt ?? now().toISOString() }),
+      })
+      .where(eq(rumbles.id, id))
+      .run();
+  }
+  return db.select().from(rumbles).where(eq(rumbles.id, id)).get()!;
+}
+
+export function createRumbleRoutes({ database, now, storeEvent, resumePause }: Dependencies) {
   const { db } = database;
   const app = new Hono();
   const notFound = (c: Context) => c.json({ error: 'Not Found' }, 404);
@@ -69,54 +121,7 @@ export function createRumbleRoutes({ database, now, storeEvent }: Dependencies) 
   app.post('/rumbles', async (c) => {
     const parsed = NewRumble.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
-    let id = parsed.data.id;
-    if (id === undefined) {
-      const base =
-        parsed.data.title
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '')
-          .slice(0, 60)
-          .replace(/-$/, '') || 'rumble';
-      id = base;
-      let suffix = 2;
-      while (db.select({ id: rumbles.id }).from(rumbles).where(eq(rumbles.id, id)).get()) {
-        id = `${base}-${suffix}`;
-        suffix += 1;
-      }
-    }
-    const existing = db.select().from(rumbles).where(eq(rumbles.id, id)).get();
-    if (existing === undefined) {
-      const chosenAt =
-        parsed.data.chosen === undefined ? null : (parsed.data.chosenAt ?? now().toISOString());
-      db.insert(rumbles)
-        .values({
-          ...parsed.data,
-          id,
-          chosen: parsed.data.chosen ?? null,
-          chosenAt,
-          createdAt: now().toISOString(),
-        })
-        .run();
-    } else {
-      db.update(rumbles)
-        .set({
-          title: parsed.data.title,
-          context: parsed.data.context,
-          options: parsed.data.options,
-          kind: parsed.data.kind,
-          blockingQuestIds: parsed.data.blockingQuestIds,
-          ...(parsed.data.chosen === undefined
-            ? {}
-            : {
-                chosen: parsed.data.chosen,
-                chosenAt: parsed.data.chosenAt ?? now().toISOString(),
-              }),
-        })
-        .where(eq(rumbles.id, id))
-        .run();
-    }
-    return c.json(parseRumble(db.select().from(rumbles).where(eq(rumbles.id, id)).get()!), 201);
+    return c.json(parseRumble(writeRumble(database, now, parsed.data)), 201);
   });
 
   app.post('/rumbles/:id/decide', async (c) => {
@@ -159,6 +164,10 @@ export function createRumbleRoutes({ database, now, storeEvent }: Dependencies) 
         text: `${rumble.title} → ${parsed.data.chosen}`,
       },
     });
+    // Outages may take the Planner down, so the Resume button must work without it.
+    if (rumble.kind === 'outage' && parsed.data.chosen === 'Resume') {
+      await resumePause?.(rumble.id.replace(/^outage-/, ''), { decideRumble: false });
+    }
     return c.json(parseRumble({ ...rumble, chosen: parsed.data.chosen, chosenAt }));
   });
 

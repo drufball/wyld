@@ -18,27 +18,33 @@ export function createNotifier(dependencies: {
   const fetcher = dependencies.fetch ?? globalThis.fetch;
   const url = `${dependencies.ntfyUrl.replace(/\/+$/, '')}/`;
   return (title, message, options = {}): void => {
-    void Promise.resolve()
-      .then(() =>
-        fetcher(url, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            topic: dependencies.topic,
-            title,
-            message,
-            ...(options.tags === undefined ? {} : { tags: options.tags }),
-            ...(options.click === undefined ? {} : { click: options.click }),
-            ...(options.priority === undefined ? {} : { priority: options.priority }),
-          }),
-          signal: AbortSignal.timeout(2_000),
-        }),
-      )
-      .then((response) => {
-        if (!response.ok) throw new Error(`ntfy returned HTTP ${response.status}`);
-      })
-      .catch((error: unknown) =>
-        logger('error', 'failed to send push notification', { error: String(error) }),
-      );
+    const send = async (): Promise<void> => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const response = await fetcher(url, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              topic: dependencies.topic,
+              title,
+              message,
+              ...(options.tags === undefined ? {} : { tags: options.tags }),
+              ...(options.click === undefined ? {} : { click: options.click }),
+              ...(options.priority === undefined ? {} : { priority: options.priority }),
+            }),
+            signal: AbortSignal.timeout(2_000),
+          });
+          if (!response.ok) throw new Error(`ntfy returned HTTP ${response.status}`);
+          return;
+        } catch (error: unknown) {
+          if (attempt === 1) {
+            logger('error', 'failed to send push notification', { error: String(error) });
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1_000));
+        }
+      }
+    };
+    void send();
   };
 }
