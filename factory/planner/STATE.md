@@ -101,6 +101,12 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **14:29 second Pak flake:** PR #201's own new test ("recovers frame readiness by asking again with hello") reddened the game PR
+  #203 in CI seven minutes after landing — 6/6 green locally under CPU pressure; re-run requested; deflake lead on
+  `codex/artifacts-deflake-2`. **Rule for leads adding Pak tests that simulate `postMessage`/effects: loop the file ≥ 20× under CPU
+  pressure with `--pool=forks` before merging — a green single run proves nothing on the 2-core runner.** M1 lead told: a Pak-only
+  test reddening a game PR is a re-run, not a fix round. CPU hogs for local loops must be killed by pid (`pkill -f` chokes on the
+  regex parens).
 - **14:22 pin-ready handshake landed (#199 / PR #201, one test round)** — viewer sends `wyld:pin:hello` after installing its
   listener and on iframe `load`; the frame answers `ready` to `hello` and on `load` too. **All three explainers republished with the
   new snippet** (`artifacts` v6, `fw-m0-world` v2, `roadmap` v6; `publish.mjs --force`); served HTML verified to carry the `hello`
