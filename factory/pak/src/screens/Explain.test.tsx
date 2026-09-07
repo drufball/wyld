@@ -75,6 +75,7 @@ async function fromFrame(
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
   liveListener = undefined;
 });
 
@@ -104,6 +105,29 @@ describe('Explain', () => {
     expect((await screen.findByTitle(artifact.title)).getAttribute('src')).toBe(
       '/artifacts/a%20b/?v=3',
     );
+  });
+
+  it('remeasures when either the page body or viewer parent resizes', async () => {
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe = observe;
+        disconnect = disconnect;
+      },
+    );
+    mocks.getArtifact.mockResolvedValue(artifact);
+
+    const view = renderRoute('/explain/forest-map');
+    await screen.findByTitle(artifact.title);
+    const section = view.container.querySelector('section');
+
+    expect(section?.parentElement).not.toBe(document.body);
+    expect(observe).toHaveBeenCalledWith(document.body);
+    expect(observe).toHaveBeenCalledWith(section?.parentElement);
+    view.unmount();
+    expect(disconnect).toHaveBeenCalled();
   });
 
   it('shows the explainer miss state', async () => {
@@ -197,6 +221,96 @@ describe('Explain', () => {
     fireEvent.click(button);
     expect(button.getAttribute('aria-pressed')).toBe('false');
     expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:mode', on: false }, '*');
+  });
+
+  it('enters pin mode while the modifier is held and leaves on release', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mac' });
+    mocks.getArtifact.mockResolvedValue(artifact);
+    renderRoute('/explain/forest-map');
+    const frame = (await screen.findByTitle(artifact.title)) as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    const contentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
+      expect(
+        screen.getByRole('button', { name: 'Pin a comment' }).getAttribute('aria-disabled'),
+      ).toBeNull(),
+    );
+
+    await waitFor(() => {
+      fireEvent.keyDown(window, { key: 'Meta', metaKey: true });
+      expect(postMessage).toHaveBeenCalledWith({ type: 'wyld:pin:mode', on: true }, '*');
+    });
+    fireEvent.keyUp(window, { key: 'Meta', metaKey: false });
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:mode', on: false }, '*'),
+    );
+  });
+
+  it('releases a held pin mode when the window blurs', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mac' });
+    mocks.getArtifact.mockResolvedValue(artifact);
+    renderRoute('/explain/forest-map');
+    const frame = (await screen.findByTitle(artifact.title)) as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    const contentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
+      expect(
+        screen.getByRole('button', { name: 'Pin a comment' }).getAttribute('aria-disabled'),
+      ).toBeNull(),
+    );
+    await waitFor(() => {
+      fireEvent.keyDown(window, { metaKey: true });
+      expect(postMessage).toHaveBeenCalledWith({ type: 'wyld:pin:mode', on: true }, '*');
+    });
+    fireEvent.blur(window);
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:mode', on: false }, '*'),
+    );
+  });
+
+  it('enters pin mode when the frame reports the modifier held', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mac' });
+    mocks.getArtifact.mockResolvedValue(artifact);
+    renderRoute('/explain/forest-map');
+    const frame = (await screen.findByTitle(artifact.title)) as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    const contentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
+      expect(
+        screen.getByRole('button', { name: 'Pin a comment' }).getAttribute('aria-disabled'),
+      ).toBeNull(),
+    );
+    await fromFrame(contentWindow, { type: 'wyld:pin:key', held: true }, () =>
+      expect(postMessage).toHaveBeenCalledWith({ type: 'wyld:pin:mode', on: true }, '*'),
+    );
+  });
+
+  it('keeps the Pin button working while the modifier is held', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mac' });
+    mocks.getArtifact.mockResolvedValue(artifact);
+    renderRoute('/explain/forest-map');
+    const button = await screen.findByRole('button', { name: 'Pin a comment' });
+    const frame = screen.getByTitle(artifact.title) as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    const contentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
+      expect(button.getAttribute('aria-disabled')).toBeNull(),
+    );
+    await waitFor(() => {
+      fireEvent.keyDown(window, { metaKey: true });
+      expect(button.getAttribute('aria-pressed')).toBe('true');
+    });
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:mode', on: false }, '*'),
+    );
+    const calls = postMessage.mock.calls.length;
+    fireEvent.keyUp(window, { metaKey: false });
+    expect(postMessage).toHaveBeenCalledTimes(calls);
   });
 
   it('recovers frame readiness by asking again with hello', async () => {
