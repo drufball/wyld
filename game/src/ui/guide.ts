@@ -157,10 +157,22 @@ const createGuideBook = ({
     const box = new THREE.Box3().setFromObject(model.group);
     const centre = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
-    const span = Math.max(size.x, size.y) * 0.65;
-    const camera = new THREE.OrthographicCamera(-span, span, span * 0.56, -span * 0.56, 0.01, 100);
-    camera.position.set(centre.x + size.z * 1.8 + 2, centre.y, centre.z + size.x * 1.8 + 2);
+    const aspect = canvas.width / canvas.height;
+    const distance = Math.max(size.x, size.y, size.z) * 3 + 2;
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, distance * 2);
+    camera.position
+      .copy(centre)
+      .add(new THREE.Vector3(1, 0, 1).normalize().multiplyScalar(distance));
     camera.lookAt(centre);
+    camera.updateMatrixWorld();
+    const cameraBox = box.clone().applyMatrix4(camera.matrixWorldInverse);
+    const cameraSize = cameraBox.getSize(new THREE.Vector3());
+    const halfHeight = Math.max(cameraSize.y / 2, cameraSize.x / (2 * aspect)) * 1.12;
+    camera.left = -halfHeight * aspect;
+    camera.right = halfHeight * aspect;
+    camera.top = halfHeight;
+    camera.bottom = -halfHeight;
+    camera.updateProjectionMatrix();
     const target = new THREE.WebGLRenderTarget(canvas.width, canvas.height);
     const previousTarget = renderer.getRenderTarget();
     const previousColour = renderer.getClearColor(new THREE.Color());
@@ -218,27 +230,28 @@ const createGuideBook = ({
           content.append(h);
           stubHeading = true;
         }
-        if (row.kind === 'page')
-          content.append(
-            button(`${row.name}  ${row.have}/${row.total}`, () => {
-              speciesId = row.speciesId;
-              currentTab = 'species';
-              renderPage();
-            }),
-          );
-        else if (row.kind === 'stub') {
+        if (row.kind === 'page') {
+          const rowButton = button(`${row.name}  ${row.have}/${row.total}`, () => {
+            speciesId = row.speciesId;
+            currentTab = 'species';
+            renderPage();
+          });
+          rowButton.style.cssText += ';display:block;width:100%;text-align:left';
+          content.append(rowButton);
+        } else if (row.kind === 'stub') {
           const line = document.createElement('div');
           line.textContent = `${row.title} — ${row.hint}`;
           line.style.cssText = 'padding:7px 12px';
           content.append(line);
-        } else
-          content.append(
-            button(row.title, () => {
-              final = true;
-              currentTab = 'species';
-              renderPage();
-            }),
-          );
+        } else {
+          const rowButton = button(row.title, () => {
+            final = true;
+            currentTab = 'species';
+            renderPage();
+          });
+          rowButton.style.cssText += ';display:block;width:100%;text-align:left';
+          content.append(rowButton);
+        }
       }
     } else if (currentTab === 'fragments') content.textContent = buildFragments().empty;
     else if (currentTab === 'map') content.textContent = 'The map is not drawn yet.';
@@ -253,6 +266,7 @@ const createGuideBook = ({
         'display:inline-block;border:3px double #292b25;padding:8px;transform:rotate(-3deg);text-transform:uppercase';
       content.append(h, p, stamp);
     } else if (speciesId) {
+      content.dataset.layout = 'species';
       const view = buildSpeciesPage(notebook, speciesId);
       const header = document.createElement('header');
       const h = document.createElement('h1');
@@ -273,6 +287,12 @@ const createGuideBook = ({
       for (const [label, value] of lines) {
         const p = document.createElement('div');
         p.textContent = `${label}: ${value}`;
+        if (
+          pending?.speciesId === speciesId &&
+          (label === 'Tracks' || label === 'Call') &&
+          !matchMedia('(prefers-reduced-motion: reduce)').matches
+        )
+          p.style.animation = 'wyld-guide-merge 550ms ease-out';
         content.append(p);
       }
       const moves = document.createElement('div');
@@ -305,12 +325,9 @@ const createGuideBook = ({
         });
       content.append(sightings);
       if (pending?.speciesId === speciesId) {
-        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-          content.style.animation = 'wyld-guide-merge 550ms ease-out';
-        }
         pending = null;
       }
-    }
+    } else content.textContent = 'Choose a species from the Index.';
     book.append(tabs, content);
     root.append(book);
   };
@@ -342,7 +359,7 @@ const createGuideBook = ({
   window.addEventListener('keydown', keydown);
   const style = document.createElement('style');
   style.textContent =
-    '@keyframes wyld-guide-merge{from{transform:translateX(-18%);opacity:.25}to{transform:none;opacity:1}} @media(min-width:700px){[aria-label="Field guide"] main{columns:2;column-gap:48px}} [aria-label="Field guide"] canvas{display:block;max-width:100%;height:min(180px,22vh)}';
+    '@keyframes wyld-guide-merge{from{transform:translateX(-18%);opacity:.25}to{transform:none;opacity:1}} @media(min-width:700px){[aria-label="Field guide"] main[data-layout="species"]{columns:2;column-gap:48px}} [aria-label="Field guide"] canvas{display:block;width:auto;max-width:100%;height:auto;max-height:min(180px,22vh)}';
   document.head.append(style);
   return {
     open(tab?: GuideTab) {
