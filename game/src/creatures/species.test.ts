@@ -29,12 +29,17 @@ const cloneData = (): SpeciesData[] => structuredClone(species()) as SpeciesData
 
 describe('species data', () => {
   it('matches every habitat eligibility combination', () => {
+    expect(Object.keys(fixture).sort()).toEqual(species().map(({ id }) => id).sort());
+    let combinations = 0;
     for (const [id, habitats] of Object.entries(fixture))
       for (const region of regions())
-        for (const phase of phases)
+        for (const phase of phases) {
+          combinations++;
           expect(isEligible(id, region.id, phase)).toBe(
             habitats[region.id]?.includes(phase) ?? false,
           );
+        }
+    expect(combinations).toBe(13 * regions().length * 4);
   });
   it('rejects unknown ids', () => {
     expect(isEligible('unknown', 'hollow', 'Day')).toBe(false);

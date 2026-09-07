@@ -26,7 +26,10 @@ describe('individual rolls', () => {
     for (const entry of species()) {
       const individual = roll(entry, createRng(1), 'fixed');
       expect(individual.repertoire).toHaveLength(entry.signatureMoves.length);
-      entry.signatureMoves.forEach((move, index) =>
+      entry.signatureMoves.forEach((move, index) => {
+        expect(individual.repertoire[index]!.id).toBe(
+          `${entry.id}:${move.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
+        );
         expect(individual.repertoire[index]).toMatchObject({
           ...move,
           cooldownMult: 1,
@@ -34,8 +37,8 @@ describe('individual rolls', () => {
           modifiers: [],
           familiarity: 0,
           upgradeLevel: 0,
-        }),
-      );
+        });
+      });
     }
   });
   it('is deterministic for an injected id and seed', () => {
