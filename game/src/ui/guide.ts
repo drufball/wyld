@@ -1,6 +1,3 @@
-import * as THREE from 'three';
-
-import { buildBodyPlan } from '../creatures/bodyplans/index.js';
 import { speciesById } from '../creatures/species.js';
 import { stubTitle, type Notebook } from '../guide/notebook.js';
 import { regions } from '../world/regions.js';
@@ -110,14 +107,12 @@ const buildFragments = (): { rows: []; empty: 'Nothing yet.' } => ({
 
 type GuideOptions = {
   notebook: Notebook;
-  renderer: THREE.WebGLRenderer;
   onOpenChange?(open: boolean): void;
   debugOpen?(): boolean;
   map: Omit<MapViewOptions, 'notebook' | 'selectedSpecies'>;
 };
 const createGuideBook = ({
   notebook,
-  renderer,
   onOpenChange,
   debugOpen = () => false,
   map,
@@ -127,79 +122,27 @@ const createGuideBook = ({
   let speciesId: string | null = null;
   let final = false;
   let pending: { speciesId: string; merged: number } | null = null;
-  const silhouettes = new Map<string, HTMLCanvasElement>();
   const root = document.createElement('section');
   const mapView = createMapView({ ...map, notebook, selectedSpecies: () => speciesId });
   root.hidden = true;
   root.setAttribute('aria-label', 'Field guide');
   root.style.cssText =
-    'position:fixed;inset:0;z-index:8;box-sizing:border-box;padding:clamp(8px,3vw,28px);overflow:hidden;color:#292b25;background:#252820cc;font:14px/1.55 ui-monospace,"Segoe UI",monospace';
+    'position:fixed;inset:0;z-index:8;box-sizing:border-box;padding:clamp(8px,3vw,28px);overflow:hidden;color:#292b25;background:#252820cc;font:14px/1.55 ui-monospace,monospace';
   document.body.append(root);
-
   const button = (text: string, action: () => void): HTMLButtonElement => {
     const element = document.createElement('button');
     element.textContent = text;
-    element.style.cssText =
-      'border:0;border-bottom:1px solid #777566;padding:7px 12px;background:transparent;color:inherit;font:inherit;cursor:pointer';
     element.addEventListener('click', action);
     return element;
   };
-  const silhouette = (id: string): HTMLCanvasElement => {
-    const cached = silhouettes.get(id);
-    if (cached) return cached;
-    const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 180;
-    const definition = speciesById(id);
-    if (!('getRenderTarget' in renderer)) return canvas;
-    const context = canvas.getContext('2d');
-    if (!definition || !context) return canvas;
-    const model = buildBodyPlan(definition);
-    const material = new THREE.MeshBasicMaterial({ color: 0x292b25 });
-    model.group.traverse((object) => {
-      if (object instanceof THREE.Mesh) object.material = material;
-    });
-    const box = new THREE.Box3().setFromObject(model.group);
-    const centre = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    const aspect = canvas.width / canvas.height;
-    const distance = Math.max(size.x, size.y, size.z) * 3 + 2;
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, distance * 2);
-    camera.position
-      .copy(centre)
-      .add(new THREE.Vector3(1, 0, 1).normalize().multiplyScalar(distance));
-    camera.lookAt(centre);
-    camera.updateMatrixWorld();
-    const cameraBox = box.clone().applyMatrix4(camera.matrixWorldInverse);
-    const cameraSize = cameraBox.getSize(new THREE.Vector3());
-    const halfHeight = Math.max(cameraSize.y / 2, cameraSize.x / (2 * aspect)) * 1.12;
-    camera.left = -halfHeight * aspect;
-    camera.right = halfHeight * aspect;
-    camera.top = halfHeight;
-    camera.bottom = -halfHeight;
-    camera.updateProjectionMatrix();
-    const target = new THREE.WebGLRenderTarget(canvas.width, canvas.height);
-    const previousTarget = renderer.getRenderTarget();
-    const previousColour = renderer.getClearColor(new THREE.Color());
-    const previousAlpha = renderer.getClearAlpha();
-    renderer.setRenderTarget(target);
-    renderer.setClearColor(0x000000, 0);
-    renderer.clear();
-    renderer.render(model.group, camera);
-    const pixels = new Uint8Array(canvas.width * canvas.height * 4);
-    renderer.readRenderTargetPixels(target, 0, 0, canvas.width, canvas.height, pixels);
-    const flipped = new Uint8ClampedArray(pixels.length);
-    const row = canvas.width * 4;
-    for (let y = 0; y < canvas.height; y++)
-      flipped.set(pixels.subarray(y * row, (y + 1) * row), (canvas.height - y - 1) * row);
-    context.putImageData(new ImageData(flipped, canvas.width, canvas.height), 0, 0);
-    renderer.setRenderTarget(previousTarget);
-    renderer.setClearColor(previousColour, previousAlpha);
-    model.dispose();
-    target.dispose();
-    material.dispose();
-    silhouettes.set(id, canvas);
-    return canvas;
+  const silhouette = (): HTMLElement => {
+    const panel = document.createElement('figure');
+    const blank = document.createElement('div');
+    blank.textContent = BLANK;
+    const caption = document.createElement('figcaption');
+    caption.textContent = 'Silhouette — not yet drawn';
+    panel.append(blank, caption);
+    return panel;
   };
   const renderPage = (): void => {
     root.replaceChildren();
@@ -278,7 +221,7 @@ const createGuideBook = ({
       const header = document.createElement('header');
       const h = document.createElement('h1');
       h.textContent = `${view.name}  ${view.have}/${view.total}`;
-      header.append(silhouette(speciesId), h);
+      header.append(silhouette(), h);
       content.append(header);
       const lines: [string, string][] = [
         ['Tracks', view.tracks],
@@ -400,7 +343,6 @@ const createGuideBook = ({
       window.removeEventListener('keydown', keydown);
       root.remove();
       style.remove();
-      silhouettes.clear();
     },
   };
 };

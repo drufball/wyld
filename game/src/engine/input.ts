@@ -1,87 +1,56 @@
-type InputState = {
-  down: ReadonlySet<string>;
-  pressed: ReadonlySet<string>;
-};
-
-type MouseState = { x: number; y: number; pointerLocked: boolean };
-
+type InputState = { down: ReadonlySet<string>; pressed: ReadonlySet<string> };
+type Tap = { clientX: number; clientY: number };
 const applyKeyEvent = (state: InputState, code: string, down: boolean): InputState => {
-  const held = new Set(state.down);
-  const pressed = new Set(state.pressed);
+  const held = new Set(state.down),
+    pressed = new Set(state.pressed);
   if (down) {
     if (!held.has(code)) pressed.add(code);
     held.add(code);
-  } else {
-    held.delete(code);
-  }
+  } else held.delete(code);
   return { down: held, pressed };
 };
-
 const consumeEdges = (state: InputState): InputState => ({ down: state.down, pressed: new Set() });
-
-const applyMouseMovement = (state: MouseState, x: number, y: number): MouseState =>
-  state.pointerLocked ? { ...state, x: state.x + x, y: state.y + y } : state;
-
 type Input = {
   isDown(code: string): boolean;
   wasPressed(code: string): boolean;
-  mouseDelta(): { x: number; y: number };
-  readonly pointerLocked: boolean;
+  taps(): readonly Tap[];
   endFrame(): void;
   dispose(): void;
 };
-
-const createInput = (canvas: HTMLCanvasElement): Input => {
-  let keys: InputState = { down: new Set(), pressed: new Set() };
-  let mouse: MouseState = { x: 0, y: 0, pointerLocked: false };
-  const editingText = (target: EventTarget | null): boolean => {
-    const element = target instanceof HTMLElement ? target : document.activeElement;
-    return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
-  };
-  const keyDown = (event: KeyboardEvent): void => {
-    if (!editingText(event.target)) keys = applyKeyEvent(keys, event.code, true);
-  };
-  const keyUp = (event: KeyboardEvent): void => {
-    keys = applyKeyEvent(keys, event.code, false);
-  };
-  const move = (event: MouseEvent): void => {
-    mouse = applyMouseMovement(mouse, event.movementX, event.movementY);
-  };
-  const lockChanged = (): void => {
-    mouse = { ...mouse, pointerLocked: document.pointerLockElement === canvas };
-  };
-  const click = (): void => {
-    const result: unknown = canvas.requestPointerLock();
-    if (result instanceof Promise) void result.catch(() => undefined);
-  };
-  window.addEventListener('keydown', keyDown);
-  window.addEventListener('keyup', keyUp);
-  window.addEventListener('mousemove', move);
-  document.addEventListener('pointerlockchange', lockChanged);
-  canvas.addEventListener('click', click);
-  return {
-    isDown: (code) => keys.down.has(code),
-    wasPressed: (code) => keys.pressed.has(code),
-    mouseDelta: () => {
-      const result = { x: mouse.x, y: mouse.y };
-      mouse = { ...mouse, x: 0, y: 0 };
-      return result;
+const createInput = (canvas: HTMLCanvasElement, ignore = () => false): Input => {
+  let keys: InputState = { down: new Set(), pressed: new Set() },
+    queue: Tap[] = [];
+  const editing = (t: EventTarget | null) =>
+    t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement;
+  const kd = (e: KeyboardEvent) => {
+      if (!editing(e.target)) keys = applyKeyEvent(keys, e.code, true);
     },
-    get pointerLocked() {
-      return mouse.pointerLocked;
+    ku = (e: KeyboardEvent) => {
+      keys = applyKeyEvent(keys, e.code, false);
+    },
+    pointer = (e: PointerEvent) => {
+      if (!ignore()) queue.push({ clientX: e.clientX, clientY: e.clientY });
+    };
+  window.addEventListener('keydown', kd);
+  window.addEventListener('keyup', ku);
+  canvas.addEventListener('pointerdown', pointer, { passive: true });
+  return {
+    isDown: (c) => keys.down.has(c),
+    wasPressed: (c) => keys.pressed.has(c),
+    taps: () => {
+      const r = queue;
+      queue = [];
+      return r;
     },
     endFrame: () => {
       keys = consumeEdges(keys);
     },
     dispose: () => {
-      window.removeEventListener('keydown', keyDown);
-      window.removeEventListener('keyup', keyUp);
-      window.removeEventListener('mousemove', move);
-      document.removeEventListener('pointerlockchange', lockChanged);
-      canvas.removeEventListener('click', click);
+      window.removeEventListener('keydown', kd);
+      window.removeEventListener('keyup', ku);
+      canvas.removeEventListener('pointerdown', pointer);
     },
   };
 };
-
-export { applyKeyEvent, applyMouseMovement, consumeEdges, createInput };
-export type { Input, InputState, MouseState };
+export { applyKeyEvent, consumeEdges, createInput };
+export type { Input, InputState, Tap };

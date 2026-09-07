@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 import worldData from '../data/world.json';
 
 type HeightSampler = (x: number, z: number) => number;
@@ -68,44 +66,5 @@ const createDepthAt =
 
 const isWaterStandable = (depth: number): boolean => depth <= 0.6;
 
-const createWater = (heightAt: HeightSampler) => {
-  const group = new THREE.Group();
-  group.name = 'water';
-  const material = new THREE.MeshPhongMaterial({
-    color: 0x438e9b,
-    emissive: 0x102c3b,
-    emissiveIntensity: 0.18,
-    transparent: true,
-    opacity: 0.72,
-    side: THREE.DoubleSide,
-    flatShading: true,
-    shininess: 65,
-    depthWrite: false,
-  });
-  for (const body of waterBodies) {
-    const geometry =
-      body.kind === 'pond'
-        ? new THREE.CircleGeometry(body.circle.radius, 40)
-        : new THREE.PlaneGeometry(
-            body.southBand.maxX - body.southBand.minX,
-            body.southBand.maxZ - body.southBand.minZ,
-            24,
-            6,
-          );
-    geometry.rotateX(-Math.PI / 2);
-    const mesh = new THREE.Mesh(geometry, material);
-    if (body.kind === 'pond') mesh.position.set(body.circle.x, body.surfaceY, body.circle.z);
-    else
-      mesh.position.set(
-        (body.southBand.minX + body.southBand.maxX) / 2,
-        body.surfaceY,
-        (body.southBand.minZ + body.southBand.maxZ) / 2,
-      );
-    mesh.renderOrder = 1;
-    group.add(mesh);
-  }
-  return { group, depthAt: createDepthAt(heightAt) };
-};
-
-export { createDepthAt, createWater, isWaterStandable, waterBodies };
+export { createDepthAt, isWaterStandable, waterBodies };
 export type { HeightSampler, WaterBody };

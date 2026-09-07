@@ -1,11 +1,7 @@
-import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { createRng } from '../engine/rng.js';
-import worldData from '../data/world.json';
-import { createProps, placeProps } from './props.js';
-import { createTerrain } from './terrain.js';
-import { createWater } from './water.js';
+import { placeProps } from './props.js';
 import type { PropDensities, PropKind } from './props.js';
 import type { BiomeWeights } from './terrain.js';
 
@@ -69,31 +65,4 @@ describe('placeProps', () => {
     expect(sample('conifer', { biomeWeightsAt: () => weights('volcano') })).toEqual([]);
     expect(sample('vent', { biomeWeightsAt: () => weights('desert') })).toEqual([]);
   });
-});
-
-it('keeps terrain, water, and props at Shore Camp below the in-view triangle budget', () => {
-  const terrain = createTerrain(194);
-  const water = createWater(terrain.heightAt);
-  const placements = placeProps({
-    rng: createRng(194),
-    heightAt: terrain.heightAt,
-    slopeAt: terrain.slopeAt,
-    depthAt: water.depthAt,
-    biomeWeightsAt: terrain.biomeWeightsAt,
-    densities: worldData.props,
-    bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
-  });
-  const viewpoint = new THREE.Object3D();
-  viewpoint.position.set(-100, 0, 345);
-  const props = createProps(placements, viewpoint);
-  const groups = [terrain.group, water.group, props];
-  let triangles = 0;
-  for (const group of groups) group.traverse((object) => {
-    if (!(object instanceof THREE.Mesh)) return;
-    const geometry = object.geometry;
-    triangles +=
-      ((geometry.index?.count ?? geometry.getAttribute('position').count) / 3) *
-      (object instanceof THREE.InstancedMesh ? object.count : 1);
-  });
-  expect(triangles).toBeLessThanOrEqual(190_000);
 });

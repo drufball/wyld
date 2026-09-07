@@ -23,3 +23,15 @@
 - **PASS — notebook JSON round-trip:** `pnpm --filter @wyld/game exec vitest run src/guide/notebook.test.ts` deep-compared a fully populated notebook after JSON serialisation and restoration (16 tests passed).
 - **PASS — sightings cap:** `pnpm --filter @wyld/game exec vitest run src/guide/notebook.test.ts` recorded 22 sightings and retained the newest 20, dropping the oldest (16 tests passed).
 - **PASS — fog cell maths and notebook round-trip:** `pnpm --filter @wyld/game exec vitest run src/guide/fog.test.ts src/guide/notebook.test.ts` checked corners, centre, the explicit 13-cell reveal, all 1600 cells, and JSON restoration with fog and camps (19 tests passed).
+- **PASS — Tracks (Planner review, headless Chromium at 1280×720):** `tp -165.2 59.8` → toast `Unknown tracks — 2-toed, dragging, stride 0.5 — Forest (Hollow)` + hint; one stub — PASS
+- **PASS — Call (Planner review, headless Chromium at 1280×720):** 14 m from a Thornwren at Dawn, looking away → `Unknown call — Forest (Hollow)`, a second stub — PASS
+- **PASS — Merge (Planner review, headless Chromium at 1280×720):** `face` a wild Bramblehog → `Identified: Bramblehog. One earlier note attached.`, stubs → 0 — PASS
+- **PASS — reveal guide (Planner review, headless Chromium at 1280×720):** → 13 pages, completion 1, fractions Loamox 12/12, Antlerback 13/13, Pyreclaw 14/14 — PASS
+- **PASS — Fog (Planner review, headless Chromium at 1280×720):** 13 cells at spawn, 43 after a 5-hop path, 1600 after `reveal map`; Hollow Camp discovered at spawn; sighting pin at the identification position — PASS
+- **PASS — Pause (Planner review, headless Chromium at 1280×720):** `elapsedSeconds` frozen 4.55 across 1.5 s with the book open — PASS
+
+## FIELDWORK in 2D — unit 1 (the tile world)
+
+The tile-grid, deterministic pathfinding, phase palettes, viewport sizing, canvas renderer, tap input, and 2D public-state unit tests pass. At 375 × 812 the viewport is 11 × 22 tiles at 2×; at 1280 × 720 it is 20 × 12 tiles at 3×.
+
+This unit resolves §6.1's “inside the camera frustum” as **“on the same screen, with tile line of sight ≤ 20 tiles”**, and the spawn cap's “occluded from the player” as **“not on the player's screen”**; unit 2 lands both fully. Section §13.6's opening beat and volcano on the horizon have **no 2D equivalent**: the opening beat is M6's problem, and for now the Crater Rim shows on the map from the start as a dark smudge.
