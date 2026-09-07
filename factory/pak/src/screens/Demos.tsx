@@ -5,6 +5,7 @@ import {
   buildDemo,
   closeChain,
   listChains,
+  listQuests,
   postFeedback,
   reopenChain,
   unsnoozeChain,
@@ -197,8 +198,8 @@ function DemoBody({ chain, demo, reload }: { chain: Chain; demo: DemoCard; reloa
         )}
         <ChainActionsMenu
           chain={chain}
-          onChange={reload}
-          onSnoozed={reload}
+          onChange={() => undefined}
+          onSnoozed={() => undefined}
           runAction={(action, success) => act(() => action().then(success))}
         />
         {failedAction && (
@@ -217,12 +218,17 @@ function DemoBody({ chain, demo, reload }: { chain: Chain; demo: DemoCard; reloa
 
 function DemoGrid() {
   const [chains, setChains] = useState<Chain[]>([]);
+  const [doneQuests, setDoneQuests] = useState<Set<string>>(new Set());
   const { subscribe } = useLiveEvents();
   const load = useCallback(
-    () =>
+    () => {
       void listChains({ kind: 'demo', status: 'all', includeSnoozed: true })
         .then(setChains)
-        .catch(() => undefined),
+        .catch(() => undefined);
+      void listQuests({ status: 'done' })
+        .then((quests) => setDoneQuests(new Set(quests.map((quest) => quest.id))))
+        .catch(() => setDoneQuests(new Set()));
+    },
     [],
   );
   useEffect(() => {
@@ -259,7 +265,7 @@ function DemoGrid() {
     label: string,
     items: Chain[],
     action: (chain: Chain) => Promise<unknown>,
-    verb: string,
+    verb: (chain: Chain) => string,
     wake = false,
   ) =>
     items.length ? (
@@ -291,7 +297,7 @@ function DemoGrid() {
                     type="button"
                     onClick={() => void action(chain).then(load)}
                   >
-                    {verb}
+                    {verb(chain)}
                   </Button>
                 </Card>
               )
@@ -325,8 +331,12 @@ function DemoGrid() {
           );
         })}
       </div>
-      {fold('Snoozed', snoozed, (chain) => unsnoozeChain(chain.id), 'Unsnooze', true)}
-      {fold('Hidden', hidden, (chain) => reopenChain(chain.id), 'Show again')}
+      {fold('Snoozed', snoozed, (chain) => unsnoozeChain(chain.id), () => 'Unsnooze', true)}
+      {fold('Hidden', hidden, (chain) => reopenChain(chain.id), (chain) =>
+        chain.questId !== null && doneQuests.has(chain.questId)
+          ? 'Show again (reopens the quest)'
+          : 'Show again',
+      )}
     </div>
   );
 }
