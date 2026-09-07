@@ -142,6 +142,7 @@ describe('Today', () => {
           createdAt: presence.lastSeenAt,
           lastActivityAt: presence.lastSeenAt,
           questId: null,
+          anchor: null,
           snoozedUntil: null,
           rumble: {
             id: 'rumble',
@@ -194,6 +195,7 @@ describe('Today', () => {
           createdAt: presence.lastSeenAt,
           lastActivityAt: presence.lastSeenAt,
           questId: null,
+          anchor: null,
           snoozedUntil: null,
           rumble: null,
           messages: [
@@ -220,6 +222,7 @@ describe('Today', () => {
           createdAt: presence.lastSeenAt,
           lastActivityAt: presence.lastSeenAt,
           questId: null,
+          anchor: null,
           snoozedUntil: null,
           rumble: {
             id: 'rumble',
@@ -327,6 +330,7 @@ describe('Today', () => {
       createdAt: presence.lastSeenAt,
       lastActivityAt: presence.lastSeenAt,
       questId: null,
+      anchor: null,
       messages: [{ id: 1, chainId: 1, author: 'human', text: 'build it', ts: presence.lastSeenAt }],
     };
     const fetch = vi.fn((url: string, init?: RequestInit) =>
@@ -456,6 +460,7 @@ describe('Today', () => {
       createdAt: presence.lastSeenAt,
       lastActivityAt: presence.lastSeenAt,
       questId: null,
+      anchor: null,
       messages: [
         { id: 8, chainId: 7, author: 'human', text: 'make a map', ts: presence.lastSeenAt },
       ],
@@ -493,6 +498,7 @@ describe('Today', () => {
       createdAt: presence.lastSeenAt,
       lastActivityAt: presence.lastSeenAt,
       questId: null,
+      anchor: null,
       messages: [
         { id: 10, chainId: 9, author: 'human', text: 'build a bridge', ts: presence.lastSeenAt },
       ],

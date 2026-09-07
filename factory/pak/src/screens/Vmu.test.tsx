@@ -22,6 +22,7 @@ const base = {
   createdAt: '2026-09-05T12:00:00Z',
   lastActivityAt: '2026-09-05T12:00:00Z',
   questId: null,
+  anchor: null,
   snoozedUntil: null,
   tags: [],
   demoId: null,

@@ -10,6 +10,7 @@ const question = {
   createdAt: timestamp,
   lastActivityAt: timestamp,
   questId: null,
+  anchor: null,
   messages: [{ id: 1, chainId: 1, author: 'human', text: 'Why?', ts: timestamp }],
 } as const;
 function response(value: unknown) {
