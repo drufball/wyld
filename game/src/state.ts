@@ -9,6 +9,10 @@ type BuildStateOptions = {
   stance: WyldGameState['stance'];
   region: string | null;
   biome: WyldGameState['biome'];
+  phase: WyldGameState['phase'];
+  day: number;
+  phaseProgress: number;
+  waterDepth: number;
 };
 
 const buildState = ({
@@ -20,6 +24,10 @@ const buildState = ({
   stance,
   region,
   biome,
+  phase,
+  day,
+  phaseProgress,
+  waterDepth,
 }: BuildStateOptions): WyldGameState => ({
   version,
   elapsedSeconds,
@@ -29,6 +37,10 @@ const buildState = ({
   stance,
   region,
   biome,
+  phase,
+  day,
+  phaseProgress,
+  waterDepth,
 });
 
 export { buildState };

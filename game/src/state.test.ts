@@ -15,6 +15,10 @@ describe('game state', () => {
       stance: 'walk',
       region: 'hollow',
       biome: 'forest',
+      phase: 'Dawn',
+      day: 1,
+      phaseProgress: 0.25,
+      waterDepth: 0,
     });
     camera.x = 99;
     player.x = 99;
@@ -27,6 +31,10 @@ describe('game state', () => {
       stance: 'walk',
       region: 'hollow',
       biome: 'forest',
+      phase: 'Dawn',
+      day: 1,
+      phaseProgress: 0.25,
+      waterDepth: 0,
     });
   });
 });
