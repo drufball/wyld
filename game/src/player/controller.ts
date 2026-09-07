@@ -10,6 +10,68 @@ type ControllerOptions = {
   rows(): number;
   start?: { x: number; z: number };
 };
+type TilePoint = { tx: number; ty: number };
+type Screen = { sx: number; sy: number };
+const neighborSteps = [
+  [0, -1],
+  [-1, 0],
+  [1, 0],
+  [0, 1],
+] as const;
+const pathForTap = (
+  grid: Pick<TileGrid, 'isWalkable'>,
+  from: TilePoint,
+  target: TilePoint,
+  screen: Screen,
+  cols: number,
+  rows: number,
+): readonly TilePoint[] | null => {
+  const minTx = screen.sx * cols,
+    maxTx = minTx + cols - 1,
+    minTy = screen.sy * rows,
+    maxTy = minTy + rows - 1,
+    onLeft = target.tx === minTx,
+    onRight = target.tx === maxTx,
+    onTop = target.ty === minTy,
+    onBottom = target.ty === maxTy,
+    edgeCount = Number(onLeft || onRight) + Number(onTop || onBottom),
+    bounds = { minTx, maxTx, minTy, maxTy };
+
+  // A non-corner edge tap asks to cross the screen. Search nearest-first along
+  // that edge, preferring the lower coordinate just as findPath does on ties.
+  if (edgeCount === 1) {
+    const vertical = onLeft || onRight,
+      along = vertical ? target.ty : target.tx,
+      minimum = vertical ? minTy : minTx,
+      maximum = vertical ? maxTy : maxTx;
+    for (let distance = 0; distance <= maximum - minimum; distance++) {
+      const coordinates = distance === 0 ? [along] : [along - distance, along + distance];
+      for (const coordinate of coordinates) {
+        if (coordinate < minimum || coordinate > maximum) continue;
+        const edge = vertical
+            ? { tx: target.tx, ty: coordinate }
+            : { tx: coordinate, ty: target.ty },
+          across = {
+            tx: edge.tx + (onLeft ? -1 : onRight ? 1 : 0),
+            ty: edge.ty + (onTop ? -1 : onBottom ? 1 : 0),
+          };
+        if (!grid.isWalkable(edge.tx, edge.ty) || !grid.isWalkable(across.tx, across.ty)) continue;
+        const found = findPath(grid, from, across, { ...bounds, across });
+        if (found) return found;
+      }
+    }
+  }
+
+  const destinations = grid.isWalkable(target.tx, target.ty)
+    ? [target]
+    : neighborSteps.map(([dx, dy]) => ({ tx: target.tx + dx, ty: target.ty + dy }));
+  for (const destination of destinations) {
+    if (!grid.isWalkable(destination.tx, destination.ty)) continue;
+    const found = findPath(grid, from, destination, bounds);
+    if (found) return found;
+  }
+  return null;
+};
 const createPlayerController = (o: ControllerOptions) => {
   const initial = worldToTile(o.start?.x ?? -150, o.start?.z ?? 50);
   let tx = initial.tx + 0.5,
@@ -28,21 +90,14 @@ const createPlayerController = (o: ControllerOptions) => {
       px = ((clientX - rect.left) * o.canvas.width) / rect.width,
       py = ((clientY - rect.top) * o.canvas.height) / rect.height,
       target = canvasPixelToTile(px, py, screen.sx, screen.sy, o.cols(), o.rows());
-    if (!o.grid.isWalkable(target.tx, target.ty)) return;
-    const localX = target.tx - screen.sx * o.cols();
-    const localY = target.ty - screen.sy * o.rows();
-    const dx = localX === 0 ? -1 : localX === o.cols() - 1 ? 1 : 0;
-    const dy = localY === 0 ? -1 : localY === o.rows() - 1 ? 1 : 0;
-    const across = { tx: target.tx + dx, ty: target.ty + dy };
-    const crossesOneEdge = Number(dx !== 0) + Number(dy !== 0) === 1;
-    const destination = crossesOneEdge && o.grid.isWalkable(across.tx, across.ty) ? across : target;
-    const found = findPath(o.grid, { tx: Math.floor(tx), ty: Math.floor(ty) }, destination, {
-      minTx: screen.sx * o.cols(),
-      maxTx: (screen.sx + 1) * o.cols() - 1,
-      minTy: screen.sy * o.rows(),
-      maxTy: (screen.sy + 1) * o.rows() - 1,
-      across: destination === across ? across : undefined,
-    });
+    const found = pathForTap(
+      o.grid,
+      { tx: Math.floor(tx), ty: Math.floor(ty) },
+      target,
+      screen,
+      o.cols(),
+      o.rows(),
+    );
     if (found) path = found;
   };
   const update = (dt: number) => {
@@ -142,4 +197,5 @@ const createPlayerController = (o: ControllerOptions) => {
   };
 };
 export { createPlayerController };
+export { pathForTap };
 export type { ControllerOptions, Facing };
