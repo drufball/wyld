@@ -101,6 +101,18 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **11:23 (2026-09-07) Phase 2 started.** FIELDWORK (`wyld-spec.md`) laid out as **eight quests in world `fieldwork`, one per spec
+  milestone M0–M7, strictly in order** (§17: "do not start a milestone until the previous one's checkpoints pass"): `fw-m0-world`
+  (building), `fw-m1-creatures`, `fw-m2-guide`, `fw-m3-combat`, `fw-m4-training`, `fw-m5-traversal`, `fw-m6-sightings`,
+  `fw-m7-polish`. M0 lead spawned (scratchpad `/tmp/wyld-leads/fw-m0/`), four units: engine core + player (`codex/fw-m0-engine`),
+  terrain/biomes/regions + `world.json` (`codex/fw-m0-terrain`), water/sky/time + HUD + debug `time`/`tp` (`codex/fw-m0-time`),
+  props + perf + `game/VERIFICATION.md` (`codex/fw-m0-props`). Game rules in every game brief: no franchise terms (§0), no external
+  assets, no UI frameworks, procedural everything, `window.__wyld` hooks kept (+ `debug(cmd)`, `perf()`), the disc re-registered
+  after every merge (`pak_register_demo kind=disc slug=fw-m0-world`), leads run the built game under SwiftShader and look at
+  screenshots; SwiftShader fps is not the 60-fps budget — record honestly. Roadmap explainer v3 shows the eight quests; Dru told
+  via a message chain on `fw-m0-world`. **Every game quest ships with a disc, a try-it card and an explainer (the Planner writes
+  it).** Explainer publishing: `/tmp/wyld-leads/artifacts/publish.mjs` (run with `npx tsx` from `factory/server`) appends the pin
+  bridge from `factory/pak/src/lib/pin-bridge.ts` and POSTs both drafts.
 - **`one-mechanism` unit 1 landed 19:59 (#164 / PR #165, one fix round)** — `ChainKind` + `demo|action|unlock`, `chains.tags/
   demo_id/payload`, migration 0016 backfill (one demo chain per demo, one action chain from presence), `close {reason:'done'}`
   marks the quest done, **`POST /chains/:id/reopen` is the un-done**, hide ⇔ settle, `needsYou` on `GET /api/presence`
