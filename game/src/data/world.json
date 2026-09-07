@@ -240,7 +240,7 @@
       "scale": [0.65, 1.25]
     },
     "rock": {
-      "density": 0.35,
+      "density": 0.7,
       "scale": [0.5, 1.7]
     },
     "cactus": {
@@ -252,7 +252,7 @@
       "scale": [2.2, 4.5]
     },
     "vent": {
-      "density": 0.12,
+      "density": 0.3,
       "scale": [0.7, 1.5]
     }
   }

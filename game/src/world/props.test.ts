@@ -71,7 +71,7 @@ describe('placeProps', () => {
   });
 });
 
-it('keeps the complete production prop field below the in-view triangle budget', () => {
+it('keeps terrain, water, and props at Shore Camp below the in-view triangle budget', () => {
   const terrain = createTerrain(194);
   const water = createWater(terrain.heightAt);
   const placements = placeProps({
@@ -83,13 +83,17 @@ it('keeps the complete production prop field below the in-view triangle budget',
     densities: worldData.props,
     bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
   });
-  const group = createProps(placements);
+  const viewpoint = new THREE.Object3D();
+  viewpoint.position.set(-100, 0, 345);
+  const props = createProps(placements, viewpoint);
+  const groups = [terrain.group, water.group, props];
   let triangles = 0;
-  group.traverse((object) => {
-    if (!(object instanceof THREE.InstancedMesh)) return;
+  for (const group of groups) group.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
     const geometry = object.geometry;
     triangles +=
-      ((geometry.index?.count ?? geometry.getAttribute('position').count) / 3) * object.count;
+      ((geometry.index?.count ?? geometry.getAttribute('position').count) / 3) *
+      (object instanceof THREE.InstancedMesh ? object.count : 1);
   });
-  expect(triangles).toBeLessThanOrEqual(200_000);
+  expect(triangles).toBeLessThanOrEqual(190_000);
 });

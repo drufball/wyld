@@ -44,7 +44,7 @@ sun.shadow.camera.right = shadowExtent;
 sun.shadow.camera.top = shadowExtent;
 sun.shadow.camera.bottom = -shadowExtent;
 sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 140;
+sun.shadow.camera.far = 260;
 sun.shadow.bias = -0.0004;
 scene.add(sun);
 
@@ -64,6 +64,7 @@ const props = createProps(
     densities: worldData.props,
     bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
   }),
+  camera,
 );
 scene.add(props);
 const sky = createSky(scene, sun, hemisphere);
@@ -133,12 +134,12 @@ const loop = createLoop({
     player.update(dtSeconds);
     const region = pointToRegion(player.object.position.x, player.object.position.z);
     const clock = timeAt(elapsedSeconds);
-    sky.update(clock.dayProgress);
-    sun.target.position.set(player.object.position.x, 0, player.object.position.z);
+    const sunDirection = sky.update(clock.dayProgress);
+    sun.target.position.copy(player.object.position);
     sun.position.set(
-      player.object.position.x + 30,
-      player.object.position.y + 55,
-      player.object.position.z + 25,
+      player.object.position.x + sunDirection.x * 120,
+      player.object.position.y + sunDirection.y * 120,
+      player.object.position.z + sunDirection.z * 120,
     );
     sun.target.updateMatrixWorld();
     hud.update({

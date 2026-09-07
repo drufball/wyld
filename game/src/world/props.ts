@@ -154,7 +154,20 @@ const colours: Record<PropKind, number> = {
   vent: 0x251f20,
 };
 
-const createProps = (placements: readonly PropPlacement[]): THREE.Group => {
+const drawDistances: Record<PropKind, number> = {
+  conifer: 250,
+  broadleaf: 250,
+  fern: 120,
+  rock: 120,
+  cactus: 180,
+  mesa: 300,
+  vent: 180,
+};
+
+const createProps = (
+  placements: readonly PropPlacement[],
+  viewpoint?: THREE.Object3D,
+): THREE.Group => {
   const group = new THREE.Group();
   group.name = 'props';
   const matrix = new THREE.Matrix4();
@@ -170,22 +183,47 @@ const createProps = (placements: readonly PropPlacement[]): THREE.Group => {
     }
     const mesh = new THREE.InstancedMesh(geometryFor(kind), material, entries.length);
     mesh.name = `props-${kind}`;
-    entries.forEach((entry, index) => {
-      position.set(entry.x, entry.y, entry.z);
-      rotation.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, entry.rotationY);
-      scale.setScalar(entry.scale);
-      matrix.compose(position, rotation, scale);
-      mesh.setMatrixAt(index, matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
+    let lastViewX = Number.POSITIVE_INFINITY;
+    let lastViewZ = Number.POSITIVE_INFINITY;
+    const updateInstances = (): void => {
+      if (
+        viewpoint &&
+        Math.hypot(viewpoint.position.x - lastViewX, viewpoint.position.z - lastViewZ) < 4
+      )
+        return;
+      if (viewpoint) {
+        lastViewX = viewpoint.position.x;
+        lastViewZ = viewpoint.position.z;
+      }
+      let visible = 0;
+      const distance = drawDistances[kind];
+      for (const entry of entries) {
+        if (
+          viewpoint &&
+          Math.hypot(entry.x - viewpoint.position.x, entry.z - viewpoint.position.z) > distance
+        )
+          continue;
+        position.set(entry.x, entry.y, entry.z);
+        rotation.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, entry.rotationY);
+        scale.setScalar(entry.scale);
+        matrix.compose(position, rotation, scale);
+        mesh.setMatrixAt(visible, matrix);
+        visible += 1;
+      }
+      mesh.count = visible;
+      mesh.instanceMatrix.needsUpdate = true;
+    };
+    updateInstances();
+    mesh.onBeforeRender = updateInstances;
     mesh.castShadow = kind !== 'fern';
     mesh.receiveShadow = true;
-    mesh.frustumCulled = true;
-    mesh.computeBoundingSphere();
+    // Instance matrices are repacked around a moving viewpoint, so the batch has no stable bounds.
+    mesh.frustumCulled = !viewpoint;
+    if (!viewpoint) mesh.computeBoundingSphere();
     group.add(mesh);
   }
   return group;
 };
 
-export { createProps, placeProps, propKinds };
+export { createProps, drawDistances, placeProps, propKinds };
 export type { PlacePropsOptions, PropBounds, PropDensities, PropDensity, PropKind, PropPlacement };
