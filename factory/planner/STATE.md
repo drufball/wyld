@@ -1040,3 +1040,9 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 - **Do not spawn the M3 lead until it's chosen.** If option 1/2: a `controls-tap-to-move` quest (~2 units: ground tap/drag + pathing that respects water/slope + drag-orbit camera + crouch/sprint toggles + tap-to-target; touch HUD incl. a console button) runs **before** M3, and the M3 brief's key bindings (1/2/3, Tab, hold-E) become taps/holds. Option 3: spawn M3 as briefed.
 - Try-it steps for M0/M1 are keyboard-written; rewrite when the controls change.
 - Brief for the tap-to-move quest pre-written at `/tmp/wyld-leads/controls/brief.md` (2 units: pathing+tap/drag; touch HUD+console). Fill in the chosen option line before spawning. Runs after M2 completes (touches `game/`).
+
+## Two leads in parallel (2026-09-07 16:50)
+
+- **M2 lead** (game/): unit 3 book, fix round 1 running. Told to put interim summary/steps on every disc re-register and to add a controls helper (§12 overlay + `?`) — Dru asked.
+- **demo-player lead** (factory/ only, quest `one-mechanism`): `/demos/:id` iframes `/play/<id>/` for any kind → JSON error on a live card. Fix: redirect non-disc demos to `deepLink`/`url`; mechanical Catch-Up emits `/demos/<id>` only for discs. **My own Catch-Ups did this too** — rule: `/demos/<slug>` only for discs; live cards use their deep link. Catch-Up 1261→1524 rewritten with the fix and the controls Rumble.
+- Dru's feedback answered on both quest cards (chains 89, 90).
