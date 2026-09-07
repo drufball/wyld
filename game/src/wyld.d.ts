@@ -33,6 +33,8 @@ type WyldGameState = {
       total: number;
     }[];
     stubs: { id: string; speciesId: string; slot: 'tracks' | 'call'; title: string }[];
+    fog: { revealed: number; total: number };
+    camps: string[];
   };
   observe: { identifying: { species: string | null; progress: number } };
 };

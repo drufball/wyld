@@ -31,6 +31,7 @@ import { createHud } from './ui/hud.js';
 import { createGuideBook } from './ui/guide.js';
 import { createStatsPanel } from './ui/stats.js';
 import { createToastStack } from './ui/toasts.js';
+import { createControlsCard } from './ui/controls.js';
 import { camps, pointToRegion, populationFor, regions } from './world/regions.js';
 import { createProps, placeProps } from './world/props.js';
 import { createTracksDecals, placeTracks } from './world/tracks.js';
@@ -116,6 +117,7 @@ const debugConsole = createDebugConsole({ seed });
 const statsPanel = createStatsPanel(debugConsole.available);
 const toasts = createToastStack();
 const hud = createHud(debugConsole.available, toasts.root);
+createControlsCard(debugConsole.available, () => debugConsole.isOpen);
 const notebook = createNotebook();
 const observer = createObserver({ notebook });
 // Initialised after the loop so its callback can pause that loop.
@@ -298,9 +300,14 @@ debugConsole.registerCommand('spawn', {
   },
 });
 debugConsole.registerCommand('reveal', {
-  help: 'reveal guide — fill every field-guide fact',
+  help: 'reveal <guide|map>',
   run: ([target = '']) => {
-    if (target.toLowerCase() !== 'guide') return 'usage: reveal guide';
+    if (target.toLowerCase() === 'map') {
+      notebook.revealAllFog();
+      guideBook.refresh();
+      return 'map revealed';
+    }
+    if (target.toLowerCase() !== 'guide') return 'usage: reveal <guide|map>';
     const forcesByHide = {
       Bark: ['Heat', 'Cut'],
       Shell: ['Impact', 'Cut'],
@@ -658,6 +665,10 @@ const loop = createLoop({
     showDiscoveries(observer.update(dtSeconds, observeFrame));
     for (const call of pendingCalls.splice(0))
       showDiscoveries(observer.onCreatureCalled(call, observeFrame));
+    notebook.revealFog(player.object.position.x, player.object.position.z);
+    for (const camp of camps())
+      if (Math.hypot(camp.x - player.object.position.x, camp.z - player.object.position.z) <= 6)
+        notebook.discoverCamp(camp.id);
     const sunDirection = sky.update(clock.dayProgress);
     sun.target.position.copy(player.object.position);
     sun.position.set(
@@ -695,6 +706,14 @@ guideBook = createGuideBook({
   notebook,
   renderer,
   debugOpen: () => debugConsole.isOpen,
+  map: {
+    sampler: { biomeAt: terrain.biomeAt, waterAt: water.depthAt, heightAt: terrain.heightAt },
+    player: () => ({
+      x: player.object.position.x,
+      z: player.object.position.z,
+      heading: camera.rotation.y,
+    }),
+  },
   onOpenChange: (open) => {
     if (open) loop.stop();
     else loop.start();
@@ -747,6 +766,8 @@ window.__wyld = {
           slot: stub.slot,
           title: stubTitle(stub),
         })),
+        fog: { revealed: notebook.fog().revealedCount(), total: 1600 },
+        camps: [...notebook.discoveredCamps()],
       },
       observe: { identifying: observer.identifying() },
     }),

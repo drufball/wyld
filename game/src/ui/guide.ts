@@ -4,6 +4,8 @@ import { buildBodyPlan } from '../creatures/bodyplans/index.js';
 import { speciesById } from '../creatures/species.js';
 import { stubTitle, type Notebook } from '../guide/notebook.js';
 import { regions } from '../world/regions.js';
+import type { MapViewOptions } from './map.js';
+import { createMapView } from './map.js';
 
 const BLANK = '______';
 type GuideTab = 'index' | 'species' | 'fragments' | 'map';
@@ -111,12 +113,14 @@ type GuideOptions = {
   renderer: THREE.WebGLRenderer;
   onOpenChange?(open: boolean): void;
   debugOpen?(): boolean;
+  map: Omit<MapViewOptions, 'notebook' | 'selectedSpecies'>;
 };
 const createGuideBook = ({
   notebook,
   renderer,
   onOpenChange,
   debugOpen = () => false,
+  map,
 }: GuideOptions) => {
   let opened = false;
   let currentTab: GuideTab = 'index';
@@ -125,6 +129,7 @@ const createGuideBook = ({
   let pending: { speciesId: string; merged: number } | null = null;
   const silhouettes = new Map<string, HTMLCanvasElement>();
   const root = document.createElement('section');
+  const mapView = createMapView({ ...map, notebook, selectedSpecies: () => speciesId });
   root.hidden = true;
   root.setAttribute('aria-label', 'Field guide');
   root.style.cssText =
@@ -254,8 +259,10 @@ const createGuideBook = ({
         }
       }
     } else if (currentTab === 'fragments') content.textContent = buildFragments().empty;
-    else if (currentTab === 'map') content.textContent = 'The map is not drawn yet.';
-    else if (final) {
+    else if (currentTab === 'map') {
+      mapView.render();
+      content.append(mapView.canvas);
+    } else if (final) {
       const h = document.createElement('h1');
       h.textContent = 'Complete';
       const p = document.createElement('p');
@@ -348,8 +355,9 @@ const createGuideBook = ({
     const target = event.target;
     if (debugOpen() || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
       return;
-    if (event.key.toLowerCase() === 'g') {
+    if (event.key.toLowerCase() === 'g' || event.key.toLowerCase() === 'm') {
       event.preventDefault();
+      if (event.key.toLowerCase() === 'm') currentTab = 'map';
       setOpen(!opened);
     } else if (event.key === 'Escape' && opened) {
       event.preventDefault();
@@ -359,7 +367,7 @@ const createGuideBook = ({
   window.addEventListener('keydown', keydown);
   const style = document.createElement('style');
   style.textContent =
-    '@keyframes wyld-guide-merge{from{transform:translateX(-18%);opacity:.25}to{transform:none;opacity:1}} @media(min-width:700px){[aria-label="Field guide"] main[data-layout="species"]{columns:2;column-gap:48px}} [aria-label="Field guide"] canvas{display:block;width:auto;max-width:100%;height:auto;max-height:min(180px,22vh)}';
+    '@keyframes wyld-guide-merge{from{transform:translateX(-18%);opacity:.25}to{transform:none;opacity:1}} @media(min-width:700px){[aria-label="Field guide"] main[data-layout="species"]{columns:2;column-gap:48px}} [aria-label="Field guide"] canvas:not([aria-label="Field guide map"]){display:block;width:auto;max-width:100%;height:auto;max-height:min(180px,22vh)}';
   document.head.append(style);
   return {
     open(tab?: GuideTab) {

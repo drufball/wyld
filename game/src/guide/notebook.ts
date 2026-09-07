@@ -8,6 +8,7 @@ import {
 } from '../creatures/species.js';
 import { regions } from '../world/regions.js';
 import type { Phase } from '../world/time.js';
+import { createFog, type Fog } from './fog.js';
 
 type Position = { x: number; y: number; z: number };
 type LocatedDay = { region: string | null; day: number };
@@ -42,6 +43,8 @@ type NotebookJSON = {
   pages: PageJSON[];
   stubs: Stub[];
   completedAt: string | null;
+  fog: number[];
+  camps: string[];
 };
 type Observation = LocatedDay & { phase: Phase; position: Position };
 type RecordResult = { recorded: boolean; stub: Stub | null };
@@ -66,6 +69,11 @@ type Notebook = {
   isComplete(): boolean;
   finalPage(): { text: string; completedAt: string } | null;
   closingText(): string;
+  revealFog(x: number, z: number): number[];
+  fog(): Fog;
+  revealAllFog(): void;
+  discoverCamp(campId: string): boolean;
+  discoveredCamps(): readonly string[];
   toJSON(): NotebookJSON;
 };
 
@@ -128,10 +136,14 @@ const createNotebookState = (
   initialPages: Page[] = [],
   initialStubs: Stub[] = [],
   initialCompletedAt: string | null = null,
+  initialFog: readonly number[] = [],
+  initialCamps: readonly string[] = [],
 ): Notebook => {
   const records = new Map(initialPages.map((page) => [page.speciesId, page]));
   const unknownFacts = initialStubs;
   let completedAt = initialCompletedAt;
+  const fog = createFog(initialFog);
+  const discovered = new Set(initialCamps);
   const get = (id: string): Page => {
     requiredSpecies(id);
     let value = records.get(id);
@@ -257,8 +269,7 @@ const createNotebookState = (
       if (page.rumours.length > 10) page.rumours.shift();
       return true;
     },
-    page: (id) =>
-      records.get(id)?.identified === true ? structuredClone(records.get(id)!) : null,
+    page: (id) => (records.get(id)?.identified === true ? structuredClone(records.get(id)!) : null),
     pages: () => structuredClone([...records.values()].filter(({ identified }) => identified)),
     stubs: () => structuredClone(unknownFacts),
     completion: complete,
@@ -270,11 +281,22 @@ const createNotebookState = (
       return overall() !== 1 || completedAt === null ? null : { text: CLOSING_TEXT, completedAt };
     },
     closingText: () => CLOSING_TEXT,
+    revealFog: (x, z) => fog.reveal(x, z),
+    fog: () => fog,
+    revealAllFog: () => fog.revealAll(),
+    discoverCamp(campId) {
+      if (discovered.has(campId)) return false;
+      discovered.add(campId);
+      return true;
+    },
+    discoveredCamps: () => [...discovered].sort(),
     toJSON: () => ({
       schemaVersion: 1,
       pages: structuredClone([...records.values()]),
       stubs: structuredClone(unknownFacts),
       completedAt,
+      fog: fog.toJSON(),
+      camps: [...discovered].sort(),
     }),
   };
   return api;
@@ -372,6 +394,10 @@ const notebookFromJSON = (value: unknown): Notebook => {
     !value.pages.every(isPage) ||
     !Array.isArray(value.stubs) ||
     !value.stubs.every(isStub) ||
+    (value.fog !== undefined &&
+      (!Array.isArray(value.fog) ||
+        !value.fog.every((index) => Number.isInteger(index) && index >= 0 && index < 1600))) ||
+    (value.camps !== undefined && !isStringArray(value.camps)) ||
     (value.completedAt !== null && typeof value.completedAt !== 'string')
   )
     throw new Error('Invalid notebook: malformed shape');
@@ -379,6 +405,8 @@ const notebookFromJSON = (value: unknown): Notebook => {
     structuredClone(value.pages),
     structuredClone(value.stubs),
     value.completedAt,
+    value.fog === undefined ? [] : (value.fog as number[]),
+    value.camps === undefined ? [] : (value.camps as string[]),
   );
 };
 
