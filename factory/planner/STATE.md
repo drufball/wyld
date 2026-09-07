@@ -101,6 +101,13 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **13:37 M0 unit 3 landed** (#192 / PR #193 water/sky/12-minute day/HUD/`time`+`tp`, one round; disc `ready`); unit 4 (props/perf/
+  `VERIFICATION.md`, #194 / PR #196) is in a fix round. **`main` flickered red at 12:06Z on `factory/pak` `Explain.test.tsx`
+  ("keeps pinning disabled until the frame is ready…") on a commit that touched only `game/`** — 5/5 green locally, green on
+  re-run (`gh run rerun <id> --failed` is within POLICIES #5), so a CI-only timing flake in the pins viewer test; deflaked in
+  #195 / PR #197 (merged 13:36). Rule: a red on `main` for a test the merge didn't touch ⇒ re-run first, then deflake; leads
+  told to re-run rather than fix-round when *that* test alone reddens their PR. M1 brief is written at
+  `/tmp/wyld-leads/fw-m1/brief.md` and spawns the moment M0's checkpoints pass (spec §17 order).
 - **12:33 M0 units 1–2 landed** (#188 / PR #189 engine+player, one round; #190 / PR #191 terrain/biomes/regions, one round). The
   first game disc `fw-m0-world` is `ready` at `07e4bca` (four biomes, 18 regions, 8 camps in `game/src/data/world.json` — names match
   the spec exactly), the Walk-the-world explainer is published (v1, pins on; draft at `/tmp/wyld-leads/artifacts/explainer-fw-m0.html`),
