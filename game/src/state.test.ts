@@ -13,6 +13,8 @@ describe('game state', () => {
       player,
       seed: 42,
       stance: 'walk',
+      region: 'hollow',
+      biome: 'forest',
     });
     camera.x = 99;
     player.x = 99;
@@ -23,6 +25,8 @@ describe('game state', () => {
       player: { x: 1, y: 0, z: 2 },
       seed: 42,
       stance: 'walk',
+      region: 'hollow',
+      biome: 'forest',
     });
   });
 });

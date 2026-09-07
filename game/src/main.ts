@@ -6,28 +6,23 @@ import { createRng, resolveSeed } from './engine/rng.js';
 import { createPlayerController } from './player/controller.js';
 import { buildState } from './state.js';
 import { createDebugConsole } from './ui/debug.js';
+import { createRegionReadout } from './ui/region-readout.js';
+import { pointToRegion } from './world/regions.js';
+import { createTerrain, isSlopeStandable } from './world/terrain.js';
 
 document.documentElement.style.cssText = 'height:100%;background:#a9c9c1';
 document.body.style.cssText = 'height:100%;margin:0;overflow:hidden;background:#a9c9c1';
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xa9c9c1);
-scene.fog = new THREE.Fog(0xa9c9c1, 90, 350);
+scene.fog = new THREE.Fog(0xa9c9c1, 180, 720);
 
-const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.append(renderer.domElement);
-
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(800, 800),
-  new THREE.MeshStandardMaterial({ color: 0x64805a, roughness: 1, flatShading: true }),
-);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
 
 scene.add(new THREE.HemisphereLight(0xcfe7ff, 0x3a4b31, 2.2));
 const sun = new THREE.DirectionalLight(0xffefd0, 3);
@@ -37,14 +32,21 @@ scene.add(sun);
 
 const gameRng = createRng(resolveSeed());
 const seed = gameRng.seed();
+const terrain = createTerrain(seed);
+scene.add(terrain.group);
 const debugConsole = createDebugConsole({ seed });
+const regionReadout = createRegionReadout(debugConsole.available);
 const input = createInput(renderer.domElement);
 const player = createPlayerController({
   scene,
   camera,
   input,
-  heightAt: () => 0,
+  heightAt: terrain.heightAt,
+  slopeAt: terrain.slopeAt,
+  canStandAt: (x, z) =>
+    Math.abs(x) <= 400 && Math.abs(z) <= 400 && isSlopeStandable(terrain.slopeAt(x, z)),
   canMove: () => !debugConsole.isOpen,
+  start: { x: -150, z: 50 },
 });
 let elapsedSeconds = 0;
 
@@ -53,6 +55,11 @@ const loop = createLoop({
   update: (dtSeconds) => {
     elapsedSeconds += dtSeconds;
     player.update(dtSeconds);
+    const region = pointToRegion(player.object.position.x, player.object.position.z);
+    regionReadout.update(
+      region?.name ?? null,
+      terrain.biomeAt(player.object.position.x, player.object.position.z),
+    );
     input.endFrame();
   },
   render,
@@ -73,6 +80,8 @@ window.__wyld = {
       player: player.object.position,
       seed,
       stance: player.stance,
+      region: pointToRegion(player.object.position.x, player.object.position.z)?.id ?? null,
+      biome: terrain.biomeAt(player.object.position.x, player.object.position.z),
     }),
   screenshot: () => {
     render();
