@@ -79,6 +79,21 @@ describe('field guide notebook', () => {
     expect(restored.toJSON()).toEqual(notebook.toJSON());
   });
 
+  it('round-trips fog and camps, while old schema-version-one saves default them empty', () => {
+    const notebook = createEmptyNotebook();
+    notebook.revealFog(10, 10);
+    expect(notebook.discoverCamp('hollow-camp')).toBe(true);
+    expect(notebook.discoverCamp('hollow-camp')).toBe(false);
+    const restored = notebookFromJSON(JSON.parse(JSON.stringify(notebook.toJSON())));
+    expect(restored.toJSON()).toEqual(notebook.toJSON());
+    const legacy = notebook.toJSON() as Partial<ReturnType<typeof notebook.toJSON>>;
+    delete legacy.fog;
+    delete legacy.camps;
+    const old = notebookFromJSON(legacy);
+    expect(old.fog().toJSON()).toEqual([]);
+    expect(old.discoveredCamps()).toEqual([]);
+  });
+
   it('notebookFromJSON throws on a wrong schemaVersion', () => {
     expect(() =>
       notebookFromJSON({ schemaVersion: 2, pages: [], stubs: [], completedAt: null }),

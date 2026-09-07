@@ -33,7 +33,15 @@ const buildState = ({
   phaseProgress,
   waterDepth,
   creatures = [],
-  guide = { open: false, tab: 'index', completion: 0, pages: [], stubs: [] },
+  guide = {
+    open: false,
+    tab: 'index',
+    completion: 0,
+    pages: [],
+    stubs: [],
+    fog: { revealed: 0, total: 1600 },
+    camps: [],
+  },
   observe = { identifying: { species: null, progress: 0 } },
 }: BuildStateOptions): WyldGameState => ({
   version,

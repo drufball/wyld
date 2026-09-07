@@ -42,6 +42,11 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement) => {
   root.append(heading, day);
   if (showRegion) root.append(region);
   document.body.append(root);
+  const controlsHint = document.createElement('div');
+  controlsHint.textContent = '? — controls';
+  controlsHint.style.cssText =
+    'position:fixed;right:12px;bottom:10px;color:#f4efd9;font:12px ui-monospace,monospace;text-shadow:1px 1px #292b25';
+  root.append(controlsHint);
   const targetBar = document.createElement('aside');
   targetBar.setAttribute('aria-label', 'Creature detection');
   targetBar.style.cssText =

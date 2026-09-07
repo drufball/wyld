@@ -15,6 +15,13 @@ const observation = (day = 1) => ({
 const identify = (notebook: Notebook, id: string): void => {
   notebook.identify(id, observation());
 };
+const map = {
+  sampler: {
+    biomeAt: () => 'forest' as const,
+    waterAt: () => 0,
+    heightAt: () => 0,
+  },
+};
 const complete = (notebook: Notebook, id: string): void => {
   const data = speciesById(id)!;
   identify(notebook, id);
@@ -116,7 +123,7 @@ describe('field guide view model', () => {
     const notebook = createEmptyNotebook();
     notebook.recordTracks('glasswing', { region: 'hollow', day: 1 });
     identify(notebook, 'glasswing');
-    const book = createGuideBook({ notebook, renderer: {} as THREE.WebGLRenderer });
+    const book = createGuideBook({ notebook, renderer: {} as THREE.WebGLRenderer, map });
     book.open();
     [...document.querySelectorAll('button')]
       .find((item) => item.textContent?.includes('Glasswing'))

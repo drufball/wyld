@@ -16,3 +16,10 @@
 - **PASS — spawn determinism (Planner review):** Two runs of the built game with the same seed driven through the same phase script produced identical creature counts, species and spawn positions; the only differences were sub-metre wander travel from frame-timing, which §14.4 does not cover.
 - **PASS — detection and flight (Planner review, headless Chromium at 1280×720):** `spawn thornwren Skittish`, then walking at it: the meter climbed from 0 to a full 1 over about seven seconds of approach, the reaction rolled `flee`, and the bird ran from 11.5 m to 31.2 m in three seconds — 6.6 m/s, its own §5.2 speed — before returning to wandering. The HUD target bar showed "Unknown creature" with the eye fully filled.
 - **PASS — crouch slows detection (Planner review):** Held at a fixed 15 m from a Thornwren for 8 s, the meter rose 0.02 → 0.73 walking upright (0.089/s) and 0.01 → 0.21 crouched (0.025/s) — crouching costs the player 28% of the upright fill rate, matching the 0.30 stance factor in §5.4's implementation.
+
+## M2 — The field guide (seed 194)
+
+- **PASS — notebook:** `pnpm --filter @wyld/game exec vitest run src/guide/notebook.test.ts` showed two stubs become one identified page and zero stubs, incomplete then complete with every fact, and the starting notebook at 1/13 completion (16 tests passed).
+- **PASS — notebook JSON round-trip:** `pnpm --filter @wyld/game exec vitest run src/guide/notebook.test.ts` deep-compared a fully populated notebook after JSON serialisation and restoration (16 tests passed).
+- **PASS — sightings cap:** `pnpm --filter @wyld/game exec vitest run src/guide/notebook.test.ts` recorded 22 sightings and retained the newest 20, dropping the oldest (16 tests passed).
+- **PASS — fog cell maths and notebook round-trip:** `pnpm --filter @wyld/game exec vitest run src/guide/fog.test.ts src/guide/notebook.test.ts` checked corners, centre, the explicit 13-cell reveal, all 1600 cells, and JSON restoration with fog and camps (19 tests passed).
