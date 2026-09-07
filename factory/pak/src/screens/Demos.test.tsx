@@ -249,9 +249,9 @@ describe('Demos', () => {
       'fetch',
       vi.fn(() => response([chain])),
     );
-    show('/demos/one-mechanism');
+    const { container } = show('/demos/one-mechanism');
     expect(await screen.findByText('home screen')).not.toBeNull();
-    expect(screen.queryByRole('iframe')).toBeNull();
+    expect(container.querySelector('iframe')).toBeNull();
   });
 
   it('plays a disc in the iframe', async () => {

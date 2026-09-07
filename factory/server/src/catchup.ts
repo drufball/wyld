@@ -53,9 +53,9 @@ export function mechanicalDigest(input: {
         deepLink:
           demo === undefined
             ? '/demos'
-            : demo.kind === 'disc'
-              ? `/demos/${demo.id}`
-              : (demo.deepLink ?? demo.url ?? '/demos').trim() || '/demos',
+            : demo.kind === 'live'
+              ? (demo.deepLink ?? demo.url ?? '/demos').trim() || '/demos'
+              : `/demos/${demo.id}`,
       });
     }
     if (section === 'parked') parked.push(`Parked: ${quest.title}.`);

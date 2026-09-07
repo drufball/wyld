@@ -79,12 +79,14 @@ describe('mechanicalDigest', () => {
       quest('deep-link', 'demo'),
       quest('url', 'demo'),
       quest('fallback', 'demo'),
+      quest('pak', 'demo'),
     ];
     const events = [
       event(1, 'planner.quest_updated', 'disc', { status: 'demo' }),
       event(2, 'planner.quest_updated', 'deep-link', { status: 'demo' }),
       event(3, 'planner.quest_updated', 'url', { status: 'demo' }),
       event(4, 'planner.quest_updated', 'fallback', { status: 'demo' }),
+      event(5, 'planner.quest_updated', 'pak', { status: 'demo' }),
     ];
     const demos = [
       {
@@ -119,12 +121,21 @@ describe('mechanicalDigest', () => {
         deepLink: null,
         url: null,
       },
+      {
+        id: 'branch',
+        questId: 'pak',
+        summary: 'Try the branch build.',
+        kind: 'pak' as const,
+        deepLink: null,
+        url: '/play/branch/',
+      },
     ];
     expect(mechanicalDigest({ events, quests, demos }).demos).toEqual([
       { text: 'Play it.', deepLink: '/demos/a-disc' },
       { text: 'Try the roadmap.', deepLink: '/roadmap' },
       { text: 'Quest url', deepLink: '/memory' },
       { text: 'Quest fallback', deepLink: '/demos' },
+      { text: 'Try the branch build.', deepLink: '/demos/branch' },
     ]);
   });
 });
