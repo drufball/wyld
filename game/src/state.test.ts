@@ -27,6 +27,8 @@ describe('game state', () => {
           position: { x: 2, y: 1, z: 3 },
           state: 'idle',
           region: 'hollow',
+          detection: 0.5,
+          behaviour: 'wander',
         },
       ],
     });
@@ -53,6 +55,8 @@ describe('game state', () => {
           position: { x: 2, y: 1, z: 3 },
           state: 'idle',
           region: 'hollow',
+          detection: 0.5,
+          behaviour: 'wander',
         },
       ],
     });
