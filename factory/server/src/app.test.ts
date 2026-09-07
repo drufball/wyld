@@ -479,10 +479,10 @@ describe('Pak server', () => {
     for (const kind of ['question', 'message', 'rumble', 'demo']) insert.run(kind, null);
     insert.run('action', null);
     insert.run('unlock', null);
-    expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(4);
+    expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(5);
     database.sqlite
       .prepare(
-        "UPDATE chains SET snoozed_until = '2999-01-01T00:00:00.000Z' WHERE kind IN ('question', 'message', 'rumble', 'demo')",
+        "UPDATE chains SET snoozed_until = '2999-01-01T00:00:00.000Z' WHERE kind IN ('question', 'message', 'rumble', 'demo', 'unlock')",
       )
       .run();
     expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(0);

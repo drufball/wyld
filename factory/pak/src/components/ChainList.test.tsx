@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider, type EventSourceFactory } from '../live/LiveEvents.js';
 import { ChainList } from './ChainList.js';
@@ -12,6 +12,14 @@ const question = {
   questId: null,
   anchor: null,
   messages: [{ id: 1, chainId: 1, author: 'human', text: 'Why?', ts: timestamp }],
+} as const;
+const unlock = {
+  ...question,
+  id: 42,
+  kind: 'unlock',
+  tags: ['unlock'],
+  payload: { achievementId: 'first-light', name: 'First Light', badge: '☀️' },
+  messages: [],
 } as const;
 function response(value: unknown) {
   return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(value) } as Response);
@@ -30,8 +38,116 @@ function renderList(
   );
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 describe('ChainList', () => {
+  function unlockFetch(closeResult: 'success' | 'failure' = 'success') {
+    const fetch = vi.fn((url: string, init?: RequestInit) => {
+      if (url === '/api/chains/42/close' && init?.method === 'POST')
+        return closeResult === 'success'
+          ? response({ ...unlock, status: 'settled' })
+          : Promise.reject(new Error('offline'));
+      if (url.startsWith('/api/chains?')) return response([unlock]);
+      if (url === '/api/quests') return response([]);
+      return response([]);
+    });
+    vi.stubGlobal('fetch', fetch);
+    return fetch;
+  }
+
+  const closeCalls = (fetch: ReturnType<typeof vi.fn>) =>
+    fetch.mock.calls.filter(([url]) => url === '/api/chains/42/close');
+
+  const renderUnlock = () =>
+    render(
+      <LiveEventsProvider
+        eventSourceFactory={() => ({ addEventListener() {}, removeEventListener() {}, close() {} })}
+      >
+        <ChainList kind="unlock" />
+      </LiveEventsProvider>,
+    );
+
+  it('automatically settles and removes an unlock after eight seconds', async () => {
+    vi.useFakeTimers();
+    const fetch = unlockFetch();
+    renderUnlock();
+    await act(async () => Promise.resolve());
+    expect(screen.getByRole('button', { name: 'Settled' })).not.toBeNull();
+
+    await act(async () => vi.advanceTimersByTimeAsync(8_000));
+
+    expect(closeCalls(fetch)).toEqual([
+      [
+        '/api/chains/42/close',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ reason: 'settled', source: 'planner' }),
+        }),
+      ],
+    ]);
+    expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
+  });
+
+  it.each([
+    ['card body', () => document.querySelector('.unlock-card p')!],
+    ['Settled button', () => screen.getByRole('button', { name: 'Settled' })],
+  ])('settles an unlock once from the %s', async (_label, target) => {
+    vi.useFakeTimers();
+    const fetch = unlockFetch();
+    renderUnlock();
+    await act(async () => Promise.resolve());
+
+    fireEvent.click(target());
+    await act(async () => Promise.resolve());
+    await act(async () => vi.advanceTimersByTimeAsync(8_000));
+
+    expect(closeCalls(fetch)).toHaveLength(1);
+    expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
+  });
+
+  it('does not settle an unlock after it is unmounted', async () => {
+    vi.useFakeTimers();
+    const fetch = unlockFetch();
+    const view = renderUnlock();
+    await act(async () => Promise.resolve());
+    view.unmount();
+
+    await act(async () => vi.advanceTimersByTimeAsync(8_000));
+
+    expect(closeCalls(fetch)).toHaveLength(0);
+  });
+
+  it('waits for a full visible interval before automatically settling an unlock', async () => {
+    vi.useFakeTimers();
+    const fetch = unlockFetch();
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    renderUnlock();
+    await act(async () => Promise.resolve());
+
+    await act(async () => vi.advanceTimersByTimeAsync(8_000));
+    expect(closeCalls(fetch)).toHaveLength(0);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    fireEvent(document, new Event('visibilitychange'));
+    await act(async () => vi.advanceTimersByTimeAsync(8_000));
+
+    expect(closeCalls(fetch)).toHaveLength(1);
+  });
+
+  it('keeps a failed unlock close visible for manual retry without another automatic attempt', async () => {
+    vi.useFakeTimers();
+    const fetch = unlockFetch('failure');
+    renderUnlock();
+    await act(async () => Promise.resolve());
+
+    await act(async () => vi.advanceTimersByTimeAsync(8_000));
+    expect(screen.getByRole('button', { name: 'Retry' })).not.toBeNull();
+    expect(document.querySelector('.unlock-card')).not.toBeNull();
+    await act(async () => vi.advanceTimersByTimeAsync(8_000));
+
+    expect(closeCalls(fetch)).toHaveLength(1);
+  });
   it('does not add an action chain after a live planner update when kind is all', async () => {
     let receive: EventListener | undefined;
     const action = { ...question, id: 2, kind: 'action', messages: [] };

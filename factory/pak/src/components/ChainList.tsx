@@ -223,6 +223,8 @@ export function ChainCard({
   const card = useRef<HTMLElement>(null);
   const suppressCardClick = useRef(false);
   const composerWasOpened = useRef(false);
+  const unlockSettled = useRef(false);
+  const settleUnlockRef = useRef<() => void>(() => undefined);
   useEffect(() => {
     if (!collapsible) return;
     if (open) {
@@ -243,6 +245,38 @@ export function ChainCard({
       .then(success)
       .catch(() => setFailedAction(() => () => act(action, success)));
   };
+  const settleUnlock = () => {
+    if (unlockSettled.current) return;
+    unlockSettled.current = true;
+    setFailedAction(null);
+    void closeChain(chain.id, 'settled', 'planner')
+      .then(() => onClosed(chain.id))
+      .catch(() =>
+        setFailedAction(() => () => {
+          unlockSettled.current = false;
+          settleUnlockRef.current();
+        }),
+      );
+  };
+  useEffect(() => {
+    settleUnlockRef.current = settleUnlock;
+  });
+  useEffect(() => {
+    if (chain.kind !== 'unlock') return;
+    let timer: number | undefined;
+    const syncTimer = () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = undefined;
+      if (document.visibilityState === 'visible' && !unlockSettled.current)
+        timer = window.setTimeout(() => settleUnlockRef.current(), 8_000);
+    };
+    syncTimer();
+    document.addEventListener('visibilitychange', syncTimer);
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', syncTimer);
+    };
+  }, [chain.id, chain.kind]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const message = text.trim();
@@ -369,11 +403,21 @@ export function ChainCard({
     const unlock = unlockCard(chain);
     if (unlock === null) return null;
     return (
-      <Card className="chain-card unlock-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
+      <Card
+        className="chain-card unlock-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
+        onClick={(event) => {
+          if (
+            !(event.target as HTMLElement).closest(
+              'button, a, input, textarea, select, label, [role="menu"]',
+            )
+          )
+            settleUnlock();
+        }}
+      >
         <p className="m-0">
           <span aria-hidden>{unlock.badge}</span> Achievement unlocked — {unlock.name}
         </p>
-        <Button variant="retro" type="button" onClick={() => close('settled')}>
+        <Button variant="retro" type="button" onClick={settleUnlock}>
           Settled
         </Button>
         {failure}

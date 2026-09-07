@@ -1,0 +1,113 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+
+import { createApp } from './app.js';
+import { refreshDemoChainPayloads } from './chain-cards.js';
+import { openDatabase, type AppDatabase } from './database.js';
+import { chains, demos } from './schema.js';
+
+const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
+
+describe('demo chain payload refresh', () => {
+  let directory: string;
+  let database: AppDatabase;
+
+  beforeEach(() => {
+    directory = fs.mkdtempSync(path.join(os.tmpdir(), 'wyld-chain-cards-'));
+    database = openDatabase(path.join(directory, 'pak.sqlite'), migrations);
+  });
+
+  afterEach(() => {
+    database.sqlite.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  });
+
+  function seedOldPayload() {
+    database.db
+      .insert(demos)
+      .values({
+        id: 'old-demo',
+        questId: null,
+        title: 'Old demo',
+        ref: 'main',
+        kind: 'disc',
+        summary: 'A summary',
+        steps: ['One'],
+        seeded: ['Seed'],
+        deepLink: '/start',
+        status: 'failed',
+        builtAt: '2026-09-05T12:00:00.000Z',
+        error: 'build broke',
+        hiddenAt: null,
+      })
+      .run();
+    return database.db
+      .insert(chains)
+      .values({
+        kind: 'demo',
+        status: 'settled',
+        createdAt: '2026-09-01T00:00:00.000Z',
+        lastActivityAt: '2026-09-02T00:00:00.000Z',
+        questId: 'quest-preserved',
+        tags: ['demo', 'preserved'],
+        demoId: 'old-demo',
+        payload: {
+          title: 'Old demo',
+          kind: 'disc',
+          summary: 'A summary',
+          steps: ['One'],
+          seeded: ['Seed'],
+          deepLink: '/start',
+          url: '/play/old-demo/start',
+        },
+      })
+      .returning()
+      .get();
+  }
+
+  function expectRefreshed(id: number) {
+    expect(database.db.select().from(chains).where(eq(chains.id, id)).get()).toMatchObject({
+      status: 'settled',
+      lastActivityAt: '2026-09-02T00:00:00.000Z',
+      questId: 'quest-preserved',
+      tags: ['demo', 'preserved'],
+      payload: {
+        title: 'Old demo',
+        kind: 'disc',
+        summary: 'A summary',
+        steps: ['One'],
+        seeded: ['Seed'],
+        deepLink: '/start',
+        url: '/play/old-demo/start',
+        status: 'failed',
+        builtAt: '2026-09-05T12:00:00.000Z',
+        error: 'build broke',
+      },
+    });
+  }
+
+  it('adds build fields to old payloads without changing chain state', () => {
+    const chain = seedOldPayload();
+
+    expect(refreshDemoChainPayloads(database)).toBe(1);
+
+    expectRefreshed(chain.id);
+  });
+
+  it('runs the payload refresh while creating the app', () => {
+    const chain = seedOldPayload();
+
+    createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+    });
+
+    expectRefreshed(chain.id);
+  });
+});

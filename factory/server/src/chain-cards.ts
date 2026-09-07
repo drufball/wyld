@@ -79,6 +79,23 @@ export function ensureDemoChain(database: AppDatabase, row: DemoRow, now: string
   return { chain: refreshed, changed: existing.status !== 'open' };
 }
 
+export function refreshDemoChainPayloads(database: AppDatabase): number {
+  return database.db
+    .select()
+    .from(demos)
+    .all()
+    .reduce(
+      (updated, row) =>
+        updated +
+        database.db
+          .update(chains)
+          .set({ payload: demoPayload(row) })
+          .where(eq(chains.demoId, row.id))
+          .run().changes,
+      0,
+    );
+}
+
 export function settleDemoChain(database: AppDatabase, demoId: string, now: string) {
   return database.db
     .update(chains)
@@ -164,7 +181,7 @@ export function countNeedsYou(database: AppDatabase, now: string) {
       .where(
         and(
           eq(chains.status, 'open'),
-          inArray(chains.kind, ['question', 'message', 'rumble', 'demo']),
+          inArray(chains.kind, ['question', 'message', 'rumble', 'demo', 'unlock']),
           or(isNull(chains.snoozedUntil), lt(chains.snoozedUntil, now)),
         ),
       )

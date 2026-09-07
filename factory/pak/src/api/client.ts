@@ -165,11 +165,12 @@ export async function postChainMessage(id: number, text: string): Promise<ChainT
 export async function closeChain(
   id: number,
   reason: 'settled' | 'converted' | 'done',
+  source: 'human' | 'planner' = 'human',
 ): Promise<ChainType> {
   return Chain.parse(
     await request(
       `/api/chains/${id}/close`,
-      json('POST', { reason, source: 'human' }),
+      json('POST', { reason, source }),
       'Closing chain',
     ),
   );
@@ -179,11 +180,6 @@ export async function reopenChain(id: number): Promise<ChainType> {
   return Chain.parse(
     await request(`/api/chains/${id}/reopen`, json('POST', { source: 'human' }), 'Reopening chain'),
   );
-}
-
-export async function listRumbles(options: { status?: 'open' | 'decided' } = {}) {
-  const query = options.status ? `?status=${options.status}` : '';
-  return Rumble.array().parse(await request(`/api/rumbles${query}`, {}, 'Loading rumbles'));
 }
 
 export async function decideRumble(id: string, chosen: string) {

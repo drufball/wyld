@@ -334,6 +334,26 @@ describe('demo and feedback routes', () => {
     expect(build).toHaveBeenLastCalledWith('branch-pak', 'feature/pak', 'pak');
   });
 
+  it('copies successful and failed build results into demo chain payloads', async () => {
+    build
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false, error: 'compiler exploded' });
+
+    await post('/api/demos', { id: 'ready-build', ref: 'ready' });
+    await vi.waitFor(() =>
+      expect(
+        database.db.select().from(chains).where(eq(chains.demoId, 'ready-build')).get()?.payload,
+      ).toMatchObject({ status: 'ready', builtAt: clock.toISOString(), error: null }),
+    );
+
+    await post('/api/demos', { id: 'failed-build', ref: 'failed' });
+    await vi.waitFor(() =>
+      expect(
+        database.db.select().from(chains).where(eq(chains.demoId, 'failed-build')).get()?.payload,
+      ).toMatchObject({ status: 'failed', error: 'compiler exploded' }),
+    );
+  });
+
   it('accepts feedback on a live demo and stores the human feedback event', async () => {
     await post('/api/demos', { id: 'live-card', ref: 'main', kind: 'live' });
     const response = await post('/api/feedback', { demoId: 'live-card', text: 'Looks good' });
