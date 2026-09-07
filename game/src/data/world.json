@@ -103,6 +103,20 @@
       "radius": 25
     }
   ],
+  "water": [
+    {
+      "id": "pond-hollow-water",
+      "kind": "pond",
+      "surfaceY": -0.4,
+      "circle": { "x": -220, "z": 160, "radius": 28 }
+    },
+    {
+      "id": "south-sea",
+      "kind": "sea",
+      "surfaceY": 0,
+      "southBand": { "minX": -400, "maxX": 400, "minZ": 250, "maxZ": 400 }
+    }
+  ],
   "camps": [
     { "id": "hollow-camp", "name": "Hollow Camp", "regionId": "hollow", "x": -150, "z": 50 },
     { "id": "ridge-camp", "name": "Ridge Camp", "regionId": "fern-chasm", "x": -15, "z": -210 },

@@ -164,6 +164,10 @@ const createPlayerController = (options: PlayerControllerOptions) => {
   return {
     object,
     update,
+    teleport(x: number, z: number): void {
+      object.position.set(x, heightAt(x, z), z);
+      placeCamera();
+    },
     get stance(): Stance {
       return stance;
     },

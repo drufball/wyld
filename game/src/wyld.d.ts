@@ -7,6 +7,10 @@ type WyldGameState = {
   stance: 'walk' | 'sprint' | 'crouch';
   region: string | null;
   biome: 'forest' | 'desert' | 'archipelago' | 'volcano';
+  phase: 'Dawn' | 'Day' | 'Dusk' | 'Night';
+  day: number;
+  phaseProgress: number;
+  waterDepth: number;
 };
 
 interface WyldGameApi {

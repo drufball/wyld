@@ -1,14 +1,19 @@
 import * as THREE from 'three';
 
 import { createInput } from './engine/input.js';
+import { createEventBus } from './engine/events.js';
 import { createLoop } from './engine/loop.js';
 import { createRng, resolveSeed } from './engine/rng.js';
 import { createPlayerController } from './player/controller.js';
 import { buildState } from './state.js';
 import { createDebugConsole } from './ui/debug.js';
-import { createRegionReadout } from './ui/region-readout.js';
-import { pointToRegion } from './world/regions.js';
+import { createHud } from './ui/hud.js';
+import { camps, pointToRegion } from './world/regions.js';
+import { createSky } from './world/sky.js';
+import { nextPhaseStart, phaseBoundariesBetween, phases, timeAt } from './world/time.js';
 import { createTerrain, isSlopeStandable } from './world/terrain.js';
+import { createWater, isWaterStandable } from './world/water.js';
+import type { Phase } from './world/time.js';
 
 document.documentElement.style.cssText = 'height:100%;background:#a9c9c1';
 document.body.style.cssText = 'height:100%;margin:0;overflow:hidden;background:#a9c9c1';
@@ -24,7 +29,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.append(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xcfe7ff, 0x3a4b31, 2.2));
+const hemisphere = new THREE.HemisphereLight(0xcfe7ff, 0x3a4b31, 2.2);
+scene.add(hemisphere);
 const sun = new THREE.DirectionalLight(0xffefd0, 3);
 sun.position.set(30, 55, 25);
 sun.castShadow = true;
@@ -34,8 +40,12 @@ const gameRng = createRng(resolveSeed());
 const seed = gameRng.seed();
 const terrain = createTerrain(seed);
 scene.add(terrain.group);
+const water = createWater(terrain.heightAt);
+scene.add(water.group);
+const sky = createSky(scene, sun, hemisphere);
 const debugConsole = createDebugConsole({ seed });
-const regionReadout = createRegionReadout(debugConsole.available);
+const hud = createHud(debugConsole.available);
+const events = createEventBus<{ phaseChanged: { phase: Phase; day: number } }>();
 const input = createInput(renderer.domElement);
 const player = createPlayerController({
   scene,
@@ -44,22 +54,63 @@ const player = createPlayerController({
   heightAt: terrain.heightAt,
   slopeAt: terrain.slopeAt,
   canStandAt: (x, z) =>
-    Math.abs(x) <= 400 && Math.abs(z) <= 400 && isSlopeStandable(terrain.slopeAt(x, z)),
+    Math.abs(x) <= 400 &&
+    Math.abs(z) <= 400 &&
+    isSlopeStandable(terrain.slopeAt(x, z)) &&
+    isWaterStandable(water.depthAt(x, z)),
   canMove: () => !debugConsole.isOpen,
   start: { x: -150, z: 50 },
 });
 let elapsedSeconds = 0;
 
+const setElapsedSeconds = (next: number): void => {
+  for (const boundary of phaseBoundariesBetween(elapsedSeconds, next))
+    events.emit('phaseChanged', { phase: boundary.phase, day: boundary.day });
+  elapsedSeconds = next;
+};
+debugConsole.registerCommand('time', {
+  help: 'jump to the next Dawn, Day, Dusk, or Night',
+  run: (args) => {
+    const requested = args
+      .join(' ')
+      .replace(/^['"]|['"]$/g, '')
+      .toLowerCase();
+    const phase = phases.find((entry) => entry.toLowerCase() === requested);
+    if (!phase) return `valid phases: ${phases.join(', ')}`;
+    setElapsedSeconds(nextPhaseStart(elapsedSeconds, phase));
+    return `time: ${phase}, day ${timeAt(elapsedSeconds).day}`;
+  },
+});
+debugConsole.registerCommand('tp', {
+  help: 'teleport to a named camp',
+  run: (args) => {
+    const requested = args
+      .join(' ')
+      .replace(/^['"]|['"]$/g, '')
+      .toLowerCase();
+    const camp = camps().find((entry) => entry.name.toLowerCase() === requested);
+    if (!camp)
+      return `camps: ${camps()
+        .map(({ name }) => name)
+        .join(', ')}`;
+    player.teleport(camp.x, camp.z);
+    return `teleported: ${camp.name}`;
+  },
+});
+
 const render = (): void => renderer.render(scene, camera);
 const loop = createLoop({
   update: (dtSeconds) => {
-    elapsedSeconds += dtSeconds;
+    setElapsedSeconds(elapsedSeconds + dtSeconds);
     player.update(dtSeconds);
     const region = pointToRegion(player.object.position.x, player.object.position.z);
-    regionReadout.update(
-      region?.name ?? null,
-      terrain.biomeAt(player.object.position.x, player.object.position.z),
-    );
+    const clock = timeAt(elapsedSeconds);
+    sky.update(clock.dayProgress);
+    hud.update({
+      ...clock,
+      regionName: region?.name ?? null,
+      biome: terrain.biomeAt(player.object.position.x, player.object.position.z),
+    });
     input.endFrame();
   },
   render,
@@ -82,6 +133,8 @@ window.__wyld = {
       stance: player.stance,
       region: pointToRegion(player.object.position.x, player.object.position.z)?.id ?? null,
       biome: terrain.biomeAt(player.object.position.x, player.object.position.z),
+      ...timeAt(elapsedSeconds),
+      waterDepth: water.depthAt(player.object.position.x, player.object.position.z),
     }),
   screenshot: () => {
     render();
