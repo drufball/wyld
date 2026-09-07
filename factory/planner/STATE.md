@@ -1067,3 +1067,10 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 - 17:08 Dru: backtick console dead in the M2 disc. **Cause: `debug.ts` gates on `DEV || ?debug=1`; the Pak player iframes `/play/<id>/` without it → the console never worked from the Pak on any disc.** Confirmed headless on M1 and M2 discs. Fix → demo-player lead folds `?debug=1` into #218. Rule: disc cards may assume the console; the player passes `?debug=1`. Probe: `/tmp/wyld-console-probe.cjs` (`NODE_PATH=factory/pak/node_modules`).
 - 17:10 Dru (chain 97): creature management tool in the factory → quest `creature-workshop` (pak, planning): Pak screen importing the game's sprite generator, edits `species.json`, ships via a Codex PR. 2D brief now requires **pure, DOM-free sprite generators** (`generateSprite(spec, facing, frame)` → indexed pixel grid) so the Pak can import them. Workshop brief to write after 2D unit 2 lands; its lead is a Pak lead (sequence after the artifacts ⌘-pin follow-on). Roadmap: move from "Ideas I'm holding" to Next at the M2-landed refresh.
 - Dru marked done today: one-mechanism, fw-m1-creatures, fw-m0-world, roadmap.
+
+## M2 complete (2026-09-07 17:35)
+
+- Four units, four PRs (#211 #213 #215 #219), one fix round each; ~1 h 50 m from first issue to last merge. Codex self-reported green on trees that failed typecheck in 2 of 4 units — the lead's pre-check caught both; keep "run typecheck yourself" in every brief.
+- M2 explainer v1 published (`/explain/fw-m2-guide`); roadmap v13 (M2 lit, 2D in Now, workshop in Next, 3/8).
+- **2D lead spawned 17:35** from the M2 merge tree. Sleep Mode rule given: unit 1 tonight, unit 2 only if clean by 22:30 else draft.
+- Waiting: M2 lead's final report + disc; #218 merge/deploy → tell Dru on chain 92/98 that Play now opens discs with the console and Pak cards on their own screens.
