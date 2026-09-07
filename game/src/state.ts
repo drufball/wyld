@@ -14,7 +14,8 @@ type BuildStateOptions = {
   phaseProgress: number;
   waterDepth: number;
   creatures?: WyldGameState['creatures'];
-  guide?: WyldGameState['guide'];
+  guide?: Omit<WyldGameState['guide'], 'open' | 'tab'> &
+    Partial<Pick<WyldGameState['guide'], 'open' | 'tab'>>;
   observe?: WyldGameState['observe'];
 };
 
@@ -32,7 +33,7 @@ const buildState = ({
   phaseProgress,
   waterDepth,
   creatures = [],
-  guide = { completion: 0, pages: [], stubs: [] },
+  guide = { open: false, tab: 'index', completion: 0, pages: [], stubs: [] },
   observe = { identifying: { species: null, progress: 0 } },
 }: BuildStateOptions): WyldGameState => ({
   version,
@@ -51,7 +52,7 @@ const buildState = ({
     ...creature,
     position: { ...creature.position },
   })),
-  guide: structuredClone(guide),
+  guide: { open: guide.open ?? false, tab: guide.tab ?? 'index', ...structuredClone(guide) },
   observe: structuredClone(observe),
 });
 

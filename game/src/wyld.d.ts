@@ -22,6 +22,8 @@ type WyldGameState = {
     behaviour: 'wander' | 'flee' | 'aggro' | 'hold';
   }[];
   guide: {
+    open: boolean;
+    tab: string;
     completion: number;
     pages: {
       speciesId: string;
