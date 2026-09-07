@@ -240,9 +240,9 @@
       "accent": "#a8452c"
     },
     "visual": {
-      "length": 0.3,
-      "height": 0.25,
-      "wingspan": 0.55
+      "length": 0.55,
+      "height": 0.45,
+      "wingspan": 0.95
     }
   },
   {

@@ -13,6 +13,7 @@ type BuildStateOptions = {
   day: number;
   phaseProgress: number;
   waterDepth: number;
+  creatures?: WyldGameState['creatures'];
 };
 
 const buildState = ({
@@ -28,6 +29,7 @@ const buildState = ({
   day,
   phaseProgress,
   waterDepth,
+  creatures = [],
 }: BuildStateOptions): WyldGameState => ({
   version,
   elapsedSeconds,
@@ -41,6 +43,10 @@ const buildState = ({
   day,
   phaseProgress,
   waterDepth,
+  creatures: creatures.map((creature) => ({
+    ...creature,
+    position: { ...creature.position },
+  })),
 });
 
 export { buildState };
