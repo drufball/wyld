@@ -10,7 +10,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { createApp } from './app.js';
 import { CHAIN_LIMIT } from './chains.js';
 import { openDatabase, type AppDatabase } from './database.js';
-import { chains, demos, quests, worlds } from './schema.js';
+import { artifacts, chains, demos, quests, worlds } from './schema.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 
@@ -77,6 +77,37 @@ describe('chain routes', () => {
       kind: 'human.question',
       payload: { chainId: chain.id, text: 'What is going on?' },
     });
+  });
+
+  it('round-trips and filters artifact anchors', async () => {
+    database.db
+      .insert(artifacts)
+      .values({
+        slug: 'roadmap',
+        questId: null,
+        title: 'Roadmap',
+        summary: 'One line',
+        html: '<html></html>',
+        version: 1,
+        createdAt: clock.toISOString(),
+        updatedAt: clock.toISOString(),
+      })
+      .run();
+    const anchor = { artifact: 'roadmap', element: 'hero', label: 'Hero' };
+    const response = await post('/api/chains', { text: 'Pinned', anchor });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ anchor });
+    expect(
+      (await (await app.request('/api/chains?artifact=roadmap')).json()) as unknown[],
+    ).toHaveLength(1);
+    expect(
+      (await post('/api/chains', { text: 'Missing', anchor: { ...anchor, artifact: 'missing' } }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await post('/api/chains', { text: 'Bad', anchor: { artifact: 'roadmap' } })).status,
+    ).toBe(400);
+    expect((await app.request('/api/chains?artifact=missing')).status).toBe(404);
   });
 
   it('creates a quest-targeted chain and routes its question event to the quest', async () => {

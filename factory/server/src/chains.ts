@@ -1,12 +1,12 @@
-import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
-import { Chain, ChainKind, ChainStatus, Timestamp, type NewEvent } from '@wyld/shared';
+import { Chain, ChainAnchor, ChainKind, ChainStatus, Timestamp, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { formatIssues } from './quests.js';
 import { compareRumbles } from './rumbles.js';
-import { chainMessages, chains, demos, quests } from './schema.js';
+import { artifacts, chainMessages, chains, demos, quests } from './schema.js';
 
 export const CHAIN_QUIET_SECONDS = 86_400;
 export const CHAIN_LIMIT = 5;
@@ -17,10 +17,12 @@ const ChainCreate = z
     questId: z.string().min(1).optional(),
     author: z.enum(['human', 'planner']).default('human'),
     kind: ChainKind.exclude(['rumble', 'demo', 'action', 'unlock']).optional(),
+    anchor: ChainAnchor.optional(),
   })
   .strict();
 const ChainQuery = z.object({
   quest: z.string().min(1).optional(),
+  artifact: z.string().min(1).optional(),
   kind: z.string().optional(),
   status: z.union([ChainStatus, z.literal('all')]).default('open'),
   includeSnoozed: z.enum(['1', 'true']).optional(),
@@ -99,6 +101,12 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
       db.select().from(quests).where(eq(quests.id, parsed.data.quest)).get() === undefined
     )
       return notFound(c);
+    if (
+      parsed.data.artifact !== undefined &&
+      db.select().from(artifacts).where(eq(artifacts.slug, parsed.data.artifact)).get() ===
+        undefined
+    )
+      return notFound(c);
     const cutoff = new Date(now().getTime() - CHAIN_QUIET_SECONDS * 1000).toISOString();
     db.update(chains)
       .set({ status: 'settled' })
@@ -118,6 +126,9 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
     const common = and(
       parsed.data.status === 'all' ? undefined : eq(chains.status, parsed.data.status),
       parsed.data.quest === undefined ? undefined : eq(chains.questId, parsed.data.quest),
+      parsed.data.artifact === undefined
+        ? undefined
+        : sql`json_extract(${chains.anchor}, '$.artifact') = ${parsed.data.artifact}`,
       visible,
     );
     const conversationalKinds = requestedKinds.filter(
@@ -198,6 +209,12 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
       db.select().from(quests).where(eq(quests.id, parsed.data.questId)).get() === undefined
     )
       return notFound(c);
+    if (
+      parsed.data.anchor !== undefined &&
+      db.select().from(artifacts).where(eq(artifacts.slug, parsed.data.anchor.artifact)).get() ===
+        undefined
+    )
+      return notFound(c);
     const ts = now().toISOString();
     const row = db
       .insert(chains)
@@ -208,6 +225,7 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
         lastActivityAt: ts,
         questId: parsed.data.questId ?? null,
         tags: [parsed.data.kind ?? (parsed.data.author === 'human' ? 'question' : 'message')],
+        anchor: parsed.data.anchor ?? null,
       })
       .returning({ id: chains.id })
       .get();

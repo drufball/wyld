@@ -35,6 +35,7 @@ import { createPauseRoutes, createPauseService } from './pause.js';
 import { createSleepRoutes, createSleepScheduler, type SleepConfig } from './sleep.js';
 import { createAchievements } from './achievements.js';
 import { countNeedsYou, replaceActionChain } from './chain-cards.js';
+import { createArtifactRoutes, createArtifactServeRoutes } from './artifacts.js';
 
 const EventQuery = z.object({
   since: z.coerce.number().int().min(0).default(0),
@@ -463,6 +464,7 @@ export function createApp(dependencies: AppDependencies) {
     setNextAction,
   }).start();
   app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
+  app.route('/api', createArtifactRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
   const resumePause = createPauseService({
     database: dependencies.database,
@@ -599,6 +601,8 @@ export function createApp(dependencies: AppDependencies) {
     // WakeHealth is intentionally passthrough so Wake can add diagnostics between Pak releases.
     return c.json({ ...snapshot, wake });
   });
+
+  app.route('/', createArtifactServeRoutes({ database: dependencies.database, now, storeEvent }));
 
   app.all('/play/:slug', (c) => {
     const slug = c.req.param('slug');
