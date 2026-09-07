@@ -1,18 +1,10 @@
+import type { BodyPlanId } from '@wyld/sprites';
 import type { Delivery, Force } from '../combat/moves.js';
 import speciesJson from '../data/species.json';
 import type { Phase } from '../world/time.js';
 import { regions } from '../world/regions.js';
 
 type Temperament = 'Skittish' | 'Bold' | 'Steady' | 'Erratic';
-type BodyPlanId =
-  | 'heavy-quadruped'
-  | 'light-quadruped'
-  | 'avian'
-  | 'amphibious'
-  | 'serpentine'
-  | 'shelled'
-  | 'crawler'
-  | 'large-biped';
 type HideType = 'Bark' | 'Shell' | 'Scale' | 'Hide' | 'Stone';
 type TracksDescriptor = {
   kind: 'prints' | 'feather' | 'furrow' | 'shard' | 'coil';

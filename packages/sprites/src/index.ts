@@ -21,3 +21,4 @@ const generateSprite = (spec: SpriteSpec, facing: SpriteFacing, frame: SpriteFra
   painters[spec.bodyPlan](spec, facing, frame);
 export { generateSprite };
 export type { PixelSprite, SpriteFacing, SpriteFrame, SpriteSpec } from './types.js';
+export * from './species.js';

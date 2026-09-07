@@ -1,4 +1,4 @@
-import { generateSprite, type SpriteFacing, type SpriteFrame } from '../creatures/sprites/index.js';
+import { generateSprite, type SpriteFacing, type SpriteFrame } from '@wyld/sprites';
 import { speciesById } from '../creatures/species.js';
 const cache = new Map<string, HTMLCanvasElement>();
 const drawCreatureSprite = (

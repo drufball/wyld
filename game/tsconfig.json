@@ -9,5 +9,10 @@
     "outDir": ".tsc",
     "tsBuildInfoFile": "${configDir}/.tsc/tsconfig.tsbuildinfo"
   },
-  "include": ["src", "src/**/*.json", "vite.config.ts"]
+  "include": ["src", "src/**/*.json", "vite.config.ts"],
+  "references": [
+    {
+      "path": "../packages/sprites"
+    }
+  ]
 }

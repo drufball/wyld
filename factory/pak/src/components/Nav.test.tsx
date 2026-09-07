@@ -16,6 +16,7 @@ describe('Nav', () => {
       '/quests',
       '/roadmap',
       '/demos',
+      '/workshop',
       '/rumble',
       '/debug',
       '/memory',

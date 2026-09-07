@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { species } from '../species.js';
-import { generateSprite } from './index.js';
+import { species } from './species.js';
+import { generateSprite } from '@wyld/sprites';
 const plans = [
   'heavy-quadruped',
   'light-quadruped',

@@ -1,6 +1,7 @@
 packages:
   - 'factory/*'
   - 'game'
+  - 'packages/*'
 allowBuilds:
   '@tailwindcss/oxide': true
   better-sqlite3: true

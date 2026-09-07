@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { Region, Species } from '@wyld/sprites';
 import {
   Achievement,
   Artifact,
@@ -253,4 +255,10 @@ export async function getArtifact(slug: string) {
   return ArtifactWithHtml.parse(
     await request(`/api/artifacts/${encodeURIComponent(slug)}`, {}, 'Loading explainer'),
   );
+}
+
+export async function listSpecies() {
+  return z
+    .object({ species: Species.array(), regions: Region.array() })
+    .parse(await request('/api/species', {}, 'Loading species'));
 }

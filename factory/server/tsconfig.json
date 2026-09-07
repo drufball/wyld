@@ -5,5 +5,12 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "references": [{ "path": "../shared" }]
+  "references": [
+    {
+      "path": "../shared"
+    },
+    {
+      "path": "../../packages/sprites"
+    }
+  ]
 }

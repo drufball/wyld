@@ -1,5 +1,5 @@
 import { speciesById } from '../creatures/species.js';
-import { generateSprite } from '../creatures/sprites/index.js';
+import { generateSprite } from '@wyld/sprites';
 import { stubTitle, type Notebook } from '../guide/notebook.js';
 import { regions } from '../world/regions.js';
 import type { MapViewOptions } from './map.js';
