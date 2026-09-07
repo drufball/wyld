@@ -45,7 +45,7 @@ const createHud = (showRegion: boolean) => {
   const targetBar = document.createElement('aside');
   targetBar.setAttribute('aria-label', 'Creature detection');
   targetBar.style.cssText =
-    'position:fixed;z-index:4;top:74px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:12px;min-width:190px;padding:7px 12px;color:#292b25;border:1px solid #777566;background:#f4efd9ee;box-shadow:1px 2px 2px #0004;font:13px/20px ui-monospace,monospace;pointer-events:none';
+    'position:fixed;z-index:4;top:258px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:12px;min-width:190px;padding:7px 12px;color:#292b25;border:1px solid #777566;background:#f4efd9ee;box-shadow:1px 2px 2px #0004;font:13px/20px ui-monospace,monospace;pointer-events:none';
   const targetLabel = document.createElement('span');
   targetLabel.textContent = 'Unknown creature';
   const eye = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
