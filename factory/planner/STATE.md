@@ -101,6 +101,13 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **15:24 M1 unit 3 landed** (#205 / PR #207 spawn system + wander + synthesised calls, one round — spawn/wander/call scheduling split
+  into independent seeded RNG streams for determinism); unit 4 (detection) next, then `fw-m1-creatures` → `demo`. **Second deflake
+  (#204 / PR #206) root cause, for anyone writing Pak tests:** RTL's `waitFor`/`findBy*` sets `IS_REACT_ACT_ENVIRONMENT=false`, so
+  they resolve on the DOM mutation without guaranteeing React 19 flushed the passive effect that registers a listener — a single-shot
+  `fireEvent`/`dispatchEvent` into a not-yet-listening component is dropped forever. Pattern: re-fire inside `waitFor` until the
+  component proves it consumed the message (`fromFrame` helper in `Explain.test.tsx`), never a synchronous assertion after a
+  dispatch; mutation-probe the rewritten test (delete the listener, it must fail).
 - **15:06 M1 units 1–2 landed** (#198 / PR #200 species data + individuals, one round; #202 / PR #203 body plans + `spawn` debug
   command, one round — spawn placement uses the player's −z forward per the M0 axis convention); disc `fw-m1-creatures` `ready`;
   next action points Dru at `spawn loamox` etc. Unit 3 (spawn/wander/calls, #205 / PR #207) under the lead's review; unit 4 (detection)
