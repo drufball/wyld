@@ -101,6 +101,11 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **14:22 pin-ready handshake landed (#199 / PR #201, one test round)** — viewer sends `wyld:pin:hello` after installing its
+  listener and on iframe `load`; the frame answers `ready` to `hello` and on `load` too. **All three explainers republished with the
+  new snippet** (`artifacts` v6, `fw-m0-world` v2, `roadmap` v6; `publish.mjs --force`); served HTML verified to carry the `hello`
+  handling. `artifacts` returns to `demo` with the lead's deploy. M1 unit 1 (species data + individuals, #198 / PR #200, one round)
+  landed 14:11; unit 2 (body plans) with Codex.
 - **13:47 pins deflaked (#195 / PR #197, test-only, zero rounds, 40/40 green under CPU load; vitest 5 flag is `--pool=forks`,
   `--poolOptions.*` is gone) and a real product race surfaced:** the embedded bridge posts its only `wyld:pin:ready` on
   `DOMContentLoaded`, before `ArtifactViewer`'s passive effect installs the parent listener — a fast frame (or Safari) leaves the
