@@ -37,7 +37,7 @@ const build: BodyPlanBuilder = (spec) => {
       (leg, i) =>
         (leg.rotation.x =
           state === 'locomotion'
-            ? (i % 2 ? -0.65 : 0.65) * p.wave
+            ? (i === 0 || i === 3 ? 0.65 : -0.65) * p.wave
             : state === 'execute'
               ? 0.3 * p.lunge
               : 0),

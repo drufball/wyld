@@ -18,9 +18,11 @@ const build: BodyPlanBuilder = (spec) => {
       group.add(leg);
     }
   const fins: THREE.Mesh[] = [];
+  m.accent.side = THREE.DoubleSide;
   for (let i = 0; i < 4; i++) {
     const fin = mesh(new THREE.PlaneGeometry(l * 0.16, h * 0.28), m.accent);
     fin.position.set(0, h * 0.57, l * (i / 4 - 0.35));
+    fin.rotation.y = Math.PI / 2;
     fins.push(fin);
     group.add(fin);
   }
@@ -36,9 +38,9 @@ const build: BodyPlanBuilder = (spec) => {
     torso.scale.y = 1 + (state === 'idle' && !swim ? 0.03 : 0) * p.bob;
     legs.forEach((leg, i) => {
       leg.rotation.x = swim
-        ? (i % 2 ? -0.6 : 0.6) * p.wave
+        ? (i === 0 || i === 3 ? 0.6 : -0.6) * p.wave
         : state === 'locomotion'
-          ? (i % 2 ? -0.45 : 0.45) * p.wave
+          ? (i === 0 || i === 3 ? 0.45 : -0.45) * p.wave
           : 0;
     });
     fins.forEach((fin, i) => (fin.rotation.z = (swim ? 0.25 : 0.05) * Math.sin(t * 6 - i)));

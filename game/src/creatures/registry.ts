@@ -21,6 +21,22 @@ type CreatureRegistryOptions = {
   depthAt(x: number, z: number): number;
 };
 
+const spawnPoint = (
+  origin: THREE.Vector3,
+  quaternion: THREE.Quaternion,
+  forwardMetres: number,
+  lateralMetres: number,
+): THREE.Vector3 => {
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion);
+  forward.y = 0;
+  forward.normalize();
+  const right = new THREE.Vector3(-forward.z, 0, forward.x);
+  return origin
+    .clone()
+    .addScaledVector(forward, forwardMetres)
+    .addScaledVector(right, lateralMetres);
+};
+
 const createCreatureRegistry = ({ scene, heightAt, depthAt }: CreatureRegistryOptions) => {
   const creatures = new Map<string, SpawnedCreature>();
   const add = (individual: Individual, x: number, z: number, facingY = 0): SpawnedCreature => {
@@ -70,5 +86,5 @@ const createCreatureRegistry = ({ scene, heightAt, depthAt }: CreatureRegistryOp
     },
   };
 };
-export { createCreatureRegistry };
+export { createCreatureRegistry, spawnPoint };
 export type { CreatureRegistryOptions, SpawnedCreature };

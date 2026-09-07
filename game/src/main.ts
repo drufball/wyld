@@ -5,7 +5,7 @@ import { createEventBus } from './engine/events.js';
 import { createLoop } from './engine/loop.js';
 import { createRng, resolveSeed } from './engine/rng.js';
 import { roll } from './creatures/individual.js';
-import { createCreatureRegistry } from './creatures/registry.js';
+import { createCreatureRegistry, spawnPoint } from './creatures/registry.js';
 import { species, speciesById } from './creatures/species.js';
 import type { CreatureState } from './creatures/bodyplans/types.js';
 import type { Temperament } from './creatures/species.js';
@@ -150,14 +150,7 @@ debugConsole.registerCommand('spawn', {
       return `valid temperaments: ${temperamentNames.join(', ')}`;
     const lateral = args[2] === undefined ? 0 : Number(args[2]);
     if (!Number.isFinite(lateral)) return 'lateralOffsetMetres must be a number';
-    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(player.object.quaternion);
-    forward.y = 0;
-    forward.normalize();
-    const right = new THREE.Vector3(-forward.z, 0, forward.x);
-    const point = player.object.position
-      .clone()
-      .addScaledVector(forward, 15)
-      .addScaledVector(right, lateral);
+    const point = spawnPoint(player.object.position, player.object.quaternion, 15, lateral);
     const rolled = roll(data, gameRng);
     const individual = temperament ? { ...rolled, temperament } : rolled;
     const facing = Math.atan2(

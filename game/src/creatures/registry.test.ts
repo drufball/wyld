@@ -2,9 +2,16 @@ import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createRng } from '../engine/rng.js';
 import { roll } from './individual.js';
-import { createCreatureRegistry } from './registry.js';
+import { createCreatureRegistry, spawnPoint } from './registry.js';
 import { speciesById } from './species.js';
 describe('creature registry', () => {
+  it('places spawns ahead of the player and offsets them to the right', () => {
+    const origin = new THREE.Vector3(-150, 2, 50);
+    const quaternion = new THREE.Quaternion();
+    expect(spawnPoint(origin, quaternion, 15, 0).toArray()).toEqual([-150, 2, 35]);
+    expect(spawnPoint(origin, quaternion, 15, 4).toArray()).toEqual([-146, 2, 35]);
+  });
+
   it('owns, updates, and removes creature models', () => {
     const scene = new THREE.Scene(),
       heightAt = vi.fn(() => 3),

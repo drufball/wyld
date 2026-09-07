@@ -22,7 +22,7 @@ const build: BodyPlanBuilder = (spec) => {
   group.add(head);
   for (const x of [-1, 1]) {
     const eye = mesh(new THREE.SphereGeometry(h * 0.045, 6, 4), m.accent);
-    eye.position.set(x * h * 0.2, h * 0.47, l * 0.83);
+    eye.position.set(x * h * 0.2, h * 0.1, h * 0.28);
     head.add(eye);
   }
   const phase = l * 0.17;

@@ -21,10 +21,16 @@ const build: BodyPlanBuilder = (spec) => {
       group.add(leg);
     }
   for (const x of [-1, 1]) {
-    const horn = mesh(new THREE.ConeGeometry(l * 0.06, l * 0.25, 8), m.accent);
-    horn.rotation.x = Math.PI / 2;
-    horn.position.set(x * l * 0.14, h * 1.02, l * 0.84);
-    group.add(horn);
+    const horn = mesh(new THREE.CylinderGeometry(h * 0.035, h * 0.05, h * 0.65, 6), m.accent);
+    horn.rotation.z = x * -0.2;
+    horn.position.set(x * l * 0.18, h * 0.38, 0);
+    head.add(horn);
+    for (const branchY of [0.05, 0.22]) {
+      const branch = mesh(new THREE.CylinderGeometry(h * 0.025, h * 0.035, h * 0.32, 6), m.accent);
+      branch.rotation.z = x * -0.85;
+      branch.position.set(x * h * 0.1, h * branchY, 0);
+      horn.add(branch);
+    }
   }
   const phase = l * 0.37;
   return model(group, (t, state) => {
@@ -38,7 +44,7 @@ const build: BodyPlanBuilder = (spec) => {
       (leg, i) =>
         (leg.rotation.x =
           state === 'locomotion'
-            ? (i % 2 ? -0.45 : 0.45) * p.wave
+            ? (i === 0 || i === 3 ? 0.45 : -0.45) * p.wave
             : state === 'execute'
               ? 0.25 * p.lunge
               : 0),
