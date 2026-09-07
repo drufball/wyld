@@ -196,14 +196,16 @@ function ArtifactViewer({
           referrerPolicy="no-referrer"
           title={artifact.title}
           loading="eager"
-          onLoad={() => setReady(false)}
         />
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {pins.map((chain, index) => {
             if (!chain.anchor) return null;
             const r = rects[chain.anchor.element];
             if (!r) return null;
-            const x = r.x + r.w;
+            const overlapping = pins
+              .slice(0, index)
+              .filter((item) => item.anchor?.element === chain.anchor?.element).length;
+            const x = r.x + r.w - overlapping * 44;
             const y = r.y;
             const box = frame.current?.getBoundingClientRect();
             if (box && (x < 0 || y < 0 || x > box.width || y > box.height)) return null;

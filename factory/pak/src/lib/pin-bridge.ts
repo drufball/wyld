@@ -79,7 +79,8 @@ export function createPinBridge(options: {
 }) {
   const target = options.target ?? window;
   const receive = (event: MessageEvent) => {
-    if (event.source !== options.frame.contentWindow || !plain(event.data)) return;
+    const source = options.frame.contentWindow;
+    if (source === null || event.source !== source || !plain(event.data)) return;
     const data = event.data;
     if (typeof data.type !== 'string' || !data.type.startsWith('wyld:pin:')) return;
     if (data.type === 'wyld:pin:ready') options.onReady();

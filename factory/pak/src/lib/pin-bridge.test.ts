@@ -63,4 +63,23 @@ describe('pin bridge', () => {
     bridge.stop();
     expect(listeners.size).toBe(0);
   });
+
+  it('ignores messages with a null source when the frame has no content window', () => {
+    const target = new EventTarget();
+    const onReady = vi.fn();
+    const bridge = createPinBridge({
+      frame: { contentWindow: null },
+      target: target as unknown as Window,
+      onReady,
+      onPick: vi.fn(),
+      onRects: vi.fn(),
+    });
+
+    target.dispatchEvent(
+      new MessageEvent('message', { data: { type: 'wyld:pin:ready' }, source: null }),
+    );
+
+    expect(onReady).not.toHaveBeenCalled();
+    bridge.stop();
+  });
 });

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
@@ -154,5 +154,186 @@ describe('Explain', () => {
     expect((await screen.findByRole('link', { name: 'Back' })).getAttribute('href')).toBe(
       '/quests',
     );
+  });
+
+  it('keeps pinning disabled until the frame is ready and toggles pin mode', async () => {
+    mocks.getArtifact.mockResolvedValue(artifact);
+    renderRoute('/explain/forest-map');
+    const button = await screen.findByRole('button', { name: 'Pin a comment' });
+    const frame = screen.getByTitle(artifact.title) as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    const contentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.getAttribute('title')).toBe("This explainer can't take pins yet");
+    fireEvent.click(button);
+    expect(postMessage).not.toHaveBeenCalled();
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'wyld:pin:ready' },
+        source: contentWindow,
+      }),
+    );
+    await waitFor(() => expect(button.hasAttribute('aria-disabled')).toBe(false));
+    expect(button.getAttribute('title')).toBe('Pin a comment');
+
+    fireEvent.click(button);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:mode', on: true }, '*');
+    fireEvent.click(button);
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:mode', on: false }, '*');
+  });
+
+  it('creates an anchored chain from a frame pick and exits pin mode', async () => {
+    const created = {
+      id: 3,
+      kind: 'question',
+      status: 'open',
+      createdAt: '2026-09-07T12:00:00.000Z',
+      lastActivityAt: '2026-09-07T12:00:00.000Z',
+      questId: null,
+      snoozedUntil: null,
+      tags: [],
+      demoId: null,
+      payload: null,
+      rumble: null,
+      anchor: { artifact: 'forest-map', element: 'hero', label: 'Hero title' },
+      messages: [],
+    } as const;
+    mocks.getArtifact.mockResolvedValue(artifact);
+    mocks.postChain.mockResolvedValue(created);
+    renderRoute('/explain/forest-map');
+    const frame = (await screen.findByTitle(artifact.title)) as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    const contentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: contentWindow,
+        data: {
+          type: 'wyld:pin:pick',
+          element: 'hero',
+          label: 'Hero title',
+          rect: { x: 10, y: 20, w: 30, h: 40 },
+        },
+      }),
+    );
+
+    expect(await screen.findByText('Pinned to: Hero title')).not.toBeNull();
+    const field = screen.getByRole('textbox');
+    fireEvent.change(field, { target: { value: 'Why this hero?' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() =>
+      expect(mocks.postChain).toHaveBeenCalledWith('Why this hero?', undefined, {
+        artifact: 'forest-map',
+        element: 'hero',
+        label: 'Hero title',
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(postMessage).toHaveBeenCalledWith({ type: 'wyld:pin:mode', on: false }, '*');
+  });
+
+  it('closes the pin composer on Escape without changing frame pin mode', async () => {
+    mocks.getArtifact.mockResolvedValue(artifact);
+    renderRoute('/explain/forest-map');
+    const frame = (await screen.findByTitle(artifact.title)) as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    const contentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: contentWindow,
+        data: {
+          type: 'wyld:pin:pick',
+          element: 'hero',
+          label: 'Hero title',
+          rect: { x: 10, y: 20, w: 30, h: 40 },
+        },
+      }),
+    );
+    expect(await screen.findByRole('dialog')).not.toBeNull();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(postMessage).not.toHaveBeenCalledWith({ type: 'wyld:pin:mode', on: false }, '*');
+  });
+
+  it('numbers and positions visible anchored chains in creation order and opens a marker', async () => {
+    const chain = (id: number, element: string, label: string, createdAt: string) => ({
+      id,
+      kind: 'question' as const,
+      status: 'open' as const,
+      createdAt,
+      lastActivityAt: createdAt,
+      questId: null,
+      snoozedUntil: null,
+      tags: [],
+      demoId: null,
+      payload: null,
+      rumble: null,
+      anchor: { artifact: 'forest-map', element, label },
+      messages: [
+        { id, chainId: id, author: 'human' as const, text: `${label} message`, ts: createdAt },
+      ],
+    });
+    mocks.getArtifact.mockResolvedValue(artifact);
+    mocks.listChains.mockResolvedValue([
+      chain(2, 'hero', 'Details', '2026-09-07T12:00:00.000Z'),
+      chain(1, 'hero', 'Hero title', '2026-09-07T11:00:00.000Z'),
+      chain(3, 'missing', 'Missing', '2026-09-07T13:00:00.000Z'),
+    ]);
+    renderRoute('/explain/forest-map');
+    const frame = (await screen.findByTitle(artifact.title)) as HTMLIFrameElement;
+    const contentWindow = { postMessage: vi.fn() } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    vi.spyOn(frame, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 500,
+      height: 500,
+      top: 0,
+      right: 500,
+      bottom: 500,
+      left: 0,
+      toJSON: () => ({}),
+    });
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: contentWindow,
+        data: { type: 'wyld:pin:ready' },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Pin a comment' }).hasAttribute('aria-disabled'),
+      ).toBe(false),
+    );
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: contentWindow,
+        data: {
+          type: 'wyld:pin:rects',
+          rects: {
+            hero: { x: 100, y: 20, w: 30, h: 40 },
+          },
+        },
+      }),
+    );
+
+    const first = await screen.findByRole('button', { name: 'Pinned comment 1: Hero title' });
+    const second = screen.getByRole('button', { name: 'Pinned comment 2: Details' });
+    expect(first.style.left).toBe('130px');
+    expect(first.style.top).toBe('20px');
+    expect(second.style.left).toBe('86px');
+    expect(second.style.top).toBe('20px');
+    expect(screen.queryByRole('button', { name: 'Pinned comment 3: Missing' })).toBeNull();
+
+    fireEvent.click(first);
+    expect(await screen.findByText('Hero title message')).not.toBeNull();
   });
 });
