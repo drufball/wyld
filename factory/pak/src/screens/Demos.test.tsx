@@ -262,9 +262,12 @@ describe('Demos', () => {
       vi.fn(() => response([chain])),
     );
     show('/demos/a-disc');
-    expect((await screen.findByTitle('a-disc')).getAttribute('src')).toBe(
-      '/play/a-disc/?debug=1',
-    );
+    const frame = await screen.findByTitle('a-disc');
+    expect(frame.getAttribute('src')).toBe('/play/a-disc/?debug=1');
+    const player = frame.parentElement;
+    expect(player?.className).toContain('bottom-[calc(53px+env(safe-area-inset-bottom))]');
+    expect(player?.className).toContain('md:relative');
+    expect(player?.className).not.toContain('bottom-[72px]');
   });
 
   it('sends an unknown demo back to the demos grid', async () => {
