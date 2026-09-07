@@ -16,6 +16,7 @@ type MapViewOptions = {
 };
 
 const SIZE = 200;
+const DISPLAY_SCALE = 4;
 const PAPER = '#f4efd9';
 const washes = { forest: '#8fa17b', desert: '#cdbb82', archipelago: '#93aea5', volcano: '#9a7766' };
 const createMapView = ({
@@ -25,8 +26,8 @@ const createMapView = ({
   selectedSpecies = () => null,
 }: MapViewOptions) => {
   const canvas = document.createElement('canvas');
-  canvas.width = SIZE;
-  canvas.height = SIZE;
+  canvas.width = SIZE * DISPLAY_SCALE;
+  canvas.height = SIZE * DISPLAY_SCALE;
   canvas.setAttribute('aria-label', 'Field guide map');
   canvas.style.cssText =
     'display:block;width:min(100%,min(72vh,800px));height:auto;aspect-ratio:1;margin:auto;border:1px solid #777566;background:#f4efd9';
@@ -64,8 +65,10 @@ const createMapView = ({
   const render = (): void => {
     base ??= buildBase();
     const context = canvas.getContext('2d')!;
-    context.clearRect(0, 0, SIZE, SIZE);
-    context.drawImage(base, 0, 0);
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(base, 0, 0, canvas.width, canvas.height);
+    context.scale(DISPLAY_SCALE, DISPLAY_SCALE);
     context.fillStyle = PAPER;
     context.shadowColor = PAPER;
     context.shadowBlur = 3;
@@ -96,7 +99,7 @@ const createMapView = ({
       context.setLineDash([]);
     }
     const knownCamps = new Set(notebook.discoveredCamps());
-    context.font = '4px ui-monospace,monospace';
+    context.font = '3px ui-monospace,monospace';
     context.fillStyle = '#292b25';
     for (const camp of camps())
       if (knownCamps.has(camp.id)) {
