@@ -113,8 +113,7 @@ const stubTitle = (stub: Stub): string => {
     const parts: string[] = [];
     if (entry.tracks.kind !== 'prints') parts.push(entry.tracks.kind);
     if (entry.tracks.toes !== undefined) parts.push(`${entry.tracks.toes}-toed`);
-    if (entry.tracks.drag !== undefined)
-      parts.push(entry.tracks.drag ? 'dragging' : 'not dragging');
+    if (entry.tracks.drag === true) parts.push('dragging');
     if (entry.tracks.stride !== undefined) parts.push(`stride ${entry.tracks.stride}`);
     descriptor = parts.length > 0 ? ` — ${parts.join(', ')}` : '';
   }
@@ -258,9 +257,10 @@ const createNotebookState = (
       if (page.rumours.length > 10) page.rumours.shift();
       return true;
     },
-    page: (id) => (records.get(id)?.identified === true ? records.get(id)! : null),
-    pages: () => [...records.values()].filter(({ identified }) => identified),
-    stubs: () => unknownFacts,
+    page: (id) =>
+      records.get(id)?.identified === true ? structuredClone(records.get(id)!) : null,
+    pages: () => structuredClone([...records.values()].filter(({ identified }) => identified)),
+    stubs: () => structuredClone(unknownFacts),
     completion: complete,
     completionFraction: fraction,
     overallCompletion: overall,
@@ -314,20 +314,23 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
 const isLocatedDay = (value: unknown): value is LocatedDay =>
-  isObject(value) &&
+  isObject(value) && hasLocatedDay(value);
+const hasLocatedDay = (value: Record<string, unknown>): boolean =>
   (value.region === null || typeof value.region === 'string') &&
   typeof value.day === 'number' &&
   Number.isFinite(value.day);
 const isPage = (value: unknown): value is Page => {
   if (!isObject(value) || speciesById(String(value.speciesId)) === null) return false;
-  const sighting = (item: unknown): boolean =>
-    isLocatedDay(item) &&
-    isObject(item) &&
-    phases.includes(item.phase as Phase) &&
-    isObject(item.position) &&
-    ['x', 'y', 'z'].every(
-      (axis) => typeof item.position![axis] === 'number' && Number.isFinite(item.position![axis]),
+  const sighting = (item: unknown): boolean => {
+    if (!isObject(item) || !hasLocatedDay(item) || !isObject(item.position)) return false;
+    const position = item.position;
+    return (
+      phases.includes(item.phase as Phase) &&
+      ['x', 'y', 'z'].every(
+        (axis) => typeof position[axis] === 'number' && Number.isFinite(position[axis]),
+      )
     );
+  };
   return (
     (value.tracks === null || isLocatedDay(value.tracks)) &&
     (value.call === null || isLocatedDay(value.call)) &&
@@ -352,10 +355,11 @@ const isPage = (value: unknown): value is Page => {
   );
 };
 const isStub = (value: unknown): value is Stub =>
-  isLocatedDay(value) &&
   isObject(value) &&
+  hasLocatedDay(value) &&
   typeof value.id === 'string' &&
   typeof value.speciesId === 'string' &&
+  speciesById(value.speciesId) !== null &&
   (value.slot === 'tracks' || value.slot === 'call') &&
   typeof value.hint === 'string';
 

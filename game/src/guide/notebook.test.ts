@@ -85,6 +85,38 @@ describe('field guide notebook', () => {
     ).toThrow(/schemaVersion/);
   });
 
+  it('notebookFromJSON throws on a stub with an unknown species id', () => {
+    expect(() =>
+      notebookFromJSON({
+        schemaVersion: 1,
+        pages: [],
+        stubs: [
+          {
+            id: 'unknown:tracks',
+            speciesId: 'unknown',
+            slot: 'tracks',
+            hint: 'mysterious tracks',
+            region: null,
+            day: 1,
+          },
+        ],
+        completedAt: null,
+      }),
+    ).toThrow(/malformed shape/);
+  });
+
+  it('pages returns copies that cannot mutate notebook state', () => {
+    const notebook = createEmptyNotebook();
+    notebook.identify('bramblehog', observation());
+    const pages = notebook.pages();
+    pages[0]!.name = 'Mutated';
+    pages[0]!.sightings[0]!.position.x = 999;
+    expect(notebook.page('bramblehog')).toMatchObject({
+      name: 'Bramblehog',
+      sightings: [{ position: { x: 1 } }],
+    });
+  });
+
   it('appending 21 sightings caps the list at 20 and drops the oldest', () => {
     const notebook = createEmptyNotebook();
     for (let day = 1; day <= 21; day += 1) notebook.recordSighting('bramblehog', observation(day));
