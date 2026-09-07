@@ -10,8 +10,10 @@ import { createSpawnSystem } from './creatures/spawn.js';
 import { createWander } from './creatures/wander.js';
 import { roll } from './creatures/individual.js';
 import {
+  addPartyMember,
   createParty,
   groundTapped,
+  removePartyMember,
   selectCreature,
   selectPlayer,
   targetWildCreature,
@@ -57,6 +59,7 @@ document.documentElement.style.cssText = 'height:100%;background:#19212d';
 document.body.style.cssText =
   'height:100%;margin:0;overflow:hidden;display:grid;place-items:center;background:#19212d';
 const scenario = scenarioFromQuery(location.search);
+const synthetic = scenario?.synthetic === true;
 const seed = resolveSeed(),
   rng = createRng(seed),
   terrain = createTerrain(seed),
@@ -70,8 +73,13 @@ const propPlacements = placeProps({
   densities: worldData.props,
   bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
 });
-const grid =
-  scenario?.id === 'arena' ? buildArena() : createTileGrid({ ...terrain, depthAt, propPlacements });
+const view = createCanvas();
+const grid = synthetic
+  ? buildArena(view.cols, view.rows)
+  : createTileGrid({ ...terrain, depthAt, propPlacements });
+const scenarioStart = synthetic
+  ? { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) }
+  : scenario?.start;
 const trackPlacements = placeTracks({
   rng: createRng(seed ^ 0x71ac),
   propPlacements,
@@ -83,8 +91,7 @@ const trackPlacements = placeTracks({
     return grid.isWalkable(tx, ty);
   },
 });
-const view = createCanvas(),
-  tiles = createTileRenderer(grid, trackPlacements),
+const tiles = createTileRenderer(grid, trackPlacements),
   debugConsole = createDebugConsole({ seed }),
   stats = createStatsPanel(debugConsole.available),
   toasts = createToastStack(),
@@ -102,7 +109,7 @@ const player = createPlayerController({
   canvas: view.canvas,
   cols: () => view.cols,
   rows: () => view.rows,
-  start: scenario ? tileToWorld(scenario.start.tx, scenario.start.ty) : { x: -150, z: 50 },
+  start: scenarioStart ? tileToWorld(scenarioStart.tx, scenarioStart.ty) : { x: -150, z: 50 },
   screenFlipping: scenario?.id !== 'arena',
 });
 const partySpecies = scenario?.party ?? ['loamox'];
@@ -119,8 +126,8 @@ const owned = partySpecies.map((speciesId, index) => {
     { tx: 1, ty: 1 },
   ][index]!;
   const start = {
-    tx: Math.max(0, scenario?.start.tx ?? 125) + formation.tx,
-    ty: (scenario?.start.ty ?? 225) + formation.ty,
+    tx: Math.max(0, scenarioStart?.tx ?? 125) + formation.tx,
+    ty: (scenarioStart?.ty ?? 225) + formation.ty,
   };
   return {
     individual,
@@ -143,6 +150,15 @@ const partyControllers = new Map(
     }),
   ]),
 );
+const createPartyController = (member: (typeof partyState.party)[number]) =>
+  createPlayerController({
+    grid,
+    canvas: view.canvas,
+    cols: () => view.cols,
+    rows: () => view.rows,
+    start: tileToWorld(member.tile.tx, member.tile.ty),
+    screenFlipping: !synthetic,
+  });
 hudActions.selectCreature = (id) => {
   partyState = selectCreature(partyState, id);
 };
@@ -323,6 +339,48 @@ debugConsole.registerCommand('spawn', {
     const creature = registry.add(individual, x, z, angle);
     seedCreature(creature.id);
     return `${creature.speciesId} ${creature.temperament} ${creature.id}`;
+  },
+});
+debugConsole.registerCommand('party', {
+  help: 'party <add speciesId|remove id|list>',
+  run: ([action = '', id = '']) => {
+    if (action === 'list')
+      return (
+        partyState.party
+          .map(({ individual, name }) => `${individual.id} ${individual.speciesId} ${name}`)
+          .join('\n') || 'party empty'
+      );
+    if (action === 'add') {
+      if (partyState.party.length >= 3) return 'party full (maximum 3)';
+      const definition = speciesById(id);
+      if (!definition) return `unknown species: ${id}`;
+      const index = partyState.party.length;
+      const offset = [
+        { tx: 0, ty: 1 },
+        { tx: -1, ty: 1 },
+        { tx: 1, ty: 1 },
+      ][index]!;
+      const member = {
+        individual: roll(definition, rng),
+        name: definition.name,
+        tile: {
+          tx: Math.floor(player.tile.x) + offset.tx,
+          ty: Math.floor(player.tile.y) + offset.ty,
+        },
+        path: [],
+      };
+      partyState = addPartyMember(partyState, member);
+      partyControllers.set(member.individual.id, createPartyController(member));
+      return `party added: ${member.individual.id} ${member.individual.speciesId}`;
+    }
+    if (action === 'remove') {
+      if (!partyState.party.some(({ individual }) => individual.id === id))
+        return `unknown party member: ${id}`;
+      partyState = removePartyMember(partyState, id);
+      partyControllers.delete(id);
+      return `party removed: ${id}`;
+    }
+    return 'usage: party <add speciesId|remove id|list>';
   },
 });
 debugConsole.registerCommand('creatures', {
@@ -533,7 +591,7 @@ const loop = createLoop({
       }
     }
     const world = player.world,
-      region = pointToRegion(world.x, world.z),
+      region = synthetic ? null : pointToRegion(world.x, world.z),
       clock = timeAt(elapsedSeconds);
     visitedScreens.add(`${player.screen.x},${player.screen.y}`);
     const spawned = scenario
@@ -656,7 +714,7 @@ const loop = createLoop({
     hud.update({
       ...clock,
       regionName: region?.name ?? null,
-      biome: terrain.biomeAt(world.x, world.z),
+      biome: synthetic ? null : terrain.biomeAt(world.x, world.z),
       target: partyState.target
         ? { detection: aiStates.get(partyState.target.id)?.meter ?? 0.001 }
         : null,
@@ -697,8 +755,8 @@ window.__wyld = {
       screen: player.screen,
       tile: player.tile,
       seed,
-      region: pointToRegion(world.x, world.z)?.id ?? null,
-      biome: terrain.biomeAt(world.x, world.z),
+      region: synthetic ? null : (pointToRegion(world.x, world.z)?.id ?? null),
+      biome: synthetic ? null : terrain.biomeAt(world.x, world.z),
       ...clock,
       waterDepth: depthAt(world.x, world.z),
       creatures: registry.list().map((c) => {

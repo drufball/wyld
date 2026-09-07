@@ -9,13 +9,19 @@ describe('scenarios', () => {
     expect(scenarios.map((s) => s.id)).toEqual(['world', 'creatures', 'guide', 'party', 'arena']);
     expect(scenarios.every((s) => s.goal && Number.isInteger(s.start.tx) && s.phase)).toBe(true);
   });
-  it('builds the arena as a flat twenty by twelve grid with six rock tiles', () => {
-    const arena = buildArena();
+  it('builds the arena to the current screen with six deterministic rock tiles', () => {
+    const arena = buildArena(11, 22);
     let rocks = 0;
-    for (let y = 0; y < 12; y++)
-      for (let x = 0; x < 20; x++) if (arena.tileAt(x, y).surface === 'rock') rocks++;
-    expect([arena.width, arena.height, rocks]).toEqual([20, 12, 6]);
+    for (let y = 0; y < arena.height; y++)
+      for (let x = 0; x < arena.width; x++) if (arena.tileAt(x, y).surface === 'rock') rocks++;
+    expect([arena.width, arena.height, rocks]).toEqual([11, 22, 6]);
   });
   it('disables screen flipping in the arena', () =>
-    expect(buildArena().screenFlipping).toBe(false));
+    expect(buildArena(20, 12).screenFlipping).toBe(false));
+  it('gives the synthetic arena its own field-note goal', () => {
+    expect(scenarioFromQuery('?scenario=arena')).toMatchObject({
+      goal: 'A flat place to practise. Nothing lives here yet.',
+      synthetic: true,
+    });
+  });
 });

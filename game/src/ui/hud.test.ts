@@ -107,4 +107,12 @@ describe('thumb HUD', () => {
       [...document.querySelectorAll('button')].some((button) => button.textContent === 'Console'),
     ).toBe(false);
   });
+  it('suppresses location for a synthetic scenario', () => {
+    const hud = createHud(true, document.body);
+    hud.update({ ...state(), biome: null });
+    expect(document.querySelector('[aria-label="Time and place"]')?.children[2]).toHaveProperty(
+      'hidden',
+      true,
+    );
+  });
 });

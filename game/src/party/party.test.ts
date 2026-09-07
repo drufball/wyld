@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Individual } from '../creatures/individual.js';
 import {
+  addPartyMember,
   createParty,
   followerPath,
   formationTiles,
   groundTapped,
   isRinged,
+  removePartyMember,
   selectCreature,
   selectPlayer,
   targetWildCreature,
@@ -51,5 +53,14 @@ describe('party', () => {
     const grid = { isWalkable: () => true };
     expect(followerPath(grid, { tx: 0, ty: 0 }, { tx: 2, ty: 0 })).toBeNull();
     expect(followerPath(grid, { tx: 0, ty: 0 }, { tx: 3, ty: 0 })).not.toBeNull();
+  });
+  it('adds members up to three and removes them by individual id', () => {
+    const first = createParty([members[0]!]);
+    const full = addPartyMember(addPartyMember(first, members[1]!), members[2]!);
+    expect(addPartyMember(full, { ...members[2]!, individual: individual('d') })).toBe(full);
+    expect(removePartyMember(selectCreature(full, 'b'), 'b')).toMatchObject({
+      selection: 'player',
+      party: [{ individual: { id: 'barrow' } }, { individual: { id: 'c' } }],
+    });
   });
 });

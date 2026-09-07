@@ -31,6 +31,19 @@ const createParty = (owned: readonly PartyMember[]): PartyState => ({
   selection: 'player',
   target: null,
 });
+const addPartyMember = (state: PartyState, member: PartyMember): PartyState =>
+  state.party.length >= 3
+    ? state
+    : { ...state, roster: [...state.roster, member], party: [...state.party, member] };
+const removePartyMember = (state: PartyState, id: string): PartyState => {
+  if (!state.party.some(({ individual }) => individual.id === id)) return state;
+  return {
+    ...state,
+    roster: state.roster.filter(({ individual }) => individual.id !== id),
+    party: state.party.filter(({ individual }) => individual.id !== id),
+    selection: state.selection === id ? 'player' : state.selection,
+  };
+};
 const createStartingParty = (rng: Rng): PartyState => {
   const individual = roll(speciesById('loamox')!, rng, 'barrow');
   individual.temperament = 'Steady';
@@ -55,12 +68,14 @@ const followerPath = (grid: PathGrid, follower: Point, offset: Point): readonly 
 
 export {
   FORMATION_OFFSETS,
+  addPartyMember,
   createParty,
   createStartingParty,
   followerPath,
   formationTiles,
   groundTapped,
   isRinged,
+  removePartyMember,
   selectCreature,
   selectPlayer,
   targetWildCreature,

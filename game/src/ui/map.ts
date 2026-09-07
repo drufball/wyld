@@ -53,11 +53,6 @@ const createMapView = ({
         image.data.set([...rgb, 220], offset);
       }
     context.putImageData(image, 0, 0);
-    // Crater Rim is a known landmark even before nearby fog is lifted.
-    context.fillStyle = '#463d3c99';
-    context.beginPath();
-    context.ellipse(pixel(0), pixel(-390), 8, 5, -0.2, 0, Math.PI * 2);
-    context.fill();
     context.strokeStyle = '#586c68';
     context.globalAlpha = 0.45;
     // A sampled shoreline gives the wash an inked boundary without world-module coupling.
@@ -92,6 +87,22 @@ const createMapView = ({
         );
       }
     context.shadowBlur = 0;
+    // Crater Rim is a known landmark even before nearby fog is lifted.
+    const craterRim = regions().find(({ id }) => id === 'crater-rim');
+    if (craterRim) {
+      context.fillStyle = '#463d3ccc';
+      context.beginPath();
+      context.ellipse(
+        pixel(craterRim.x),
+        pixel(craterRim.z),
+        craterRim.radius / 3,
+        craterRim.radius / 5,
+        -0.2,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+    }
     const currentScreen = screen?.();
     if (currentScreen) {
       const width = currentScreen.cols / 2;

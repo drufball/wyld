@@ -3,7 +3,7 @@ import type { Individual } from '../creatures/individual.js';
 
 type HudState = TimeState & {
   regionName: string | null;
-  biome: string;
+  biome: string | null;
   target?: { detection: number } | null;
   party?: { individual: Individual; name: string }[];
   selection?: string;
@@ -109,7 +109,10 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
       phase.textContent = state.phase;
       progress.style.strokeDasharray = `${state.phaseProgress} 1`;
       day.textContent = `Day ${state.day}`;
-      region.textContent = `${state.regionName ?? 'Uncharted'} · ${state.biome}`;
+      region.textContent = state.biome
+        ? `${state.regionName ?? 'Uncharted'} · ${state.biome}`
+        : (state.regionName ?? '');
+      region.hidden = !state.regionName && !state.biome;
       updateDetectionTarget({ bar: targetBar, fill: eyeFill, outline: eyeOutline }, state.target);
       partyCards.replaceChildren(
         ...(state.party ?? []).map(({ individual, name }) => {

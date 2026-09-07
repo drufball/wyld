@@ -6,7 +6,7 @@ type WyldGameState = {
   tile: { x: number; y: number };
   seed: number;
   region: string | null;
-  biome: 'forest' | 'desert' | 'archipelago' | 'volcano';
+  biome: 'forest' | 'desert' | 'archipelago' | 'volcano' | null;
   phase: 'Dawn' | 'Day' | 'Dusk' | 'Night';
   day: number;
   phaseProgress: number;
