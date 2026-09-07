@@ -50,7 +50,7 @@ describe('demo builder', () => {
       expect.arrayContaining([
         'git -C /repo fetch origin -- main',
         'pnpm install --frozen-lockfile --prefer-offline',
-        'pnpm --filter @wyld/game build',
+        'pnpm --filter @wyld/game... build',
       ]),
     );
     await expect(fs.readFile(path.join(root!, 'demos/main/index.html'), 'utf8')).resolves.toBe(
@@ -87,7 +87,7 @@ describe('demo builder', () => {
       calls.push(args);
       const [command, commandArgs, options] = args;
       if (command === 'pnpm' && commandArgs.includes('build')) {
-        const source = commandArgs.includes('@wyld/game') ? 'game/dist' : 'factory/pak/dist';
+        const source = commandArgs.includes('@wyld/game...') ? 'game/dist' : 'factory/pak/dist';
         await fs.mkdir(path.join(options.cwd!, source), { recursive: true });
         await fs.writeFile(path.join(options.cwd!, source, 'index.html'), source);
       }
@@ -110,7 +110,7 @@ describe('demo builder', () => {
     const pakBuild = pakCalls.find(
       ([command, args]) => command === 'pnpm' && args.includes('build'),
     )!;
-    expect(gameBuild[1]).toEqual(['--filter', '@wyld/game', 'build']);
+    expect(gameBuild[1]).toEqual(['--filter', '@wyld/game...', 'build']);
     expect(pakBuild[1]).toEqual(['--filter', '@wyld/pak...', 'build']);
     expect(gameBuild[2].env?.GAME_BASE).toBe('/play/comparison/');
     expect(gameBuild[2].env?.PAK_BASE).toBeUndefined();
@@ -123,7 +123,7 @@ describe('demo builder', () => {
         return {
           command,
           args: args.map((argument) =>
-            argument === '@wyld/game' || argument === '@wyld/pak...' ? '<target>' : argument,
+            argument === '@wyld/game...' || argument === '@wyld/pak...' ? '<target>' : argument,
           ),
           options: {
             ...options,
@@ -137,6 +137,51 @@ describe('demo builder', () => {
     await expect(
       fs.readFile(path.join(root!, 'demos/comparison/index.html'), 'utf8'),
     ).resolves.toBe('factory/pak/dist');
+  });
+
+  it('builds workspace dependencies before the target', async () => {
+    for (const target of ['game', 'pak'] as const) {
+      const calls: Parameters<CommandRunner>[] = [];
+      const slug = `dependencies-${target}`;
+      let publishedIndex = '';
+      const { builder } = await setup(async (...args) => {
+        calls.push(args);
+        const [command, commandArgs, options] = args;
+        if (command === 'pnpm' && commandArgs.includes('build')) {
+          await expect(fs.stat(publishedIndex)).rejects.toThrow();
+          const source = target === 'game' ? 'game/dist' : 'factory/pak/dist';
+          await fs.mkdir(path.join(options.cwd!, source), { recursive: true });
+          await fs.writeFile(path.join(options.cwd!, source, 'index.html'), target);
+        }
+        return {};
+      });
+      publishedIndex = path.join(root!, 'demos', slug, 'index.html');
+
+      await expect(builder.build(slug, 'main', target)).resolves.toEqual({ ok: true });
+
+      const sequence = calls.filter(
+        ([command, args]) =>
+          (command === 'git' && args.includes('add')) ||
+          (command === 'pnpm' && (args.includes('install') || args.includes('build'))),
+      );
+      expect(sequence.map(([command, args]) => [command, ...args])).toEqual([
+        [
+          'git',
+          '-C',
+          '/repo',
+          'worktree',
+          'add',
+          '--detach',
+          path.join(root!, 'worktrees', slug),
+          'FETCH_HEAD',
+        ],
+        ['pnpm', 'install', '--frozen-lockfile', '--prefer-offline'],
+        ['pnpm', '--filter', `@wyld/${target}...`, 'build'],
+      ]);
+      const buildFilter = sequence[2]?.[1][1];
+      expect(buildFilter).toMatch(/\.\.\.$/);
+      await expect(fs.readFile(publishedIndex, 'utf8')).resolves.toBe(target);
+    }
   });
 
   it('rejects bad slugs, shares an in-flight promise, and resolves failures', async () => {

@@ -87,7 +87,7 @@ export function createDemoBuilder(dependencies: Dependencies) {
       step = 'install dependencies';
       await command('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], worktree);
       step = `build ${target}`;
-      const packageName = target === 'game' ? '@wyld/game' : '@wyld/pak...';
+      const packageName = target === 'game' ? '@wyld/game...' : '@wyld/pak...';
       const baseVariable = target === 'game' ? 'GAME_BASE' : 'PAK_BASE';
       await command('pnpm', ['--filter', packageName, 'build'], worktree, {
         ...process.env,
