@@ -1,7 +1,6 @@
 import {
   type Artifact,
   type Chain,
-  type Demo,
   type Event,
   type Quest,
   type QuestNote,
@@ -12,7 +11,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   getQuest,
   listArtifacts,
-  listDemos,
+  listChains,
   listQuests,
   listWorlds,
   patchQuestStatus,
@@ -26,6 +25,7 @@ import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { playSound } from '../lib/feedback.js';
+import { demoCard, type DemoCard } from '../lib/chain-cards.js';
 
 function AskComposer({ questId, onSent }: { questId: string; onSent: (chain: Chain) => void }) {
   const [text, setText] = useState('');
@@ -97,7 +97,7 @@ export function QuestCard({
   quest: Quest;
   worldName: string;
   onChange: (quest: Quest) => void;
-  demo?: Demo;
+  demo?: DemoCard;
   artifact?: Artifact;
 }) {
   const [asking, setAsking] = useState(false);
@@ -214,11 +214,15 @@ export function QuestCard({
               <Link to={`/explain/${encodeURIComponent(artifact.slug)}`}>Explainer</Link>
             </Button>
           )}
-          {demo ? (
+          {demo?.status === 'ready' ? (
             <Button variant="retro" asChild>
-              <Link to={`/demos/${encodeURIComponent(demo.id)}`}>
-                {demo.kind === 'live' ? 'Try it' : 'Play'}
-              </Link>
+              {demo.demoKind === 'pak' ? (
+                <a href={demo.url}>Try it</a>
+              ) : demo.demoKind === 'disc' ? (
+                <Link to={`/demos/${encodeURIComponent(demo.demoId)}`}>Play</Link>
+              ) : (
+                <Link to={demo.deepLink ?? '/'}>Try it</Link>
+              )}
             </Button>
           ) : (
             <span className="inline-flex items-center gap-2 text-muted-foreground">
@@ -285,7 +289,7 @@ export function Quests() {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [worlds, setWorlds] = useState<Awaited<ReturnType<typeof listWorlds>>>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
-  const [demosByQuest, setDemosByQuest] = useState<Map<string, Demo>>(new Map());
+  const [demosByQuest, setDemosByQuest] = useState<Map<string, DemoCard>>(new Map());
   const [artifactsByQuest, setArtifactsByQuest] = useState<Map<string, Artifact>>(new Map());
   const [doneExpanded, setDoneExpanded] = useState(false);
   const { subscribe } = useLiveEvents();
@@ -306,11 +310,15 @@ export function Quests() {
     [replaceQuest],
   );
   const refreshDemos = useCallback(() => {
-    void listDemos()
-      .then((demos) => {
-        const next = new Map<string, Demo>();
-        for (const demo of [...demos].sort((left, right) => left.id.localeCompare(right.id))) {
-          if (demo.questId && !next.has(demo.questId)) next.set(demo.questId, demo);
+    void listChains({ kind: 'demo' })
+      .then((chains) => {
+        const next = new Map<string, DemoCard>();
+        const demos = chains
+          .map((chain) => ({ chain, demo: demoCard(chain) }))
+          .filter((item): item is { chain: Chain; demo: DemoCard } => item.demo !== null)
+          .sort((left, right) => left.demo.demoId.localeCompare(right.demo.demoId));
+        for (const { chain, demo } of demos) {
+          if (chain.questId !== null && !next.has(chain.questId)) next.set(chain.questId, demo);
         }
         setDemosByQuest(next);
       })
@@ -344,7 +352,8 @@ export function Quests() {
   }, [refreshArtifacts, refreshDemos]);
   useEffect(() => {
     const unsubscribes = liveKinds.map((kind) => subscribe(kind, refreshQuest));
-    unsubscribes.push(subscribe('planner.quest_updated', refreshDemos));
+    unsubscribes.push(subscribe('planner.chain_updated', refreshDemos));
+    unsubscribes.push(subscribe('human.chain_closed', refreshDemos));
     unsubscribes.push(subscribe('planner.artifact_published', refreshArtifacts));
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }, [refreshArtifacts, refreshDemos, refreshQuest, subscribe]);

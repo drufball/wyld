@@ -179,11 +179,7 @@ export async function closeChain(
   source: 'human' | 'planner' = 'human',
 ): Promise<ChainType> {
   return Chain.parse(
-    await request(
-      `/api/chains/${id}/close`,
-      json('POST', { reason, source }),
-      'Closing chain',
-    ),
+    await request(`/api/chains/${id}/close`, json('POST', { reason, source }), 'Closing chain'),
   );
 }
 
@@ -201,10 +197,6 @@ export async function decideRumble(id: string, chosen: string) {
       'Deciding rumble',
     ),
   );
-}
-
-export async function listDemos(): Promise<DemoType[]> {
-  return Demo.array().parse(await request('/api/demos', {}, 'Loading demos'));
 }
 
 export async function buildDemo(id?: string): Promise<DemoType> {

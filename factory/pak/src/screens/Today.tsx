@@ -183,8 +183,7 @@ export function Today({
   const [needsYou, setNeedsYou] = useState<number | null>(null);
   const [buildingCount, setBuildingCount] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [achievementName, setAchievementName] = useState<string | null>(null);
-  const achievementTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chimedUnlockIds = useRef<Set<number>>(new Set());
   const intentField = useRef<HTMLTextAreaElement>(null);
   const composerButton = useRef<HTMLButtonElement>(null);
   const composerWasOpened = useRef(false);
@@ -213,29 +212,6 @@ export function Today({
       document.removeEventListener('keydown', start);
     };
   }, []);
-
-  const dismissAchievement = useCallback(() => {
-    if (achievementTimer.current !== null) clearTimeout(achievementTimer.current);
-    achievementTimer.current = null;
-    setAchievementName(null);
-  }, []);
-  useEffect(() => {
-    const stop = subscribe('pak.achievement_unlocked', (event) => {
-      const name = event.payload['name'];
-      if (typeof name !== 'string' || name.trim().length === 0) return;
-      if (achievementTimer.current !== null) clearTimeout(achievementTimer.current);
-      setAchievementName(name);
-      playSound('save');
-      achievementTimer.current = setTimeout(() => {
-        achievementTimer.current = null;
-        setAchievementName(null);
-      }, 8_000);
-    });
-    return () => {
-      stop();
-      if (achievementTimer.current !== null) clearTimeout(achievementTimer.current);
-    };
-  }, [subscribe]);
 
   const loadPresence = useCallback(
     () =>
@@ -293,6 +269,31 @@ export function Today({
     ];
     return () => stops.forEach((stop) => stop());
   }, [loadDemos, subscribe]);
+  const loadUnlocks = useCallback(
+    () =>
+      void listChains({ kind: 'unlock' })
+        .then((items) => {
+          const newestUnlock = items
+            .filter(({ id }) => !chimedUnlockIds.current.has(id))
+            .sort((left, right) => right.id - left.id)[0];
+          for (const { id } of items) chimedUnlockIds.current.add(id);
+          if (newestUnlock) {
+            setAddedChain(newestUnlock);
+            playSound('save');
+          }
+        })
+        .catch(() => undefined),
+    [],
+  );
+  useEffect(() => {
+    loadUnlocks();
+    const stops = [
+      subscribe('pak.achievement_unlocked', loadUnlocks),
+      subscribe('planner.chain_updated', loadUnlocks),
+      subscribe('human.chain_closed', loadUnlocks),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, [loadUnlocks, subscribe]);
   const loadBuilding = useCallback(
     () =>
       void listQuests({ status: 'building' })
@@ -432,19 +433,6 @@ export function Today({
           </Button>
         </form>
       </Card>
-      {achievementName !== null && (
-        <Card variant="bevel" data-tone="ok" className="today-achievement relative p-4 pr-14">
-          Achievement unlocked — {achievementName}
-          <button
-            type="button"
-            aria-label="Dismiss achievement"
-            className="absolute right-1 top-1 size-11 text-xl text-muted-foreground"
-            onClick={dismissAchievement}
-          >
-            ×
-          </button>
-        </Card>
-      )}
       {goOutside && nextAction !== null ? (
         <GoOutside action={nextAction} building={buildingCount} />
       ) : nextAction !== null ? (
