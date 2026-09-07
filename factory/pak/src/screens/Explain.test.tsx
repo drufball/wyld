@@ -204,7 +204,7 @@ describe('Explain', () => {
     renderRoute('/explain/forest-map');
     const button = await screen.findByRole('button', { name: 'Pin a comment' });
     const frame = screen.getByTitle(artifact.title) as HTMLIFrameElement;
-    let receivedHello = false;
+    let hellos = 0;
     const contentWindow = {
       postMessage(message: unknown) {
         if (
@@ -212,16 +212,26 @@ describe('Explain', () => {
           message !== null &&
           'type' in message &&
           message.type === 'wyld:pin:hello'
-        ) {
-          receivedHello = true;
-        }
+        )
+          hellos += 1;
       },
     } as unknown as Window;
     Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
 
     expect(button.getAttribute('aria-disabled')).toBe('true');
+
+    // The bridge is created by a passive effect that may not have run yet, and an unheard `load`
+    // is dropped forever — so re-fire it until the bridge answers through the stub.
+    await waitFor(() => {
+      fireEvent.load(frame);
+      expect(hellos).toBeGreaterThan(0);
+    });
+
+    // The load listener is now proven registered, so one more load must re-ask, synchronously.
+    const before = hellos;
     fireEvent.load(frame);
-    expect(receivedHello).toBe(true);
+    expect(hellos).toBe(before + 1);
+
     await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
       expect(button.hasAttribute('aria-disabled')).toBe(false),
     );
