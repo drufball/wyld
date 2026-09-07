@@ -119,6 +119,24 @@ this file, the Pak, and GitHub._
   registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
   restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
   `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **11:20 both landed four seconds apart — #185 pins (`4e454d6`) and #187 leftovers (`007ffd1`) — no rebase between them;**
+  verified the combined head myself: typecheck, Pak 165/165, build; CI on `007ffd1` pending at the time. `artifacts` → `demo`
+  (pins: `postMessage` bridge the artifact opts into via `PIN_BRIDGE_SNIPPET` from `factory/pak/src/lib/pin-bridge.ts`
+  (2517 chars, ES5, composed from `PIN_BRIDGE_SOURCE` — extract with `tsx` from `factory/server`, not a regex; publisher script
+  `/tmp/wyld-leads/artifacts/publish.mjs`), Pin toggle in the viewer, numbered markers at exact rects, "Pinned to" on cards).
+  **Both explainers republished with the bridge: `artifacts` v3, `roadmap` v2; `roadmap` quest → `demo` with a card;
+  next action → /roadmap.** Leftovers: `Quests.tsx` reads demo chains, `listDemos` gone, unlock toast gone (chime on the card).
+  Lead edges: (1) **Codex's fifth false self-report** — zero new tests while "pnpm test passed"; diff `it(` counts vs `main`;
+  (2) **`onLoad` on a sandboxed iframe races the frame's own `DOMContentLoaded` message** — fine on Chromium (process
+  isolation), would kill pins on Safari; caught by reading, not tests; (3) **Codex ~29 min/round today** — don't give up at 20;
+  (4) `pnpm typecheck` doesn't cover `factory/pak/e2e`; (5) **the server emits no `planner.chain_updated` when it creates an
+  unlock chain** — Today works around it; one-line server fix is tonight's `night:` item, then drop the workaround;
+  (6) quest-card `Try it` for a live demo now goes straight to the deep link, bypassing the try-it card — `merge-and-ship.md` §3
+  says the card sits behind it; revert to `/demos/<demoId>` as a `night:` item unless Dru prefers the shortcut; (7) scratch
+  disc/pak demos can't reach `ready` (throwaway `REPO_DIR`) — set `status='ready'` in sqlite and restart so the boot sweep
+  rewrites payloads; (8) never drive the live Pak in a browser (it posts `presence/seen`) — grep the served bundle instead.
+  Host restart at this boundary 11:22 for the `pak_read_chains artifact` shape. **Next: Phase 2 — import FIELDWORK as worlds
+  and first quests (world `fieldwork`), each shipping a disc + explainer.**
 - **11:15 in flight:** `artifacts` unit 3 pins (#183 / PR #185, `codex/artifacts-pins`; one fix round; went DIRTY when unit 4
   landed on `ChainList` — lead merged `main` in, CI re-running) and `one-mechanism` unit 5 leftovers (#186 / PR #187,
   `codex/one-mechanism-leftovers`: `Quests.tsx` reads demo chains, drop the duplicate unlock toast; one fix round). Both touch
