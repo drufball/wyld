@@ -96,6 +96,10 @@ describe('artifact routes', () => {
     expect((await post({ ...body('missing'), questId: 'missing' })).status).toBe(404);
   });
   it('serves verbatim HTML with confinement headers and redirects', async () => {
+    expect((await app.request('/api/artifacts/does-not-exist')).status).toBe(404);
+    expect(
+      (await app.request('/api/artifacts/does-not-exist', { method: 'DELETE' })).status,
+    ).toBe(404);
     await post(body());
     expect((await app.request('/artifacts/roadmap')).status).toBe(301);
     const response = await app.request('/artifacts/roadmap/');
