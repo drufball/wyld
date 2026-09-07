@@ -42,3 +42,47 @@ test('pins a comment to an explainer element', async ({ page, request }) => {
   expect(chains[0].messages[0].text).toBe('Look here');
   await expect(page.getByRole('button', { name: 'Pinned comment 1: Hero title' })).toBeVisible();
 });
+
+test('recovers a parse-time ready announcement with the hello handshake', async ({
+  page,
+  request,
+}) => {
+  const slug = `pins-hello-e2e-${Date.now()}`;
+  const handshake = `<script>(function(){var parentWindow=window.parent;parentWindow.postMessage({type:'wyld:pin:ready'},'*');window.addEventListener('message',function(event){if(event.source!==parentWindow)return;var data=event.data;if(data&&typeof data==='object'&&data.type==='wyld:pin:hello')parentWindow.postMessage({type:'wyld:pin:ready'},'*');});})();</script>`;
+  const html = `<!doctype html><html><head><title>Handshake</title>${handshake}</head><body><h1>Handshake</h1></body></html>`;
+  expect(
+    (
+      await request.post('/api/artifacts', {
+        data: { slug, title: 'Handshake test', summary: 'Parse-time ready', html },
+      })
+    ).ok(),
+  ).toBe(true);
+
+  await page.goto(`/explain/${slug}`);
+  await expect(page.getByRole('button', { name: 'Pin a comment' })).not.toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+});
+
+test('enables pinning when readiness is announced only in reply to hello', async ({
+  page,
+  request,
+}) => {
+  const slug = `pins-hello-only-e2e-${Date.now()}`;
+  const handshake = `<script>(function(){var parentWindow=window.parent;window.addEventListener('message',function(event){if(event.source!==parentWindow)return;var data=event.data;if(data&&typeof data==='object'&&data.type==='wyld:pin:hello')parentWindow.postMessage({type:'wyld:pin:ready'},'*');});})();</script>`;
+  const html = `<!doctype html><html><head><title>Hello only</title>${handshake}</head><body><h1>Hello only</h1></body></html>`;
+  expect(
+    (
+      await request.post('/api/artifacts', {
+        data: { slug, title: 'Hello-only test', summary: 'Handshake-only ready', html },
+      })
+    ).ok(),
+  ).toBe(true);
+
+  await page.goto(`/explain/${slug}`);
+  await expect(page.getByRole('button', { name: 'Pin a comment' })).not.toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+});

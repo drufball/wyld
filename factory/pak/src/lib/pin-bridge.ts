@@ -42,7 +42,9 @@ export const PIN_BRIDGE_SOURCE = `(function () {
     if (event.source !== parentWindow) return;
     var data = event.data;
     if (!data || typeof data !== 'object') return;
-    if (data.type === 'wyld:pin:mode') {
+    if (data.type === 'wyld:pin:hello') {
+      ready();
+    } else if (data.type === 'wyld:pin:mode') {
       on = data.on === true; document.documentElement.classList.toggle('wyld-pin-mode', on);
     } else if (data.type === 'wyld:pin:locate') {
       wanted = Array.isArray(data.elements) ? data.elements : []; sendRects();
@@ -55,6 +57,7 @@ export const PIN_BRIDGE_SOURCE = `(function () {
   document.head.appendChild(style);
   function ready() { send({ type: 'wyld:pin:ready' }); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
+  window.addEventListener('load', ready);
 })();`;
 
 export const PIN_BRIDGE_SNIPPET = `<script>\n${PIN_BRIDGE_SOURCE}\n</script>`;
@@ -71,7 +74,9 @@ const rect = (value: unknown): value is PinRect =>
   );
 
 export function createPinBridge(options: {
-  frame: { contentWindow: Window | null };
+  frame: { contentWindow: Window | null } & Partial<
+    Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>
+  >;
   onReady: () => void;
   onPick: (pick: PinPick) => void;
   onRects: (rects: Record<string, PinRect>) => void;
@@ -100,11 +105,19 @@ export function createPinBridge(options: {
         ),
       );
   };
-  target.addEventListener('message', receive);
   const post = (message: object) => options.frame.contentWindow?.postMessage(message, '*');
+  const hello = () => post({ type: 'wyld:pin:hello' });
+  target.addEventListener('message', receive);
+  hello();
+  if (typeof options.frame.addEventListener === 'function')
+    options.frame.addEventListener('load', hello);
   return {
     setMode: (on: boolean) => post({ type: 'wyld:pin:mode', on }),
     locate: (elements: string[]) => post({ type: 'wyld:pin:locate', elements }),
-    stop: () => target.removeEventListener('message', receive),
+    stop: () => {
+      target.removeEventListener('message', receive);
+      if (typeof options.frame.removeEventListener === 'function')
+        options.frame.removeEventListener('load', hello);
+    },
   };
 }

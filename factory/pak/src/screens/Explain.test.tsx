@@ -181,7 +181,7 @@ describe('Explain', () => {
     expect(button.getAttribute('aria-disabled')).toBe('true');
     expect(button.getAttribute('title')).toBe("This explainer can't take pins yet");
     fireEvent.click(button);
-    expect(postMessage).not.toHaveBeenCalled();
+    expect(postMessage).not.toHaveBeenCalledWith({ type: 'wyld:pin:mode', on: true }, '*');
 
     await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
       expect(button.hasAttribute('aria-disabled')).toBe(false),
@@ -197,6 +197,34 @@ describe('Explain', () => {
     fireEvent.click(button);
     expect(button.getAttribute('aria-pressed')).toBe('false');
     expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:mode', on: false }, '*');
+  });
+
+  it('recovers frame readiness by asking again with hello', async () => {
+    mocks.getArtifact.mockResolvedValue(artifact);
+    renderRoute('/explain/forest-map');
+    const button = await screen.findByRole('button', { name: 'Pin a comment' });
+    const frame = screen.getByTitle(artifact.title) as HTMLIFrameElement;
+    let receivedHello = false;
+    const contentWindow = {
+      postMessage(message: unknown) {
+        if (
+          typeof message === 'object' &&
+          message !== null &&
+          'type' in message &&
+          message.type === 'wyld:pin:hello'
+        ) {
+          receivedHello = true;
+        }
+      },
+    } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.load(frame);
+    expect(receivedHello).toBe(true);
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
+      expect(button.hasAttribute('aria-disabled')).toBe(false),
+    );
   });
 
   it('creates an anchored chain from a frame pick and exits pin mode', async () => {
