@@ -266,7 +266,7 @@ describe('Demos', () => {
     expect(frame.getAttribute('src')).toBe('/play/a-disc/?debug=1');
     const player = frame.parentElement;
     expect(player?.className).toContain('bottom-[calc(53px+env(safe-area-inset-bottom))]');
-    expect(player?.className).toContain('md:static');
+    expect(player?.className).toContain('md:relative');
     expect(player?.className).not.toContain('bottom-[72px]');
   });
 

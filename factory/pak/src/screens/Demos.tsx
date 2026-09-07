@@ -395,7 +395,7 @@ function DemoPlayer({ id }: { id: string }) {
   return (
     <div
       ref={panelRef}
-      className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-10 bg-card md:static md:z-auto"
+      className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-10 bg-card md:relative md:z-auto"
     >
       <Button asChild variant="retro" className="absolute left-3 top-3 z-2">
         <Link to="/demos">Back to demos</Link>
