@@ -101,6 +101,14 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **13:41 M0 "Walk the world" is complete on `main` (`9b8ee13`, four units, PRs #189/#191/#193/#196, one round each); final disc
+  `ready`.** `game/VERIFICATION.md`: four PASS (seeded RNG, region lookup, water/slope traversal measured at exactly 0.60 m and 56–64°,
+  the 12-minute day at 9.98 s/10 s with `time Night` dropping sky brightness 122.7→28.1) and **one PARTIAL — 60 fps on an integrated
+  GPU cannot be measured under SwiftShader** (7.8–37.2 fps there; triangles ≤ 114k post-cull, under the 200k cap). The next action
+  asks Dru to read the frame rate via `?debug=1` on the disc; if it's under 60 on his laptop, a perf unit goes on `fw-m0-world`.
+  **M1 "Creatures exist" started 13:42** (lead reads `/tmp/wyld-leads/fw-m1/brief.md`; units: species+individuals, body plans, spawn+
+  calls, detection; disc `fw-m1-creatures`). Judgement call, recorded: M1 started with M0's fps checkpoint open, because creatures
+  don't depend on it and the fix is an M0 unit either way. Roadmap explainer v5 shows M0 landed / M1 now.
 - **13:37 M0 unit 3 landed** (#192 / PR #193 water/sky/12-minute day/HUD/`time`+`tp`, one round; disc `ready`); unit 4 (props/perf/
   `VERIFICATION.md`, #194 / PR #196) is in a fix round. **`main` flickered red at 12:06Z on `factory/pak` `Explain.test.tsx`
   ("keeps pinning disabled until the frame is ready…") on a commit that touched only `game/`** — 5/5 green locally, green on
