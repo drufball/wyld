@@ -40,3 +40,10 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 - Manual: creature silhouette readability on a phone — **pending Planner review**.
 - Manual: all species spawn, wander, call, react, and display eye meters — **pending Planner review**.
 - Manual: draw-call budget with 24 on-screen creatures — **pending Planner review**.
+
+## FIELDWORK in 2D — unit 3 (the party)
+
+- Automated: party roster, player/creature selection, wild targeting, formation offsets, and follower repathing are covered in `src/party/party.test.ts`.
+- Automated: scenario query fallback and the fixed 20 × 12 six-rock arena are covered in `src/scenarios/scenarios.test.ts`.
+- Automated: thumb-sized party, move, book, map, and gated console controls are covered in `src/ui/hud.test.ts`.
+- Scenarios: `world`, `creatures`, `guide`, `party`, and `arena`.

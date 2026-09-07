@@ -1,9 +1,18 @@
 import type { TimeState } from '../world/time.js';
+import type { Individual } from '../creatures/individual.js';
 
 type HudState = TimeState & {
   regionName: string | null;
   biome: string;
   target?: { detection: number } | null;
+  party?: { individual: Individual; name: string }[];
+  selection?: string;
+};
+type HudActions = {
+  selectCreature?(id: string): void;
+  openBook?(): void;
+  openMap?(): void;
+  openConsole?(): void;
 };
 type DetectionTargetElements = {
   bar: { style: { display: string } };
@@ -20,7 +29,7 @@ const updateDetectionTarget = (
   elements.fill.setAttribute('data-detection-fill', detection.toFixed(3));
   elements.outline.setAttribute('stroke', detection >= 1 ? '#292b25' : '#777566');
 };
-const createHud = (showRegion: boolean, toastRoot: HTMLElement) => {
+const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActions = {}) => {
   const root = document.createElement('aside');
   root.setAttribute('aria-live', 'polite');
   root.setAttribute('aria-label', 'Time and place');
@@ -70,6 +79,31 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement) => {
   const eyeOutline = eye.lastElementChild?.previousElementSibling as SVGPathElement;
   targetBar.append(targetLabel, eye);
   toastRoot.append(targetBar);
+  const tray = document.createElement('nav');
+  tray.setAttribute('aria-label', 'Party and tools');
+  tray.style.cssText =
+    'position:fixed;z-index:5;left:8px;right:8px;bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px;pointer-events:auto;font:11px/14px ui-monospace,monospace';
+  const partyCards = document.createElement('div');
+  partyCards.style.cssText = 'display:flex;gap:4px;align-items:end';
+  const moves = document.createElement('div');
+  moves.style.cssText = 'display:flex;gap:4px;justify-content:center';
+  const tools = document.createElement('div');
+  tools.style.cssText = 'display:flex;gap:4px;justify-content:flex-end';
+  const control = (label: string, action?: () => void): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.textContent = label;
+    button.style.cssText =
+      'box-sizing:border-box;min-width:44px;min-height:44px;padding:4px;border:1px solid #777566;background:#f4efd9ee;color:#292b25;font:inherit;cursor:pointer';
+    if (action) button.addEventListener('click', action);
+    return button;
+  };
+  tools.append(
+    control('Book', () => actions.openBook?.()),
+    control('Map', () => actions.openMap?.()),
+  );
+  if (showRegion) tools.append(control('Console', () => actions.openConsole?.()));
+  tray.append(partyCards, moves, tools);
+  document.body.append(tray);
   return {
     update(state: HudState): void {
       phase.textContent = state.phase;
@@ -77,10 +111,30 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement) => {
       day.textContent = `Day ${state.day}`;
       region.textContent = `${state.regionName ?? 'Uncharted'} · ${state.biome}`;
       updateDetectionTarget({ bar: targetBar, fill: eyeFill, outline: eyeOutline }, state.target);
+      partyCards.replaceChildren(
+        ...(state.party ?? []).map(({ individual, name }) => {
+          const button = control(`${name}\n${individual.speciesId}`, () =>
+            actions.selectCreature?.(individual.id),
+          );
+          button.setAttribute('aria-pressed', String(state.selection === individual.id));
+          button.dataset.partyId = individual.id;
+          if (state.selection === individual.id) button.style.outline = '2px solid #bd7132';
+          return button;
+        }),
+      );
+      moves.replaceChildren();
+      const selected = state.party?.find(({ individual }) => individual.id === state.selection);
+      for (const move of selected?.individual.repertoire ?? []) {
+        const button = control(move.name);
+        button.dataset.moveId = move.id;
+        button.addEventListener('click', () => (button.textContent = 'Not yet.'));
+        moves.append(button);
+      }
     },
     targetBar,
+    tray,
   };
 };
 
 export { createHud, updateDetectionTarget };
-export type { DetectionTargetElements, HudState };
+export type { DetectionTargetElements, HudActions, HudState };

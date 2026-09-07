@@ -22,6 +22,9 @@ type WyldGameState = {
     detection: number;
     behaviour: 'wander' | 'flee' | 'aggro' | 'hold';
   }[];
+  party: { id: string; speciesId: string; name: string; tile: { x: number; y: number } }[];
+  selection: string;
+  target: { id: string; speciesId: string } | null;
   guide: {
     open: boolean;
     tab: string;

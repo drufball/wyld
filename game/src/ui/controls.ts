@@ -3,9 +3,10 @@ type ControlRow = readonly [key: string, description: string];
 const buildControlRows = (debugAvailable: boolean): ControlRow[] => {
   const rows: ControlRow[] = [
     ['Tap the ground', 'walk'],
+    ['Tap a creature', 'select it'],
+    ['Tap yourself', 'take back control'],
+    ['Tap a wild creature', 'look at it'],
     ['Walk to an edge', 'next screen'],
-    ['G', 'field guide'],
-    ['M', 'map'],
     ['?', 'this card'],
   ];
   if (debugAvailable) rows.push(['`', 'console']);
