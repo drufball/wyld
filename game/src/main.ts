@@ -4,6 +4,11 @@ import { createInput } from './engine/input.js';
 import { createEventBus } from './engine/events.js';
 import { createLoop } from './engine/loop.js';
 import { createRng, resolveSeed } from './engine/rng.js';
+import { roll } from './creatures/individual.js';
+import { createCreatureRegistry } from './creatures/registry.js';
+import { species, speciesById } from './creatures/species.js';
+import type { CreatureState } from './creatures/bodyplans/types.js';
+import type { Temperament } from './creatures/species.js';
 import { createPlayerController } from './player/controller.js';
 import { buildState } from './state.js';
 import { createDebugConsole } from './ui/debug.js';
@@ -54,6 +59,11 @@ const terrain = createTerrain(seed);
 scene.add(terrain.group);
 const water = createWater(terrain.heightAt);
 scene.add(water.group);
+const registry = createCreatureRegistry({
+  scene,
+  heightAt: terrain.heightAt,
+  depthAt: water.depthAt,
+});
 const props = createProps(
   placeProps({
     rng: gameRng,
@@ -123,6 +133,59 @@ debugConsole.registerCommand('tp', {
     return `teleported: ${camp.name}`;
   },
 });
+const temperamentNames: readonly Temperament[] = ['Skittish', 'Bold', 'Steady', 'Erratic'];
+debugConsole.registerCommand('spawn', {
+  help: 'spawn <speciesId> [temperament] [lateralOffsetMetres] — 15 m ahead; positive offset is right',
+  run: (args) => {
+    const data = speciesById(args[0] ?? '');
+    if (!data)
+      return `valid species: ${species()
+        .map(({ id }) => id)
+        .join(', ')}`;
+    const requestedTemperament = args[1];
+    const temperament = requestedTemperament
+      ? temperamentNames.find((entry) => entry.toLowerCase() === requestedTemperament.toLowerCase())
+      : undefined;
+    if (requestedTemperament && !temperament)
+      return `valid temperaments: ${temperamentNames.join(', ')}`;
+    const lateral = args[2] === undefined ? 0 : Number(args[2]);
+    if (!Number.isFinite(lateral)) return 'lateralOffsetMetres must be a number';
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(player.object.quaternion);
+    forward.y = 0;
+    forward.normalize();
+    const right = new THREE.Vector3(-forward.z, 0, forward.x);
+    const point = player.object.position
+      .clone()
+      .addScaledVector(forward, 15)
+      .addScaledVector(right, lateral);
+    const rolled = roll(data, gameRng);
+    const individual = temperament ? { ...rolled, temperament } : rolled;
+    const facing = Math.atan2(
+      player.object.position.x - point.x,
+      player.object.position.z - point.z,
+    );
+    const creature = registry.add(individual, point.x, point.z, facing);
+    return `${creature.speciesId} ${creature.temperament} ${creature.id}`;
+  },
+});
+const creatureStates: readonly CreatureState[] = ['idle', 'locomotion', 'execute'];
+debugConsole.registerCommand('state', {
+  help: 'state <creatureId> <idle|locomotion|execute>',
+  run: ([id = '', requested = '']) => {
+    const creature = registry.get(id);
+    if (!creature)
+      return `unknown creature: ${id || '(missing)'}; spawned: ${
+        registry
+          .list()
+          .map(({ id: creatureId }) => creatureId)
+          .join(', ') || 'none'
+      }`;
+    const state = creatureStates.find((entry) => entry === requested.toLowerCase());
+    if (!state) return `valid states: ${creatureStates.join(', ')}`;
+    registry.setState(id, state);
+    return `${id}: ${state}`;
+  },
+});
 
 const render = (): void => {
   renderer.render(scene, camera);
@@ -132,6 +195,7 @@ const loop = createLoop({
   update: (dtSeconds) => {
     setElapsedSeconds(elapsedSeconds + dtSeconds);
     player.update(dtSeconds);
+    registry.update(elapsedSeconds);
     const region = pointToRegion(player.object.position.x, player.object.position.z);
     const clock = timeAt(elapsedSeconds);
     const sunDirection = sky.update(clock.dayProgress);
@@ -171,6 +235,15 @@ window.__wyld = {
       biome: terrain.biomeAt(player.object.position.x, player.object.position.z),
       ...timeAt(elapsedSeconds),
       waterDepth: water.depthAt(player.object.position.x, player.object.position.z),
+      creatures: registry
+        .list()
+        .map((creature) => ({
+          id: creature.id,
+          species: creature.speciesId,
+          temperament: creature.temperament,
+          position: { x: creature.position.x, y: creature.position.y, z: creature.position.z },
+          state: creature.state,
+        })),
     }),
   screenshot: () => {
     render();

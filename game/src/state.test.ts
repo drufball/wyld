@@ -19,6 +19,15 @@ describe('game state', () => {
       day: 1,
       phaseProgress: 0.25,
       waterDepth: 0,
+      creatures: [
+        {
+          id: 'loamox-1',
+          species: 'loamox',
+          temperament: 'Bold',
+          position: { x: 2, y: 1, z: 3 },
+          state: 'idle',
+        },
+      ],
     });
     camera.x = 99;
     player.x = 99;
@@ -35,6 +44,15 @@ describe('game state', () => {
       day: 1,
       phaseProgress: 0.25,
       waterDepth: 0,
+      creatures: [
+        {
+          id: 'loamox-1',
+          species: 'loamox',
+          temperament: 'Bold',
+          position: { x: 2, y: 1, z: 3 },
+          state: 'idle',
+        },
+      ],
     });
   });
 });

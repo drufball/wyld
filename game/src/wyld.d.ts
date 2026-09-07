@@ -11,6 +11,13 @@ type WyldGameState = {
   day: number;
   phaseProgress: number;
   waterDepth: number;
+  creatures: {
+    id: string;
+    species: string;
+    temperament: 'Skittish' | 'Bold' | 'Steady' | 'Erratic';
+    position: { x: number; y: number; z: number };
+    state: 'idle' | 'locomotion' | 'execute';
+  }[];
 };
 
 interface WyldGameApi {
