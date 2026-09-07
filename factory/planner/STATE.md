@@ -101,6 +101,12 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **16:10 M1 "Creatures exist" is complete on `main` (`90d3363`; four units, PRs #200/#203/#207/#209, one round each plus a
+  verification-record push) — `game/VERIFICATION.md` M1: eight checkpoints, all PASS.** M1 explainer published (v1, pins on;
+  species cards, who's-about clock, detection-eye rehearsal); roadmap v7 shows M1 landed / M2 now. **M2 "The field guide" started
+  16:11** — lead reads `/tmp/wyld-leads/fw-m2/brief.md` (units: notebook model, tracks+observation+toasts, guide book, map with fog
+  of war; disc `fw-m2-guide`). The M1 lead's final disc/card/quest→demo and report are still landing; next action and Catch-Up
+  refresh follow them.
 - **15:27 M2 brief written** at `/tmp/wyld-leads/fw-m2/brief.md` (the pure notebook; tracks decals + observation + toasts; the
   guide book with the merge animation; the map with fog of war) — spawns the moment M1's unit 4 lands. M1 unit 4 (detection, #208)
   with Codex. **Checked a claim in the M1 lead's unit-3 note** ("calls from eleven species at the pond after dark"): `spawn.ts`
