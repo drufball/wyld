@@ -136,6 +136,10 @@ export function createAchievements(options: {
   };
   const evaluate = async (): Promise<Achievement[]> => {
     const unlocked: Achievement[] = [];
+    const created: Array<{
+      chain: ReturnType<typeof createUnlockChain>;
+      achievement: Achievement;
+    }> = [];
     for (const item of list().filter(({ unlockedAt }) => unlockedAt === null)) {
       if (!qualifies(item.id)) continue;
       const unlockedAt = options.now().toISOString();
@@ -148,11 +152,22 @@ export function createAchievements(options: {
       if (!changed) continue;
       const achievement = Achievement.parse(changed);
       unlocked.push(achievement);
-      createUnlockChain(options.database, achievement, unlockedAt);
+      const chain = createUnlockChain(options.database, achievement, unlockedAt);
+      created.push({ chain, achievement });
       await options.storeEvent({
         source: 'pak',
         kind: 'pak.achievement_unlocked',
         payload: { id: achievement.id, name: achievement.name, badge: achievement.badge },
+      });
+    }
+    for (const { chain, achievement } of created) {
+      await options.storeEvent({
+        source: 'planner',
+        kind: 'planner.chain_updated',
+        payload: {
+          chainId: chain.id,
+          text: `Achievement unlocked — ${achievement.name}`,
+        },
       });
     }
     return unlocked;

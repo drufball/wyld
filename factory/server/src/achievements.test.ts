@@ -74,7 +74,23 @@ describe('achievements', () => {
       tags: JSON.stringify(['unlock']),
       payload: expect.stringContaining('first-quest-done'),
     });
-    expect(storeEvent).toHaveBeenCalledTimes(1);
+    expect(storeEvent).toHaveBeenCalledTimes(2);
+  });
+  it('announces a created unlock chain with its first message', async () => {
+    world();
+    quest('one', 'done');
+    await service().evaluate();
+    const chain = database.sqlite
+      .prepare(
+        "SELECT chains.id, chain_messages.text FROM chains JOIN chain_messages ON chain_messages.chain_id = chains.id WHERE chains.kind = 'unlock'",
+      )
+      .get() as { id: number; text: string };
+    expect(storeEvent).toHaveBeenCalledWith({
+      source: 'planner',
+      kind: 'planner.chain_updated',
+      payload: { chainId: chain.id, text: chain.text },
+    });
+    expect(chain.text).toBe('Achievement unlocked — First Light');
   });
   it('unlocks five completions at five, not four', async () => {
     world();

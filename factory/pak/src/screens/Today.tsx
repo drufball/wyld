@@ -288,7 +288,6 @@ export function Today({
   useEffect(() => {
     loadUnlocks();
     const stops = [
-      subscribe('pak.achievement_unlocked', loadUnlocks),
       subscribe('planner.chain_updated', loadUnlocks),
       subscribe('human.chain_closed', loadUnlocks),
     ];
