@@ -1008,3 +1008,17 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 
 `.factory/` is gitignored, so a fresh clone starts empty. Re-seed with `POST /api/worlds` and
 `POST /api/quests` if the database is ever rebuilt.
+
+## M1 lead — sharp edges (2026-09-07 15:15)
+
+- `pak_register_demo ref=` needs the **full 40-char sha**; the builder does `git fetch origin -- <sha>` and a short ref fails.
+- `creatureCalled` fires world-wide (audio gated at 60 m, the event is not) — M2 observation must range-filter at 25 m. Relayed to M2 lead.
+- `__wyld.screenshot()` is WebGL-only; DOM HUD/book/toasts never appear. Verify DOM via probe queries or Playwright page screenshot.
+- Spawn cap (24) fills in `world.json` region order → distant regions can starve the player's region. Fix = spawn unit, not M2.
+- Debug-spawned creatures wander; a Steady one drifts into the 8 m escalation radius. Prefer wild spawns for identification checks.
+- Aggro creatures follow the player; the bark hold never released until unit 4 fixed it.
+- Ash Fields is bare (props density) — night Sweep candidate if headroom.
+- Codex 25–30 min/round all afternoon; chain wait loops to the 30-min cap.
+- Thin tests 3× in M1 (files added, listed cases omitted) → **count acceptance cases vs `it(` blocks first.**
+- Reusable probe harness: `/tmp/wyld-probe.mjs`.
+- Status: `fw-m1-creatures` demo, disc ready at `90d3363`, card registered. Next action + Catch-Up (1261→1472) rewritten.
