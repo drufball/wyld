@@ -8,7 +8,7 @@ const pwaOptions = {
   devOptions: { enabled: false },
   workbox: {
     navigateFallback: '/index.html',
-    navigateFallbackDenylist: [/^\/play\//, /^\/api\//],
+    navigateFallbackDenylist: [/^\/play\//, /^\/api\//, /^\/artifacts\//],
     skipWaiting: true,
     clientsClaim: true,
   },
@@ -43,6 +43,10 @@ const config = defineConfig({
         },
       },
       '/play': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
+      '/artifacts': {
         target: 'http://localhost:8787',
         changeOrigin: true,
       },

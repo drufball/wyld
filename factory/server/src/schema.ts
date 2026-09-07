@@ -1,5 +1,5 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { SleepAlarm, SleepPhaseEntry } from '@wyld/shared';
+import type { ChainAnchor, SleepAlarm, SleepPhaseEntry } from '@wyld/shared';
 
 export const achievements = sqliteTable('achievements', {
   id: text('id').primaryKey(),
@@ -202,6 +202,7 @@ export const chains = sqliteTable(
     tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
     demoId: text('demo_id'),
     payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>(),
+    anchor: text('anchor', { mode: 'json' }).$type<ChainAnchor>(),
     slug: text('slug'),
     title: text('title'),
     context: text('context'),
@@ -219,6 +220,21 @@ export const chains = sqliteTable(
     index('chains_demo_id_idx').on(table.demoId),
     uniqueIndex('chains_slug_unique').on(table.slug),
   ],
+);
+
+export const artifacts = sqliteTable(
+  'artifacts',
+  {
+    slug: text('slug').primaryKey(),
+    questId: text('quest_id'),
+    title: text('title').notNull(),
+    summary: text('summary').notNull(),
+    html: text('html').notNull(),
+    version: integer('version').notNull().default(1),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [index('artifacts_quest_id_idx').on(table.questId)],
 );
 
 export const chainMessages = sqliteTable(
