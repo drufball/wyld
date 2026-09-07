@@ -28,6 +28,7 @@ import { createObserver, type ObserveFrame } from './guide/observe.js';
 import { buildState } from './state.js';
 import { createDebugConsole } from './ui/debug.js';
 import { createHud } from './ui/hud.js';
+import { createGuideBook } from './ui/guide.js';
 import { createStatsPanel } from './ui/stats.js';
 import { createToastStack } from './ui/toasts.js';
 import { camps, pointToRegion, populationFor, regions } from './world/regions.js';
@@ -117,6 +118,16 @@ const toasts = createToastStack();
 const hud = createHud(debugConsole.available, toasts.root);
 const notebook = createNotebook();
 const observer = createObserver({ notebook });
+// Initialised after the loop so its callback can pause that loop.
+// eslint-disable-next-line prefer-const
+let guideBook!: ReturnType<typeof createGuideBook>;
+const showDiscoveries = (discoveries: ReturnType<typeof observer.update>): void => {
+  for (const discovery of discoveries) {
+    toasts.show(discovery);
+    if (discovery.slot === 'identified' && discovery.merged > 0)
+      guideBook.noteMerge(discovery.speciesId, discovery.merged);
+  }
+};
 type GameEvents = {
   phaseChanged: { phase: Phase; day: number };
   creatureCalled: { id: string; species: string; position: { x: number; y: number; z: number } };
@@ -137,7 +148,7 @@ events.on('creatureCalled', (payload) => {
   pendingCalls.push(payload);
 });
 events.on('creatureExecutedMove', (payload) => {
-  observer.onCreatureExecutedMove(payload).forEach((discovery) => toasts.show(discovery));
+  showDiscoveries(observer.onCreatureExecutedMove(payload));
 });
 const callAudio = createCallAudio();
 callAudio.resumeOnGesture(window);
@@ -153,7 +164,7 @@ const player = createPlayerController({
     Math.abs(z) <= 400 &&
     isSlopeStandable(terrain.slopeAt(x, z)) &&
     isWaterStandable(water.depthAt(x, z)),
-  canMove: () => !debugConsole.isOpen,
+  canMove: () => !debugConsole.isOpen && !guideBook?.isOpen,
   start: { x: -150, z: 50 },
 });
 let elapsedSeconds = 0;
@@ -284,6 +295,43 @@ debugConsole.registerCommand('spawn', {
       wander.begin(point.x, point.z, 30, elapsedSeconds, creature.model.group.rotation.y),
     );
     return `${creature.speciesId} ${creature.temperament} ${creature.id}`;
+  },
+});
+debugConsole.registerCommand('reveal', {
+  help: 'reveal guide — fill every field-guide fact',
+  run: ([target = '']) => {
+    if (target.toLowerCase() !== 'guide') return 'usage: reveal guide';
+    const forcesByHide = {
+      Bark: ['Heat', 'Cut'],
+      Shell: ['Impact', 'Cut'],
+      Scale: ['Surge', 'Heat'],
+      Hide: ['Cut', 'Surge'],
+      Stone: ['Surge', 'Impact'],
+    } as const;
+    const clock = timeAt(elapsedSeconds);
+    for (const definition of species()) {
+      const habitat = definition.habitat[0]!;
+      const region = regions().find(({ id }) => id === habitat.region)!;
+      const located = { region: region.id, day: clock.day };
+      notebook.identify(definition.id, {
+        ...located,
+        phase: habitat.phases[0]!,
+        position: { x: region.x, y: terrain.heightAt(region.x, region.z), z: region.z },
+      });
+      notebook.recordTracks(definition.id, located);
+      notebook.recordCall(definition.id, located);
+      notebook.recordHide(definition.id, definition.hide);
+      notebook.recordWeakness(definition.id, forcesByHide[definition.hide][0]);
+      notebook.recordResistance(definition.id, forcesByHide[definition.hide][1]);
+      definition.signatureMoves.forEach(({ name }) => notebook.recordMove(definition.id, name));
+      notebook.recordTemperament(
+        definition.id,
+        Object.keys(definition.temperament)[0] as Temperament,
+      );
+      notebook.recordCapture(definition.id);
+    }
+    guideBook.refresh();
+    return 'guide revealed';
   },
 });
 const creatureStates: readonly CreatureState[] = ['idle', 'locomotion', 'execute'];
@@ -607,9 +655,9 @@ const loop = createLoop({
         };
       }),
     };
-    observer.update(dtSeconds, observeFrame).forEach((discovery) => toasts.show(discovery));
+    showDiscoveries(observer.update(dtSeconds, observeFrame));
     for (const call of pendingCalls.splice(0))
-      observer.onCreatureCalled(call, observeFrame).forEach((discovery) => toasts.show(discovery));
+      showDiscoveries(observer.onCreatureCalled(call, observeFrame));
     const sunDirection = sky.update(clock.dayProgress);
     sun.target.position.copy(player.object.position);
     sun.position.set(
@@ -643,6 +691,16 @@ const loop = createLoop({
   render,
 });
 
+guideBook = createGuideBook({
+  notebook,
+  renderer,
+  debugOpen: () => debugConsole.isOpen,
+  onOpenChange: (open) => {
+    if (open) loop.stop();
+    else loop.start();
+  },
+});
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -673,6 +731,8 @@ window.__wyld = {
         behaviour: aiStateFor(creature.id).behaviour,
       })),
       guide: {
+        open: guideBook.isOpen,
+        tab: guideBook.tab,
         completion: notebook.overallCompletion(),
         pages: notebook.pages().map((page) => ({
           speciesId: page.speciesId,
