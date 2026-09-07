@@ -1064,3 +1064,4 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 - **Game lane:** M2 unit 3 (#215 green, merging) → unit 4 map (sampler-injectable; told the lead) → M2 disc ready → **spawn the 2D lead** (~18:15) → unit 1 tonight, unit 2 maybe, unit 3 tomorrow → M3.
 - Sleep Mode tonight: the 2D lead must leave any unfinished unit as a draft PR by 22:30.
 - M0/M1 discs stay as the 3D record; after 2D unit 3 their cards get scenario deep links (or are hidden — ask Dru then).
+- 17:08 Dru: backtick console dead in the M2 disc. **Cause: `debug.ts` gates on `DEV || ?debug=1`; the Pak player iframes `/play/<id>/` without it → the console never worked from the Pak on any disc.** Confirmed headless on M1 and M2 discs. Fix → demo-player lead folds `?debug=1` into #218. Rule: disc cards may assume the console; the player passes `?debug=1`. Probe: `/tmp/wyld-console-probe.cjs` (`NODE_PATH=factory/pak/node_modules`).
