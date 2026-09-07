@@ -101,6 +101,13 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **13:47 pins deflaked (#195 / PR #197, test-only, zero rounds, 40/40 green under CPU load; vitest 5 flag is `--pool=forks`,
+  `--poolOptions.*` is gone) and a real product race surfaced:** the embedded bridge posts its only `wyld:pin:ready` on
+  `DOMContentLoaded`, before `ArtifactViewer`'s passive effect installs the parent listener — a fast frame (or Safari) leaves the
+  Pin button `aria-disabled` until reload. Fix in flight as a two-way handshake (viewer `hello` after installing its listener and
+  on iframe `load`; frame replies `ready` to `hello` and also on `load`), lead on `codex/artifacts-handshake`; `artifacts` back to
+  `building`. **After it merges, republish all three explainers with the new `PIN_BRIDGE_SNIPPET`** (`publish.mjs` skips unchanged,
+  so force by touching the drafts or delete the skip once) — old HTML carries the old snippet.
 - **M0 lead's findings (13:42), for every game lead:** spec resolutions — east = +x, north = −z, sea level y = 0; region radii ≈
   half the nearest-neighbour distance, overlaps resolve to smallest dist/radius, ties by ascending id (`pointToRegion` is total);
   all 8 camps placed on standable ground; the one directional light is placed at `player + sunDir × 120` with a ±60 shadow frustum
