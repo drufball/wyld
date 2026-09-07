@@ -4,8 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
 import { Explain, Roadmap } from './Explain.js';
 
-const mocks = vi.hoisted(() => ({ getArtifact: vi.fn() }));
-vi.mock('../api/client.js', () => ({ getArtifact: mocks.getArtifact }));
+const mocks = vi.hoisted(() => ({ getArtifact: vi.fn(), listChains: vi.fn(), postChain: vi.fn() }));
+vi.mock('../api/client.js', () => ({
+  getArtifact: mocks.getArtifact,
+  listChains: mocks.listChains,
+  postChain: mocks.postChain,
+}));
 
 let liveListener: EventListener | undefined;
 const source = () => ({
@@ -60,6 +64,8 @@ afterEach(() => {
   vi.clearAllMocks();
   liveListener = undefined;
 });
+
+mocks.listChains.mockResolvedValue([]);
 
 describe('Explain', () => {
   it('loads metadata into a safe iframe without inserting artifact HTML', async () => {
