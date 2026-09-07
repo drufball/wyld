@@ -119,6 +119,15 @@ this file, the Pak, and GitHub._
   registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
   restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
   `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **11:15 in flight:** `artifacts` unit 3 pins (#183 / PR #185, `codex/artifacts-pins`; one fix round; went DIRTY when unit 4
+  landed on `ChainList` — lead merged `main` in, CI re-running) and `one-mechanism` unit 5 leftovers (#186 / PR #187,
+  `codex/one-mechanism-leftovers`: `Quests.tsx` reads demo chains, drop the duplicate unlock toast; one fix round). Both touch
+  `Today.tsx` — whichever merges second rebases. **Roadmap explainer drafted** at `/tmp/wyld-leads/artifacts/explainer-roadmap.html`
+  (10.7 KB; Now/Next/Later + why, quests → pieces, FIELDWORK core loop, meters, shipped chips, `data-pin` everywhere); publish it
+  and republish `artifacts` (v2) with `PIN_BRIDGE_SNIPPET` once pins land. **Rules from this morning:** (a) two Pak leads in
+  parallel ⇒ the second to merge rebases; a lead's CI poll must treat "no new run within ~2 min of a push" as a conflict (check
+  `gh pr view --json mergeStateStatus` for `DIRTY`), not wait the cap; (b) Wake can deliver a `github.push` minutes late and out
+  of order — verify with `gh pr view --json headRefOid` before acting on it.
 - **10:41 `one-mechanism` DONE → `demo` (unit 4 #182 / PR #184, one round).** `needsYou` counts `unlock`; unlock cards
   auto-settle after 8 s on screen (planner-sourced close); boot sweep `refreshDemoChainPayloads` (payload only — never via
   `ensureDemoChain`, which reopens); single reload per menu action; Hidden fold says `(reopens the quest)` when true. Leftovers:
