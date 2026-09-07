@@ -22,7 +22,12 @@ Merging is not shipping — Dru sees the *built* Pak, not `main`. In the live ch
 
 ```bash
 git -C /Users/crawnk/wyld pull
-# touched @wyld/shared?  → rebuild it or the live server crashes on its watcher restart:
+# added or renamed a workspace package (packages/*)?  → install FIRST, before anything restarts the
+# server, or the tsx watcher restarts into ERR_MODULE_NOT_FOUND and the Pak goes dark (2026-09-07,
+# @wyld/sprites: ~1 minute down). Then check the link exists:
+pnpm install --frozen-lockfile && ls factory/server/node_modules/@wyld/
+# touched @wyld/shared (or any package the server imports)?  → rebuild it or the live server crashes
+# on its watcher restart:
 pnpm --filter @wyld/shared build
 # touched factory/pak?   → rebuild the served bundle or Dru keeps seeing the old UI:
 pnpm --filter @wyld/pak build
@@ -91,6 +96,11 @@ Exactly one, always a thing **he** does, always with a deep link (`PROTOCOL.md` 
 needs him, say so plainly and point at `/`.
 
 ## 5. Then keep going
+
+A project lead reports at each unit boundary **and keeps going** — it does not end its turn and
+wait to be sent back in (2026-09-07: a lead stopped after unit 1 while its unit-2 Codex round was
+already running). Briefs say so explicitly; if a lead has ended anyway, the Planner resumes it with
+a message rather than spawning a fresh one, so its context survives.
 
 Pick up the next unit of work without being asked (`POLICIES.md`: file issues, merge green PRs,
 spend at any hour). Going quiet is for when there is nothing to do, not for when a PR just merged.
