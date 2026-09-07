@@ -8,7 +8,10 @@ import { createPlayerController } from './player/controller.js';
 import { buildState } from './state.js';
 import { createDebugConsole } from './ui/debug.js';
 import { createHud } from './ui/hud.js';
+import { createStatsPanel } from './ui/stats.js';
 import { camps, pointToRegion } from './world/regions.js';
+import { createProps, placeProps } from './world/props.js';
+import worldData from './data/world.json';
 import { createSky } from './world/sky.js';
 import { nextPhaseStart, phaseBoundariesBetween, phases, timeAt } from './world/time.js';
 import { createTerrain, isSlopeStandable } from './world/terrain.js';
@@ -34,6 +37,15 @@ scene.add(hemisphere);
 const sun = new THREE.DirectionalLight(0xffefd0, 3);
 sun.position.set(30, 55, 25);
 sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+const shadowExtent = 60;
+sun.shadow.camera.left = -shadowExtent;
+sun.shadow.camera.right = shadowExtent;
+sun.shadow.camera.top = shadowExtent;
+sun.shadow.camera.bottom = -shadowExtent;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 260;
+sun.shadow.bias = -0.0004;
 scene.add(sun);
 
 const gameRng = createRng(resolveSeed());
@@ -42,9 +54,23 @@ const terrain = createTerrain(seed);
 scene.add(terrain.group);
 const water = createWater(terrain.heightAt);
 scene.add(water.group);
+const props = createProps(
+  placeProps({
+    rng: gameRng,
+    heightAt: terrain.heightAt,
+    slopeAt: terrain.slopeAt,
+    depthAt: water.depthAt,
+    biomeWeightsAt: terrain.biomeWeightsAt,
+    densities: worldData.props,
+    bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
+  }),
+  camera,
+);
+scene.add(props);
 const sky = createSky(scene, sun, hemisphere);
 const debugConsole = createDebugConsole({ seed });
 const hud = createHud(debugConsole.available);
+const statsPanel = createStatsPanel(debugConsole.available);
 const events = createEventBus<{ phaseChanged: { phase: Phase; day: number } }>();
 const input = createInput(renderer.domElement);
 const player = createPlayerController({
@@ -98,14 +124,24 @@ debugConsole.registerCommand('tp', {
   },
 });
 
-const render = (): void => renderer.render(scene, camera);
+const render = (): void => {
+  renderer.render(scene, camera);
+  statsPanel.afterRender(renderer);
+};
 const loop = createLoop({
   update: (dtSeconds) => {
     setElapsedSeconds(elapsedSeconds + dtSeconds);
     player.update(dtSeconds);
     const region = pointToRegion(player.object.position.x, player.object.position.z);
     const clock = timeAt(elapsedSeconds);
-    sky.update(clock.dayProgress);
+    const sunDirection = sky.update(clock.dayProgress);
+    sun.target.position.copy(player.object.position);
+    sun.position.set(
+      player.object.position.x + sunDirection.x * 120,
+      player.object.position.y + sunDirection.y * 120,
+      player.object.position.z + sunDirection.z * 120,
+    );
+    sun.target.updateMatrixWorld();
     hud.update({
       ...clock,
       regionName: region?.name ?? null,
@@ -141,6 +177,7 @@ window.__wyld = {
     return renderer.domElement.toDataURL('image/jpeg', 0.6);
   },
   debug: debugConsole.run,
+  perf: statsPanel.read,
 };
 
 loop.start();

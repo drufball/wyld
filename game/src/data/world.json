@@ -1,6 +1,13 @@
 {
   "regions": [
-    { "biome": "forest", "id": "hollow", "name": "Hollow", "x": -150, "z": 50, "radius": 60 },
+    {
+      "biome": "forest",
+      "id": "hollow",
+      "name": "Hollow",
+      "x": -150,
+      "z": 50,
+      "radius": 60
+    },
     {
       "biome": "forest",
       "id": "pond-hollow",
@@ -9,7 +16,14 @@
       "z": 160,
       "radius": 60
     },
-    { "biome": "forest", "id": "deep-wood", "name": "Deep Wood", "x": -80, "z": -60, "radius": 60 },
+    {
+      "biome": "forest",
+      "id": "deep-wood",
+      "name": "Deep Wood",
+      "x": -80,
+      "z": -60,
+      "radius": 60
+    },
     {
       "biome": "forest",
       "id": "fern-chasm",
@@ -66,7 +80,14 @@
       "z": 20,
       "radius": 55
     },
-    { "biome": "desert", "id": "dunes", "name": "Dunes", "x": 200, "z": 60, "radius": 45 },
+    {
+      "biome": "desert",
+      "id": "dunes",
+      "name": "Dunes",
+      "x": 200,
+      "z": 60,
+      "radius": 45
+    },
     {
       "biome": "desert",
       "id": "salt-flats",
@@ -75,8 +96,22 @@
       "z": -60,
       "radius": 60
     },
-    { "biome": "desert", "id": "mesa", "name": "Mesa", "x": 250, "z": -180, "radius": 60 },
-    { "biome": "desert", "id": "tar-pit", "name": "Tar Pit", "x": 160, "z": 140, "radius": 45 },
+    {
+      "biome": "desert",
+      "id": "mesa",
+      "name": "Mesa",
+      "x": 250,
+      "z": -180,
+      "radius": 60
+    },
+    {
+      "biome": "desert",
+      "id": "tar-pit",
+      "name": "Tar Pit",
+      "x": 160,
+      "z": 140,
+      "radius": 45
+    },
     {
       "biome": "volcano",
       "id": "thorn-pass",
@@ -93,7 +128,14 @@
       "z": -320,
       "radius": 30
     },
-    { "biome": "volcano", "id": "vents", "name": "Vents", "x": 20, "z": -360, "radius": 25 },
+    {
+      "biome": "volcano",
+      "id": "vents",
+      "name": "Vents",
+      "x": 20,
+      "z": -360,
+      "radius": 25
+    },
     {
       "biome": "volcano",
       "id": "crater-rim",
@@ -108,23 +150,110 @@
       "id": "pond-hollow-water",
       "kind": "pond",
       "surfaceY": -0.4,
-      "circle": { "x": -220, "z": 160, "radius": 28 }
+      "circle": {
+        "x": -220,
+        "z": 160,
+        "radius": 28
+      }
     },
     {
       "id": "south-sea",
       "kind": "sea",
       "surfaceY": 0,
-      "southBand": { "minX": -400, "maxX": 400, "minZ": 250, "maxZ": 400 }
+      "southBand": {
+        "minX": -400,
+        "maxX": 400,
+        "minZ": 250,
+        "maxZ": 400
+      }
     }
   ],
   "camps": [
-    { "id": "hollow-camp", "name": "Hollow Camp", "regionId": "hollow", "x": -150, "z": 50 },
-    { "id": "ridge-camp", "name": "Ridge Camp", "regionId": "fern-chasm", "x": -15, "z": -210 },
-    { "id": "shore-camp", "name": "Shore Camp", "regionId": "near-island", "x": -100, "z": 345 },
-    { "id": "grotto-camp", "name": "Grotto Camp", "regionId": "long-island", "x": 170, "z": 325 },
-    { "id": "dune-camp", "name": "Dune Camp", "regionId": "dunes", "x": 200, "z": 65 },
-    { "id": "mesa-camp", "name": "Mesa Camp", "regionId": "mesa", "x": 265, "z": -200 },
-    { "id": "ash-camp", "name": "Ash Camp", "regionId": "ash-fields", "x": -40, "z": -315 },
-    { "id": "rim-camp", "name": "Rim Camp", "regionId": "crater-rim", "x": 5, "z": -392 }
-  ]
+    {
+      "id": "hollow-camp",
+      "name": "Hollow Camp",
+      "regionId": "hollow",
+      "x": -150,
+      "z": 50
+    },
+    {
+      "id": "ridge-camp",
+      "name": "Ridge Camp",
+      "regionId": "fern-chasm",
+      "x": -15,
+      "z": -210
+    },
+    {
+      "id": "shore-camp",
+      "name": "Shore Camp",
+      "regionId": "near-island",
+      "x": -100,
+      "z": 345
+    },
+    {
+      "id": "grotto-camp",
+      "name": "Grotto Camp",
+      "regionId": "long-island",
+      "x": 170,
+      "z": 325
+    },
+    {
+      "id": "dune-camp",
+      "name": "Dune Camp",
+      "regionId": "dunes",
+      "x": 200,
+      "z": 65
+    },
+    {
+      "id": "mesa-camp",
+      "name": "Mesa Camp",
+      "regionId": "mesa",
+      "x": 265,
+      "z": -200
+    },
+    {
+      "id": "ash-camp",
+      "name": "Ash Camp",
+      "regionId": "ash-fields",
+      "x": -40,
+      "z": -315
+    },
+    {
+      "id": "rim-camp",
+      "name": "Rim Camp",
+      "regionId": "crater-rim",
+      "x": 5,
+      "z": -392
+    }
+  ],
+  "props": {
+    "conifer": {
+      "density": 1.3,
+      "scale": [0.8, 1.35]
+    },
+    "broadleaf": {
+      "density": 0.7,
+      "scale": [0.8, 1.35]
+    },
+    "fern": {
+      "density": 1.5,
+      "scale": [0.65, 1.25]
+    },
+    "rock": {
+      "density": 0.7,
+      "scale": [0.5, 1.7]
+    },
+    "cactus": {
+      "density": 0.4,
+      "scale": [0.7, 1.4]
+    },
+    "mesa": {
+      "density": 0.03,
+      "scale": [2.2, 4.5]
+    },
+    "vent": {
+      "density": 0.3,
+      "scale": [0.7, 1.5]
+    }
+  }
 }

@@ -94,7 +94,7 @@ const createSky = (
   scene.background = background;
 
   return {
-    update(dayProgress: number): void {
+    update(dayProgress: number): SkyState['sunDirection'] {
       const state = skyAt(dayProgress);
       background.setRGB(
         state.background.r,
@@ -114,12 +114,8 @@ const createSky = (
         THREE.SRGBColorSpace,
       );
       sun.intensity = state.sunIntensity;
-      sun.position.set(
-        state.sunDirection.x * 70,
-        state.sunDirection.y * 70,
-        state.sunDirection.z * 70,
-      );
       hemisphere.intensity = state.hemisphereIntensity;
+      return state.sunDirection;
     },
   };
 };
