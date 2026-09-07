@@ -56,6 +56,30 @@ describe('observer', () => {
     ).toHaveLength(0);
   });
 
+  it('distance-gates creature aggro at 25 m without requiring a call event', () => {
+    const near = createObserver({ notebook });
+    expect(
+      near.onCreatureAggro({ species: 'bramblehog', position: { x: 24, y: 0, z: 0 } }, frame()),
+    ).toHaveLength(1);
+    const far = createObserver({ notebook: createEmptyNotebook() });
+    expect(
+      far.onCreatureAggro({ species: 'bramblehog', position: { x: 26, y: 0, z: 0 } }, frame()),
+    ).toHaveLength(0);
+  });
+
+  it('names newly found tracks for an identified species', () => {
+    notebook.identify('bramblehog', {
+      region: 'hollow',
+      phase: 'Day',
+      position: { x: 0, y: 0, z: 0 },
+      day: 1,
+    });
+    const observer = createObserver({ notebook });
+    expect(
+      observer.update(0, frame({ tracks: [{ speciesId: 'bramblehog', x: 1, z: 0 }] })),
+    ).toMatchObject([{ title: 'Bramblehog: tracks' }]);
+  });
+
   it('identifies at 1.5 cumulative seconds across a gap and merges both stubs', () => {
     notebook.recordTracks('bramblehog', { region: 'hollow', day: 1 });
     notebook.recordCall('bramblehog', { region: 'hollow', day: 1 });

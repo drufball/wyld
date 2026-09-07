@@ -20,7 +20,7 @@ const updateDetectionTarget = (
   elements.fill.setAttribute('data-detection-fill', detection.toFixed(3));
   elements.outline.setAttribute('stroke', detection >= 1 ? '#292b25' : '#777566');
 };
-const createHud = (showRegion: boolean) => {
+const createHud = (showRegion: boolean, toastRoot: HTMLElement) => {
   const root = document.createElement('aside');
   root.setAttribute('aria-live', 'polite');
   root.style.cssText =
@@ -45,7 +45,7 @@ const createHud = (showRegion: boolean) => {
   const targetBar = document.createElement('aside');
   targetBar.setAttribute('aria-label', 'Creature detection');
   targetBar.style.cssText =
-    'position:fixed;z-index:4;top:258px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:12px;min-width:190px;padding:7px 12px;color:#292b25;border:1px solid #777566;background:#f4efd9ee;box-shadow:1px 2px 2px #0004;font:13px/20px ui-monospace,monospace;pointer-events:none';
+    'align-self:center;display:none;align-items:center;gap:12px;min-width:190px;padding:7px 12px;color:#292b25;border:1px solid #777566;background:#f4efd9ee;box-shadow:1px 2px 2px #0004;font:13px/20px ui-monospace,monospace;pointer-events:none';
   const targetLabel = document.createElement('span');
   targetLabel.textContent = 'Unknown creature';
   const eye = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -58,7 +58,7 @@ const createHud = (showRegion: boolean) => {
   const eyeFill = eye.querySelector('[data-detection-fill]') as SVGRectElement;
   const eyeOutline = eye.lastElementChild?.previousElementSibling as SVGPathElement;
   targetBar.append(targetLabel, eye);
-  document.body.append(targetBar);
+  toastRoot.append(targetBar);
   return {
     update(state: HudState): void {
       phase.textContent = state.phase;

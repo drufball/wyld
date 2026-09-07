@@ -39,6 +39,7 @@ type Timer = { identify: number; temperament: number; sightingCooldown: number }
 
 const numberWords = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
 const evidenceDiscovery = (
+  notebook: Notebook,
   speciesId: string,
   slot: 'tracks' | 'call',
   region: string | null,
@@ -53,7 +54,14 @@ const evidenceDiscovery = (
     day,
     hint: definition.hints[slot],
   };
-  return { speciesId, slot, title: stubTitle(stub), hint: stub.hint, merged: 0 };
+  const page = notebook.page(speciesId);
+  return {
+    speciesId,
+    slot,
+    title: page ? `${page.name}: ${slot}` : stubTitle(stub),
+    hint: stub.hint,
+    merged: 0,
+  };
 };
 
 const createObserver = ({ notebook }: { notebook: Notebook }) => {
@@ -84,7 +92,13 @@ const createObserver = ({ notebook }: { notebook: Notebook }) => {
         });
         if (result.recorded)
           discoveries.push(
-            evidenceDiscovery(track.speciesId, 'tracks', track.regionId ?? frame.region, frame.day),
+            evidenceDiscovery(
+              notebook,
+              track.speciesId,
+              'tracks',
+              track.regionId ?? frame.region,
+              frame.day,
+            ),
           );
       }
     }
@@ -162,7 +176,23 @@ const createObserver = ({ notebook }: { notebook: Notebook }) => {
         return [];
       const result = notebook.recordCall(event.species, { region: frame.region, day: frame.day });
       return result.recorded
-        ? [evidenceDiscovery(event.species, 'call', frame.region, frame.day)]
+        ? [evidenceDiscovery(notebook, event.species, 'call', frame.region, frame.day)]
+        : [];
+    },
+    onCreatureAggro(
+      event: { species: string; position: Position },
+      frame: ObserveFrame,
+    ): Discovery[] {
+      if (
+        Math.hypot(
+          event.position.x - frame.playerPosition.x,
+          event.position.z - frame.playerPosition.z,
+        ) > CALL_RANGE
+      )
+        return [];
+      const result = notebook.recordCall(event.species, { region: frame.region, day: frame.day });
+      return result.recorded
+        ? [evidenceDiscovery(notebook, event.species, 'call', frame.region, frame.day)]
         : [];
     },
     onCreatureExecutedMove(event: {

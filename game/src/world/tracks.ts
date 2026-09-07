@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 import { species, speciesById, type TracksDescriptor } from '../creatures/species.js';
 import type { Rng } from '../engine/rng.js';
@@ -65,24 +66,30 @@ const placeTracks = (options: PlaceTracksOptions): TracksPlacement[] => {
         const props = propPlacements.filter(
           (prop) => prop.kind !== 'fern' && inside(region, prop.x, prop.z),
         );
-        if (props.length === 0) continue;
         for (let attempt = 0; attempt < 24 && !placed; attempt += 1) {
-          const cover = props[rng.int(props.length)]!;
-          const water = nearestWater(region, cover, depthAt);
-          const alternatives = props.filter(
-            (prop) => prop !== cover && Math.hypot(prop.x - cover.x, prop.z - cover.z) >= 8,
-          );
+          const cover = props.length > 0 ? props[rng.int(props.length)]! : null;
+          const water = cover ? nearestWater(region, cover, depthAt) : null;
+          const alternatives = cover
+            ? props.filter(
+                (prop) => prop !== cover && Math.hypot(prop.x - cover.x, prop.z - cover.z) >= 8,
+              )
+            : [];
           const destination =
             water ?? (alternatives.length > 0 ? alternatives[rng.int(alternatives.length)]! : null);
-          if (!destination) continue;
-          const dx = destination.x - cover.x;
-          const dz = destination.z - cover.z;
-          const length = Math.hypot(dx, dz);
-          if (length === 0) continue;
-          const fraction = rng.range(0.15, 0.85);
-          const jitter = rng.range(-2, 2);
-          const x = cover.x + dx * fraction + (-dz / length) * jitter;
-          const z = cover.z + dz * fraction + (dx / length) * jitter;
+          const direction = destination
+            ? Math.atan2(destination.x - cover!.x, destination.z - cover!.z)
+            : rng.range(0, Math.PI * 2);
+          const distance = destination
+            ? Math.hypot(destination.x - cover!.x, destination.z - cover!.z)
+            : region.radius;
+          if (distance === 0) continue;
+          const fraction = destination ? rng.range(0.15, 0.85) : rng.range(0.2, 0.8);
+          const origin = destination ? cover! : region;
+          const jitter = destination ? rng.range(-2, 2) : 0;
+          const dx = Math.sin(direction);
+          const dz = Math.cos(direction);
+          const x = origin.x + dx * distance * fraction - dz * jitter;
+          const z = origin.z + dz * distance * fraction + dx * jitter;
           if (!inside(region, x, z) || slopeAt(x, z) >= 30 || depthAt(x, z) > 0) continue;
           const stride = entry.tracks.stride ?? 1;
           placements.push({
@@ -91,7 +98,7 @@ const placeTracks = (options: PlaceTracksOptions): TracksPlacement[] => {
             x,
             z,
             y: heightAt(x, z),
-            rotationY: Math.atan2(dx, dz),
+            rotationY: direction,
             size: THREE.MathUtils.clamp(0.75 + stride * 0.9, 1.2, 3),
           });
           placed = true;
@@ -179,31 +186,38 @@ const drawTrackTexture = (tracks: TracksDescriptor): THREE.CanvasTexture => {
 const createTracksDecals = (placements: readonly TracksPlacement[]): THREE.Group => {
   const group = new THREE.Group();
   group.name = 'tracks';
-  const materials = new Map<string, THREE.MeshBasicMaterial>();
+  const placementsBySpecies = new Map<string, TracksPlacement[]>();
   for (const placement of placements) {
-    let material = materials.get(placement.speciesId);
-    if (!material) {
-      const definition = speciesById(placement.speciesId);
-      if (!definition) continue;
-      material = new THREE.MeshBasicMaterial({
-        map: drawTrackTexture(definition.tracks),
-        transparent: true,
-        depthWrite: false,
-        polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2,
-        side: THREE.DoubleSide,
-      });
-      materials.set(placement.speciesId, material);
-    }
-    const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(placement.size, placement.size * 2),
-      material,
-    );
-    mesh.position.set(placement.x, placement.y + 0.02, placement.z);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.rotation.z = placement.rotationY;
-    mesh.name = `tracks-${placement.speciesId}`;
+    const grouped = placementsBySpecies.get(placement.speciesId) ?? [];
+    grouped.push(placement);
+    placementsBySpecies.set(placement.speciesId, grouped);
+  }
+  for (const [speciesId, speciesPlacements] of placementsBySpecies) {
+    const definition = speciesById(speciesId);
+    if (!definition) continue;
+    const material = new THREE.MeshBasicMaterial({
+      map: drawTrackTexture(definition.tracks),
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      side: THREE.DoubleSide,
+    });
+    const geometries = speciesPlacements.map((placement) => {
+      const geometry = new THREE.PlaneGeometry(placement.size, placement.size * 2);
+      const transform = new THREE.Matrix4().compose(
+        new THREE.Vector3(placement.x, placement.y + 0.02, placement.z),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, placement.rotationY)),
+        new THREE.Vector3(1, 1, 1),
+      );
+      geometry.applyMatrix4(transform);
+      return geometry;
+    });
+    const geometry = mergeGeometries(geometries, false);
+    if (!geometry) throw new Error(`Could not merge ${speciesId} track geometry`);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = `tracks-${speciesId}`;
     group.add(mesh);
   }
   return group;

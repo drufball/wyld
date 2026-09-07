@@ -112,9 +112,9 @@ const trackPlacements = placeTracks({
 scene.add(createTracksDecals(trackPlacements));
 const sky = createSky(scene, sun, hemisphere);
 const debugConsole = createDebugConsole({ seed });
-const hud = createHud(debugConsole.available);
 const statsPanel = createStatsPanel(debugConsole.available);
 const toasts = createToastStack();
+const hud = createHud(debugConsole.available, toasts.root);
 const notebook = createNotebook();
 const observer = createObserver({ notebook });
 type GameEvents = {
@@ -230,15 +230,23 @@ debugConsole.registerCommand('time', {
   },
 });
 debugConsole.registerCommand('tp', {
-  help: 'teleport to a named camp',
+  help: 'tp <campName> or tp <x> <z>',
   run: (args) => {
+    if (args.length === 2) {
+      const x = Number(args[0]);
+      const z = Number(args[1]);
+      if (Number.isFinite(x) && Number.isFinite(z)) {
+        player.teleport(x, z);
+        return `teleported: ${x}, ${z}`;
+      }
+    }
     const requested = args
       .join(' ')
       .replace(/^['"]|['"]$/g, '')
       .toLowerCase();
     const camp = camps().find((entry) => entry.name.toLowerCase() === requested);
     if (!camp)
-      return `camps: ${camps()
+      return `coordinates must be numbers, or camps: ${camps()
         .map(({ name }) => name)
         .join(', ')}`;
     player.teleport(camp.x, camp.z);
@@ -308,6 +316,29 @@ debugConsole.registerCommand('creatures', {
       })
       .join('\n') || 'none',
 });
+debugConsole.registerCommand('tracks', {
+  help: 'tracks [speciesId] — list nearest track decals',
+  run: ([requested]) => {
+    const matches = trackPlacements
+      .filter(({ speciesId }) => !requested || speciesId === requested.toLowerCase())
+      .map((placement) => ({
+        placement,
+        distance: Math.hypot(
+          placement.x - player.object.position.x,
+          placement.z - player.object.position.z,
+        ),
+      }))
+      .sort((left, right) => left.distance - right.distance);
+    return (
+      matches
+        .map(
+          ({ placement, distance }) =>
+            `${placement.speciesId} ${placement.regionId} ${distance.toFixed(1)}m`,
+        )
+        .join('\n') || 'none'
+    );
+  },
+});
 debugConsole.registerCommand('face', {
   help: 'face <speciesId|creatureId>',
   run: ([requested = '']) => {
@@ -364,6 +395,33 @@ const moveCreature = (
 const viewProjection = new THREE.Matrix4();
 const observationFrustum = new THREE.Frustum();
 const creatureCentre = new THREE.Vector3();
+const recordAggro = (creature: SpawnedCreature, clock: ReturnType<typeof timeAt>): void => {
+  const region = pointToRegion(player.object.position.x, player.object.position.z);
+  observer
+    .onCreatureAggro(
+      {
+        species: creature.speciesId,
+        position: {
+          x: creature.position.x,
+          y: creature.position.y,
+          z: creature.position.z,
+        },
+      },
+      {
+        day: clock.day,
+        phase: clock.phase,
+        region: region?.id ?? null,
+        playerPosition: {
+          x: player.object.position.x,
+          y: player.object.position.y,
+          z: player.object.position.z,
+        },
+        tracks: [],
+        creatures: [],
+      },
+    )
+    .forEach((discovery) => toasts.show(discovery));
+};
 const loop = createLoop({
   update: (dtSeconds) => {
     player.update(dtSeconds);
@@ -415,6 +473,7 @@ const loop = createLoop({
       if (state.behaviour === 'wander' && previousDetection < 1 && state.detection >= 1) {
         state.behaviour = reactionFor(creature.temperament, aiRng);
         if (state.behaviour === 'flee') state.fleeUntil = elapsedSeconds + aiRng.range(8, 12);
+        if (state.behaviour === 'aggro') recordAggro(creature, clock);
       }
     }
     for (const creature of registry.list()) {
@@ -431,11 +490,7 @@ const loop = createLoop({
       const behaviourBeforeCloseReaction = state.behaviour;
       if (state.behaviour === 'hold' && distance < 8) state.behaviour = 'aggro';
       if (behaviourBeforeCloseReaction !== 'aggro' && state.behaviour === 'aggro')
-        events.emit('creatureCalled', {
-          id,
-          species: data.id,
-          position: { x: creature.position.x, y: creature.position.y, z: creature.position.z },
-        });
+        recordAggro(creature, clock);
       const nextBehaviour = releaseBehaviour(
         state.behaviour,
         distance,

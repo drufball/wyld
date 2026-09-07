@@ -29,7 +29,9 @@ const createToastStack = () => {
       toast.style.opacity = '1';
       toast.style.transform = 'none';
     });
-    while (root.children.length > MAX_TOASTS) root.lastElementChild?.remove();
+    const visibleToasts = root.querySelectorAll(':scope > section');
+    for (let index = MAX_TOASTS; index < visibleToasts.length; index += 1)
+      visibleToasts[index]?.remove();
     window.setTimeout(() => {
       toast.style.opacity = '0';
       if (!reducedMotion) toast.style.transform = 'translateY(-4px)';
