@@ -145,6 +145,10 @@
       "radius": 25
     }
   ],
+  "spawnRules": {
+    "default": { "min": 1, "max": 2 },
+    "byRegion": { "hollow": { "min": 1, "max": 3 }, "pond-hollow": { "min": 1, "max": 3 } }
+  },
   "water": [
     {
       "id": "pond-hollow-water",

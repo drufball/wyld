@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 
+import { createCallAudio } from './audio/calls.js';
 import { createInput } from './engine/input.js';
 import { createEventBus } from './engine/events.js';
 import { createLoop } from './engine/loop.js';
 import { createRng, resolveSeed } from './engine/rng.js';
 import { roll } from './creatures/individual.js';
 import { createCreatureRegistry, spawnPoint } from './creatures/registry.js';
-import { species, speciesById } from './creatures/species.js';
+import { createSpawnSystem } from './creatures/spawn.js';
+import { createWander } from './creatures/wander.js';
+import { isEligible, species, speciesById } from './creatures/species.js';
 import type { CreatureState } from './creatures/bodyplans/types.js';
 import type { Temperament } from './creatures/species.js';
 import { createPlayerController } from './player/controller.js';
@@ -14,7 +17,7 @@ import { buildState } from './state.js';
 import { createDebugConsole } from './ui/debug.js';
 import { createHud } from './ui/hud.js';
 import { createStatsPanel } from './ui/stats.js';
-import { camps, pointToRegion } from './world/regions.js';
+import { camps, pointToRegion, populationFor, regions } from './world/regions.js';
 import { createProps, placeProps } from './world/props.js';
 import worldData from './data/world.json';
 import { createSky } from './world/sky.js';
@@ -55,6 +58,8 @@ scene.add(sun);
 
 const gameRng = createRng(resolveSeed());
 const seed = gameRng.seed();
+// Spawn simulation owns its RNG so prop placement cannot perturb creature determinism.
+const spawnRng = createRng(seed ^ 0x5fa1);
 const terrain = createTerrain(seed);
 scene.add(terrain.group);
 const water = createWater(terrain.heightAt);
@@ -81,7 +86,20 @@ const sky = createSky(scene, sun, hemisphere);
 const debugConsole = createDebugConsole({ seed });
 const hud = createHud(debugConsole.available);
 const statsPanel = createStatsPanel(debugConsole.available);
-const events = createEventBus<{ phaseChanged: { phase: Phase; day: number } }>();
+type GameEvents = {
+  phaseChanged: { phase: Phase; day: number };
+  creatureCalled: { id: string; species: string; position: { x: number; y: number; z: number } };
+};
+const events = createEventBus<GameEvents>();
+const eventLog: { kind: string; ts: number; payload: unknown }[] = [];
+const record = (kind: keyof GameEvents, payload: GameEvents[keyof GameEvents]): void => {
+  eventLog.push({ kind, ts: Date.now(), payload });
+  if (eventLog.length > 200) eventLog.shift();
+};
+events.on('phaseChanged', (payload) => record('phaseChanged', payload));
+events.on('creatureCalled', (payload) => record('creatureCalled', payload));
+const callAudio = createCallAudio();
+callAudio.resumeOnGesture(window);
 const input = createInput(renderer.domElement);
 const player = createPlayerController({
   scene,
@@ -98,6 +116,37 @@ const player = createPlayerController({
   start: { x: -150, z: 50 },
 });
 let elapsedSeconds = 0;
+const spawn = createSpawnSystem({
+  world: {
+    regions,
+    populationFor,
+    heightAt: terrain.heightAt,
+    slopeAt: terrain.slopeAt,
+    depthAt: water.depthAt,
+  },
+  host: registry,
+  rng: spawnRng,
+});
+const wander = createWander(spawnRng);
+const wanderStates = new Map<string, ReturnType<typeof wander.begin>>();
+const nextCalls = new Map<string, number>();
+const initialiseWild = (ids: readonly string[]): void => {
+  for (const id of ids) {
+    const regionId = spawn.creatureRegion(id);
+    const region = regions().find((entry) => entry.id === regionId);
+    if (region)
+      wanderStates.set(id, wander.begin(region.x, region.z, region.radius, elapsedSeconds));
+    nextCalls.set(id, elapsedSeconds + spawnRng.range(10, 20));
+  }
+};
+events.on('phaseChanged', ({ phase }) => {
+  const result = spawn.onPhaseChanged(phase, camera.position);
+  initialiseWild(result.spawned);
+  for (const id of result.despawned) {
+    wanderStates.delete(id);
+    nextCalls.delete(id);
+  }
+});
 
 const setElapsedSeconds = (next: number): void => {
   for (const boundary of phaseBoundariesBetween(elapsedSeconds, next))
@@ -179,6 +228,18 @@ debugConsole.registerCommand('state', {
     return `${id}: ${state}`;
   },
 });
+debugConsole.registerCommand('creatures', {
+  help: 'list live creatures',
+  run: () =>
+    registry
+      .list()
+      .map((creature) => {
+        const region = pointToRegion(creature.position.x, creature.position.z)?.id ?? null;
+        const distance = creature.position.distanceTo(player.object.position);
+        return `${creature.id} ${creature.speciesId} ${region ?? 'none'} ${distance.toFixed(1)}m ${creature.state}`;
+      })
+      .join('\n') || 'none',
+});
 
 const render = (): void => {
   renderer.render(scene, camera);
@@ -186,11 +247,49 @@ const render = (): void => {
 };
 const loop = createLoop({
   update: (dtSeconds) => {
-    setElapsedSeconds(elapsedSeconds + dtSeconds);
     player.update(dtSeconds);
+    setElapsedSeconds(elapsedSeconds + dtSeconds);
+    const clock = timeAt(elapsedSeconds);
+    const spawnResult = spawn.update(dtSeconds, clock.phase, camera.position);
+    initialiseWild(spawnResult.spawned);
+    for (const id of spawnResult.despawned) {
+      wanderStates.delete(id);
+      nextCalls.delete(id);
+    }
+    for (const [id, wanderState] of wanderStates) {
+      const creature = registry.get(id);
+      const data = creature && speciesById(creature.speciesId);
+      if (!creature || !data) {
+        wanderStates.delete(id);
+        nextCalls.delete(id);
+        continue;
+      }
+      const moved = wander.step(wanderState, creature.position, elapsedSeconds, dtSeconds, {
+        speedStat: creature.individual.stats.speed,
+        canSwim: data.innate.includes('Swim'),
+        depthAt: water.depthAt,
+        slopeAt: terrain.slopeAt,
+      });
+      creature.position.x = moved.x;
+      creature.position.z = moved.z;
+      creature.model.group.rotation.y = moved.facing;
+      registry.setState(id, moved.moving ? 'locomotion' : 'idle');
+      if (elapsedSeconds >= (nextCalls.get(id) ?? Number.POSITIVE_INFINITY)) {
+        const regionId = spawn.creatureRegion(id);
+        if (regionId && isEligible(data.id, regionId, clock.phase)) {
+          const distance = creature.position.distanceTo(camera.position);
+          if (distance <= 60) callAudio.play(data.call, distance <= 10 ? 1 : (60 - distance) / 50);
+          events.emit('creatureCalled', {
+            id,
+            species: data.id,
+            position: { x: creature.position.x, y: creature.position.y, z: creature.position.z },
+          });
+        }
+        nextCalls.set(id, elapsedSeconds + spawnRng.range(10, 20));
+      }
+    }
     registry.update(elapsedSeconds);
     const region = pointToRegion(player.object.position.x, player.object.position.z);
-    const clock = timeAt(elapsedSeconds);
     const sunDirection = sky.update(clock.dayProgress);
     sun.target.position.copy(player.object.position);
     sun.position.set(
@@ -228,15 +327,14 @@ window.__wyld = {
       biome: terrain.biomeAt(player.object.position.x, player.object.position.z),
       ...timeAt(elapsedSeconds),
       waterDepth: water.depthAt(player.object.position.x, player.object.position.z),
-      creatures: registry
-        .list()
-        .map((creature) => ({
-          id: creature.id,
-          species: creature.speciesId,
-          temperament: creature.temperament,
-          position: { x: creature.position.x, y: creature.position.y, z: creature.position.z },
-          state: creature.state,
-        })),
+      creatures: registry.list().map((creature) => ({
+        id: creature.id,
+        species: creature.speciesId,
+        temperament: creature.temperament,
+        position: { x: creature.position.x, y: creature.position.y, z: creature.position.z },
+        state: creature.state,
+        region: pointToRegion(creature.position.x, creature.position.z)?.id ?? null,
+      })),
     }),
   screenshot: () => {
     render();
@@ -244,6 +342,7 @@ window.__wyld = {
   },
   debug: debugConsole.run,
   perf: statsPanel.read,
+  log: () => eventLog.map((entry) => ({ ...entry })),
 };
 
 loop.start();

@@ -17,6 +17,7 @@ type WyldGameState = {
     temperament: 'Skittish' | 'Bold' | 'Steady' | 'Erratic';
     position: { x: number; y: number; z: number };
     state: 'idle' | 'locomotion' | 'execute';
+    region: string | null;
   }[];
 };
 
@@ -25,6 +26,7 @@ interface WyldGameApi {
   screenshot(): string;
   debug(command: string): string;
   perf(): { fps: number; triangles: number; drawCalls: number };
+  log(): { kind: string; ts: number; payload: unknown }[];
 }
 
 declare const __GAME_VERSION__: string;

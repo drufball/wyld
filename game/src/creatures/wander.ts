@@ -1,0 +1,77 @@
+import type { Rng } from '../engine/rng.js';
+
+type Point = { x: number; z: number };
+type WanderState = {
+  target: Point | null;
+  pauseUntil: number;
+  repickAt: number;
+  homeX: number;
+  homeZ: number;
+  radius: number;
+};
+type WanderOptions = {
+  speedStat: number;
+  canSwim: boolean;
+  depthAt(x: number, z: number): number;
+  slopeAt(x: number, z: number): number;
+};
+
+const createWander = (rng: Rng) => {
+  const begin = (homeX: number, homeZ: number, radius: number, now: number): WanderState => ({
+    target: null,
+    pauseUntil: now,
+    repickAt: now + rng.range(4, 8),
+    homeX,
+    homeZ,
+    radius,
+  });
+  const step = (
+    state: WanderState,
+    position: Point,
+    now: number,
+    dt: number,
+    options: WanderOptions,
+  ): Point & { moving: boolean; facing: number } => {
+    if (!state.target && now >= state.pauseUntil && now >= state.repickAt) {
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        const angle = rng.range(0, Math.PI * 2);
+        const distance = rng.range(5, 15);
+        const target = {
+          x: position.x + Math.sin(angle) * distance,
+          z: position.z + Math.cos(angle) * distance,
+        };
+        if (Math.hypot(target.x - state.homeX, target.z - state.homeZ) > state.radius) continue;
+        if (options.slopeAt(target.x, target.z) >= 30) continue;
+        if (!options.canSwim && options.depthAt(target.x, target.z) > 0) continue;
+        state.target = target;
+        break;
+      }
+      state.repickAt = now + rng.range(4, 8);
+      if (!state.target) state.pauseUntil = now + rng.range(2, 5);
+    }
+    if (!state.target) return { ...position, moving: false, facing: 0 };
+    const dx = state.target.x - position.x;
+    const dz = state.target.z - position.z;
+    const distance = Math.hypot(dx, dz);
+    const facing = Math.atan2(dx, dz);
+    // Wandering is an amble at 35% of the full §5.2 movement speed.
+    const travel = Math.min(distance, (3 + options.speedStat * 0.6) * 0.35 * dt);
+    if (travel >= distance) {
+      const result = { ...state.target, moving: false, facing };
+      state.target = null;
+      state.pauseUntil = now + rng.range(2, 5);
+      state.repickAt = Math.max(state.repickAt, state.pauseUntil);
+      return result;
+    }
+    return {
+      x: position.x + (dx / distance) * travel,
+      z: position.z + (dz / distance) * travel,
+      moving: true,
+      facing,
+    };
+  };
+  return { begin, step };
+};
+
+export { createWander };
+export type { WanderOptions, WanderState };

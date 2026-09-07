@@ -26,6 +26,7 @@ describe('game state', () => {
           temperament: 'Bold',
           position: { x: 2, y: 1, z: 3 },
           state: 'idle',
+          region: 'hollow',
         },
       ],
     });
@@ -51,6 +52,7 @@ describe('game state', () => {
           temperament: 'Bold',
           position: { x: 2, y: 1, z: 3 },
           state: 'idle',
+          region: 'hollow',
         },
       ],
     });
