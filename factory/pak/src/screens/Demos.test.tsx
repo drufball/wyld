@@ -62,6 +62,85 @@ function show(path = '/demos') {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Demos', () => {
+  it('labels hidden demos that reopen done quests and keeps snoozed demos as Unsnooze', async () => {
+    const chains = [
+      demo('done-hidden', { status: 'settled', questId: 'done-quest' }),
+      demo('demo-hidden', { status: 'settled', questId: 'demo-quest' }),
+      demo('later', { snoozedUntil: '2099-01-01T00:00:00Z' }),
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        response(
+          url.startsWith('/api/quests?')
+            ? [
+                {
+                  id: 'done-quest',
+                  worldId: 'wyld',
+                  title: 'Done quest',
+                  pitch: 'Finished work',
+                  status: 'done',
+                  progress: 1,
+                  sinceYouLooked: '',
+                  lastNote: '',
+                },
+              ]
+            : chains,
+        ),
+      ),
+    );
+    show();
+
+    fireEvent.click(await screen.findByText('Hidden (2)'));
+    fireEvent.click(screen.getByText('Snoozed (1)'));
+
+    expect(screen.getByRole('button', { name: 'Show again (reopens the quest)' })).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Show again' })).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Unsnooze' })).not.toBeNull();
+  });
+
+  it('falls back to Show again when loading done quests fails', async () => {
+    const chain = demo('hidden', { status: 'settled', questId: 'done-quest' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.startsWith('/api/quests?') ? Promise.reject(new Error('offline')) : response([chain]),
+      ),
+    );
+    show();
+
+    fireEvent.click(await screen.findByText('Hidden (1)'));
+
+    expect(screen.getByRole('button', { name: 'Show again' })).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /reopens the quest/ })).toBeNull();
+  });
+
+  it('reloads the chain list exactly once after snoozing from a demo card menu', async () => {
+    const chain = demo('snooze-once');
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      url.includes('/snooze') && init?.method === 'POST'
+        ? response({ ...chain, snoozedUntil: '2099-01-01T00:00:00Z' })
+        : response(url.startsWith('/api/quests?') ? [] : [chain]),
+    );
+    vi.stubGlobal('fetch', fetch);
+    show();
+    await screen.findByText('snooze-once summary');
+    const before = fetch.mock.calls.filter(([url]) => url.startsWith('/api/chains?')).length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Snooze' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Tomorrow morning' }));
+
+    await waitFor(() =>
+      expect(fetch.mock.calls.filter(([url]) => url.startsWith('/api/chains?'))).toHaveLength(
+        before + 1,
+      ),
+    );
+    expect(fetch.mock.calls.filter(([url]) => url.startsWith('/api/chains?'))).toHaveLength(
+      before + 1,
+    );
+  });
+
   it('renders chain-backed demo details and closes with the right reason', async () => {
     const chains = [demo('owned', { questId: 'quest' }), demo('loose')];
     const fetch = vi.fn((...args: [string, RequestInit?]) =>

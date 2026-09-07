@@ -183,7 +183,7 @@ describe('Today', () => {
   );
 
   it.each([
-    ['different text', 'Keep going', [], []],
+    ['different text', 'Keep going', []],
     [
       'an open chain',
       'Nothing needs you today',
@@ -209,7 +209,6 @@ describe('Today', () => {
           ],
         },
       ],
-      [],
     ],
     [
       'an open Rumble',
@@ -237,27 +236,14 @@ describe('Today', () => {
           messages: [],
         },
       ],
-      [
-        {
-          id: 'rumble',
-          title: 'Choose',
-          context: 'A choice',
-          options: ['A', 'B'],
-          chosen: null,
-          chosenAt: null,
-          blockingQuestIds: [],
-          kind: 'taste',
-        },
-      ],
     ],
-  ])('does not show the panel with %s', async (_name, text, chains, rumbles) => {
+  ])('does not show the panel with %s', async (_name, text, chains) => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => {
         if (url === '/api/presence')
           return jsonResponse({ ...presence, needsYou: 1, nextAction: { text, deepLink: '/' } });
         if (url.startsWith('/api/chains?')) return jsonResponse(chains);
-        if (url.startsWith('/api/rumbles?')) return jsonResponse(rumbles);
         return jsonResponse([]);
       }),
     );

@@ -258,7 +258,9 @@ export function ChainCard({
         }),
       );
   };
-  settleUnlockRef.current = settleUnlock;
+  useEffect(() => {
+    settleUnlockRef.current = settleUnlock;
+  });
   useEffect(() => {
     if (chain.kind !== 'unlock') return;
     let timer: number | undefined;

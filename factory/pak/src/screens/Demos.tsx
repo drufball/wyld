@@ -220,32 +220,33 @@ function DemoGrid() {
   const [chains, setChains] = useState<Chain[]>([]);
   const [doneQuests, setDoneQuests] = useState<Set<string>>(new Set());
   const { subscribe } = useLiveEvents();
-  const load = useCallback(
-    () => {
-      void listChains({ kind: 'demo', status: 'all', includeSnoozed: true })
-        .then(setChains)
-        .catch(() => undefined);
-      void listQuests({ status: 'done' })
-        .then((quests) => setDoneQuests(new Set(quests.map((quest) => quest.id))))
-        .catch(() => setDoneQuests(new Set()));
-    },
-    [],
-  );
+  const load = useCallback(() => {
+    void listChains({ kind: 'demo', status: 'all', includeSnoozed: true })
+      .then(setChains)
+      .catch(() => undefined);
+  }, []);
+  const loadDoneQuests = useCallback(() => {
+    void listQuests({ status: 'done' })
+      .then((quests) => setDoneQuests(new Set(quests.map((quest) => quest.id))))
+      .catch(() => setDoneQuests(new Set()));
+  }, []);
   useEffect(() => {
     load();
+    loadDoneQuests();
     const visible = () => document.visibilityState === 'visible' && load();
     document.addEventListener('visibilitychange', visible);
     const stops = [
-      'planner.chain_updated',
-      'human.chain_closed',
-      'planner.quest_updated',
-      'human.feedback',
-    ].map((event) => subscribe(event as Parameters<typeof subscribe>[0], load));
+      subscribe('planner.chain_updated', load),
+      subscribe('human.chain_closed', load),
+      subscribe('human.chain_closed', loadDoneQuests),
+      subscribe('planner.quest_updated', loadDoneQuests),
+      subscribe('human.feedback', load),
+    ];
     return () => {
       document.removeEventListener('visibilitychange', visible);
       stops.forEach((stop) => stop());
     };
-  }, [load, subscribe]);
+  }, [load, loadDoneQuests, subscribe]);
   useEffect(() => {
     if (!chains.some((chain) => demoCard(chain)?.status === 'building')) return;
     const timer = window.setInterval(load, 5000);
@@ -331,11 +332,21 @@ function DemoGrid() {
           );
         })}
       </div>
-      {fold('Snoozed', snoozed, (chain) => unsnoozeChain(chain.id), () => 'Unsnooze', true)}
-      {fold('Hidden', hidden, (chain) => reopenChain(chain.id), (chain) =>
-        chain.questId !== null && doneQuests.has(chain.questId)
-          ? 'Show again (reopens the quest)'
-          : 'Show again',
+      {fold(
+        'Snoozed',
+        snoozed,
+        (chain) => unsnoozeChain(chain.id),
+        () => 'Unsnooze',
+        true,
+      )}
+      {fold(
+        'Hidden',
+        hidden,
+        (chain) => reopenChain(chain.id),
+        (chain) =>
+          chain.questId !== null && doneQuests.has(chain.questId)
+            ? 'Show again (reopens the quest)'
+            : 'Show again',
       )}
     </div>
   );
