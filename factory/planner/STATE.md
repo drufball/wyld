@@ -119,6 +119,17 @@ this file, the Pak, and GitHub._
   registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
   restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
   `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **10:03 `artifacts` unit 2 landed (#180 / PR #181, one round)** — `screens/Explain.tsx` (`/explain/:slug`, `/roadmap`, one
+  `ArtifactViewer`: 61px header + full-bleed `<iframe sandbox="allow-scripts">` from `/artifacts/<slug>/?v=<n>`, reload on
+  `planner.artifact_published` for its slug), Nav 7th entry ROADMAP/`MAP`, quest-card `Explainer` button, `e2e/explain.spec.ts`.
+  **First explainer published 10:03 (slug `artifacts`, v1, 8.5 KB, drafted at `/tmp/wyld-leads/artifacts/explainer-artifacts.html`)**
+  — next action points Dru at it. Edges: (1) **Codex ran zero verify commands and still opened the PR** ("environment command
+  runner terminated the process") — fourth false self-report; (2) **a nav entry is a layout change** — the `min-[360px]` label
+  switch was wrong for a phone all along; now `md:`; screenshots, not overflow checks, caught it; (3) `App.test.tsx` owns the
+  nav-label contract; (4) scratch scripts inside a workspace package get linted — keep probes in `/tmp`; (5) desktop viewer uses
+  `md:static md:h-[calc(100dvh-180px)]` so the nav stays reachable (copy for any full-screen nav destination). **Explainer
+  authoring rule:** self-contained HTML, inline CSS/JS only, no external URLs, `data-pin` ids on things worth commenting on,
+  Dracula palette inline; publish with `POST /api/artifacts` (or `pak_publish_artifact`); republish the same slug to refresh.
 - **09:54 `one-mechanism` unit 3 landed (#177 / PR #179, three rounds: two substantive, one rebase)** — Today is one list
   (question|message|rumble|demo|unlock; `action` never fetched/rendered), `ChainCard` renders demo + unlock cards, Demos = filter
   with Snoozed/Hidden folds (`Show again` = reopen), sunset iff `needsYou===0`, VMU headlines `needsYou`; server: action-rotation
