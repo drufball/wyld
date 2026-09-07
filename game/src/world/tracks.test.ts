@@ -4,6 +4,7 @@ import { species } from '../creatures/species.js';
 import { createRng } from '../engine/rng.js';
 import { regions } from './regions.js';
 import { placeTracks } from './tracks.js';
+import { createTileGrid, worldToTile } from './tiles.js';
 
 const props = regions().flatMap((region) =>
   [0, 12, -12, 24, -24].map((offset) => ({
@@ -21,6 +22,33 @@ const options = (seed: number) => ({
 });
 
 describe('placeTracks', () => {
+  it('places every decal on a walkable tile', () => {
+    const grid = createTileGrid({
+      heightAt: () => 0,
+      slopeAt: () => 0,
+      depthAt: () => 0,
+      biomeAt: () => 'forest',
+      propPlacements: props.map(({ x, z }) => ({
+        kind: 'rock' as const,
+        x,
+        z,
+        y: 0,
+        rotationY: 0,
+        scale: 1,
+      })),
+    });
+    const placements = placeTracks({
+      ...options(212),
+      isWalkable: (x, z) => {
+        const { tx, ty } = worldToTile(x, z);
+        return grid.isWalkable(tx, ty);
+      },
+    });
+    for (const placement of placements) {
+      const { tx, ty } = worldToTile(placement.x, placement.z);
+      expect(grid.isWalkable(tx, ty)).toBe(true);
+    }
+  });
   it('is deterministic and keeps every decal on standable ground inside its region', () => {
     const first = placeTracks(options(212));
     expect(placeTracks(options(212))).toEqual(first);

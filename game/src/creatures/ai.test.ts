@@ -33,10 +33,18 @@ describe('creature detection', () => {
     expect(stepDetection(0.99, visible, 10)).toBe(1);
     expect(stepDetection(0.01, { ...visible, visible: false }, 10)).toBe(0);
   });
+  it('rerolls Erratic reactions for each detection', () => {
+    const flee = { seed: () => 1, next: () => 0.49, range: () => 0, int: () => 0 };
+    const aggro = { seed: () => 1, next: () => 0.51, range: () => 0, int: () => 0 };
+    expect(reactionFor('Erratic', flee)).toBe('flee');
+    expect(reactionFor('Erratic', aggro)).toBe('aggro');
+  });
   it('keeps reactions and release tuning', () => {
     expect(reactionFor('Skittish', createRng(1))).toBe('flee');
     expect(reactionFor('Bold', createRng(1))).toBe('aggro');
     expect(reactionFor('Steady', createRng(1))).toBe('hold');
+    expect(releaseBehaviour('flee', 1, 10, 1, true)).toBe('wander');
     expect(releaseBehaviour('hold', 11, 10, 1)).toBe('wander');
+    expect(releaseBehaviour('aggro', 1, 10, 0)).toBe('wander');
   });
 });

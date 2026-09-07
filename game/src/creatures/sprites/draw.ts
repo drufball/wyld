@@ -49,9 +49,17 @@ const line = (c: Canvas, x0: number, y0: number, x1: number, y1: number, colour 
     }
   }
 };
-const variation = (spec: SpriteSpec): number =>
-  Math.abs(
-    Math.round(Object.values(spec.visual).reduce((sum, value, i) => sum + value * (i + 1) * 7, 0)),
-  ) % 3;
-export { canvasFor, ellipse, line, rect, variation };
+const proportions = (spec: SpriteSpec): { length: number; height: number; head: number } => {
+  const length = spec.visual.length ?? 1,
+    height = spec.visual.height ?? 1,
+    span = spec.visual.wingspan ?? length;
+  return {
+    length: Math.max(0, Math.min(3, Math.round(length * 1.4))),
+    height: Math.max(0, Math.min(3, Math.round(height * 1.2))),
+    // Head size is deliberately not a single species hash: it responds independently to
+    // the recorded proportions, so creatures sharing a plan retain distinct anatomy.
+    head: Math.max(0, Math.min(2, Math.round((height / Math.max(0.5, length) + span / 4) * 1.2))),
+  };
+};
+export { canvasFor, ellipse, line, proportions, rect };
 export type { Canvas };

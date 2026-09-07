@@ -67,6 +67,10 @@ const trackPlacements = placeTracks({
   heightAt: terrain.heightAt,
   slopeAt: terrain.slopeAt,
   depthAt,
+  isWalkable: (x, z) => {
+    const { tx, ty } = worldToTile(x, z);
+    return grid.isWalkable(tx, ty);
+  },
 });
 const view = createCanvas(),
   tiles = createTileRenderer(grid, trackPlacements),
@@ -123,6 +127,7 @@ const spawnSystem = createSpawnSystem({
     rng: createRng(seed ^ 0x5a17),
   }),
   wander = createWander(createRng(seed ^ 0x33)),
+  callRng = createRng(seed ^ 0x0ca1),
   wanderStates = new Map<string, ReturnType<typeof wander.begin>>(),
   nextCalls = new Map<string, number>();
 type AiState = { meter: number; behaviour: Behaviour; fleeUntil: number };
@@ -131,7 +136,7 @@ const seedCreature = (id: string): void => {
   const c = registry.get(id);
   if (!c) return;
   wanderStates.set(id, wander.begin(c.position.x, c.position.z, 30, elapsedSeconds, c.facing));
-  nextCalls.set(id, elapsedSeconds + createRng(seed + id.length).range(10, 20));
+  nextCalls.set(id, elapsedSeconds + callRng.range(10, 20));
   aiStates.set(id, { meter: 0, behaviour: 'wander', fleeUntil: 0 });
 };
 const input = createInput(
@@ -441,7 +446,7 @@ const loop = createLoop({
             1 - Math.hypot(creature.position.x - world.x, creature.position.z - world.z) / 25,
           ),
         );
-        nextCalls.set(creature.id, elapsedSeconds + rng.range(10, 20));
+        nextCalls.set(creature.id, elapsedSeconds + callRng.range(10, 20));
         observer.onCreatureCalled(payload, {
           day: clock.day,
           phase: clock.phase,

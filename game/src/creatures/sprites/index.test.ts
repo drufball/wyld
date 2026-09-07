@@ -40,6 +40,21 @@ describe('pixel creature sprites', () => {
       generateSprite(pair[1]!, 'down', 'idle').grid,
     );
   });
+  it('draws a different silhouette for down, up and side', () => {
+    for (const base of species()) {
+      const grids = (['down', 'up', 'side'] as const).map((facing) => [
+        ...generateSprite(base, facing, 'idle').grid,
+      ]);
+      expect(new Set(grids.map((grid) => grid.join(','))).size).toBe(3);
+    }
+  });
+  it('anchors every sprite to the bottom row of its grid', () => {
+    for (const base of species())
+      for (const facing of ['down', 'up', 'side'] as const) {
+        const sprite = generateSprite(base, facing, 'idle');
+        expect(sprite.grid.slice((sprite.height - 1) * sprite.width).some(Boolean)).toBe(true);
+      }
+  });
   it('uses only palette indices that exist in the returned palette', () => {
     for (const base of species()) {
       const sprite = generateSprite(base, 'up', 'execute');
