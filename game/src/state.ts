@@ -1,23 +1,28 @@
-type CameraPosition = WyldGameState['camera'];
+type Position = { x: number; y: number; z: number };
 
-const cameraPosition = (elapsedSeconds: number): CameraPosition => {
-  const angle = elapsedSeconds * 0.12;
-
-  return {
-    x: Math.sin(angle) * 6,
-    y: 3.2 + Math.sin(angle * 2) * 0.15,
-    z: Math.cos(angle) * 6,
-  };
+type BuildStateOptions = {
+  version: string;
+  elapsedSeconds: number;
+  camera: Position;
+  player: Position;
+  seed: number;
+  stance: WyldGameState['stance'];
 };
 
-const buildState = (
-  version: string,
-  elapsedSeconds: number,
-  camera: CameraPosition,
-): WyldGameState => ({
+const buildState = ({
   version,
   elapsedSeconds,
-  camera: { ...camera },
+  camera,
+  player,
+  seed,
+  stance,
+}: BuildStateOptions): WyldGameState => ({
+  version,
+  elapsedSeconds,
+  camera: { x: camera.x, y: camera.y, z: camera.z },
+  player: { x: player.x, y: player.y, z: player.z },
+  seed,
+  stance,
 });
 
-export { buildState, cameraPosition };
+export { buildState };
