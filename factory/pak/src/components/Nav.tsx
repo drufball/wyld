@@ -5,7 +5,7 @@ const destinations = [
   { to: '/quests', label: 'Quests', mobileLabel: 'QUEST' },
   { to: '/roadmap', label: 'Roadmap', mobileLabel: 'MAP' },
   { to: '/demos', label: 'Demos', mobileLabel: 'DEMOS' },
-  { to: '/workshop', label: 'Workshop', mobileLabel: 'WSHOP' },
+  { to: '/workshop', label: 'Species', mobileLabel: 'SPECS' },
   { to: '/rumble', label: 'Rumble', mobileLabel: 'RMBL' },
   { to: '/debug', label: 'Debug', mobileLabel: 'DEBUG' },
   { to: '/memory', label: 'Memory', mobileLabel: 'MEM' },

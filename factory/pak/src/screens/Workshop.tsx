@@ -12,6 +12,7 @@ import {
 import { listSpecies } from '../api/client.js';
 import { SpriteCanvas } from '../components/SpriteCanvas.js';
 import { Badge } from '../components/ui/badge.js';
+import { Button } from '../components/ui/button.js';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js';
 
 const descriptor = (value: Record<string, unknown>) =>
@@ -44,8 +45,9 @@ function CreatureCard({
   useEffect(() => stop, []);
   return (
     <li>
-      <button
-        className={`min-h-11 w-full rounded border p-2 ${selected ? 'border-accent' : 'border-border'}`}
+      <Button
+        variant="outline"
+        className={`h-full w-full flex-col p-2 ${selected ? 'border-accent' : ''}`}
         aria-current={selected ? 'true' : undefined}
         onClick={onSelect}
         onPointerEnter={() => {
@@ -58,20 +60,21 @@ function CreatureCard({
         }}
         onPointerLeave={stop}
       >
-        <SpriteCanvas
-          spec={spec}
-          facing="down"
-          frame={frame}
-          scale={4}
-          label={`${spec.name} sprite`}
-          className="mx-auto"
-        />
+        <div className="flex h-32 items-center justify-center">
+          <SpriteCanvas
+            spec={spec}
+            facing="down"
+            frame={frame}
+            scale={4}
+            label={`${spec.name} sprite`}
+          />
+        </div>
         <strong>{spec.name}</strong>
         <div className="flex justify-center gap-1">
-          <Badge>Tier {spec.tier}</Badge>
+          <Badge className="whitespace-nowrap">Tier {spec.tier}</Badge>
           <Badge variant="outline">{spec.rarity}</Badge>
         </div>
-      </button>
+      </Button>
     </li>
   );
 }
@@ -82,6 +85,7 @@ export function Workshop() {
   const [facing, setFacing] = useState<SpriteFacing>('down');
   const [walking, setWalking] = useState(false);
   const [frame, setFrame] = useState<SpriteFrame>('idle');
+  const detailRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     void listSpecies()
       .then(setData)
@@ -108,7 +112,7 @@ export function Workshop() {
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="font-display text-lg">Creature Workshop</h1>
+        <h1>Workshop</h1>
         <p className="text-muted-foreground">Review every creature in the living world.</p>
       </header>
       <div className="grid gap-5 md:grid-cols-2">
@@ -118,39 +122,43 @@ export function Workshop() {
               key={item.id}
               spec={item}
               selected={index === selected}
-              onSelect={() => setSelected(index)}
+              onSelect={() => {
+                setSelected(index);
+                detailRef.current?.scrollIntoView({ block: 'start' });
+              }}
             />
           ))}
         </ul>
-        <div className="space-y-3">
+        <div ref={detailRef} className="scroll-mt-4 space-y-3">
           <Card variant="bevel">
             <CardContent className="pt-5">
-              <SpriteCanvas
-                spec={spec}
-                facing={facing}
-                frame={frame}
-                scale={6}
-                label={`${spec.name} detail sprite`}
-                className="mx-auto"
-              />
+              <div className="flex h-48 items-center justify-center">
+                <SpriteCanvas
+                  spec={spec}
+                  facing={facing}
+                  frame={frame}
+                  scale={6}
+                  label={`${spec.name} detail sprite`}
+                />
+              </div>
               <div className="flex flex-wrap justify-center gap-1">
                 {(['down', 'up', 'side'] as const).map((value) => (
-                  <button
-                    className="min-h-11 border px-3"
+                  <Button
+                    variant={facing === value ? 'default' : 'outline'}
                     aria-pressed={facing === value}
                     onClick={() => setFacing(value)}
                     key={value}
                   >
                     {value[0]!.toUpperCase() + value.slice(1)}
-                  </button>
+                  </Button>
                 ))}
-                <button
-                  className="min-h-11 border px-3"
+                <Button
+                  variant={walking ? 'default' : 'outline'}
                   aria-pressed={walking}
                   onClick={() => setWalking(!walking)}
                 >
                   Walk
-                </button>
+                </Button>
               </div>
             </CardContent>
           </Card>

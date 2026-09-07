@@ -88,3 +88,5 @@ export const Species = z.object({
 export type SpeciesData = z.infer<typeof Species>;
 export const Region = z.object({ id: z.string(), name: z.string(), biome: z.string() });
 export type Region = z.infer<typeof Region>;
+export const SpeciesLibrary = z.object({ species: Species.array(), regions: Region.array() });
+export type SpeciesLibrary = z.infer<typeof SpeciesLibrary>;

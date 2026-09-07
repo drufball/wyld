@@ -79,7 +79,16 @@ describe('Pak shell', () => {
     renderAt('/');
 
     expect(await screen.findByText("What's on your mind?")).not.toBeNull();
-    for (const label of ['Today', 'Quests', 'Roadmap', 'Demos', 'Rumble', 'Debug', 'Memory']) {
+    for (const label of [
+      'Today',
+      'Quests',
+      'Roadmap',
+      'Demos',
+      'Species',
+      'Rumble',
+      'Debug',
+      'Memory',
+    ]) {
       expect(screen.getByRole('link', { name: label })).not.toBeNull();
     }
   });
@@ -98,6 +107,7 @@ describe('Pak shell', () => {
       'QUEST',
       'MAP',
       'DEMOS',
+      'SPECS',
       'RMBL',
       'DEBUG',
       'MEM',
@@ -107,6 +117,7 @@ describe('Pak shell', () => {
       'QUESTS',
       'ROADMAP',
       'DEMOS',
+      'SPECIES',
       'RUMBLE',
       'DEBUG',
       'MEMORY',
