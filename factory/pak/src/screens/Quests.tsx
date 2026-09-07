@@ -1,4 +1,5 @@
 import {
+  type Artifact,
   type Chain,
   type Demo,
   type Event,
@@ -10,6 +11,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   getQuest,
+  listArtifacts,
   listDemos,
   listQuests,
   listWorlds,
@@ -90,11 +92,13 @@ export function QuestCard({
   worldName,
   onChange,
   demo,
+  artifact,
 }: {
   quest: Quest;
   worldName: string;
   onChange: (quest: Quest) => void;
   demo?: Demo;
+  artifact?: Artifact;
 }) {
   const [asking, setAsking] = useState(false);
   const [newChain, setNewChain] = useState<Chain | null>(null);
@@ -205,6 +209,11 @@ export function QuestCard({
           >
             Ask
           </Button>
+          {artifact && (
+            <Button variant="retro" asChild>
+              <Link to={`/explain/${encodeURIComponent(artifact.slug)}`}>Explainer</Link>
+            </Button>
+          )}
           {demo ? (
             <Button variant="retro" asChild>
               <Link to={`/demos/${encodeURIComponent(demo.id)}`}>
@@ -277,6 +286,7 @@ export function Quests() {
   const [worlds, setWorlds] = useState<Awaited<ReturnType<typeof listWorlds>>>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [demosByQuest, setDemosByQuest] = useState<Map<string, Demo>>(new Map());
+  const [artifactsByQuest, setArtifactsByQuest] = useState<Map<string, Artifact>>(new Map());
   const [doneExpanded, setDoneExpanded] = useState(false);
   const { subscribe } = useLiveEvents();
   const replaceQuest = useCallback((quest: Quest) => {
@@ -306,6 +316,21 @@ export function Quests() {
       })
       .catch(() => setDemosByQuest(new Map()));
   }, []);
+  const refreshArtifacts = useCallback(() => {
+    void listArtifacts()
+      .then((artifacts) => {
+        const next = new Map<string, Artifact>();
+        const sorted = [...artifacts].sort(
+          (left, right) =>
+            right.updatedAt.localeCompare(left.updatedAt) || left.slug.localeCompare(right.slug),
+        );
+        for (const artifact of sorted) {
+          if (artifact.questId && !next.has(artifact.questId)) next.set(artifact.questId, artifact);
+        }
+        setArtifactsByQuest(next);
+      })
+      .catch(() => setArtifactsByQuest(new Map()));
+  }, []);
 
   useEffect(() => {
     void listWorlds()
@@ -315,12 +340,14 @@ export function Quests() {
       .then(setQuests)
       .catch(() => setQuests([]));
     refreshDemos();
-  }, [refreshDemos]);
+    refreshArtifacts();
+  }, [refreshArtifacts, refreshDemos]);
   useEffect(() => {
     const unsubscribes = liveKinds.map((kind) => subscribe(kind, refreshQuest));
     unsubscribes.push(subscribe('planner.quest_updated', refreshDemos));
+    unsubscribes.push(subscribe('planner.artifact_published', refreshArtifacts));
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }, [refreshDemos, refreshQuest, subscribe]);
+  }, [refreshArtifacts, refreshDemos, refreshQuest, subscribe]);
 
   const selectedStatuses = statusFilters.find((filter) => filter.id === status)?.statuses;
   const filtered = quests.filter(
@@ -348,6 +375,7 @@ export function Quests() {
             worldName={worldNames.get(selectedQuest.worldId) ?? selectedQuest.worldId}
             onChange={replaceQuest}
             demo={demosByQuest.get(selectedQuest.id)}
+            artifact={artifactsByQuest.get(selectedQuest.id)}
           />
           <Button
             variant="retro"
@@ -406,6 +434,7 @@ export function Quests() {
                 worldName={worldNames.get(quest.worldId) ?? quest.worldId}
                 onChange={replaceQuest}
                 demo={demosByQuest.get(quest.id)}
+                artifact={artifactsByQuest.get(quest.id)}
               />
             ))}
             {doneQuests.length > 0 && (
@@ -427,6 +456,7 @@ export function Quests() {
                       worldName={worldNames.get(quest.worldId) ?? quest.worldId}
                       onChange={replaceQuest}
                       demo={demosByQuest.get(quest.id)}
+                      artifact={artifactsByQuest.get(quest.id)}
                     />
                   ))}
               </section>

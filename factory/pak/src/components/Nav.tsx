@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 const destinations = [
   { to: '/', label: 'Today', mobileLabel: 'TODAY' },
   { to: '/quests', label: 'Quests', mobileLabel: 'QUEST' },
+  { to: '/roadmap', label: 'Roadmap', mobileLabel: 'MAP' },
   { to: '/demos', label: 'Demos', mobileLabel: 'DEMOS' },
   { to: '/rumble', label: 'Rumble', mobileLabel: 'RMBL' },
   { to: '/debug', label: 'Debug', mobileLabel: 'DEBUG' },
@@ -22,7 +23,7 @@ export function Nav() {
         >
           EXPANSION PAK
         </div>
-        <ul className="grid list-none grid-cols-6 p-0 md:flex md:flex-wrap">
+        <ul className="grid list-none grid-cols-7 p-0 md:flex md:flex-wrap">
           {destinations.map(({ to, label, mobileLabel }) => (
             <li className="min-w-0" key={to}>
               <NavLink

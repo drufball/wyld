@@ -113,6 +113,36 @@ describe('Quests', () => {
     expect(screen.getByRole('link', { name: 'Play' }).getAttribute('href')).toBe('/demos/a-disc');
     expect(screen.getByText('not yet')).not.toBeNull();
   });
+  it('links the newest explainer for a quest and omits the action without one', async () => {
+    const emptyQuest = { ...quest, id: 'empty-quest', title: 'Empty quest' };
+    const artifactFields = {
+      questId: quest.id,
+      title: 'Explainer',
+      summary: 'A useful explanation.',
+      version: 1,
+      createdAt: '2026-09-01T12:00:00.000Z',
+    };
+    const artifacts = [
+      { ...artifactFields, slug: 'new-map', updatedAt: '2026-09-06T12:00:00.000Z' },
+      { ...artifactFields, slug: 'old-map', updatedAt: '2026-09-05T12:00:00.000Z' },
+    ];
+    renderScreen(
+      vi.fn((url: string) => {
+        if (url === '/api/worlds') return response([world]);
+        if (url === '/api/quests') return response([quest, emptyQuest]);
+        if (url === '/api/artifacts') return response(artifacts);
+        return response([]);
+      }),
+    );
+    const linkedCard = (await screen.findByText(quest.title)).closest('.quest-card');
+    expect(
+      within(linkedCard as HTMLElement)
+        .getByRole('link', { name: 'Explainer' })
+        .getAttribute('href'),
+    ).toBe('/explain/new-map');
+    const emptyCard = screen.getByText(emptyQuest.title).closest('.quest-card');
+    expect(within(emptyCard as HTMLElement).queryByRole('link', { name: 'Explainer' })).toBeNull();
+  });
   it('shows one deep-linked quest and clears the quest parameter', async () => {
     const other = { ...quest, id: 'other', title: 'Other quest' };
     renderScreen(
