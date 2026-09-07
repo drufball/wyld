@@ -25,6 +25,16 @@ export function externalReference(html: string): string | null {
   return html.match(EXTERNAL_REFERENCE)?.[0] ?? null;
 }
 
+// TextEncoder is only typed by lib.dom, and @wyld/shared stays DOM-free for its Node consumers.
+function utf8ByteLength(value: string): number {
+  let bytes = 0;
+  for (const character of value) {
+    const codePoint = character.codePointAt(0)!;
+    bytes += codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
+  }
+  return bytes;
+}
+
 export const NewArtifact = z
   .object({
     slug: ArtifactSlug,
@@ -41,7 +51,7 @@ export const NewArtifact = z
         path: ['html'],
         message: 'html must be a complete HTML document',
       });
-    if (new TextEncoder().encode(html).length > ARTIFACT_HTML_MAX_BYTES)
+    if (utf8ByteLength(html) > ARTIFACT_HTML_MAX_BYTES)
       context.addIssue({ code: 'custom', path: ['html'], message: 'html must be at most 512 KB' });
     if (externalReference(html) !== null)
       context.addIssue({
