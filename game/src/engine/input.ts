@@ -51,7 +51,8 @@ const createInput = (canvas: HTMLCanvasElement): Input => {
     mouse = { ...mouse, pointerLocked: document.pointerLockElement === canvas };
   };
   const click = (): void => {
-    void canvas.requestPointerLock();
+    const result: unknown = canvas.requestPointerLock();
+    if (result instanceof Promise) void result.catch(() => undefined);
   };
   window.addEventListener('keydown', keyDown);
   window.addEventListener('keyup', keyUp);

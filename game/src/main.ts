@@ -66,14 +66,14 @@ window.addEventListener('resize', () => {
 
 window.__wyld = {
   getState: () =>
-    buildState(
-      __GAME_VERSION__,
+    buildState({
+      version: __GAME_VERSION__,
       elapsedSeconds,
-      camera.position,
-      player.object.position,
+      camera: camera.position,
+      player: player.object.position,
       seed,
-      player.stance,
-    ),
+      stance: player.stance,
+    }),
   screenshot: () => {
     render();
     return renderer.domElement.toDataURL('image/jpeg', 0.6);

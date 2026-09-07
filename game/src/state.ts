@@ -1,13 +1,22 @@
 type Position = { x: number; y: number; z: number };
 
-const buildState = (
-  version: string,
-  elapsedSeconds: number,
-  camera: Position,
-  player: Position,
-  seed: number,
-  stance: WyldGameState['stance'],
-): WyldGameState => ({
+type BuildStateOptions = {
+  version: string;
+  elapsedSeconds: number;
+  camera: Position;
+  player: Position;
+  seed: number;
+  stance: WyldGameState['stance'];
+};
+
+const buildState = ({
+  version,
+  elapsedSeconds,
+  camera,
+  player,
+  seed,
+  stance,
+}: BuildStateOptions): WyldGameState => ({
   version,
   elapsedSeconds,
   camera: { x: camera.x, y: camera.y, z: camera.z },

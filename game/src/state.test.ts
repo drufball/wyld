@@ -6,7 +6,14 @@ describe('game state', () => {
   it('builds a detached serializable state snapshot', () => {
     const camera = { x: 0, y: 3.2, z: 6 };
     const player = { x: 1, y: 0, z: 2 };
-    const state = buildState('0.0.0', 1.5, camera, player, 42, 'walk');
+    const state = buildState({
+      version: '0.0.0',
+      elapsedSeconds: 1.5,
+      camera,
+      player,
+      seed: 42,
+      stance: 'walk',
+    });
     camera.x = 99;
     player.x = 99;
     expect(state).toEqual({

@@ -14,6 +14,11 @@ type PlayerControllerOptions = {
   canMove?: () => boolean;
 };
 
+const cameraPivot = new THREE.Vector3();
+const cameraDesired = new THREE.Vector3();
+const cameraDirection = new THREE.Vector3();
+const cameraSample = new THREE.Vector3();
+
 const createBody = (): THREE.Group => {
   const body = new THREE.Group();
   const cloth = new THREE.MeshStandardMaterial({
@@ -59,28 +64,28 @@ const createPlayerController = (options: PlayerControllerOptions) => {
   options.scene.add(object);
   let stance: Stance = 'walk';
   let yaw = 0;
-  let pitch = -0.18;
+  let pitch = 0.3;
   const cameraDistance = 6;
   const movement = new THREE.Vector3();
 
   const placeCamera = (): void => {
     const pivotHeight = stance === 'crouch' ? 1.05 : 1.45;
-    const pivot = new THREE.Vector3(
+    const pivot = cameraPivot.set(
       object.position.x,
       object.position.y + pivotHeight,
       object.position.z,
     );
     const horizontal = Math.cos(pitch) * cameraDistance;
-    const desired = new THREE.Vector3(
+    const desired = cameraDesired.set(
       pivot.x + Math.sin(yaw) * horizontal,
       pivot.y + Math.sin(pitch) * cameraDistance,
       pivot.z + Math.cos(yaw) * horizontal,
     );
-    const direction = desired.clone().sub(pivot);
+    const direction = cameraDirection.copy(desired).sub(pivot);
     let safeFraction = 1;
     for (let index = 1; index <= 24; index += 1) {
       const fraction = index / 24;
-      const sample = pivot.clone().addScaledVector(direction, fraction);
+      const sample = cameraSample.copy(pivot).addScaledVector(direction, fraction);
       if (sample.y < heightAt(sample.x, sample.z) + 0.25) {
         safeFraction = Math.max(4 / cameraDistance, (index - 1) / 24);
         break;
@@ -100,7 +105,7 @@ const createPlayerController = (options: PlayerControllerOptions) => {
     if (canMove()) {
       yaw -= mouse.x * 0.0025;
       pitch = THREE.MathUtils.clamp(
-        pitch - mouse.y * 0.0025,
+        pitch + mouse.y * 0.0025,
         -THREE.MathUtils.degToRad(70),
         THREE.MathUtils.degToRad(70),
       );
