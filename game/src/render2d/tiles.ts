@@ -2,6 +2,7 @@ import type { Palette } from './palette.js';
 import type { TileGrid } from '../world/tiles.js';
 import type { TracksPlacement } from '../world/tracks.js';
 import { speciesById } from '../creatures/species.js';
+import { trackDecalRects } from './track-decal.js';
 type Entry = { canvas: HTMLCanvasElement; cost: number };
 const rgb = (c: readonly number[]) => `rgb(${c.join(',')})`;
 const createTileRenderer = (grid: TileGrid, tracks: readonly TracksPlacement[] = []) => {
@@ -76,27 +77,9 @@ const createTileRenderer = (grid: TileGrid, tracks: readonly TracksPlacement[] =
       if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
       const descriptor = speciesById(track.speciesId)?.tracks;
       const px = x * 16 + 8,
-        py = y * 16 + 9;
-      if (descriptor?.kind === 'feather') {
-        ctx.fillRect(px - 3, py, 7, 1);
-        ctx.fillRect(px, py - 3, 1, 6);
-      } else if (descriptor?.kind === 'shard') {
-        ctx.fillRect(px, py - 3, 1, 6);
-        ctx.fillRect(px - 1, py - 1, 3, 3);
-      } else if (descriptor?.kind === 'furrow') {
-        ctx.fillRect(px - 4, py - 1, 9, 1);
-        ctx.fillRect(px - 3, py + 2, 8, 1);
-      } else if (descriptor?.kind === 'coil') {
-        ctx.fillRect(px - 3, py - 2, 6, 1);
-        ctx.fillRect(px - 4, py - 1, 1, 3);
-        ctx.fillRect(px - 3, py + 2, 6, 1);
-      } else {
-        const toes = descriptor?.toes ?? 2;
-        for (let i = 0; i < toes; i++) ctx.fillRect(px - 3 + i * 2, py - 2, 1, 2);
-        ctx.fillRect(px - 2, py + 2, 2, 1);
-        ctx.fillRect(px + 2, py + 1, 2, 1);
-        if (descriptor?.drag) ctx.fillRect(px, py, 1, 5);
-      }
+        py = y * 16 + 8;
+      for (const rect of trackDecalRects(descriptor ?? { kind: 'prints' }))
+        ctx.fillRect(px + rect.x, py + rect.y, rect.w, rect.h);
     }
     lastRebuildMs = performance.now() - started;
     cache.set(id, { canvas, cost: lastRebuildMs });

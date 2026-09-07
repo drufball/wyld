@@ -40,6 +40,7 @@ import { blit } from './render2d/blit.js';
 import { createCanvas } from './render2d/canvas.js';
 import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
+import { spriteOrigin } from './render2d/placement.js';
 import { createTileRenderer } from './render2d/tiles.js';
 import { buildState } from './state.js';
 import { createControlsCard } from './ui/controls.js';
@@ -434,11 +435,11 @@ const render = () => {
   const layer = tiles.layer(screen.x, screen.y, view.cols, view.rows, palette, key);
   view.context.drawImage(layer, 0, 0);
   const tile = player.tile,
-    x = (tile.x - screen.x * view.cols) * 16 - 8,
-    y =
-      (tile.y - screen.y * view.rows) * 16 -
-      20 +
-      (player.moving ? 0 : Math.round(Math.sin(elapsedSeconds * 2) * 0.5 + 0.5)),
+    localTileX = tile.x - screen.x * view.cols,
+    localTileY = tile.y - screen.y * view.rows,
+    playerOrigin = spriteOrigin(localTileX, localTileY, 16, 24),
+    x = playerOrigin.x,
+    y = playerOrigin.y + (player.moving ? 0 : Math.round(Math.sin(elapsedSeconds * 2) * 0.5 + 0.5)),
     frame = player.moving ? ((Math.floor(elapsedSeconds * 8) % 2) as 0 | 1) : 'idle';
   const calls =
     1 +
@@ -460,7 +461,9 @@ const render = () => {
       continue;
     const definition = speciesById(member.individual.speciesId)!;
     const tx = tile.x - screen.x * view.cols,
-      ty = tile.y - screen.y * view.rows;
+      ty = tile.y - screen.y * view.rows,
+      size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
+      origin = spriteOrigin(tx, ty, size, size);
     if (partyState.selection === member.individual.id) {
       view.context.strokeStyle = definition.palette.accent ?? '#bd7132';
       view.context.lineWidth = 1;
@@ -473,8 +476,8 @@ const render = () => {
       member.individual.speciesId,
       'down',
       controller.moving ? 'walk0' : 'idle',
-      Math.round(tx * 16 - definition.tier * 4),
-      Math.round(ty * 16 - (definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32)),
+      origin.x,
+      origin.y,
       false,
     );
   }
@@ -482,7 +485,9 @@ const render = () => {
     if (!onScreen(creature.position.x, creature.position.z, 1)) continue;
     const definition = speciesById(creature.speciesId)!;
     const tx = (creature.position.x + 400) / 2 - screen.x * view.cols,
-      ty = (creature.position.z + 400) / 2 - screen.y * view.rows;
+      ty = (creature.position.z + 400) / 2 - screen.y * view.rows,
+      size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
+      origin = spriteOrigin(tx, ty, size, size);
     const side = Math.abs(Math.sin(creature.facing)) > 0.5,
       facing = side ? 'side' : Math.cos(creature.facing) < 0 ? 'up' : 'down',
       flip = side && Math.sin(creature.facing) < 0;
@@ -497,14 +502,14 @@ const render = () => {
       creature.speciesId,
       facing,
       frame,
-      Math.round(tx * 16 - definition.tier * 4),
-      Math.round(ty * 16 - (definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32)),
+      origin.x,
+      origin.y,
       flip,
     );
     const meter = aiStates.get(creature.id)?.meter ?? 0;
     if (meter > 0) {
       const ex = Math.round(tx * 16 - 3),
-        ey = Math.round(ty * 16 - (definition.tier === 1 ? 21 : definition.tier === 2 ? 29 : 37));
+        ey = origin.y - 5;
       view.context.fillStyle = '#292b25';
       view.context.fillRect(ex, ey + 1, 7, 3);
       view.context.fillRect(ex + 2, ey, 3, 5);
