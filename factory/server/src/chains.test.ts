@@ -447,4 +447,28 @@ describe('chain routes', () => {
       },
     });
   });
+
+  it('attributes action rotation and planner closes only to the planner', async () => {
+    await post('/api/presence/next-action', { text: 'First action' });
+    await post('/api/presence/next-action', { text: 'Second action' });
+    const actions = database.db.select().from(chains).where(eq(chains.kind, 'action')).all();
+    expect(actions).toHaveLength(2);
+    expect(actions.map(({ status }) => status)).toEqual(['settled', 'open']);
+    const rotationEvents = await events();
+    expect(rotationEvents.every(({ source }) => source === 'planner')).toBe(true);
+    expect(rotationEvents.some(({ kind }) => kind === 'human.chain_closed')).toBe(false);
+
+    const plannerChain = await create('Planner closes this');
+    await post(`/api/chains/${plannerChain.id}/close`, { reason: 'settled', source: 'planner' });
+    expect((await events()).at(-1)).toMatchObject({
+      source: 'planner',
+      kind: 'planner.chain_updated',
+    });
+    const humanChain = await create('Human closes this');
+    await post(`/api/chains/${humanChain.id}/close`, { reason: 'settled', source: 'human' });
+    expect((await events()).at(-1)).toMatchObject({
+      source: 'human',
+      kind: 'human.chain_closed',
+    });
+  });
 });

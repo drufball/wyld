@@ -160,13 +160,22 @@ export async function postChainMessage(id: number, text: string): Promise<ChainT
   );
 }
 
-export async function closeChain(id: number, reason: 'settled' | 'converted'): Promise<ChainType> {
+export async function closeChain(
+  id: number,
+  reason: 'settled' | 'converted' | 'done',
+): Promise<ChainType> {
   return Chain.parse(
     await request(
       `/api/chains/${id}/close`,
       json('POST', { reason, source: 'human' }),
       'Closing chain',
     ),
+  );
+}
+
+export async function reopenChain(id: number): Promise<ChainType> {
+  return Chain.parse(
+    await request(`/api/chains/${id}/reopen`, json('POST', { source: 'human' }), 'Reopening chain'),
   );
 }
 
@@ -196,12 +205,6 @@ export async function buildDemo(id?: string): Promise<DemoType> {
       json('POST', id === undefined ? {} : { id }),
       'Building demo',
     ),
-  );
-}
-
-export async function hideDemo(id: string): Promise<DemoType> {
-  return Demo.parse(
-    await request(`/api/demos/${encodeURIComponent(id)}/hide`, json('POST', {}), 'Hiding demo'),
   );
 }
 

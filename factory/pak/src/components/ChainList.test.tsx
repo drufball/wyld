@@ -10,6 +10,7 @@ const question = {
   createdAt: timestamp,
   lastActivityAt: timestamp,
   questId: null,
+  anchor: null,
   messages: [{ id: 1, chainId: 1, author: 'human', text: 'Why?', ts: timestamp }],
 } as const;
 function response(value: unknown) {
@@ -112,8 +113,11 @@ describe('ChainList', () => {
     expect(await screen.findByText('Why?')).not.toBeNull();
   });
 
-  it('requests only conversational kinds when kind is all', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => response([])));
+  it('requests every renderable kind when kind is all', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => response([])),
+    );
     render(
       <LiveEventsProvider
         eventSourceFactory={() => ({ addEventListener() {}, removeEventListener() {}, close() {} })}
@@ -124,7 +128,7 @@ describe('ChainList', () => {
 
     await waitFor(() =>
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/chains?kind=question%2Cmessage%2Crumble',
+        '/api/chains?kind=question%2Cmessage%2Crumble%2Cdemo%2Cunlock',
         {},
       ),
     );
@@ -132,7 +136,10 @@ describe('ChainList', () => {
 
   it('omits the kind query and filters action chains when kind is not provided', async () => {
     const action = { ...question, kind: 'action', messages: [] };
-    vi.stubGlobal('fetch', vi.fn((url: string) => response(url === '/api/chains' ? [action] : [])));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url === '/api/chains' ? [action] : [])),
+    );
     const { container } = renderList();
 
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith('/api/chains', {}));
@@ -336,7 +343,7 @@ describe('ChainList', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  it('closes the actions menu from the card body without expanding the card', async () => {
+  it('lets the next card click toggle after an outside click closes the actions menu', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string) => response(url === '/api/chains' ? [question] : [])),
@@ -347,10 +354,11 @@ describe('ChainList', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reply or settle' }));
     fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
     expect(screen.getByRole('menu')).not.toBeNull();
-    fireEvent.click(container.querySelector('.chain-card p')!);
+    fireEvent.pointerDown(document.body);
 
     expect(screen.queryByRole('menu')).toBeNull();
-    expect(screen.getByLabelText('Follow up')).not.toBeNull();
+    fireEvent.click(container.querySelector('.chain-card p')!);
+    expect(screen.queryByLabelText('Follow up')).toBeNull();
   });
 
   it('suppresses the quest chip and does not load quest names when requested', async () => {

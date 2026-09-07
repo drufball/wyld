@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom';
 import {
   getCatchup,
   getHealthSnapshot,
-  listDemos,
+  getPresence,
+  listChains,
   listQuests,
-  listRumbles,
 } from '../api/client.js';
 import { Card } from '../components/ui/card.js';
 import { SfxToggle } from '../components/SfxToggle.js';
 import { countInWords } from '../words.js';
+import { demoCard } from '../lib/chain-cards.js';
 
 export function Vmu() {
   const [catchup, setCatchup] = useState<Awaited<ReturnType<typeof getCatchup>> | null>(null);
@@ -17,6 +18,7 @@ export function Vmu() {
   const [rumbleCount, setRumbleCount] = useState<number | null>(null);
   const [demoCount, setDemoCount] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
+  const [needsYou, setNeedsYou] = useState(0);
 
   useEffect(() => {
     void getCatchup()
@@ -28,24 +30,32 @@ export function Vmu() {
     void listQuests({ status: 'building' })
       .then((quests) => setBuildingCount(quests.length))
       .catch(() => setBuildingCount(0));
-    void listRumbles({ status: 'open' })
+    void getPresence()
+      .then((presence) => setNeedsYou(presence.needsYou))
+      .catch(() => setNeedsYou(0));
+    void listChains({ kind: 'rumble' })
       .then((rumbles) => setRumbleCount(rumbles.length))
       .catch(() => setRumbleCount(0));
-    void listDemos()
-      .then((demos) => setDemoCount(demos.filter(({ status }) => status === 'ready').length))
+    void listChains({ kind: 'demo' })
+      .then((demos) =>
+        setDemoCount(demos.filter((chain) => demoCard(chain)?.status === 'ready').length),
+      )
       .catch(() => setDemoCount(0));
   }, []);
 
   const nextAction = catchup?.nextAction ?? null;
-  const quiet =
-    catchup !== null &&
-    buildingCount === 0 &&
-    rumbleCount === 0 &&
-    demoCount === 0 &&
-    nextAction === null;
+  const quiet = catchup !== null && needsYou === 0 && buildingCount === 0 && nextAction === null;
   return (
     <main className="grid min-h-dvh content-center items-stretch gap-5 bg-muted p-5">
       <h1 className="m-0 font-display text-[10px] text-muted-foreground">VMU</h1>
+      {needsYou > 0 && (
+        <Link
+          className="flex min-h-11 items-center border-2 border-accent p-3 font-display text-xs text-accent no-underline"
+          to="/"
+        >
+          {countInWords(needsYou)} {needsYou === 1 ? 'thing needs' : 'things need'} you
+        </Link>
+      )}
       {paused && (
         <Link
           className="flex min-h-11 items-center border-2 border-accent p-3 font-display text-xs text-accent no-underline"

@@ -1,191 +1,115 @@
-import type { CatchupView } from '@wyld/shared';
+import type { Chain } from '@wyld/shared';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCatchup,
   getHealthSnapshot,
-  listDemos,
+  getPresence,
+  listChains,
   listQuests,
-  listRumbles,
 } from '../api/client.js';
 import { Vmu } from './Vmu.js';
 vi.mock('../api/client.js', () => ({
   getCatchup: vi.fn(),
   getHealthSnapshot: vi.fn(),
+  getPresence: vi.fn(),
+  listChains: vi.fn(),
   listQuests: vi.fn(),
-  listRumbles: vi.fn(),
-  listDemos: vi.fn(),
 }));
-const view: CatchupView = {
-  show: true,
-  awaySeconds: 0,
-  unseenCount: 0,
-  catchup: {
-    id: 1,
-    fromEventId: 0,
-    toEventId: 0,
-    digest: { rumbles: [], demos: [], shipped: [], fyi: [] },
-    generatedBy: 'mechanical',
-    createdAt: '2026-09-05T12:00:00.000Z',
-  },
-  nextAction: { text: 'Try the grove', deepLink: '/demos' },
-};
-const quest = {
-  id: 'map',
-  worldId: 'wyld',
-  title: 'Map',
-  pitch: 'Chart it',
-  status: 'building',
-  progress: 0,
-  sinceYouLooked: '',
-  lastNote: '',
+const base = {
+  status: 'open',
+  createdAt: '2026-09-05T12:00:00Z',
+  lastActivityAt: '2026-09-05T12:00:00Z',
+  questId: null,
+  anchor: null,
+  snoozedUntil: null,
+  tags: [],
+  demoId: null,
+  payload: null,
+  rumble: null,
+  messages: [],
 } as const;
-function renderScreen() {
+function chain(value: Partial<Chain>): Chain {
+  return { ...base, id: 1, kind: 'message', ...value } as Chain;
+}
+function renderVmu() {
   return render(
     <MemoryRouter>
       <Vmu />
     </MemoryRouter>,
   );
 }
-afterEach(() => vi.clearAllMocks());
 describe('VMU', () => {
   beforeEach(() => {
+    vi.mocked(getCatchup).mockResolvedValue({
+      show: false,
+      awaySeconds: 0,
+      unseenCount: 0,
+      catchup: {
+        id: 1,
+        fromEventId: 0,
+        toEventId: 0,
+        digest: { rumbles: [], demos: [], shipped: [], fyi: [] },
+        generatedBy: 'mechanical',
+        createdAt: '2026-09-05T12:00:00Z',
+      },
+      nextAction: null,
+    });
     vi.mocked(getHealthSnapshot).mockResolvedValue({
-      ts: '2026-09-05T12:00:00.000Z',
+      ts: '2026-09-05T12:00:00Z',
       planner: { state: 'online' },
       server: { ok: true, db: 'ok', uptimeSeconds: 1, version: 'test', eventsToday: 0 },
       wake: { reachable: true },
       github: { ciState: 'unknown', codexPrsOpen: 0, source: 'none' },
     });
-  });
-
-  it('puts a paused link first when the factory is paused', async () => {
-    vi.mocked(getHealthSnapshot).mockResolvedValue({
-      ts: '2026-09-05T12:00:00.000Z',
-      planner: { state: 'paused' },
-      server: { ok: true, db: 'ok', uptimeSeconds: 1, version: 'test', eventsToday: 0 },
-      wake: { reachable: true },
-      github: { ciState: 'unknown', codexPrsOpen: 0, source: 'none' },
-      paused: { lane: 'codex', reason: 'Quota hit', since: '2026-09-05T02:14:00.000Z' },
+    vi.mocked(getPresence).mockResolvedValue({
+      lastSeenAt: '2026-09-05T12:00:00Z',
+      lastCatchupEventId: null,
+      nextAction: null,
+      needsYou: 0,
     });
-    vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
     vi.mocked(listQuests).mockResolvedValue([]);
-    vi.mocked(listRumbles).mockResolvedValue([]);
-    vi.mocked(listDemos).mockResolvedValue([]);
-    const { container } = renderScreen();
-
-    const pausedLink = await screen.findByRole('link', { name: 'Paused?' });
-    expect(pausedLink.getAttribute('href')).toBe('/rumble');
-    expect(container.querySelectorAll('a')[0]).toBe(pausedLink);
+    vi.mocked(listChains).mockResolvedValue([]);
   });
-  it('shows catch-up, the next action, and cranking work', async () => {
-    vi.mocked(getCatchup).mockResolvedValue(view);
-    vi.mocked(listQuests).mockResolvedValue([quest]);
-    vi.mocked(listRumbles).mockResolvedValue([]);
-    vi.mocked(listDemos).mockResolvedValue([]);
-    renderScreen();
-    expect((await screen.findByRole('link', { name: 'Catch-Up ready' })).getAttribute('href')).toBe(
-      '/catch-up',
+  it('shows the needs-you headline', async () => {
+    vi.mocked(getPresence).mockResolvedValue({
+      lastSeenAt: '2026-09-05T12:00:00Z',
+      lastCatchupEventId: null,
+      nextAction: null,
+      needsYou: 2,
+    });
+    renderVmu();
+    expect(
+      (await screen.findByRole('link', { name: 'two things need you' })).getAttribute('href'),
+    ).toBe('/');
+  });
+  it('counts rumbles and ready demos from chains', async () => {
+    vi.mocked(listChains).mockImplementation(async (options) =>
+      options?.kind === 'rumble'
+        ? [
+            chain({
+              kind: 'rumble',
+              rumble: {
+                id: 'r',
+                title: 'R',
+                context: 'C',
+                options: ['a'],
+                chosen: null,
+                chosenAt: null,
+                blockingQuestIds: [],
+                kind: 'taste',
+              },
+            }),
+          ]
+        : [chain({ kind: 'demo', demoId: 'd', payload: { title: 'Demo', status: 'ready' } })],
     );
-    expect(screen.getByRole('link', { name: 'Try the grove' }).getAttribute('href')).toBe('/demos');
-    expect(screen.getByText('Cranking on one quest.')).not.toBeNull();
+    renderVmu();
+    expect(await screen.findByRole('link', { name: 'one Rumble' })).not.toBeNull();
+    expect(await screen.findByRole('link', { name: 'one demo ready' })).not.toBeNull();
   });
-  it('omits catch-up when not due', async () => {
-    vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false });
-    vi.mocked(listQuests).mockResolvedValue([quest]);
-    vi.mocked(listRumbles).mockResolvedValue([]);
-    vi.mocked(listDemos).mockResolvedValue([]);
-    renderScreen();
-    await screen.findByText('Cranking on one quest.');
-    expect(screen.queryByText('Catch-Up ready')).toBeNull();
-  });
-  it('shows the quiet state when nothing needs attention', async () => {
-    vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
-    vi.mocked(listQuests).mockResolvedValue([]);
-    vi.mocked(listRumbles).mockResolvedValue([]);
-    vi.mocked(listDemos).mockResolvedValue([]);
-    renderScreen();
+  it('is quiet only when needs-you, building, and next action are empty', async () => {
+    renderVmu();
     expect(await screen.findByText("Controller's quiet.")).not.toBeNull();
-  });
-  it('uses the singular label for one open rumble', async () => {
-    vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
-    vi.mocked(listQuests).mockResolvedValue([]);
-    vi.mocked(listRumbles).mockResolvedValue([
-      {
-        id: 'single-rumble',
-        title: 'Pick one',
-        context: 'Only one decision is open.',
-        options: ['A', 'B'],
-        chosen: null,
-        chosenAt: null,
-        blockingQuestIds: [],
-        kind: 'taste',
-      },
-    ]);
-    vi.mocked(listDemos).mockResolvedValue([]);
-    renderScreen();
-    expect((await screen.findByRole('link', { name: 'one Rumble' })).getAttribute('href')).toBe(
-      '/rumble',
-    );
-  });
-  it('counts the open rumbles returned by the default filtered request', async () => {
-    vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
-    vi.mocked(listQuests).mockResolvedValue([]);
-    vi.mocked(listRumbles).mockResolvedValue([
-      {
-        id: 'single-rumble',
-        title: 'Pick one',
-        context: 'Only one decision is open.',
-        options: ['A', 'B'],
-        chosen: null,
-        chosenAt: null,
-        blockingQuestIds: [],
-        kind: 'taste',
-      },
-      {
-        id: 'second-rumble',
-        title: 'Pick another',
-        context: 'Another decision is open.',
-        options: ['A', 'B'],
-        chosen: null,
-        chosenAt: null,
-        blockingQuestIds: [],
-        kind: 'taste',
-      },
-    ]);
-    vi.mocked(listDemos).mockResolvedValue([]);
-    renderScreen();
-    expect((await screen.findByRole('link', { name: 'two Rumbles' })).getAttribute('href')).toBe(
-      '/rumble',
-    );
-    expect(listRumbles).toHaveBeenCalledWith({ status: 'open' });
-  });
-  it('links to ready demo discs', async () => {
-    vi.mocked(getCatchup).mockResolvedValue({ ...view, show: false, nextAction: null });
-    vi.mocked(listQuests).mockResolvedValue([]);
-    vi.mocked(listRumbles).mockResolvedValue([]);
-    vi.mocked(listDemos).mockResolvedValue([
-      {
-        id: 'main',
-        questId: null,
-        title: 'WYLD',
-        ref: 'main',
-        url: '/play/main/',
-        kind: 'disc',
-        summary: null,
-        steps: [],
-        seeded: [],
-        deepLink: null,
-        status: 'ready',
-        builtAt: '2026-09-05T12:00:00.000Z',
-        error: null,
-        hiddenAt: null,
-      },
-    ]);
-    renderScreen();
-    expect((await screen.findByRole('link', { name: 'one demo ready' })).getAttribute('href')).toBe(
-      '/demos',
-    );
   });
 });
