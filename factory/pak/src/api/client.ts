@@ -1,5 +1,7 @@
 import {
   Achievement,
+  Artifact,
+  ArtifactWithHtml,
   CatchupView,
   Chain,
   Demo,
@@ -241,4 +243,15 @@ export async function postGoodnight() {
 
 export async function listRetros(limit = 20) {
   return Retro.array().parse(await request(`/api/retros?limit=${limit}`, {}, 'Loading memories'));
+}
+
+export async function listArtifacts(options: { quest?: string } = {}) {
+  const query = options.quest ? `?quest=${encodeURIComponent(options.quest)}` : '';
+  return Artifact.array().parse(await request(`/api/artifacts${query}`, {}, 'Loading explainers'));
+}
+
+export async function getArtifact(slug: string) {
+  return ArtifactWithHtml.parse(
+    await request(`/api/artifacts/${encodeURIComponent(slug)}`, {}, 'Loading explainer'),
+  );
 }

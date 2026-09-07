@@ -5,6 +5,7 @@ import { CatchUpGate } from './CatchUpGate.js';
 import { CatchUp } from './screens/CatchUp.js';
 import { Debug } from './screens/Debug.js';
 import { Demos } from './screens/Demos.js';
+import { Explain, Roadmap } from './screens/Explain.js';
 import { Memory } from './screens/Memory.js';
 import { Sleep } from './screens/Sleep.js';
 import { Rumble } from './screens/Rumble.js';
@@ -41,6 +42,8 @@ export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFa
           <Route index element={<Today />} />
           <Route path="catch-up" element={<CatchUp />} />
           <Route path="quests" element={<Quests />} />
+          <Route path="explain/:slug" element={<Explain />} />
+          <Route path="roadmap" element={<Roadmap />} />
           <Route path="worlds" element={<LegacyWorldRedirect />} />
           <Route path="worlds/:id" element={<LegacyWorldRedirect />} />
           <Route path="demos" element={<Demos />} />
