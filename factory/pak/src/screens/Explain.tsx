@@ -42,7 +42,7 @@ function ArtifactViewer({
   const [rects, setRects] = useState<Record<string, PinRect>>({});
   const [openChain, setOpenChain] = useState<number | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
-  const section = useRef<HTMLElement>(null);
+  const [section, setSection] = useState<HTMLElement | null>(null);
   const bridge = useRef<Bridge | null>(null);
   const canHold = useRef(false);
   const field = useRef<HTMLTextAreaElement>(null);
@@ -83,7 +83,6 @@ function ArtifactViewer({
     };
   }, [slug, subscribe, loadPins]);
   const version = artifact?.version;
-  canHold.current = ready && pick === null && openChain === null;
   useEffect(() => {
     setReady(false);
     setPinMode(false);
@@ -112,6 +111,7 @@ function ArtifactViewer({
     bridge.current?.setMode(effectiveMode);
   }, [effectiveMode]);
   useEffect(() => {
+    canHold.current = ready && pick === null && openChain === null;
     if (!canHold.current) setHeldMode(false);
   }, [ready, pick, openChain]);
   useEffect(() => {
@@ -135,25 +135,25 @@ function ArtifactViewer({
     };
   }, [ready, pick, openChain]);
   useLayoutEffect(() => {
-    const node = section.current;
-    if (!node) return;
-    const media = window.matchMedia('(min-width: 768px)');
+    if (!section) return;
+    const media = window.matchMedia?.('(min-width: 768px)');
     const measure = () => {
-      node.style.height = media.matches
-        ? `${Math.max(0, window.innerHeight - node.getBoundingClientRect().top - 32)}px`
+      const height = (media?.matches ?? window.innerWidth >= 768)
+        ? `${Math.max(0, window.innerHeight - section.getBoundingClientRect().top - 32)}px`
         : '';
+      if (section.style.height !== height) section.style.height = height;
     };
-    const observer = new ResizeObserver(measure);
-    observer.observe(document.body);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(document.body);
     window.addEventListener('resize', measure);
-    media.addEventListener('change', measure);
+    media?.addEventListener('change', measure);
     measure();
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
       window.removeEventListener('resize', measure);
-      media.removeEventListener('change', measure);
+      media?.removeEventListener('change', measure);
     };
-  }, []);
+  }, [section]);
   useEffect(() => {
     if (ready)
       bridge.current?.locate(pins.flatMap((chain) => (chain.anchor ? [chain.anchor.element] : [])));
@@ -213,7 +213,7 @@ function ArtifactViewer({
     'fixed bottom-[calc(53px+env(safe-area-inset-bottom))] left-0 right-0 z-40 grid gap-3 p-5 md:bottom-24 md:left-auto md:right-6 md:w-[min(32rem,calc(100vw-3rem))]';
   return (
     <section
-      ref={section}
+      ref={setSection}
       className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-10 flex flex-col bg-card md:static md:z-auto"
     >
       <header className="flex items-center gap-2 border-b border-border px-3 py-2">
