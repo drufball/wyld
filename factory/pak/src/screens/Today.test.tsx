@@ -51,13 +51,29 @@ describe('Today', () => {
     expect(playSound).toHaveBeenCalledTimes(1);
     expect(playSound).toHaveBeenCalledWith('startup');
   });
-  it('shows, dismisses, and auto-hides live achievement unlocks', async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((url: string) => jsonResponse(url === '/api/presence' ? presence : [])),
-    );
+  it('plays the save sound once for a newly loaded unlock chain', async () => {
     let receive: EventListener | null = null;
+    const unlock = {
+      id: 42,
+      kind: 'unlock',
+      status: 'open',
+      createdAt: '2026-09-06T08:00:00Z',
+      lastActivityAt: '2026-09-06T08:00:00Z',
+      questId: null,
+      snoozedUntil: null,
+      tags: [],
+      demoId: null,
+      payload: { achievementId: 'first-light', name: 'First Light', badge: 'sun' },
+      rumble: null,
+      anchor: null,
+      messages: [],
+    };
+    const fetch = vi.fn((url: string) =>
+      jsonResponse(
+        url === '/api/presence' ? presence : url === '/api/chains?kind=unlock' ? [unlock] : [],
+      ),
+    );
+    vi.stubGlobal('fetch', fetch);
     render(
       <MemoryRouter>
         <LiveEventsProvider
@@ -73,27 +89,25 @@ describe('Today', () => {
         </LiveEventsProvider>
       </MemoryRouter>,
     );
-    const emit = (name: string) => {
+    await waitFor(() => expect(playSound).toHaveBeenCalledWith('save'));
+    expect(vi.mocked(playSound).mock.calls.filter(([sound]) => sound === 'save')).toHaveLength(1);
+    act(() => {
       receive?.(
         new MessageEvent('event', {
           data: JSON.stringify({
             id: 1,
             ts: '2026-09-06T08:00:00Z',
-            source: 'pak',
-            kind: 'pak.achievement_unlocked',
-            payload: { name },
+            source: 'planner',
+            kind: 'planner.chain_updated',
+            payload: {},
           }),
         }),
       );
-    };
-    act(() => emit('First Light'));
-    expect(screen.getByText('Achievement unlocked — First Light')).not.toBeNull();
-    fireEvent.click(screen.getByLabelText('Dismiss achievement'));
-    expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
-    act(() => emit('Five Alive'));
-    expect(screen.getByText('Achievement unlocked — Five Alive')).not.toBeNull();
-    act(() => vi.advanceTimersByTime(8_000));
-    expect(screen.queryByText(/Achievement unlocked/)).toBeNull();
+    });
+    await waitFor(() =>
+      expect(fetch.mock.calls.filter(([url]) => url === '/api/chains?kind=unlock')).toHaveLength(2),
+    );
+    expect(vi.mocked(playSound).mock.calls.filter(([sound]) => sound === 'save')).toHaveLength(1);
   });
   it('renders the Go Outside details and optional local ETA', () => {
     const { rerender } = render(

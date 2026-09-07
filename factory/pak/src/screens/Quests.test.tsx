@@ -82,36 +82,78 @@ describe('Quests', () => {
   });
   it('shows Try it, Play, and not yet actions according to each quest demo', async () => {
     const discQuest = { ...quest, id: 'disc-quest', title: 'Disc quest' };
+    const pakQuest = { ...quest, id: 'pak-quest', title: 'Pak quest' };
+    const buildingQuest = { ...quest, id: 'building-quest', title: 'Building quest' };
     const emptyQuest = { ...quest, id: 'empty-quest', title: 'Empty quest' };
-    const demoFields = {
-      title: 'Demo',
-      ref: 'main',
-      url: '/',
-      status: 'ready',
-      builtAt: null,
-      error: null,
-      summary: null,
-      steps: [],
-      seeded: [],
-      deepLink: null,
+    const demoChain = {
+      id: 1,
+      kind: 'demo',
+      status: 'open',
+      createdAt: '2026-09-05T12:00:00.000Z',
+      lastActivityAt: '2026-09-05T12:00:00.000Z',
+      questId: quest.id,
+      snoozedUntil: null,
+      tags: [],
+      demoId: 'z-live',
+      payload: {
+        title: 'Demo',
+        kind: 'live',
+        url: '/',
+        status: 'ready',
+        deepLink: '/quests?quest=make-map',
+      },
+      rumble: null,
+      anchor: null,
+      messages: [],
     };
     const demos = [
-      { ...demoFields, id: 'z-live', questId: quest.id, kind: 'live' },
-      { ...demoFields, id: 'a-disc', questId: discQuest.id, kind: 'disc' },
+      demoChain,
+      {
+        ...demoChain,
+        id: 2,
+        questId: discQuest.id,
+        demoId: 'a-disc',
+        payload: { ...demoChain.payload, kind: 'disc' },
+      },
+      {
+        ...demoChain,
+        id: 3,
+        questId: pakQuest.id,
+        demoId: 'pak-demo',
+        payload: { ...demoChain.payload, kind: 'pak', url: '/play/pak-demo/' },
+      },
+      {
+        ...demoChain,
+        id: 4,
+        questId: buildingQuest.id,
+        demoId: 'building-demo',
+        payload: { ...demoChain.payload, status: 'building' },
+      },
     ];
     renderScreen(
       vi.fn((url: string) => {
         if (url === '/api/worlds') return response([world]);
-        if (url === '/api/quests') return response([quest, discQuest, emptyQuest]);
-        if (url === '/api/demos') return response(demos);
+        if (url === '/api/quests')
+          return response([quest, discQuest, pakQuest, buildingQuest, emptyQuest]);
+        if (url === '/api/chains?kind=demo') return response(demos);
         return response([]);
       }),
     );
-    expect((await screen.findByRole('link', { name: 'Try it' })).getAttribute('href')).toBe(
-      '/demos/z-live',
+    const liveCard = (await screen.findByText(quest.title)).closest('.quest-card') as HTMLElement;
+    expect(within(liveCard).getByRole('link', { name: 'Try it' }).getAttribute('href')).toBe(
+      '/quests?quest=make-map',
     );
     expect(screen.getByRole('link', { name: 'Play' }).getAttribute('href')).toBe('/demos/a-disc');
-    expect(screen.getByText('not yet')).not.toBeNull();
+    const pakCard = screen.getByText(pakQuest.title).closest('.quest-card') as HTMLElement;
+    const pakLink = within(pakCard).getByRole('link', { name: 'Try it' });
+    expect(pakLink.getAttribute('href')).toBe('/play/pak-demo/');
+    expect(pakLink.tagName).toBe('A');
+    expect(
+      within(screen.getByText(buildingQuest.title).closest('.quest-card')!).getByText('not yet'),
+    ).not.toBeNull();
+    expect(
+      within(screen.getByText(emptyQuest.title).closest('.quest-card')!).getByText('not yet'),
+    ).not.toBeNull();
   });
   it('links the newest explainer for a quest and omits the action without one', async () => {
     const emptyQuest = { ...quest, id: 'empty-quest', title: 'Empty quest' };
