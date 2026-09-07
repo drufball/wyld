@@ -5,6 +5,7 @@ const destinations = [
   { to: '/quests', label: 'Quests', mobileLabel: 'QUEST' },
   { to: '/roadmap', label: 'Roadmap', mobileLabel: 'MAP' },
   { to: '/demos', label: 'Demos', mobileLabel: 'DEMOS' },
+  { to: '/workshop', label: 'Species', mobileLabel: 'SPECS' },
   { to: '/rumble', label: 'Rumble', mobileLabel: 'RMBL' },
   { to: '/debug', label: 'Debug', mobileLabel: 'DEBUG' },
   { to: '/memory', label: 'Memory', mobileLabel: 'MEM' },
@@ -23,7 +24,7 @@ export function Nav() {
         >
           EXPANSION PAK
         </div>
-        <ul className="grid list-none grid-cols-7 p-0 md:flex md:flex-wrap">
+        <ul className="grid list-none grid-cols-8 p-0 md:flex md:flex-wrap">
           {destinations.map(({ to, label, mobileLabel }) => (
             <li className="min-w-0" key={to}>
               <NavLink
@@ -34,16 +35,10 @@ export function Nav() {
                 end={to === '/'}
                 to={to}
               >
-                <span
-                  className="pak-nav__label--mobile md:hidden"
-                  aria-hidden="true"
-                >
+                <span className="pak-nav__label--mobile md:hidden" aria-hidden="true">
                   {mobileLabel}
                 </span>
-                <span
-                  className="pak-nav__label--desktop hidden md:inline"
-                  aria-hidden="true"
-                >
+                <span className="pak-nav__label--desktop hidden md:inline" aria-hidden="true">
                   {label.toUpperCase()}
                 </span>
               </NavLink>

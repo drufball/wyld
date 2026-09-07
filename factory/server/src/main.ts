@@ -22,6 +22,7 @@ const builder = createDemoBuilder({
 });
 const app = createApp({
   database,
+  repoDir: config.repoDir,
   version: packageMetadata.version,
   pakDist: config.pakDist,
   demosDir: config.demosDir,

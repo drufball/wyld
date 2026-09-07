@@ -12,6 +12,7 @@ import { Rumble } from './screens/Rumble.js';
 import { Today } from './screens/Today.js';
 import { Vmu } from './screens/Vmu.js';
 import { Quests } from './screens/Quests.js';
+import { Workshop } from './screens/Workshop.js';
 import { LiveEventsProvider, type EventSourceFactory } from './live/LiveEvents.js';
 
 function Shell() {
@@ -48,6 +49,7 @@ export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFa
           <Route path="worlds/:id" element={<LegacyWorldRedirect />} />
           <Route path="demos" element={<Demos />} />
           <Route path="demos/:id" element={<Demos />} />
+          <Route path="workshop" element={<Workshop />} />
           <Route path="rumble" element={<Rumble />} />
           <Route path="debug" element={<Debug />} />
           <Route path="memory" element={<Memory />} />

@@ -1,3 +1,4 @@
+import { SpeciesLibrary } from '@wyld/sprites';
 import {
   Achievement,
   Artifact,
@@ -253,4 +254,8 @@ export async function getArtifact(slug: string) {
   return ArtifactWithHtml.parse(
     await request(`/api/artifacts/${encodeURIComponent(slug)}`, {}, 'Loading explainer'),
   );
+}
+
+export async function listSpecies() {
+  return SpeciesLibrary.parse(await request('/api/species', {}, 'Loading species'));
 }

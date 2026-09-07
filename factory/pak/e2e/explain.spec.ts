@@ -35,12 +35,12 @@ test('pins a comment to an explainer element', async ({ page, request }) => {
   await page.frameLocator('iframe').locator('[data-pin="hero"]').click();
   await page.getByRole('dialog', { name: 'Pin a comment' }).getByRole('textbox').fill('Look here');
   await page.getByRole('dialog', { name: 'Pin a comment' }).getByRole('textbox').press('Enter');
+  await expect(page.getByRole('button', { name: 'Pinned comment 1: Hero title' })).toBeVisible();
   const response = await request.get(`/api/chains?artifact=${encodeURIComponent(slug)}`);
   const chains = await response.json();
   expect(chains).toHaveLength(1);
   expect(chains[0].anchor).toEqual({ artifact: slug, element: 'hero', label: 'Hero title' });
   expect(chains[0].messages[0].text).toBe('Look here');
-  await expect(page.getByRole('button', { name: 'Pinned comment 1: Hero title' })).toBeVisible();
 });
 
 test('recovers a parse-time ready announcement with the hello handshake', async ({

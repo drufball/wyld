@@ -1,4 +1,4 @@
-import type { BodyPlanId } from '../species.js';
+import type { BodyPlanId } from './species.js';
 
 type SpriteSpec = {
   bodyPlan: BodyPlanId;
