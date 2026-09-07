@@ -51,8 +51,9 @@ describe('Today', () => {
     expect(playSound).toHaveBeenCalledTimes(1);
     expect(playSound).toHaveBeenCalledWith('startup');
   });
-  it('plays the save sound once for a newly loaded unlock chain', async () => {
+  it('shows and chimes once for an unlock chain received live', async () => {
     let receive: EventListener | null = null;
+    let unlockVisible = false;
     const unlock = {
       id: 42,
       kind: 'unlock',
@@ -70,7 +71,11 @@ describe('Today', () => {
     };
     const fetch = vi.fn((url: string) =>
       jsonResponse(
-        url === '/api/presence' ? presence : url === '/api/chains?kind=unlock' ? [unlock] : [],
+        url === '/api/presence'
+          ? presence
+          : url === '/api/chains?kind=unlock' && unlockVisible
+            ? [unlock]
+            : [],
       ),
     );
     vi.stubGlobal('fetch', fetch);
@@ -89,13 +94,31 @@ describe('Today', () => {
         </LiveEventsProvider>
       </MemoryRouter>,
     );
-    await waitFor(() => expect(playSound).toHaveBeenCalledWith('save'));
-    expect(vi.mocked(playSound).mock.calls.filter(([sound]) => sound === 'save')).toHaveLength(1);
+    await waitFor(() =>
+      expect(fetch.mock.calls.filter(([url]) => url === '/api/chains?kind=unlock')).toHaveLength(1),
+    );
+    unlockVisible = true;
     act(() => {
       receive?.(
         new MessageEvent('event', {
           data: JSON.stringify({
             id: 1,
+            ts: '2026-09-06T08:00:00Z',
+            source: 'pak',
+            kind: 'pak.achievement_unlocked',
+            payload: {},
+          }),
+        }),
+      );
+    });
+    await waitFor(() => expect(playSound).toHaveBeenCalledWith('save'));
+    expect(await screen.findByText('Achievement unlocked — First Light')).not.toBeNull();
+    expect(vi.mocked(playSound).mock.calls.filter(([sound]) => sound === 'save')).toHaveLength(1);
+    act(() => {
+      receive?.(
+        new MessageEvent('event', {
+          data: JSON.stringify({
+            id: 2,
             ts: '2026-09-06T08:00:00Z',
             source: 'planner',
             kind: 'planner.chain_updated',
@@ -105,7 +128,7 @@ describe('Today', () => {
       );
     });
     await waitFor(() =>
-      expect(fetch.mock.calls.filter(([url]) => url === '/api/chains?kind=unlock')).toHaveLength(2),
+      expect(fetch.mock.calls.filter(([url]) => url === '/api/chains?kind=unlock')).toHaveLength(3),
     );
     expect(vi.mocked(playSound).mock.calls.filter(([sound]) => sound === 'save')).toHaveLength(1);
   });

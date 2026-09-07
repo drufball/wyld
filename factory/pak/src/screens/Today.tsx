@@ -273,9 +273,14 @@ export function Today({
     () =>
       void listChains({ kind: 'unlock' })
         .then((items) => {
-          const hasNewUnlock = items.some(({ id }) => !chimedUnlockIds.current.has(id));
+          const newestUnlock = items
+            .filter(({ id }) => !chimedUnlockIds.current.has(id))
+            .sort((left, right) => right.id - left.id)[0];
           for (const { id } of items) chimedUnlockIds.current.add(id);
-          if (hasNewUnlock) playSound('save');
+          if (newestUnlock) {
+            setAddedChain(newestUnlock);
+            playSound('save');
+          }
         })
         .catch(() => undefined),
     [],
@@ -283,6 +288,7 @@ export function Today({
   useEffect(() => {
     loadUnlocks();
     const stops = [
+      subscribe('pak.achievement_unlocked', loadUnlocks),
       subscribe('planner.chain_updated', loadUnlocks),
       subscribe('human.chain_closed', loadUnlocks),
     ];
