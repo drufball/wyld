@@ -1027,3 +1027,9 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 
 - `/tmp/wyld-leads/fw-m3/brief.md` — Combat in four units: resolve+party / encounter+wild AI / active creature+swap+HUD+driven-off / downed+bond+capture. Branches `codex/fw-m3-resolve|encounter|party|bond`; disc `fw-m3-combat`; marker `<!-- quest:fw-m3-combat -->`. Spawn the lead when M2's disc is ready (both touch `game/`; `observe.ts`'s placeholder `creatureExecutedMove` is M3 unit 2's seam).
 - M2 status: #210/#211 notebook unit open (Codex ~10 min), lead reviewing.
+
+## M2 progress (2026-09-07 16:30)
+
+- Units 1–2 merged (#211 notebook, one typecheck fix round; #213 tracks/observe/toasts, one fix round). Unit 3 (the book, #214) with Codex. Each unit ≈ 25–45 min end to end; Codex ~10–17 min/round this hour.
+- Lead's review of #213 caught: a vacuous `every([])` test hiding zero Pyreclaw decals (Crater Rim has no cover props → chord fallback); aggro faking `creatureCalled` into the verified event stream (now `onCreatureAggro`, 25 m gate, both aggro paths); **one Mesh per decal doubled draw calls** (Hollow Camp 37→78) → instanced. Rule for M3: projectiles/decals must be instanced or pooled; leads measure draw calls at the three camps against `main`.
+- M2 explainer drafted at `/tmp/wyld-leads/artifacts/explainer-fw-m2.html` (interactive stub→merge, hint rules, Index, fog) and listed in `publish.mjs`; smoke-tested headless, no errors. Publish + roadmap v8 (M2 landed / M3 now) when the quest reaches `demo`.
