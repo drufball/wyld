@@ -119,6 +119,24 @@ this file, the Pak, and GitHub._
   registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
   restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
   `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **09:54 `one-mechanism` unit 3 landed (#177 / PR #179, three rounds: two substantive, one rebase)** — Today is one list
+  (question|message|rumble|demo|unlock; `action` never fetched/rendered), `ChainCard` renders demo + unlock cards, Demos = filter
+  with Snoozed/Hidden folds (`Show again` = reopen), sunset iff `needsYou===0`, VMU headlines `needsYou`; server: action-rotation
+  settles are planner-sourced (regression test). Card registered; quest stays `building`. **For unit 4:** `unlock` chains are
+  not in `needsYou` (unit 1 counts question|message|rumble|demo) → count them, or auto-settle unlock cards on view; the Hidden
+  fold lists the old `polish`/`try-it-cards`/`quiet-chain-cards`/`main` cards — `Show again` un-dones those quests (by design;
+  tell Dru); old demo payloads lack `status` (defaults `ready`); `DemoBody.runAction` double-reloads (harmless). Lead edge:
+  throwaway `.mjs` probes inside `factory/pak` break `pnpm lint` — keep scratch scripts outside the lint root.
+- **08:25 `artifacts` unit 1 landed (#176 / PR #178, two rounds).** Edges: (1) **adding a field to shared `Chain` breaks every
+  hand-built `Chain` literal in Pak tests (TS2741)** — it bit both directions today (the artifacts PR vs `Rumble.test.tsx`, then
+  the unit 3 PR vs `main`); when a unit widens a shared type, pre-authorise fixture touches and avoid running a second Pak unit
+  in parallel with it; (2) **`@wyld/shared` stays DOM-free** — Codex had added `"DOM"` to its `lib` for `TextEncoder`, which
+  shadows the package's own `Event` schema; reverted, measure UTF-8 bytes with a local helper; (3) **Codex non-publish #2** (a
+  fix round went `ready` with no push) — the `codex cloud diff` fallback applies to fix rounds too; watch the builder token;
+  (4) a polling loop must compare against a non-empty value (transient DNS returns empty and ends the wait early); (5) the wake
+  registry has no `listTools()`; (6) **`pak_read_chains` gained `artifact` — host restart at the next lead boundary.**
+  **Lead rule (new, 08:44): a lead must wait in ONE blocking `until … sleep 60` Bash loop; a lead that ends its turn "to wait"
+  stops dead and needs a Planner message to resume** (the viewer lead did exactly that; resumed by hand at 08:46).
 - **2026-09-07 morning.** No `lights_on` alarm arrived at 08:00 — the run had already ended, so the alarm is per-run; the
   Catch-Up Dru saw at 08:22 was whatever the overnight events left (rewrite it at Reset *last*, or accept the mechanical one).
   Env scrub verified live after the 23:00 restart: the Planner's own Bash has no `WAKE_URL/WAKE_SECRET/NTFY_URL/NTFY_BASE_URL`,
