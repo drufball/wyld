@@ -244,11 +244,11 @@
   ],
   "props": {
     "conifer": {
-      "density": 18,
+      "density": 10,
       "scale": [0.8, 1.35]
     },
     "broadleaf": {
-      "density": 12,
+      "density": 7,
       "scale": [0.8, 1.35]
     },
     "fern": {

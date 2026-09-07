@@ -21,9 +21,15 @@ describe('creature detection', () => {
     expect(visionRange('Skittish')).toBe(15);
     expect(visionRange('Bold')).toBe(10);
   });
-  it('blocks line of sight through cover and cliff tiles but not water', () => {
-    expect(hasLineOfSight(grid(new Set(['0,2'])), { x: 0, y: 0 }, { x: 0, y: 4 })).toBe(false);
-    expect(hasLineOfSight(grid(), { x: 0, y: 0 }, { x: 0, y: 4 })).toBe(true);
+  it('blocks line of sight through trees and cliffs but not rocks or water', () => {
+    const tree = grid(new Set(['0,1']));
+    const cliff = grid(new Set(['0,2']));
+    const rock = grid();
+    const water = grid();
+    expect(hasLineOfSight(tree, { x: 0, y: 0 }, { x: 0, y: 4 })).toBe(false);
+    expect(hasLineOfSight(cliff, { x: 0, y: 0 }, { x: 0, y: 4 })).toBe(false);
+    expect(hasLineOfSight(rock, { x: 0, y: 0 }, { x: 0, y: 4 })).toBe(true);
+    expect(hasLineOfSight(water, { x: 0, y: 0 }, { x: 0, y: 4 })).toBe(true);
   });
   it('hears a moving player within four tiles', () => expect(canHearPlayer(4, true)).toBe(true));
   it('hears nothing from a player standing still', () =>
@@ -32,6 +38,41 @@ describe('creature detection', () => {
     const visible = { distance: 0, visionRange: 10, visible: true };
     expect(stepDetection(0.99, visible, 10)).toBe(1);
     expect(stepDetection(0.01, { ...visible, visible: false }, 10)).toBe(0);
+  });
+  it('detects a player approaching a Skittish creature within 15 seconds', () => {
+    const creature = { x: 0, y: 0 };
+    const player = { x: 0, y: 8 };
+    let meter = 0;
+    for (let second = 0; second < 15; second += 1) {
+      meter = stepDetection(
+        meter,
+        {
+          distance: 8,
+          visionRange: visionRange('Skittish'),
+          visible: canSeePlayer(grid(), creature, player, 0, 'Skittish'),
+        },
+        1,
+      );
+    }
+    expect(meter).toBe(1);
+    expect(reactionFor('Skittish', createRng(1))).toBe('flee');
+  });
+  it('does not detect a stationary player behind a tree at the same distance', () => {
+    let meter = 0;
+    const tree = grid(new Set(['0,4']));
+    for (let second = 0; second < 15; second += 1) {
+      meter = stepDetection(
+        meter,
+        {
+          distance: 8,
+          visionRange: visionRange('Skittish'),
+          visible: canSeePlayer(tree, { x: 0, y: 0 }, { x: 0, y: 8 }, 0, 'Skittish'),
+          heard: false,
+        },
+        1,
+      );
+    }
+    expect(meter).toBe(0);
   });
   it('rerolls Erratic reactions for each detection', () => {
     const flee = { seed: () => 1, next: () => 0.49, range: () => 0, int: () => 0 };

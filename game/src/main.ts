@@ -79,7 +79,6 @@ const view = createCanvas(),
   toasts = createToastStack(),
   hud = createHud(debugConsole.available, toasts.root),
   notebook = createNotebook(),
-  registry = createCreatureRegistry(terrain.heightAt),
   observer = createObserver({ notebook }),
   callAudio = createCallAudio();
 callAudio.resumeOnGesture(window);
@@ -93,6 +92,7 @@ const player = createPlayerController({
   rows: () => view.rows,
   start: { x: -150, z: 50 },
 });
+const registry = createCreatureRegistry(terrain.heightAt, () => player.world);
 const onScreen = (x: number, z: number, margin = 0): boolean => {
   const t = worldToTile(x, z),
     sc = player.screen;

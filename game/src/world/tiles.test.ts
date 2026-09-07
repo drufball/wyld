@@ -34,10 +34,15 @@ describe('tile world', () => {
     expect(grid.tileAt(200, 200).surface).toBe('cliff');
     expect([grid.isWalkable(200, 200), grid.blocksSight(200, 200)]).toEqual([false, true]);
   });
-  it('classifies cover tiles as blocking walking and sight', () => {
+  it('classifies trees as blocking walking and sight', () => {
     const grid = fixture({ propPlacements: [placement('conifer')] });
     expect(grid.tileAt(200, 200)).toMatchObject({ class: 'cover', surface: 'tree' });
     expect([grid.isWalkable(200, 200), grid.blocksSight(200, 200)]).toEqual([false, true]);
+  });
+  it('classifies rocks as blocking walking but not sight', () => {
+    const grid = fixture({ propPlacements: [placement('rock')] });
+    expect(grid.tileAt(200, 200)).toMatchObject({ class: 'cover', surface: 'rock' });
+    expect([grid.isWalkable(200, 200), grid.blocksSight(200, 200)]).toEqual([false, false]);
   });
   it('classifies vent tiles as walkable hazards', () => {
     const grid = fixture({ propPlacements: [placement('vent')] });

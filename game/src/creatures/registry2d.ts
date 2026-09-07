@@ -12,9 +12,24 @@ type SpawnedCreature = {
   state: CreatureState;
   frameClock: number;
 };
-const createCreatureRegistry = (heightAt: (x: number, z: number) => number) => {
+type WorldPosition = { x: number; z: number };
+const MAX_WILD_CREATURES = 24;
+const createCreatureRegistry = (
+  heightAt: (x: number, z: number) => number,
+  viewerPosition: () => WorldPosition = () => ({ x: 0, z: 0 }),
+) => {
   const creatures = new Map<string, SpawnedCreature>();
   const add = (individual: Individual, x: number, z: number, facing = 0): SpawnedCreature => {
+    if (!creatures.has(individual.id) && creatures.size >= MAX_WILD_CREATURES) {
+      const viewer = viewerPosition();
+      const furthest = [...creatures.values()].reduce((candidate, creature) =>
+        Math.hypot(creature.position.x - viewer.x, creature.position.z - viewer.z) >
+        Math.hypot(candidate.position.x - viewer.x, candidate.position.z - viewer.z)
+          ? creature
+          : candidate,
+      );
+      creatures.delete(furthest.id);
+    }
     const creature = {
       id: individual.id,
       speciesId: individual.speciesId,
@@ -52,5 +67,5 @@ const createCreatureRegistry = (heightAt: (x: number, z: number) => number) => {
     clear: () => creatures.clear(),
   };
 };
-export { createCreatureRegistry };
+export { MAX_WILD_CREATURES, createCreatureRegistry };
 export type { CreatureState, SpawnedCreature };
