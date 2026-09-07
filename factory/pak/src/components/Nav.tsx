@@ -35,13 +35,13 @@ export function Nav() {
                 to={to}
               >
                 <span
-                  className="pak-nav__label--mobile min-[360px]:hidden"
+                  className="pak-nav__label--mobile md:hidden"
                   aria-hidden="true"
                 >
                   {mobileLabel}
                 </span>
                 <span
-                  className="pak-nav__label--desktop hidden min-[360px]:inline"
+                  className="pak-nav__label--desktop hidden md:inline"
                   aria-hidden="true"
                 >
                   {label.toUpperCase()}

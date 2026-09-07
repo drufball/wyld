@@ -75,11 +75,11 @@ describe('Pak shell', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders Today and all six tab destinations at the root', async () => {
+  it('renders Today and all seven tab destinations at the root', async () => {
     renderAt('/');
 
     expect(await screen.findByText("What's on your mind?")).not.toBeNull();
-    for (const label of ['Today', 'Quests', 'Demos', 'Rumble', 'Debug', 'Memory']) {
+    for (const label of ['Today', 'Quests', 'Roadmap', 'Demos', 'Rumble', 'Debug', 'Memory']) {
       expect(screen.getByRole('link', { name: label })).not.toBeNull();
     }
   });
@@ -96,6 +96,7 @@ describe('Pak shell', () => {
     expect(mobileLabels.map(({ textContent }) => textContent)).toEqual([
       'TODAY',
       'QUEST',
+      'MAP',
       'DEMOS',
       'RMBL',
       'DEBUG',
@@ -104,6 +105,7 @@ describe('Pak shell', () => {
     expect(desktopLabels.map(({ textContent }) => textContent)).toEqual([
       'TODAY',
       'QUESTS',
+      'ROADMAP',
       'DEMOS',
       'RUMBLE',
       'DEBUG',
