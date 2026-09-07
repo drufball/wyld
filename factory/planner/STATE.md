@@ -119,6 +119,14 @@ this file, the Pak, and GitHub._
   registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
   restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
   `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **10:41 `one-mechanism` DONE → `demo` (unit 4 #182 / PR #184, one round).** `needsYou` counts `unlock`; unlock cards
+  auto-settle after 8 s on screen (planner-sourced close); boot sweep `refreshDemoChainPayloads` (payload only — never via
+  `ensureDemoChain`, which reopens); single reload per menu action; Hidden fold says `(reopens the quest)` when true. Leftovers:
+  `Quests.tsx` still maps quest→demo via `listDemos` (file was the explainer lead's) — tiny follow-up; **Today shows both the
+  unlock toast and the unlock card** — decide (drop the toast) in a follow-up. Lead edges: **Codex shipped zero tests on the
+  first pass again** (make "does the diff add test files?" a mechanical pre-check); `codex cloud status` can read PENDING after
+  the branch moved — poll `gh api repos/drufball/wyld/pulls/N --jq .head.sha`; the Bash tool caps at 600 s, so a 30-min wait is
+  chained ≤8-min loops; scratch `POST /api/worlds` needs `kind`, `order`, `icon`.
 - **10:03 `artifacts` unit 2 landed (#180 / PR #181, one round)** — `screens/Explain.tsx` (`/explain/:slug`, `/roadmap`, one
   `ArtifactViewer`: 61px header + full-bleed `<iframe sandbox="allow-scripts">` from `/artifacts/<slug>/?v=<n>`, reload on
   `planner.artifact_published` for its slug), Nav 7th entry ROADMAP/`MAP`, quest-card `Explainer` button, `e2e/explain.spec.ts`.
