@@ -1,4 +1,4 @@
-import type { CatchupDigest, Event, QuestStatus } from '@wyld/shared';
+import type { CatchupDigest, DemoKind, Event, QuestStatus } from '@wyld/shared';
 
 export type CatchupQuest = {
   id: string;
@@ -11,7 +11,14 @@ export function mechanicalDigest(input: {
   events: Event[];
   quests: CatchupQuest[];
   openRumbles?: { id: string; title: string }[];
-  demos?: { id: string; questId: string | null; summary: string | null }[];
+  demos?: {
+    id: string;
+    questId: string | null;
+    summary: string | null;
+    kind: DemoKind;
+    deepLink: string | null;
+    url: string | null;
+  }[];
 }): CatchupDigest {
   const quests = new Map(input.quests.map((quest) => [quest.id, quest]));
   const demos = new Map<string, NonNullable<typeof input.demos>[number]>();
@@ -43,7 +50,12 @@ export function mechanicalDigest(input: {
       const demo = demos.get(quest.id);
       digest.demos.push({
         text: demo?.summary?.trim() ? demo.summary : quest.title,
-        deepLink: demo === undefined ? '/demos' : `/demos/${demo.id}`,
+        deepLink:
+          demo === undefined
+            ? '/demos'
+            : demo.kind === 'disc'
+              ? `/demos/${demo.id}`
+              : (demo.deepLink ?? demo.url ?? '/demos').trim() || '/demos',
       });
     }
     if (section === 'parked') parked.push(`Parked: ${quest.title}.`);

@@ -391,7 +391,11 @@ export function ChainCard({
             {chain.questId === null ? 'Hide' : 'Mark done'}
           </Button>
           <Button asChild variant="ghost">
-            <Link to={`/demos/${encodeURIComponent(demo.demoId)}`}>How to try it</Link>
+            <Link
+              to={demo.demoKind === 'disc' ? `/demos/${encodeURIComponent(demo.demoId)}` : '/demos'}
+            >
+              How to try it
+            </Link>
           </Button>
           <ChainActionsMenu
             chain={chain}

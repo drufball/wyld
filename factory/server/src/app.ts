@@ -34,7 +34,12 @@ import { createNotifier } from './notify.js';
 import { createPauseRoutes, createPauseService } from './pause.js';
 import { createSleepRoutes, createSleepScheduler, type SleepConfig } from './sleep.js';
 import { createAchievements } from './achievements.js';
-import { countNeedsYou, refreshDemoChainPayloads, replaceActionChain } from './chain-cards.js';
+import {
+  countNeedsYou,
+  demoUrl,
+  refreshDemoChainPayloads,
+  replaceActionChain,
+} from './chain-cards.js';
 import { createArtifactRoutes, createArtifactServeRoutes } from './artifacts.js';
 
 const EventQuery = z.object({
@@ -338,9 +343,16 @@ export function createApp(dependencies: AppDependencies) {
           .from(quests)
           .all(),
         demos: db
-          .select({ id: demos.id, questId: demos.questId, summary: demos.summary })
+          .select({
+            id: demos.id,
+            questId: demos.questId,
+            summary: demos.summary,
+            kind: demos.kind,
+            deepLink: demos.deepLink,
+          })
           .from(demos)
-          .all(),
+          .all()
+          .map((demo) => ({ ...demo, url: demoUrl(demo) })),
         openRumbles: listOrderedRumbleRows(dependencies.database, 'open', { now }).map(
           ({ slug, title }) => ({
             id: slug!,
