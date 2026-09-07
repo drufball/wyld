@@ -18,6 +18,7 @@ import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { createPinBridge, pinModifierHeld, type PinPick, type PinRect } from '../lib/pin-bridge.js';
+import { useViewportPanel } from '../lib/use-viewport-panel.js';
 
 type LoadedArtifact = Artifact | ArtifactWithHtml;
 type Bridge = ReturnType<typeof createPinBridge>;
@@ -42,7 +43,7 @@ function ArtifactViewer({
   const [rects, setRects] = useState<Record<string, PinRect>>({});
   const [openChain, setOpenChain] = useState<number | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
-  const [section, setSection] = useState<HTMLElement | null>(null);
+  const panelRef = useViewportPanel();
   const bridge = useRef<Bridge | null>(null);
   const canHold = useRef(false);
   const field = useRef<HTMLTextAreaElement>(null);
@@ -134,28 +135,6 @@ function ArtifactViewer({
       document.removeEventListener('visibilitychange', visibility);
     };
   }, [ready, pick, openChain]);
-  useLayoutEffect(() => {
-    if (!section) return;
-    const media = window.matchMedia?.('(min-width: 768px)');
-    const measure = () => {
-      const height = (media?.matches ?? window.innerWidth >= 768)
-        ? `${Math.max(0, window.innerHeight - section.getBoundingClientRect().top - 32)}px`
-        : '';
-      if (section.style.height !== height) section.style.height = height;
-    };
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    observer?.observe(document.body);
-    const parent = section.parentElement;
-    if (parent && parent !== document.body) observer?.observe(parent);
-    window.addEventListener('resize', measure);
-    media?.addEventListener('change', measure);
-    measure();
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener('resize', measure);
-      media?.removeEventListener('change', measure);
-    };
-  }, [section]);
   useEffect(() => {
     if (ready)
       bridge.current?.locate(pins.flatMap((chain) => (chain.anchor ? [chain.anchor.element] : [])));
@@ -215,7 +194,7 @@ function ArtifactViewer({
     'fixed bottom-[calc(53px+env(safe-area-inset-bottom))] left-0 right-0 z-40 grid gap-3 p-5 md:bottom-24 md:left-auto md:right-6 md:w-[min(32rem,calc(100vw-3rem))]';
   return (
     <section
-      ref={setSection}
+      ref={panelRef}
       className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-10 flex flex-col bg-card md:static md:z-auto"
     >
       <header className="flex items-center gap-2 border-b border-border px-3 py-2">

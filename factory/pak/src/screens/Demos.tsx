@@ -16,6 +16,7 @@ import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { demoCard, type DemoCard } from '../lib/chain-cards.js';
+import { useViewportPanel } from '../lib/use-viewport-panel.js';
 import { cn } from '../lib/utils.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { relativeTime } from '../words.js';
@@ -359,6 +360,7 @@ function DemoGrid() {
 function DemoPlayer({ id }: { id: string }) {
   const [found, setFound] = useState<{ chain: Chain; demo: DemoCard } | null | undefined>();
   const iframe = useRef<HTMLIFrameElement>(null);
+  const panelRef = useViewportPanel();
   useEffect(() => {
     void listChains({ kind: 'demo', status: 'all', includeSnoozed: true })
       .then((chains) => {
@@ -391,7 +393,10 @@ function DemoPlayer({ id }: { id: string }) {
     return { ...(screenshot ? { screenshot } : {}), ...(state ? { state } : {}) };
   };
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[72px] bg-card">
+    <div
+      ref={panelRef}
+      className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-10 bg-card md:static md:z-auto"
+    >
       <Button asChild variant="retro" className="absolute left-3 top-3 z-2">
         <Link to="/demos">Back to demos</Link>
       </Button>
