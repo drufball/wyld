@@ -101,6 +101,11 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **12:33 M0 units 1–2 landed** (#188 / PR #189 engine+player, one round; #190 / PR #191 terrain/biomes/regions, one round). The
+  first game disc `fw-m0-world` is `ready` at `07e4bca` (four biomes, 18 regions, 8 camps in `game/src/data/world.json` — names match
+  the spec exactly), the Walk-the-world explainer is published (v1, pins on; draft at `/tmp/wyld-leads/artifacts/explainer-fw-m0.html`),
+  and the next action points Dru at the disc. Units 3 (water/sky/time) and 4 (props/perf) follow. `publish.mjs` now skips unchanged
+  explainers (it had re-versioned `artifacts`/`roadmap` needlessly) and defines `base`.
 - **11:23 (2026-09-07) Phase 2 started.** FIELDWORK (`wyld-spec.md`) laid out as **eight quests in world `fieldwork`, one per spec
   milestone M0–M7, strictly in order** (§17: "do not start a milestone until the previous one's checkpoints pass"): `fw-m0-world`
   (building), `fw-m1-creatures`, `fw-m2-guide`, `fw-m3-combat`, `fw-m4-training`, `fw-m5-traversal`, `fw-m6-sightings`,
