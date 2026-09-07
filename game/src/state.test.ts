@@ -31,6 +31,8 @@ describe('game state', () => {
           behaviour: 'wander',
         },
       ],
+      guide: { completion: 0, pages: [], stubs: [] },
+      observe: { identifying: { species: null, progress: 0 } },
     });
     camera.x = 99;
     player.x = 99;
@@ -59,6 +61,8 @@ describe('game state', () => {
           behaviour: 'wander',
         },
       ],
+      guide: { completion: 0, pages: [], stubs: [] },
+      observe: { identifying: { species: null, progress: 0 } },
     });
   });
 });

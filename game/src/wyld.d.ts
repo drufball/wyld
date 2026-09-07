@@ -21,6 +21,18 @@ type WyldGameState = {
     detection: number;
     behaviour: 'wander' | 'flee' | 'aggro' | 'hold';
   }[];
+  guide: {
+    completion: number;
+    pages: {
+      speciesId: string;
+      name: string | null;
+      complete: boolean;
+      have: number;
+      total: number;
+    }[];
+    stubs: { id: string; speciesId: string; slot: 'tracks' | 'call'; title: string }[];
+  };
+  observe: { identifying: { species: string | null; progress: number } };
 };
 
 interface WyldGameApi {

@@ -19,6 +19,8 @@ const cameraPivot = new THREE.Vector3();
 const cameraDesired = new THREE.Vector3();
 const cameraDirection = new THREE.Vector3();
 const cameraSample = new THREE.Vector3();
+const faceYaw = (fromX: number, fromZ: number, targetX: number, targetZ: number): number =>
+  Math.atan2(fromX - targetX, fromZ - targetZ);
 
 const createBody = (): THREE.Group => {
   const body = new THREE.Group();
@@ -168,11 +170,16 @@ const createPlayerController = (options: PlayerControllerOptions) => {
       object.position.set(x, heightAt(x, z), z);
       placeCamera();
     },
+    face(x: number, z: number): void {
+      yaw = faceYaw(object.position.x, object.position.z, x, z);
+      pitch = 0;
+      placeCamera();
+    },
     get stance(): Stance {
       return stance;
     },
   };
 };
 
-export { createPlayerController };
+export { createPlayerController, faceYaw };
 export type { PlayerControllerOptions, Stance };

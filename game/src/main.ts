@@ -23,12 +23,16 @@ import { isEligible, species, speciesById } from './creatures/species.js';
 import type { CreatureState } from './creatures/bodyplans/types.js';
 import type { Temperament } from './creatures/species.js';
 import { createPlayerController } from './player/controller.js';
+import { createNotebook, stubTitle } from './guide/notebook.js';
+import { createObserver, type ObserveFrame } from './guide/observe.js';
 import { buildState } from './state.js';
 import { createDebugConsole } from './ui/debug.js';
 import { createHud } from './ui/hud.js';
 import { createStatsPanel } from './ui/stats.js';
+import { createToastStack } from './ui/toasts.js';
 import { camps, pointToRegion, populationFor, regions } from './world/regions.js';
 import { createProps, placeProps } from './world/props.js';
+import { createTracksDecals, placeTracks } from './world/tracks.js';
 import worldData from './data/world.json';
 import { createSky } from './world/sky.js';
 import { nextPhaseStart, phaseBoundariesBetween, phases, timeAt } from './world/time.js';
@@ -73,6 +77,7 @@ const spawnRng = createRng(seed ^ 0x5fa1);
 const wanderRng = createRng(seed ^ 0x3b2d);
 const callRng = createRng(seed ^ 0x0ca1);
 const aiRng = createRng(seed ^ 0xa17e);
+const tracksRng = createRng(seed ^ 0x7ac5);
 const terrain = createTerrain(seed);
 scene.add(terrain.group);
 const water = createWater(terrain.heightAt);
@@ -97,13 +102,25 @@ const propObstacles: PropObstacle[] = propPlacements
 const propIndex = createPropIndex(propObstacles);
 const props = createProps(propPlacements, camera);
 scene.add(props);
+const trackPlacements = placeTracks({
+  rng: tracksRng,
+  propPlacements,
+  heightAt: terrain.heightAt,
+  slopeAt: terrain.slopeAt,
+  depthAt: water.depthAt,
+});
+scene.add(createTracksDecals(trackPlacements));
 const sky = createSky(scene, sun, hemisphere);
 const debugConsole = createDebugConsole({ seed });
-const hud = createHud(debugConsole.available);
 const statsPanel = createStatsPanel(debugConsole.available);
+const toasts = createToastStack();
+const hud = createHud(debugConsole.available, toasts.root);
+const notebook = createNotebook();
+const observer = createObserver({ notebook });
 type GameEvents = {
   phaseChanged: { phase: Phase; day: number };
   creatureCalled: { id: string; species: string; position: { x: number; y: number; z: number } };
+  creatureExecutedMove: { species: string; move: string; distance: number; inView: boolean };
 };
 const events = createEventBus<GameEvents>();
 const eventLog: { kind: string; ts: number; payload: unknown }[] = [];
@@ -113,6 +130,15 @@ const record = (kind: keyof GameEvents, payload: GameEvents[keyof GameEvents]): 
 };
 events.on('phaseChanged', (payload) => record('phaseChanged', payload));
 events.on('creatureCalled', (payload) => record('creatureCalled', payload));
+events.on('creatureExecutedMove', (payload) => record('creatureExecutedMove', payload));
+let observeFrame: ObserveFrame | null = null;
+const pendingCalls: GameEvents['creatureCalled'][] = [];
+events.on('creatureCalled', (payload) => {
+  pendingCalls.push(payload);
+});
+events.on('creatureExecutedMove', (payload) => {
+  observer.onCreatureExecutedMove(payload).forEach((discovery) => toasts.show(discovery));
+});
 const callAudio = createCallAudio();
 callAudio.resumeOnGesture(window);
 const input = createInput(renderer.domElement);
@@ -204,15 +230,23 @@ debugConsole.registerCommand('time', {
   },
 });
 debugConsole.registerCommand('tp', {
-  help: 'teleport to a named camp',
+  help: 'tp <campName> or tp <x> <z>',
   run: (args) => {
+    if (args.length === 2) {
+      const x = Number(args[0]);
+      const z = Number(args[1]);
+      if (Number.isFinite(x) && Number.isFinite(z)) {
+        player.teleport(x, z);
+        return `teleported: ${x}, ${z}`;
+      }
+    }
     const requested = args
       .join(' ')
       .replace(/^['"]|['"]$/g, '')
       .toLowerCase();
     const camp = camps().find((entry) => entry.name.toLowerCase() === requested);
     if (!camp)
-      return `camps: ${camps()
+      return `coordinates must be numbers, or camps: ${camps()
         .map(({ name }) => name)
         .join(', ')}`;
     player.teleport(camp.x, camp.z);
@@ -282,6 +316,48 @@ debugConsole.registerCommand('creatures', {
       })
       .join('\n') || 'none',
 });
+debugConsole.registerCommand('tracks', {
+  help: 'tracks [speciesId] — list nearest track decals',
+  run: ([requested]) => {
+    const matches = trackPlacements
+      .filter(({ speciesId }) => !requested || speciesId === requested.toLowerCase())
+      .map((placement) => ({
+        placement,
+        distance: Math.hypot(
+          placement.x - player.object.position.x,
+          placement.z - player.object.position.z,
+        ),
+      }))
+      .sort((left, right) => left.distance - right.distance);
+    return (
+      matches
+        .map(
+          ({ placement, distance }) =>
+            `${placement.speciesId} ${placement.regionId} ${distance.toFixed(1)}m`,
+        )
+        .join('\n') || 'none'
+    );
+  },
+});
+debugConsole.registerCommand('face', {
+  help: 'face <speciesId|creatureId>',
+  run: ([requested = '']) => {
+    const match = registry
+      .list()
+      .filter(({ id, speciesId }) => id === requested || speciesId === requested)
+      .map((creature) => ({
+        creature,
+        distance: Math.hypot(
+          creature.position.x - player.object.position.x,
+          creature.position.z - player.object.position.z,
+        ),
+      }))
+      .sort((left, right) => left.distance - right.distance)[0];
+    if (!match) return `no live creature matches: ${requested || '(missing)'}`;
+    player.face(match.creature.position.x, match.creature.position.z);
+    return `${match.creature.id} ${match.distance.toFixed(1)}m`;
+  },
+});
 
 const render = (): void => {
   renderer.render(scene, camera);
@@ -315,6 +391,36 @@ const moveCreature = (
     return true;
   }
   return false;
+};
+const viewProjection = new THREE.Matrix4();
+const observationFrustum = new THREE.Frustum();
+const creatureCentre = new THREE.Vector3();
+const recordAggro = (creature: SpawnedCreature, clock: ReturnType<typeof timeAt>): void => {
+  const region = pointToRegion(player.object.position.x, player.object.position.z);
+  observer
+    .onCreatureAggro(
+      {
+        species: creature.speciesId,
+        position: {
+          x: creature.position.x,
+          y: creature.position.y,
+          z: creature.position.z,
+        },
+      },
+      {
+        day: clock.day,
+        phase: clock.phase,
+        region: region?.id ?? null,
+        playerPosition: {
+          x: player.object.position.x,
+          y: player.object.position.y,
+          z: player.object.position.z,
+        },
+        tracks: [],
+        creatures: [],
+      },
+    )
+    .forEach((discovery) => toasts.show(discovery));
 };
 const loop = createLoop({
   update: (dtSeconds) => {
@@ -367,6 +473,7 @@ const loop = createLoop({
       if (state.behaviour === 'wander' && previousDetection < 1 && state.detection >= 1) {
         state.behaviour = reactionFor(creature.temperament, aiRng);
         if (state.behaviour === 'flee') state.fleeUntil = elapsedSeconds + aiRng.range(8, 12);
+        if (state.behaviour === 'aggro') recordAggro(creature, clock);
       }
     }
     for (const creature of registry.list()) {
@@ -380,7 +487,10 @@ const loop = createLoop({
       const range = visionRange(creature.temperament);
       const speed = 3 + creature.individual.stats.speed * 0.6;
       const canSwim = data.innate.includes('Swim');
+      const behaviourBeforeCloseReaction = state.behaviour;
       if (state.behaviour === 'hold' && distance < 8) state.behaviour = 'aggro';
+      if (behaviourBeforeCloseReaction !== 'aggro' && state.behaviour === 'aggro')
+        recordAggro(creature, clock);
       const nextBehaviour = releaseBehaviour(
         state.behaviour,
         distance,
@@ -454,6 +564,52 @@ const loop = createLoop({
     }
     registry.update(elapsedSeconds);
     const region = pointToRegion(player.object.position.x, player.object.position.z);
+    camera.updateMatrixWorld();
+    viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    observationFrustum.setFromProjectionMatrix(viewProjection);
+    observeFrame = {
+      day: clock.day,
+      phase: clock.phase,
+      region: region?.id ?? null,
+      playerPosition: {
+        x: player.object.position.x,
+        y: player.object.position.y,
+        z: player.object.position.z,
+      },
+      tracks: trackPlacements,
+      creatures: registry.list().map((creature) => {
+        const definition = speciesById(creature.speciesId)!;
+        creatureCentre.set(
+          creature.position.x,
+          creature.position.y + (definition.visual.height ?? 0) * 0.5,
+          creature.position.z,
+        );
+        const distance = Math.hypot(
+          creature.position.x - player.object.position.x,
+          creature.position.z - player.object.position.z,
+        );
+        return {
+          id: creature.id,
+          speciesId: creature.speciesId,
+          region: pointToRegion(creature.position.x, creature.position.z)?.id ?? null,
+          position: {
+            x: creature.position.x,
+            y: creature.position.y,
+            z: creature.position.z,
+          },
+          distance,
+          moving: creature.state === 'locomotion',
+          inView:
+            observationFrustum.containsPoint(creatureCentre) &&
+            !hasCover(camera.position, creatureCentre, terrain.heightAt, propIndex),
+          wild: true,
+          temperament: creature.temperament,
+        };
+      }),
+    };
+    observer.update(dtSeconds, observeFrame).forEach((discovery) => toasts.show(discovery));
+    for (const call of pendingCalls.splice(0))
+      observer.onCreatureCalled(call, observeFrame).forEach((discovery) => toasts.show(discovery));
     const sunDirection = sky.update(clock.dayProgress);
     sun.target.position.copy(player.object.position);
     sun.position.set(
@@ -516,6 +672,23 @@ window.__wyld = {
         detection: Number(aiStateFor(creature.id).detection.toFixed(2)),
         behaviour: aiStateFor(creature.id).behaviour,
       })),
+      guide: {
+        completion: notebook.overallCompletion(),
+        pages: notebook.pages().map((page) => ({
+          speciesId: page.speciesId,
+          name: page.name,
+          complete: notebook.completion(page.speciesId),
+          ...notebook.completionFraction(page.speciesId),
+        })),
+        stubs: notebook.stubs().map((stub) => ({
+          id: stub.id,
+          // Debug-only linkage. The field guide UI must never reveal a stub's species.
+          speciesId: stub.speciesId,
+          slot: stub.slot,
+          title: stubTitle(stub),
+        })),
+      },
+      observe: { identifying: observer.identifying() },
     }),
   screenshot: () => {
     render();

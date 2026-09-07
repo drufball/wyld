@@ -29,7 +29,11 @@ const cloneData = (): SpeciesData[] => structuredClone(species()) as SpeciesData
 
 describe('species data', () => {
   it('matches every habitat eligibility combination', () => {
-    expect(Object.keys(fixture).sort()).toEqual(species().map(({ id }) => id).sort());
+    expect(Object.keys(fixture).sort()).toEqual(
+      species()
+        .map(({ id }) => id)
+        .sort(),
+    );
     let combinations = 0;
     for (const [id, habitats] of Object.entries(fixture))
       for (const region of regions())
@@ -113,6 +117,22 @@ describe('species data', () => {
     for (const entry of species()) {
       expect(plans).toContain(entry.bodyPlan);
       expect(hides).toContain(entry.hide);
+    }
+  });
+  it('keeps discovery hints free of answers they are meant to nudge towards', () => {
+    const escaped = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const speciesNames = species().map(({ name }) => new RegExp(`\\b${escaped(name)}\\b`, 'i'));
+    const regionNames = regions().map(({ name }) => new RegExp(`\\b${escaped(name)}\\b`, 'i'));
+    // Lower-case prose such as "the heat of the day" describes time, not the authored Day phase.
+    const phaseNames = phases.map((phase) => new RegExp(`\\b${phase}\\b`));
+    for (const entry of species()) {
+      for (const hint of [entry.hints.tracks, entry.hints.call]) {
+        expect(speciesNames.some((pattern) => pattern.test(hint))).toBe(false);
+        expect(regionNames.some((pattern) => pattern.test(hint))).toBe(false);
+        expect(phaseNames.some((pattern) => pattern.test(hint))).toBe(false);
+      }
+      expect(regionNames.some((pattern) => pattern.test(entry.hints.identified))).toBe(false);
+      expect(phaseNames.some((pattern) => pattern.test(entry.hints.identified))).toBe(false);
     }
   });
 });
