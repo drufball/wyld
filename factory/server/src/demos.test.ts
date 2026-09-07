@@ -179,6 +179,9 @@ describe('demo and feedback routes', () => {
         seeded: ['new'],
         deepLink: '/sleep',
         url: '/play/chain-demo/sleep',
+        status: 'building',
+        builtAt: null,
+        error: null,
       },
     );
     expect(

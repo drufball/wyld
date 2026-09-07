@@ -21,6 +21,9 @@ export function demoPayload(row: DemoRow) {
     seeded: row.seeded ?? [],
     deepLink: row.deepLink,
     url: demoUrl(row),
+    status: row.status,
+    builtAt: row.builtAt,
+    error: row.error,
   };
 }
 

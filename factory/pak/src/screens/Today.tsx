@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import {
   getPresence,
   listChains,
-  listDemos,
   listQuests,
   listRetros,
   postChain,
@@ -18,6 +17,7 @@ import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { countInWords } from '../words.js';
 import { playSound } from '../lib/feedback.js';
+import { demoCard } from '../lib/chain-cards.js';
 
 export type TodaySignals = { rumbles: number; demos: number; memory: string | null };
 
@@ -180,7 +180,7 @@ export function Today({
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const [rumbleCount, setRumbleCount] = useState(signals.rumbles);
   const [demoCount, setDemoCount] = useState(signals.demos);
-  const [chainCount, setChainCount] = useState(0);
+  const [needsYou, setNeedsYou] = useState<number | null>(null);
   const [buildingCount, setBuildingCount] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
   const [achievementName, setAchievementName] = useState<string | null>(null);
@@ -240,13 +240,23 @@ export function Today({
   const loadPresence = useCallback(
     () =>
       void getPresence()
-        .then((value) => setNextAction(value.nextAction))
+        .then((value) => {
+          setNextAction(value.nextAction);
+          setNeedsYou(value.needsYou);
+        })
         .catch(() => undefined),
     [],
   );
   useEffect(() => {
     loadPresence();
-    return subscribe('planner.next_action', loadPresence);
+    const stops = [
+      'planner.next_action',
+      'planner.chain_updated',
+      'human.chain_closed',
+      'human.question',
+      'human.decision',
+    ].map((kind) => subscribe(kind as Parameters<typeof subscribe>[0], loadPresence));
+    return () => stops.forEach((stop) => stop());
   }, [loadPresence, subscribe]);
   const loadRumbles = useCallback(
     () =>
@@ -267,8 +277,10 @@ export function Today({
   }, [loadRumbles, subscribe]);
   const loadDemos = useCallback(
     () =>
-      void listDemos()
-        .then((items) => setDemoCount(items.filter(({ status }) => status === 'ready').length))
+      void listChains({ kind: 'demo' })
+        .then((items) =>
+          setDemoCount(items.filter((chain) => demoCard(chain)?.status === 'ready').length),
+        )
         .catch(() => undefined),
     [],
   );
@@ -276,7 +288,8 @@ export function Today({
     loadDemos();
     const stops = [
       subscribe('planner.quest_updated', loadDemos),
-      subscribe('human.feedback', loadDemos),
+      subscribe('planner.chain_updated', loadDemos),
+      subscribe('human.chain_closed', loadDemos),
     ];
     return () => stops.forEach((stop) => stop());
   }, [loadDemos, subscribe]);
@@ -342,12 +355,7 @@ export function Today({
     sendChain(intent);
   };
 
-  // /api/chains excludes snoozed items and includes Rumbles, so zero means nothing open and
-  // unsnoozed is waiting on him.
-  const goOutside =
-    nextAction !== null &&
-    /^nothing needs you/i.test(nextAction.text.trimStart()) &&
-    chainCount === 0;
+  const goOutside = nextAction !== null && needsYou === 0;
 
   return (
     <div className="grid gap-8">
@@ -462,12 +470,7 @@ export function Today({
           </Card>
         )
       ) : null}
-      <ChainList
-        kind="all"
-        addedChain={addedChain}
-        onConvert={sendIntent}
-        onCountChange={setChainCount}
-      />
+      <ChainList kind="all" addedChain={addedChain} onConvert={sendIntent} />
       <InFlight heading={!goOutside} />
       <Signals {...signals} rumbles={rumbleCount} demos={demoCount} />
       <Button

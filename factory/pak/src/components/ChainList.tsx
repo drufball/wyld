@@ -9,6 +9,7 @@ import {
   useState,
   type FormEvent,
 } from 'react';
+import { Link } from 'react-router-dom';
 import {
   closeChain,
   decideRumble,
@@ -19,6 +20,7 @@ import {
   unsnoozeChain,
 } from '../api/client.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
+import { demoCard, unlockCard } from '../lib/chain-cards.js';
 import { DecisionButtons } from './DecisionButtons.js';
 import { Badge } from './ui/badge.js';
 import { Button } from './ui/button.js';
@@ -64,7 +66,7 @@ export function ChainCard({
 }) {
   const [text, setText] = useState('');
   const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
-  const collapsible = chain.kind !== 'rumble';
+  const collapsible = chain.kind === 'question' || chain.kind === 'message';
   const [historyOpen, setHistoryOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -133,7 +135,7 @@ export function ChainCard({
       },
     );
   };
-  const close = (reason: 'settled' | 'converted') =>
+  const close = (reason: 'settled' | 'converted' | 'done') =>
     act(
       () => closeChain(chain.id, reason),
       () => {
@@ -174,6 +176,176 @@ export function ChainCard({
     </p>
   );
   const snoozed = chain.snoozedUntil !== null && new Date(chain.snoozedUntil) > new Date();
+  const failure = failedAction !== null && (
+    <p className="m-0 text-destructive">
+      That didn't go through.{' '}
+      <Button variant="ghost" type="button" onClick={failedAction}>
+        Retry
+      </Button>
+    </p>
+  );
+  const menuActions = (
+    <div className="relative">
+      <Button
+        ref={menuTrigger}
+        variant="retro"
+        size="icon"
+        type="button"
+        aria-label="More actions"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-controls={`chain-menu-${chain.id}`}
+        onClick={() => setMenuOpen((value) => !value)}
+      >
+        <Ellipsis size={20} aria-hidden />
+      </Button>
+      {menuOpen && (
+        <div
+          ref={menu}
+          id={`chain-menu-${chain.id}`}
+          role="menu"
+          className="absolute right-0 bottom-full z-20 mb-1 grid w-max max-w-[calc(100vw-3rem)] gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
+        >
+          {snoozed ? (
+            <Button
+              role="menuitem"
+              variant="ghost"
+              type="button"
+              className="w-full justify-start"
+              onClick={() => {
+                setMenuOpen(false);
+                act(() => unsnoozeChain(chain.id), onChange);
+              }}
+            >
+              Unsnooze
+            </Button>
+          ) : (
+            <>
+              <Button
+                role="menuitem"
+                variant="ghost"
+                type="button"
+                className="w-full justify-start"
+                aria-expanded={snoozeOpen}
+                onClick={() => setSnoozeOpen((value) => !value)}
+              >
+                Snooze
+              </Button>
+              {snoozeOpen && (
+                <>
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    onClick={() => chooseSnooze('later')}
+                  >
+                    Later today
+                  </Button>
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    onClick={() => chooseSnooze('tomorrow')}
+                  >
+                    Tomorrow morning
+                  </Button>
+                  <Button
+                    role="menuitem"
+                    variant="ghost"
+                    type="button"
+                    className="w-full justify-start"
+                    onClick={() => chooseSnooze('week')}
+                  >
+                    Next week
+                  </Button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+  if (chain.kind === 'demo') {
+    const demo = demoCard(chain);
+    if (demo === null) return null;
+    const label =
+      demo.status === 'building'
+        ? 'BUILDING'
+        : demo.status === 'failed'
+          ? 'FAILED'
+          : demo.demoKind === 'pak'
+            ? 'BRANCH'
+            : demo.demoKind === 'disc'
+              ? 'PLAY'
+              : 'TRY IT';
+    const tone =
+      demo.status === 'failed'
+        ? 'bad'
+        : demo.status === 'building' || demo.demoKind === 'pak'
+          ? 'accent'
+          : 'ok';
+    return (
+      <Card
+        ref={cardRoot}
+        className="chain-card demo-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
+      >
+        <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <h2 className="m-0 wrap-anywhere text-xl leading-snug">{demo.title}</h2>
+          <Badge variant="tone" data-tone={tone}>
+            {label}
+          </Badge>
+        </header>
+        {demo.summary !== null && <p className="m-0 wrap-anywhere">{demo.summary}</p>}
+        {demo.status === 'building' && (
+          <p className="m-0 text-muted-foreground">Building this now…</p>
+        )}
+        {demo.status === 'failed' && <p className="m-0">This one didn't build.</p>}
+        <div className="flex flex-wrap gap-2">
+          {demo.status === 'ready' && (
+            <Button asChild variant="retro">
+              {demo.demoKind === 'pak' ? (
+                <a href={demo.url}>Try it</a>
+              ) : demo.demoKind === 'disc' ? (
+                <Link to={`/demos/${encodeURIComponent(demo.demoId)}`}>Play</Link>
+              ) : (
+                <Link to={demo.deepLink ?? '/'}>Try it</Link>
+              )}
+            </Button>
+          )}
+          <Button
+            variant="retro"
+            type="button"
+            onClick={() => close(chain.questId === null ? 'settled' : 'done')}
+          >
+            {chain.questId === null ? 'Hide' : 'Mark done'}
+          </Button>
+          <Button asChild variant="ghost">
+            <Link to={`/demos/${encodeURIComponent(demo.demoId)}`}>How to try it</Link>
+          </Button>
+          {menuActions}
+        </div>
+        {failure}
+      </Card>
+    );
+  }
+  if (chain.kind === 'unlock') {
+    const unlock = unlockCard(chain);
+    if (unlock === null) return null;
+    return (
+      <Card className="chain-card unlock-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
+        <p className="m-0">
+          <span aria-hidden>{unlock.badge}</span> Achievement unlocked — {unlock.name}
+        </p>
+        <Button variant="retro" type="button" onClick={() => close('settled')}>
+          Settled
+        </Button>
+        {failure}
+      </Card>
+    );
+  }
   const messages = (
     <>
       {chain.kind === 'rumble' && (
@@ -266,14 +438,6 @@ export function ChainCard({
         <Button type="submit">Send</Button>
       </span>
     </form>
-  );
-  const failure = failedAction !== null && (
-    <p className="m-0 text-destructive">
-      That didn't go through.{' '}
-      <Button variant="ghost" type="button" onClick={failedAction}>
-        Retry
-      </Button>
-    </p>
   );
   const rumbleContent = (
     <>
@@ -510,7 +674,7 @@ export function ChainList({
   onCountChange,
 }: {
   quest?: string;
-  kind?: 'question' | 'message' | 'rumble' | 'all';
+  kind?: ChainKind | ChainKind[] | 'all';
   onConvert?: (text: string) => void;
   showQuestChip?: boolean;
   addedChain?: Chain | null;
@@ -524,8 +688,12 @@ export function ChainList({
       kind === undefined
         ? ['question', 'message']
         : kind === 'all'
-          ? ['question', 'message', 'rumble']
-          : [kind],
+          ? ['question', 'message', 'rumble', 'demo', 'unlock']
+          : Array.isArray(kind)
+            ? kind.filter((item) => item !== 'action')
+            : kind === 'action'
+              ? []
+              : [kind],
     [kind],
   );
   const load = useCallback(
@@ -565,21 +733,41 @@ export function ChainList({
   if (chains.length === 0) return null;
   const remove = (id: number) => setChains((current) => current.filter((item) => item.id !== id));
   return (
-    <section className="grid gap-3" aria-label="Open questions">
-      {chains.map((chain) => (
-        <ChainCard
-          key={chain.id}
-          chain={chain}
-          questName={chain.questId === null ? undefined : questNames[chain.questId]}
-          onChange={(changed) =>
-            setChains((current) => current.map((item) => (item.id === changed.id ? changed : item)))
-          }
-          onClosed={remove}
-          onSnoozed={remove}
-          onConvert={onConvert}
-          showQuestChip={showQuestChip}
-        />
-      ))}
+    <section className="grid gap-3" aria-label="Open cards">
+      {[...chains]
+        .sort((left, right) => {
+          const rank = (chain: Chain) =>
+            chain.kind === 'rumble'
+              ? chain.rumble?.kind === 'outage'
+                ? 0
+                : 1
+              : chain.kind === 'demo'
+                ? 2
+                : chain.kind === 'question' || chain.kind === 'message'
+                  ? 3
+                  : 4;
+          const difference = rank(left) - rank(right);
+          if (difference !== 0) return difference;
+          return rank(left) < 2
+            ? 0
+            : Date.parse(right.lastActivityAt) - Date.parse(left.lastActivityAt);
+        })
+        .map((chain) => (
+          <ChainCard
+            key={chain.id}
+            chain={chain}
+            questName={chain.questId === null ? undefined : questNames[chain.questId]}
+            onChange={(changed) =>
+              setChains((current) =>
+                current.map((item) => (item.id === changed.id ? changed : item)),
+              )
+            }
+            onClosed={remove}
+            onSnoozed={remove}
+            onConvert={onConvert}
+            showQuestChip={showQuestChip}
+          />
+        ))}
     </section>
   );
 }

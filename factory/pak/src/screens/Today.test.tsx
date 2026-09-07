@@ -8,7 +8,12 @@ import { GoOutside, LastMemoryCard, Signals, Today } from './Today.js';
 vi.mock('../lib/feedback.js', () => ({ playSound: vi.fn() }));
 
 const source = () => ({ addEventListener() {}, removeEventListener() {}, close() {} });
-const presence = { lastSeenAt: '2026-09-05T12:00:00Z', lastCatchupEventId: null, nextAction: null };
+const presence = {
+  lastSeenAt: '2026-09-05T12:00:00Z',
+  lastCatchupEventId: null,
+  nextAction: null,
+  needsYou: 0,
+};
 function jsonResponse(value: unknown, ok = true) {
   return Promise.resolve({
     ok,
@@ -168,9 +173,7 @@ describe('Today', () => {
       const { container } = renderToday();
       if (hidden) {
         await waitFor(() => expect(container.querySelector('.today-go-outside')).toBeNull());
-        await waitFor(() =>
-          expect(screen.getByRole('link', { name: '1 Rumbles' })).not.toBeNull(),
-        );
+        await waitFor(() => expect(screen.getByRole('link', { name: '1 Rumbles' })).not.toBeNull());
       } else {
         await waitFor(() => expect(container.querySelector('.today-go-outside')).not.toBeNull());
         expect(screen.queryByRole('link', { name: '1 Rumbles' })).toBeNull();
@@ -249,7 +252,7 @@ describe('Today', () => {
       'fetch',
       vi.fn((url: string) => {
         if (url === '/api/presence')
-          return jsonResponse({ ...presence, nextAction: { text, deepLink: '/' } });
+          return jsonResponse({ ...presence, needsYou: 1, nextAction: { text, deepLink: '/' } });
         if (url.startsWith('/api/chains?')) return jsonResponse(chains);
         if (url.startsWith('/api/rumbles?')) return jsonResponse(rumbles);
         return jsonResponse([]);

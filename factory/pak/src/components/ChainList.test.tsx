@@ -112,8 +112,11 @@ describe('ChainList', () => {
     expect(await screen.findByText('Why?')).not.toBeNull();
   });
 
-  it('requests only conversational kinds when kind is all', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => response([])));
+  it('requests every renderable kind when kind is all', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => response([])),
+    );
     render(
       <LiveEventsProvider
         eventSourceFactory={() => ({ addEventListener() {}, removeEventListener() {}, close() {} })}
@@ -124,7 +127,7 @@ describe('ChainList', () => {
 
     await waitFor(() =>
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/chains?kind=question%2Cmessage%2Crumble',
+        '/api/chains?kind=question%2Cmessage%2Crumble%2Cdemo%2Cunlock',
         {},
       ),
     );
@@ -132,7 +135,10 @@ describe('ChainList', () => {
 
   it('omits the kind query and filters action chains when kind is not provided', async () => {
     const action = { ...question, kind: 'action', messages: [] };
-    vi.stubGlobal('fetch', vi.fn((url: string) => response(url === '/api/chains' ? [action] : [])));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url === '/api/chains' ? [action] : [])),
+    );
     const { container } = renderList();
 
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith('/api/chains', {}));
