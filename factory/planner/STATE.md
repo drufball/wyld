@@ -1022,3 +1022,8 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 - Thin tests 3× in M1 (files added, listed cases omitted) → **count acceptance cases vs `it(` blocks first.**
 - Reusable probe harness: `/tmp/wyld-probe.mjs`.
 - Status: `fw-m1-creatures` demo, disc ready at `90d3363`, card registered. Next action + Catch-Up (1261→1472) rewritten.
+
+## M3 brief pre-written (2026-09-07 15:35)
+
+- `/tmp/wyld-leads/fw-m3/brief.md` — Combat in four units: resolve+party / encounter+wild AI / active creature+swap+HUD+driven-off / downed+bond+capture. Branches `codex/fw-m3-resolve|encounter|party|bond`; disc `fw-m3-combat`; marker `<!-- quest:fw-m3-combat -->`. Spawn the lead when M2's disc is ready (both touch `game/`; `observe.ts`'s placeholder `creatureExecutedMove` is M3 unit 2's seam).
+- M2 status: #210/#211 notebook unit open (Codex ~10 min), lead reviewing.
