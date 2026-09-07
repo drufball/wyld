@@ -17,6 +17,7 @@ interface WyldGameApi {
   getState(): WyldGameState;
   screenshot(): string;
   debug(command: string): string;
+  perf(): { fps: number; triangles: number; drawCalls: number };
 }
 
 declare const __GAME_VERSION__: string;
