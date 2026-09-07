@@ -1,12 +1,22 @@
 import { z } from 'zod';
 
 import { Id, Timestamp } from './ids.js';
+import { ArtifactSlug } from './artifact.js';
 import { Rumble } from './rumble.js';
 
 export const ChainStatus = z.enum(['open', 'settled', 'converted']);
 export const ChainKind = z.enum(['question', 'message', 'rumble', 'demo', 'action', 'unlock']);
 export type ChainStatus = z.infer<typeof ChainStatus>;
 export type ChainKind = z.infer<typeof ChainKind>;
+
+export const ChainAnchor = z
+  .object({
+    artifact: ArtifactSlug,
+    element: z.string().min(1).max(120),
+    label: z.string().min(1).max(80),
+  })
+  .strict();
+export type ChainAnchor = z.infer<typeof ChainAnchor>;
 
 export const ChainMessage = z.object({
   id: z.number().int().positive(),
@@ -30,6 +40,7 @@ export const Chain = z
     demoId: Id.nullable().default(null),
     payload: z.record(z.string(), z.unknown()).nullable().default(null),
     rumble: Rumble.nullable().default(null),
+    anchor: ChainAnchor.nullable().default(null),
     messages: ChainMessage.array(),
   })
   .superRefine((chain, context) => {

@@ -39,6 +39,7 @@ const second: RumbleType = {
 };
 const rumbleChain = (rumble: RumbleType, id: number): Chain => ({
   id,
+  anchor: null,
   kind: 'rumble',
   status: 'open',
   createdAt: '2026-09-05T12:00:00.000Z',
@@ -129,6 +130,7 @@ describe('Rumble', () => {
   it('asks for more with the title and blocking quest', async () => {
     const chain: Chain = {
       id: 1,
+      anchor: null,
       kind: 'question',
       status: 'open',
       createdAt: '2026-09-05T12:00:00.000Z',

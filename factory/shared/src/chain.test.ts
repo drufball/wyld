@@ -24,7 +24,13 @@ describe('Chain', () => {
   } as const;
 
   it('parses a valid chain', () => {
-    expect(Chain.parse(valid)).toEqual({ ...valid, tags: [], demoId: null, payload: null });
+    expect(Chain.parse(valid)).toEqual({
+      ...valid,
+      tags: [],
+      demoId: null,
+      payload: null,
+      anchor: null,
+    });
     expect(ChainKind.options).toEqual([
       'question',
       'message',

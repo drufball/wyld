@@ -10,6 +10,7 @@ describe('Pak Vite config', () => {
 
     expect(denylist).toEqual(expect.arrayContaining([expect.any(RegExp)]));
     expect(denylist.some((pattern) => pattern.test('/play/main/'))).toBe(true);
+    expect(denylist.some((pattern) => pattern.test('/artifacts/roadmap/'))).toBe(true);
   });
 
   it('uses PAK_BASE while preserving the play denylist', async () => {
@@ -21,5 +22,15 @@ describe('Pak Vite config', () => {
     expect(
       options.workbox.navigateFallbackDenylist.some((pattern) => pattern.test('/play/main/')),
     ).toBe(true);
+    expect(
+      options.workbox.navigateFallbackDenylist.some((pattern) =>
+        pattern.test('/artifacts/roadmap/'),
+      ),
+    ).toBe(true);
+  });
+
+  it('proxies artifact documents to the server', async () => {
+    const { default: configured } = await import('./vite.config.js');
+    expect(configured.server?.proxy).toHaveProperty('/artifacts');
   });
 });

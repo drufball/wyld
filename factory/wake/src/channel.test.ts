@@ -366,6 +366,8 @@ describe('Pak tools', () => {
       'pak_register_demo',
       'pak_read_demos',
       'pak_read_feedback',
+      'pak_publish_artifact',
+      'pak_read_artifacts',
       'pak_read_chains',
       'pak_send_message',
       'pak_answer_chain',
@@ -421,6 +423,7 @@ describe('Pak tools', () => {
       {
         properties: {
           quest: { type: 'string' },
+          artifact: { type: 'string' },
           kind: { type: 'string' },
           status: { type: 'string', enum: ['open', 'settled', 'all'], default: 'open' },
           include_snoozed: { type: 'boolean' },
@@ -429,7 +432,7 @@ describe('Pak tools', () => {
       },
     );
     expect(result.tools?.find(({ name }) => name === 'pak_read_chains')?.description).toBe(
-      "Read Dru's cards as chains: question, message, rumble, demo (a try-it card or disc), action (the next action) and unlock (an achievement). kind takes one kind, a comma-separated list of them, or all; leave it off for question and message. status defaults to open — pass settled or all to see what has been put away. A chain Dru snoozed is hidden until its time comes round unless include_snoozed is set.",
+      "Read Dru's cards as chains: question, message, rumble, demo (a try-it card or disc), action (the next action) and unlock (an achievement). kind takes one kind, a comma-separated list of them, or all; leave it off for question and message. status defaults to open — pass settled or all to see what has been put away. A chain Dru snoozed is hidden until its time comes round unless include_snoozed is set. Pins Dru leaves on an explainer arrive as chains anchored to it, and artifact narrows the read to one explainer.",
     );
     expect(result.tools?.find(({ name }) => name === 'pak_reopen_chain')).toMatchObject({
       description:

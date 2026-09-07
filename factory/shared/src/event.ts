@@ -31,6 +31,7 @@ export const EVENT_KINDS = [
   'planner.world_updated',
   'planner.next_action',
   'planner.chain_updated',
+  'planner.artifact_published',
   'system.paused',
   'system.resumed',
   'sleep.alarm',

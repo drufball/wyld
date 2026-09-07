@@ -273,6 +273,16 @@ const RegisterDemoArgs = z
   });
 const ReadDemosArgs = z.object({}).strict();
 const ReadFeedbackArgs = z.object({ demo: z.string().optional() }).strict();
+const PublishArtifactArgs = z
+  .object({
+    slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+    title: z.string().min(1).max(120),
+    summary: z.string().min(1).max(200),
+    html: z.string().min(1),
+    quest: z.string().optional(),
+  })
+  .strict();
+const ReadArtifactsArgs = z.object({ quest: z.string().optional() }).strict();
 const ChainKindsArg = z.string().superRefine((value, context) => {
   const kinds = value.split(',');
   if (value === 'all') return;
@@ -286,6 +296,7 @@ const ChainKindsArg = z.string().superRefine((value, context) => {
 const ReadChainsArgs = z
   .object({
     quest: z.string().optional(),
+    artifact: z.string().optional(),
     kind: ChainKindsArg.optional(),
     status: z.enum(['open', 'settled', 'all']).default('open'),
     include_snoozed: z.boolean().optional(),
@@ -737,13 +748,41 @@ const tools = [
     },
   },
   {
+    name: 'pak_publish_artifact',
+    description:
+      'Publish a self-contained interactive explainer (a complete HTML document, inline styles and scripts only) for a quest, or top-level when quest is omitted; re-publishing the same slug replaces it.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,63}$' },
+        title: { type: 'string', minLength: 1, maxLength: 120 },
+        summary: { type: 'string', minLength: 1, maxLength: 200 },
+        html: { type: 'string', minLength: 1 },
+        quest: { type: 'string' },
+      },
+      required: ['slug', 'title', 'summary', 'html'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'pak_read_artifacts',
+    description:
+      'List the explainers already published — what each one covers and when it was last refreshed — so an existing one is refreshed rather than duplicated.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: { quest: { type: 'string' } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'pak_read_chains',
     description:
-      "Read Dru's cards as chains: question, message, rumble, demo (a try-it card or disc), action (the next action) and unlock (an achievement). kind takes one kind, a comma-separated list of them, or all; leave it off for question and message. status defaults to open — pass settled or all to see what has been put away. A chain Dru snoozed is hidden until its time comes round unless include_snoozed is set.",
+      "Read Dru's cards as chains: question, message, rumble, demo (a try-it card or disc), action (the next action) and unlock (an achievement). kind takes one kind, a comma-separated list of them, or all; leave it off for question and message. status defaults to open — pass settled or all to see what has been put away. A chain Dru snoozed is hidden until its time comes round unless include_snoozed is set. Pins Dru leaves on an explainer arrive as chains anchored to it, and artifact narrows the read to one explainer.",
     inputSchema: {
       type: 'object' as const,
       properties: {
         quest: { type: 'string' },
+        artifact: { type: 'string' },
         kind: {
           type: 'string',
           description: 'One chain kind, a comma-separated list of chain kinds, or all.',
@@ -1146,11 +1185,30 @@ export function createToolRegistry(options: {
       if (!parsed.success) return invalidArguments(parsed.error);
       const query = new URLSearchParams();
       if (parsed.data.quest !== undefined) query.set('quest', parsed.data.quest);
+      if (parsed.data.artifact !== undefined) query.set('artifact', parsed.data.artifact);
       if (parsed.data.kind !== undefined) query.set('kind', parsed.data.kind);
       if (parsed.data.status !== 'open') query.set('status', parsed.data.status);
       if (parsed.data.include_snoozed === true) query.set('includeSnoozed', '1');
       const suffix = query.size === 0 ? '' : `?${query.toString()}`;
       return getTool(request, `${options.pakUrl}/api/chains${suffix}`);
+    }
+    if (params.name === 'pak_publish_artifact') {
+      const parsed = PublishArtifactArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const { quest, ...artifact } = parsed.data;
+      return postTool(request, `${options.pakUrl}/api/artifacts`, {
+        ...artifact,
+        ...(quest === undefined ? {} : { questId: quest }),
+      });
+    }
+    if (params.name === 'pak_read_artifacts') {
+      const parsed = ReadArtifactsArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      const suffix =
+        parsed.data.quest === undefined
+          ? ''
+          : `?${new URLSearchParams({ quest: parsed.data.quest }).toString()}`;
+      return getTool(request, `${options.pakUrl}/api/artifacts${suffix}`);
     }
     if (params.name === 'pak_send_message') {
       const parsed = SendMessageArgs.safeParse(params.arguments);
