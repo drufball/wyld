@@ -18,6 +18,8 @@ type WyldGameState = {
     position: { x: number; y: number; z: number };
     state: 'idle' | 'locomotion' | 'execute';
     region: string | null;
+    detection: number;
+    behaviour: 'wander' | 'flee' | 'aggro' | 'hold';
   }[];
 };
 

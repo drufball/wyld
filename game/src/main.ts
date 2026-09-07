@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 
 import { createCallAudio } from './audio/calls.js';
+import { hasCover, reactionFor, stepDetection, visionRange } from './creatures/ai.js';
+import type { Behaviour, PropObstacle } from './creatures/ai.js';
 import { createInput } from './engine/input.js';
 import { createEventBus } from './engine/events.js';
 import { createLoop } from './engine/loop.js';
 import { createRng, resolveSeed } from './engine/rng.js';
 import { roll } from './creatures/individual.js';
 import { createCreatureRegistry, spawnPoint } from './creatures/registry.js';
+import type { SpawnedCreature } from './creatures/registry.js';
 import { createSpawnSystem } from './creatures/spawn.js';
 import { createWander } from './creatures/wander.js';
 import { isEligible, species, speciesById } from './creatures/species.js';
@@ -62,6 +65,7 @@ const seed = gameRng.seed();
 const spawnRng = createRng(seed ^ 0x5fa1);
 const wanderRng = createRng(seed ^ 0x3b2d);
 const callRng = createRng(seed ^ 0x0ca1);
+const aiRng = createRng(seed ^ 0xa17e);
 const terrain = createTerrain(seed);
 scene.add(terrain.group);
 const water = createWater(terrain.heightAt);
@@ -71,18 +75,19 @@ const registry = createCreatureRegistry({
   heightAt: terrain.heightAt,
   depthAt: water.depthAt,
 });
-const props = createProps(
-  placeProps({
-    rng: gameRng,
-    heightAt: terrain.heightAt,
-    slopeAt: terrain.slopeAt,
-    depthAt: water.depthAt,
-    biomeWeightsAt: terrain.biomeWeightsAt,
-    densities: worldData.props,
-    bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
-  }),
-  camera,
-);
+const propPlacements = placeProps({
+  rng: gameRng,
+  heightAt: terrain.heightAt,
+  slopeAt: terrain.slopeAt,
+  depthAt: water.depthAt,
+  biomeWeightsAt: terrain.biomeWeightsAt,
+  densities: worldData.props,
+  bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
+});
+const propObstacles: PropObstacle[] = propPlacements
+  .filter((placement) => placement.kind !== 'fern')
+  .map(({ x, z, scale }) => ({ x, z, radius: scale * 0.5, height: scale * 2 }));
+const props = createProps(propPlacements, camera);
 scene.add(props);
 const sky = createSky(scene, sun, hemisphere);
 const debugConsole = createDebugConsole({ seed });
@@ -131,6 +136,16 @@ const spawn = createSpawnSystem({
 });
 const wander = createWander(wanderRng);
 const wanderStates = new Map<string, ReturnType<typeof wander.begin>>();
+type CreatureAiState = { detection: number; behaviour: Behaviour; fleeUntil: number };
+const creatureAi = new Map<string, CreatureAiState>();
+const aiStateFor = (id: string): CreatureAiState => {
+  let state = creatureAi.get(id);
+  if (!state) {
+    state = { detection: 0, behaviour: 'wander', fleeUntil: 0 };
+    creatureAi.set(id, state);
+  }
+  return state;
+};
 const nextCalls = new Map<string, number>();
 const initialiseWild = (ids: readonly string[]): void => {
   for (const id of ids) {
@@ -149,6 +164,7 @@ const initialiseWild = (ids: readonly string[]): void => {
         ),
       );
     nextCalls.set(id, elapsedSeconds + callRng.range(10, 20));
+    aiStateFor(id);
   }
 };
 events.on('phaseChanged', ({ phase }) => {
@@ -157,6 +173,7 @@ events.on('phaseChanged', ({ phase }) => {
   for (const id of result.despawned) {
     wanderStates.delete(id);
     nextCalls.delete(id);
+    creatureAi.delete(id);
   }
 });
 
@@ -219,6 +236,11 @@ debugConsole.registerCommand('spawn', {
       player.object.position.z - point.z,
     );
     const creature = registry.add(individual, point.x, point.z, facing);
+    aiStateFor(creature.id);
+    wanderStates.set(
+      creature.id,
+      wander.begin(point.x, point.z, 30, elapsedSeconds, creature.model.group.rotation.y),
+    );
     return `${creature.speciesId} ${creature.temperament} ${creature.id}`;
   },
 });
@@ -257,6 +279,35 @@ const render = (): void => {
   renderer.render(scene, camera);
   statsPanel.afterRender(renderer);
 };
+const lastPlayerPosition = player.object.position.clone();
+const canCreatureStand = (x: number, z: number, canSwim: boolean): boolean =>
+  Math.abs(x) <= 400 &&
+  Math.abs(z) <= 400 &&
+  terrain.slopeAt(x, z) < 30 &&
+  (canSwim || water.depthAt(x, z) <= 0);
+const moveCreature = (
+  creature: SpawnedCreature,
+  dx: number,
+  dz: number,
+  canSwim: boolean,
+): boolean => {
+  const candidates = [
+    { dx, dz },
+    { dx, dz: 0 },
+    { dx: 0, dz },
+  ];
+  for (const candidate of candidates) {
+    if (candidate.dx === 0 && candidate.dz === 0) continue;
+    const x = creature.position.x + candidate.dx;
+    const z = creature.position.z + candidate.dz;
+    if (!canCreatureStand(x, z, canSwim)) continue;
+    creature.position.x = x;
+    creature.position.z = z;
+    creature.model.group.rotation.y = Math.atan2(candidate.dx, candidate.dz);
+    return true;
+  }
+  return false;
+};
 const loop = createLoop({
   update: (dtSeconds) => {
     player.update(dtSeconds);
@@ -267,25 +318,125 @@ const loop = createLoop({
     for (const id of spawnResult.despawned) {
       wanderStates.delete(id);
       nextCalls.delete(id);
+      creatureAi.delete(id);
     }
-    for (const [id, wanderState] of wanderStates) {
-      const creature = registry.get(id);
-      const data = creature && speciesById(creature.speciesId);
-      if (!creature || !data) {
-        wanderStates.delete(id);
-        nextCalls.delete(id);
-        continue;
+    const playerMoved = player.object.position.distanceToSquared(lastPlayerPosition) > 1e-8;
+    lastPlayerPosition.copy(player.object.position);
+    for (const creature of registry.list()) {
+      const data = speciesById(creature.speciesId);
+      if (!data) continue;
+      const state = aiStateFor(creature.id);
+      const dxFromPlayer = creature.position.x - player.object.position.x;
+      const dzFromPlayer = creature.position.z - player.object.position.z;
+      const distance = Math.hypot(dxFromPlayer, dzFromPlayer);
+      const range = visionRange(creature.temperament);
+      const covered = hasCover(
+        {
+          x: player.object.position.x,
+          y: player.object.position.y + 1.6,
+          z: player.object.position.z,
+        },
+        {
+          x: creature.position.x,
+          y: creature.position.y + (data.visual.height ?? 0) * 0.5,
+          z: creature.position.z,
+        },
+        terrain.heightAt,
+        propObstacles,
+      );
+      const previousDetection = state.detection;
+      state.detection = stepDetection(
+        state.detection,
+        {
+          distance,
+          visionRange: range,
+          stance: player.stance,
+          moving: playerMoved,
+          hasCover: covered,
+        },
+        dtSeconds,
+      );
+      if (state.behaviour === 'wander' && previousDetection < 1 && state.detection >= 1) {
+        state.behaviour = reactionFor(creature.temperament, aiRng);
+        if (state.behaviour === 'flee') state.fleeUntil = elapsedSeconds + aiRng.range(8, 12);
       }
-      const moved = wander.step(wanderState, creature.position, elapsedSeconds, dtSeconds, {
-        speedStat: creature.individual.stats.speed,
-        canSwim: data.innate.includes('Swim'),
-        depthAt: water.depthAt,
-        slopeAt: terrain.slopeAt,
-      });
-      creature.position.x = moved.x;
-      creature.position.z = moved.z;
-      creature.model.group.rotation.y = moved.facing;
-      registry.setState(id, moved.moving ? 'locomotion' : 'idle');
+    }
+    for (const creature of registry.list()) {
+      const { id } = creature;
+      const data = speciesById(creature.speciesId);
+      if (!data) continue;
+      const state = aiStateFor(id);
+      const dxFromPlayer = creature.position.x - player.object.position.x;
+      const dzFromPlayer = creature.position.z - player.object.position.z;
+      const distance = Math.hypot(dxFromPlayer, dzFromPlayer);
+      const range = visionRange(creature.temperament);
+      const speed = 3 + creature.individual.stats.speed * 0.6;
+      const canSwim = data.innate.includes('Swim');
+      if (state.behaviour === 'hold' && distance < 8) state.behaviour = 'aggro';
+      if (state.behaviour === 'aggro' && distance > range) {
+        state.behaviour = 'wander';
+        state.detection = 0;
+        wanderStates.set(
+          id,
+          wander.begin(
+            creature.position.x,
+            creature.position.z,
+            30,
+            elapsedSeconds,
+            creature.model.group.rotation.y,
+          ),
+        );
+      }
+      if (state.behaviour === 'flee' && elapsedSeconds >= state.fleeUntil) {
+        state.behaviour = 'wander';
+        state.detection = 0;
+        wanderStates.set(
+          id,
+          wander.begin(
+            creature.position.x,
+            creature.position.z,
+            30,
+            elapsedSeconds,
+            creature.model.group.rotation.y,
+          ),
+        );
+      }
+      if (state.behaviour === 'hold' || (state.behaviour === 'aggro' && distance <= 3)) {
+        creature.model.group.rotation.y = Math.atan2(-dxFromPlayer, -dzFromPlayer);
+        registry.setState(id, 'idle');
+      } else if ((state.behaviour === 'flee' || state.behaviour === 'aggro') && distance > 0) {
+        const direction = state.behaviour === 'flee' ? 1 : -1;
+        const travel = speed * dtSeconds * direction;
+        const moving = moveCreature(
+          creature,
+          (dxFromPlayer / distance) * travel,
+          (dzFromPlayer / distance) * travel,
+          canSwim,
+        );
+        registry.setState(id, moving ? 'locomotion' : 'idle');
+      } else {
+        let wanderState = wanderStates.get(id);
+        if (!wanderState) {
+          wanderState = wander.begin(
+            creature.position.x,
+            creature.position.z,
+            30,
+            elapsedSeconds,
+            creature.model.group.rotation.y,
+          );
+          wanderStates.set(id, wanderState);
+        }
+        const moved = wander.step(wanderState, creature.position, elapsedSeconds, dtSeconds, {
+          speedStat: creature.individual.stats.speed,
+          canSwim,
+          depthAt: water.depthAt,
+          slopeAt: terrain.slopeAt,
+        });
+        creature.position.x = moved.x;
+        creature.position.z = moved.z;
+        creature.model.group.rotation.y = moved.facing;
+        registry.setState(id, moved.moving ? 'locomotion' : 'idle');
+      }
       if (elapsedSeconds >= (nextCalls.get(id) ?? Number.POSITIVE_INFINITY)) {
         const regionId = spawn.creatureRegion(id);
         if (regionId && isEligible(data.id, regionId, clock.phase)) {
@@ -310,10 +461,25 @@ const loop = createLoop({
       player.object.position.z + sunDirection.z * 120,
     );
     sun.target.updateMatrixWorld();
+    const target = registry
+      .list()
+      .map((creature) => ({
+        creature,
+        detection: aiStateFor(creature.id).detection,
+        distance: Math.hypot(
+          creature.position.x - player.object.position.x,
+          creature.position.z - player.object.position.z,
+        ),
+      }))
+      .filter(
+        (entry) => entry.detection > 0 && entry.distance <= visionRange(entry.creature.temperament),
+      )
+      .sort((left, right) => left.distance - right.distance)[0];
     hud.update({
       ...clock,
       regionName: region?.name ?? null,
       biome: terrain.biomeAt(player.object.position.x, player.object.position.z),
+      target: target ? { detection: target.detection } : null,
     });
     input.endFrame();
   },
@@ -346,6 +512,8 @@ window.__wyld = {
         position: { x: creature.position.x, y: creature.position.y, z: creature.position.z },
         state: creature.state,
         region: pointToRegion(creature.position.x, creature.position.z)?.id ?? null,
+        detection: Number(aiStateFor(creature.id).detection.toFixed(2)),
+        behaviour: aiStateFor(creature.id).behaviour,
       })),
     }),
   screenshot: () => {
