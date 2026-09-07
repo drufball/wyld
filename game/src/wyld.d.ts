@@ -5,6 +5,8 @@ type WyldGameState = {
   player: { x: number; y: number; z: number };
   seed: number;
   stance: 'walk' | 'sprint' | 'crouch';
+  region: string | null;
+  biome: 'forest' | 'desert' | 'archipelago' | 'volcano';
 };
 
 interface WyldGameApi {

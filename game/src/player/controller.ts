@@ -12,6 +12,7 @@ type PlayerControllerOptions = {
   slopeAt?(x: number, z: number): number;
   canStandAt?(x: number, z: number): boolean;
   canMove?: () => boolean;
+  start?: { x: number; z: number };
 };
 
 const cameraPivot = new THREE.Vector3();
@@ -122,11 +123,27 @@ const createPlayerController = (options: PlayerControllerOptions) => {
           stance !== 'crouch' && (input.isDown('ShiftLeft') || input.isDown('ShiftRight'));
         stance = stance === 'crouch' ? 'crouch' : sprinting ? 'sprint' : 'walk';
         const speed = stance === 'crouch' ? 1.8 : stance === 'sprint' ? 6 : 3.5;
-        const x = object.position.x + movement.x * speed * dtSeconds;
-        const z = object.position.z + movement.z * speed * dtSeconds;
-        if (canStandAt(x, z)) {
-          object.position.set(x, heightAt(x, z), z);
-          object.rotation.y = Math.atan2(movement.x, movement.z);
+        const distance = speed * dtSeconds;
+        const steps = Math.max(1, Math.ceil(distance / 0.5));
+        const dx = (movement.x * distance) / steps;
+        const dz = (movement.z * distance) / steps;
+        let moved = false;
+        for (let step = 0; step < steps; step += 1) {
+          const x = object.position.x + dx;
+          const z = object.position.z + dz;
+          if (canStandAt(x, z)) {
+            object.position.set(x, heightAt(x, z), z);
+            moved = true;
+          } else if (canStandAt(x, object.position.z)) {
+            object.position.set(x, heightAt(x, object.position.z), object.position.z);
+            moved = true;
+          } else if (canStandAt(object.position.x, z)) {
+            object.position.set(object.position.x, heightAt(object.position.x, z), z);
+            moved = true;
+          }
+        }
+        if (moved) {
+          object.rotation.y = Math.atan2(movement.x, movement.z) + Math.PI;
         }
       } else if (stance === 'sprint') stance = 'walk';
     }
@@ -138,7 +155,11 @@ const createPlayerController = (options: PlayerControllerOptions) => {
     placeCamera();
   };
 
-  object.position.y = heightAt(0, 0);
+  object.position.set(
+    options.start?.x ?? 0,
+    heightAt(options.start?.x ?? 0, options.start?.z ?? 0),
+    options.start?.z ?? 0,
+  );
   placeCamera();
   return {
     object,
