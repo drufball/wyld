@@ -58,8 +58,10 @@ scene.add(sun);
 
 const gameRng = createRng(resolveSeed());
 const seed = gameRng.seed();
-// Spawn simulation owns its RNG so prop placement cannot perturb creature determinism.
+// Independent streams keep frame-rate-dependent wandering and calls from perturbing spawns.
 const spawnRng = createRng(seed ^ 0x5fa1);
+const wanderRng = createRng(seed ^ 0x3b2d);
+const callRng = createRng(seed ^ 0x0ca1);
 const terrain = createTerrain(seed);
 scene.add(terrain.group);
 const water = createWater(terrain.heightAt);
@@ -127,16 +129,26 @@ const spawn = createSpawnSystem({
   host: registry,
   rng: spawnRng,
 });
-const wander = createWander(spawnRng);
+const wander = createWander(wanderRng);
 const wanderStates = new Map<string, ReturnType<typeof wander.begin>>();
 const nextCalls = new Map<string, number>();
 const initialiseWild = (ids: readonly string[]): void => {
   for (const id of ids) {
     const regionId = spawn.creatureRegion(id);
     const region = regions().find((entry) => entry.id === regionId);
-    if (region)
-      wanderStates.set(id, wander.begin(region.x, region.z, region.radius, elapsedSeconds));
-    nextCalls.set(id, elapsedSeconds + spawnRng.range(10, 20));
+    const creature = registry.get(id);
+    if (region && creature)
+      wanderStates.set(
+        id,
+        wander.begin(
+          region.x,
+          region.z,
+          region.radius,
+          elapsedSeconds,
+          creature.model.group.rotation.y,
+        ),
+      );
+    nextCalls.set(id, elapsedSeconds + callRng.range(10, 20));
   }
 };
 events.on('phaseChanged', ({ phase }) => {
@@ -285,7 +297,7 @@ const loop = createLoop({
             position: { x: creature.position.x, y: creature.position.y, z: creature.position.z },
           });
         }
-        nextCalls.set(id, elapsedSeconds + spawnRng.range(10, 20));
+        nextCalls.set(id, elapsedSeconds + callRng.range(10, 20));
       }
     }
     registry.update(elapsedSeconds);

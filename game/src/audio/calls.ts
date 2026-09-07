@@ -58,7 +58,11 @@ const createCallAudio = () => {
         const noiseGain = context.createGain();
         source.buffer = noiseBuffer;
         source.loop = true;
-        noiseGain.gain.setValueAtTime(gain * (call.noise ?? 0), start);
+        const noiseLevel = gain * (call.noise ?? 0);
+        noiseGain.gain.setValueAtTime(0, start);
+        noiseGain.gain.linearRampToValueAtTime(noiseLevel, Math.min(end, start + 0.015));
+        noiseGain.gain.setValueAtTime(noiseLevel, Math.max(start, end - 0.015));
+        noiseGain.gain.linearRampToValueAtTime(0, end);
         source.connect(noiseGain).connect(context.destination);
         source.start(start);
         source.stop(end);

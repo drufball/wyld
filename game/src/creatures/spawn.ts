@@ -46,6 +46,8 @@ const createSpawnSystem = ({
 }) => {
   const membership = new Map<string, string>();
   const pending = new Set<string>();
+  const populationTargets = new Map<string, number>();
+  let targetPhase: Phase | null = null;
   let accumulator = 0;
   let sequence = 0;
   const distance = (position: Position, viewer: Position): number =>
@@ -67,18 +69,28 @@ const createSpawnSystem = ({
     }
   };
   const maintain = (phase: Phase, viewer: Position): SpawnResult => {
+    if (targetPhase !== phase) {
+      populationTargets.clear();
+      targetPhase = phase;
+    }
     const result: SpawnResult = { spawned: [], despawned: [] };
     sweepPending(viewer, result);
     for (const region of world.regions()) {
       const population = world.populationFor(region.id);
       for (const data of species()) {
         if (!isEligible(data.id, region.id, phase)) continue;
+        const targetKey = `${region.id}:${data.id}`;
+        let target = populationTargets.get(targetKey);
+        if (target === undefined) {
+          target = population.min + rng.int(population.max - population.min + 1);
+          populationTargets.set(targetKey, target);
+        }
         let count = host
           .list()
           .filter(
             (entry) => membership.get(entry.id) === region.id && entry.speciesId === data.id,
           ).length;
-        while (count < population.min && membership.size < 24) {
+        while (count < target && count < population.max && membership.size < 24) {
           let candidate: Position | null = null;
           for (let attempt = 0; attempt < 24; attempt += 1) {
             const angle = rng.range(0, Math.PI * 2);
