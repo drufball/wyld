@@ -3,6 +3,8 @@ import { createRng } from '../engine/rng.js';
 import {
   canHearPlayer,
   canSeePlayer,
+  detectionRate,
+  facingToward,
   hasLineOfSight,
   reactionFor,
   releaseBehaviour,
@@ -34,22 +36,41 @@ describe('creature detection', () => {
   it('hears a moving player within four tiles', () => expect(canHearPlayer(4, true)).toBe(true));
   it('hears nothing from a player standing still', () =>
     expect(canHearPlayer(1, false)).toBe(false));
+  it('faces a heard player before checking its vision cone', () => {
+    const creature = { x: 0, y: 0 };
+    const player = { x: 3, y: -2 };
+    const facing = facingToward(creature, player);
+    expect(canSeePlayer(grid(), creature, player, facing, 'Skittish')).toBe(true);
+  });
   it('clamps detection', () => {
     const visible = { distance: 0, visionRange: 10, visible: true };
-    expect(stepDetection(0.99, visible, 10)).toBe(1);
-    expect(stepDetection(0.01, { ...visible, visible: false }, 10)).toBe(0);
+    expect(stepDetection(0.99, visible, 1)).toBe(1);
+    expect(stepDetection(0.01, { ...visible, visible: false }, 1)).toBe(0);
+  });
+  it('fills at the proximity-adjusted rate and drains at 0.3 per second', () => {
+    expect(detectionRate({ distance: 0, visionRange: 10, visible: true })).toBeCloseTo(0.6);
+    expect(
+      detectionRate({ distance: 5, visionRange: 10, visible: false, heard: true }),
+    ).toBeCloseTo(0.42);
+    expect(detectionRate({ distance: 5, visionRange: 10, visible: false })).toBe(-0.3);
   });
   it('detects a player approaching a Skittish creature within 15 seconds', () => {
     const creature = { x: 0, y: 0 };
     const player = { x: 0, y: 8 };
+    let facing = Math.PI;
     let meter = 0;
     for (let second = 0; second < 15; second += 1) {
+      const distance = Math.max(1, 8 - second);
+      player.y = distance;
+      const heard = canHearPlayer(distance, true);
+      if (heard) facing = facingToward(creature, player);
       meter = stepDetection(
         meter,
         {
-          distance: 8,
+          distance,
           visionRange: visionRange('Skittish'),
-          visible: canSeePlayer(grid(), creature, player, 0, 'Skittish'),
+          visible: canSeePlayer(grid(), creature, player, facing, 'Skittish'),
+          heard,
         },
         1,
       );
@@ -57,16 +78,15 @@ describe('creature detection', () => {
     expect(meter).toBe(1);
     expect(reactionFor('Skittish', createRng(1))).toBe('flee');
   });
-  it('does not detect a stationary player behind a tree at the same distance', () => {
+  it('does not detect a stationary player at the same distance when facing away', () => {
     let meter = 0;
-    const tree = grid(new Set(['0,4']));
     for (let second = 0; second < 15; second += 1) {
       meter = stepDetection(
         meter,
         {
           distance: 8,
           visionRange: visionRange('Skittish'),
-          visible: canSeePlayer(tree, { x: 0, y: 0 }, { x: 0, y: 8 }, 0, 'Skittish'),
+          visible: canSeePlayer(grid(), { x: 0, y: 0 }, { x: 0, y: 8 }, Math.PI, 'Skittish'),
           heard: false,
         },
         1,

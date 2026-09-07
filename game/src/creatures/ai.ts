@@ -50,10 +50,12 @@ const canSeePlayer = (
   hasLineOfSight(grid, from, to);
 const canHearPlayer = (distanceTiles: number, moving: boolean): boolean =>
   moving && distanceTiles <= 4;
+const facingToward = (from: TilePoint, to: TilePoint): number =>
+  Math.atan2(to.x - from.x, to.y - from.y);
 const detectionRate = (input: DetectionInput): number => {
-  if (!input.visible && !input.heard) return -0.25;
+  if (!input.visible && !input.heard) return -0.3;
   const proximity = 0.4 + 0.6 * (1 - Math.max(0, input.distance) / input.visionRange);
-  return 0.12 * Math.max(0.4, proximity);
+  return 0.6 * Math.max(0.4, proximity);
 };
 const stepDetection = (meter: number, input: DetectionInput, dt: number): number =>
   Math.max(0, Math.min(1, meter + detectionRate(input) * Math.max(0, dt)));
@@ -85,6 +87,7 @@ export {
   canHearPlayer,
   canSeePlayer,
   detectionRate,
+  facingToward,
   hasLineOfSight,
   insideVisionCone,
   reactionFor,

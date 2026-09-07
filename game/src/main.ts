@@ -13,6 +13,7 @@ import { speciesById } from './creatures/species.js';
 import {
   canHearPlayer,
   canSeePlayer,
+  facingToward,
   reactionFor,
   releaseBehaviour,
   stepDetection,
@@ -394,14 +395,15 @@ const loop = createLoop({
           fleeUntil: 0,
         };
       aiStates.set(creature.id, ai);
+      const heard = canHearPlayer(distanceTiles, player.moving);
+      if (heard) creature.facing = facingToward({ x: ct.tx, y: ct.ty }, { x: pt.tx, y: pt.ty });
       const visible = canSeePlayer(
-          grid,
-          { x: ct.tx, y: ct.ty },
-          { x: pt.tx, y: pt.ty },
-          creature.facing,
-          creature.temperament,
-        ),
-        heard = canHearPlayer(distanceTiles, player.moving);
+        grid,
+        { x: ct.tx, y: ct.ty },
+        { x: pt.tx, y: pt.ty },
+        creature.facing,
+        creature.temperament,
+      );
       ai.meter = stepDetection(
         ai.meter,
         { distance: distanceTiles, visionRange: visionRange(creature.temperament), visible, heard },
