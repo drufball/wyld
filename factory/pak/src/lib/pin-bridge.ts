@@ -9,8 +9,15 @@ export const PIN_BRIDGE_SOURCE = `(function () {
   var on = false;
   var wanted = [];
   var pending = false;
+  var held = false;
 
   function send(message) { parentWindow.postMessage(message, '*'); }
+  function modifierHeld(event) { return navigator.userAgent.includes('Mac') ? event.metaKey : event.ctrlKey; }
+  function reportHeld(next) {
+    if (held === next) return;
+    held = next;
+    send({ type: 'wyld:pin:key', held: held });
+  }
   function rectOf(el) { var r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; }
   function labelOf(el) {
     var explicit = el.getAttribute('data-pin-label');
@@ -38,6 +45,10 @@ export const PIN_BRIDGE_SOURCE = `(function () {
     event.preventDefault(); event.stopPropagation();
     send({ type: 'wyld:pin:pick', element: el.getAttribute('data-pin'), label: labelOf(el), rect: rectOf(el) });
   }, true);
+  window.addEventListener('keydown', function (event) { if (modifierHeld(event)) reportHeld(true); });
+  window.addEventListener('keyup', function (event) { if (!modifierHeld(event)) reportHeld(false); });
+  window.addEventListener('blur', function () { reportHeld(false); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) reportHeld(false); });
   window.addEventListener('message', function (event) {
     if (event.source !== parentWindow) return;
     var data = event.data;
@@ -65,6 +76,10 @@ export const PIN_BRIDGE_SNIPPET = `<script>\n${PIN_BRIDGE_SOURCE}\n</script>`;
 export type PinRect = { x: number; y: number; w: number; h: number };
 export type PinPick = { element: string; label: string; rect: PinRect };
 
+export function pinModifierHeld(event: { metaKey: boolean; ctrlKey: boolean }): boolean {
+  return navigator.userAgent.includes('Mac') ? event.metaKey : event.ctrlKey;
+}
+
 const plain = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const rect = (value: unknown): value is PinRect =>
@@ -78,6 +93,7 @@ export function createPinBridge(options: {
     Pick<HTMLIFrameElement, 'addEventListener' | 'removeEventListener'>
   >;
   onReady: () => void;
+  onKeyHold: (held: boolean) => void;
   onPick: (pick: PinPick) => void;
   onRects: (rects: Record<string, PinRect>) => void;
   target?: Window;
@@ -89,6 +105,8 @@ export function createPinBridge(options: {
     const data = event.data;
     if (typeof data.type !== 'string' || !data.type.startsWith('wyld:pin:')) return;
     if (data.type === 'wyld:pin:ready') options.onReady();
+    else if (data.type === 'wyld:pin:key' && typeof data.held === 'boolean')
+      options.onKeyHold(data.held);
     else if (
       data.type === 'wyld:pin:pick' &&
       typeof data.element === 'string' &&

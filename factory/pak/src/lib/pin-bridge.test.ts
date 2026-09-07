@@ -21,7 +21,7 @@ describe('pin bridge', () => {
     const onReady = vi.fn();
     const onPick = vi.fn();
     const onRects = vi.fn();
-    const bridge = createPinBridge({ frame, target, onReady, onPick, onRects });
+    const bridge = createPinBridge({ frame, target, onReady, onKeyHold: vi.fn(), onPick, onRects });
     expect(contentWindow.postMessage).toHaveBeenNthCalledWith(1, { type: 'wyld:pin:hello' }, '*');
     const send = (data: unknown, source: MessageEventSource = contentWindow) =>
       listeners.forEach((fn) => fn(new MessageEvent('message', { data, source })));
@@ -65,6 +65,35 @@ describe('pin bridge', () => {
     expect(listeners.size).toBe(0);
   });
 
+  it('reports a held modifier from the frame and validates it', () => {
+    const target = new EventTarget();
+    const contentWindow = { postMessage: vi.fn() } as unknown as Window;
+    const onKeyHold = vi.fn();
+    const bridge = createPinBridge({
+      frame: { contentWindow },
+      target: target as unknown as Window,
+      onReady: vi.fn(),
+      onKeyHold,
+      onPick: vi.fn(),
+      onRects: vi.fn(),
+    });
+    const send = (held: unknown, source: MessageEventSource = contentWindow) =>
+      target.dispatchEvent(
+        new MessageEvent('message', {
+          source,
+          data: { type: 'wyld:pin:key', held },
+        }),
+      );
+
+    send(true);
+    send('true');
+    send(false, {} as Window);
+
+    expect(onKeyHold).toHaveBeenCalledOnce();
+    expect(onKeyHold).toHaveBeenCalledWith(true);
+    bridge.stop();
+  });
+
   it('recovers a ready announcement that happened before the listener existed', () => {
     const target = new EventTarget();
     const onReady = vi.fn();
@@ -84,6 +113,7 @@ describe('pin bridge', () => {
       frame: { contentWindow },
       target: target as unknown as Window,
       onReady,
+      onKeyHold: vi.fn(),
       onPick: vi.fn(),
       onRects: vi.fn(),
     });
@@ -105,6 +135,7 @@ describe('pin bridge', () => {
       frame,
       target: target as unknown as Window,
       onReady: vi.fn(),
+      onKeyHold: vi.fn(),
       onPick: vi.fn(),
       onRects: vi.fn(),
     });
@@ -169,6 +200,7 @@ describe('pin bridge', () => {
       frame: { contentWindow: null },
       target: target as unknown as Window,
       onReady,
+      onKeyHold: vi.fn(),
       onPick: vi.fn(),
       onRects: vi.fn(),
     });

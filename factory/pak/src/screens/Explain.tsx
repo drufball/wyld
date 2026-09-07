@@ -17,7 +17,7 @@ import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
-import { createPinBridge, type PinPick, type PinRect } from '../lib/pin-bridge.js';
+import { createPinBridge, pinModifierHeld, type PinPick, type PinRect } from '../lib/pin-bridge.js';
 
 type LoadedArtifact = Artifact | ArtifactWithHtml;
 type Bridge = ReturnType<typeof createPinBridge>;
@@ -34,6 +34,7 @@ function ArtifactViewer({
   const [artifact, setArtifact] = useState<LoadedArtifact | null | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [pinMode, setPinMode] = useState(false);
+  const [heldMode, setHeldMode] = useState(false);
   const [pick, setPick] = useState<PinPick | null>(null);
   const [text, setText] = useState('');
   const [failed, setFailed] = useState(false);
@@ -41,7 +42,9 @@ function ArtifactViewer({
   const [rects, setRects] = useState<Record<string, PinRect>>({});
   const [openChain, setOpenChain] = useState<number | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
+  const section = useRef<HTMLElement>(null);
   const bridge = useRef<Bridge | null>(null);
+  const canHold = useRef(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const { subscribe } = useLiveEvents();
 
@@ -80,15 +83,18 @@ function ArtifactViewer({
     };
   }, [slug, subscribe, loadPins]);
   const version = artifact?.version;
+  canHold.current = ready && pick === null && openChain === null;
   useEffect(() => {
     setReady(false);
     setPinMode(false);
+    setHeldMode(false);
     setPick(null);
     setRects({});
     if (!frame.current || version === undefined) return;
     const next = createPinBridge({
       frame: frame.current,
       onReady: () => setReady(true),
+      onKeyHold: (held) => setHeldMode(held && canHold.current),
       onPick: (value) => {
         setOpenChain(null);
         setPick(value);
@@ -101,6 +107,53 @@ function ArtifactViewer({
       if (bridge.current === next) bridge.current = null;
     };
   }, [slug, version]);
+  const effectiveMode = pinMode || heldMode;
+  useEffect(() => {
+    bridge.current?.setMode(effectiveMode);
+  }, [effectiveMode]);
+  useEffect(() => {
+    if (!canHold.current) setHeldMode(false);
+  }, [ready, pick, openChain]);
+  useEffect(() => {
+    const release = () => setHeldMode(false);
+    const key = (event: KeyboardEvent) => {
+      const held = pinModifierHeld(event);
+      if (event.type === 'keyup' || held) setHeldMode(held && ready && !pick && openChain === null);
+    };
+    const visibility = () => {
+      if (document.hidden) release();
+    };
+    window.addEventListener('keydown', key);
+    window.addEventListener('keyup', key);
+    window.addEventListener('blur', release);
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      window.removeEventListener('keydown', key);
+      window.removeEventListener('keyup', key);
+      window.removeEventListener('blur', release);
+      document.removeEventListener('visibilitychange', visibility);
+    };
+  }, [ready, pick, openChain]);
+  useLayoutEffect(() => {
+    const node = section.current;
+    if (!node) return;
+    const media = window.matchMedia('(min-width: 768px)');
+    const measure = () => {
+      node.style.height = media.matches
+        ? `${Math.max(0, window.innerHeight - node.getBoundingClientRect().top - 32)}px`
+        : '';
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(document.body);
+    window.addEventListener('resize', measure);
+    media.addEventListener('change', measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+      media.removeEventListener('change', measure);
+    };
+  }, []);
   useEffect(() => {
     if (ready)
       bridge.current?.locate(pins.flatMap((chain) => (chain.anchor ? [chain.anchor.element] : [])));
@@ -143,6 +196,7 @@ function ArtifactViewer({
         setText('');
         setPick(null);
         setPinMode(false);
+        setHeldMode(false);
         bridge.current?.setMode(false);
         bridge.current?.locate(next.flatMap((item) => (item.anchor ? [item.anchor.element] : [])));
       })
@@ -158,7 +212,10 @@ function ArtifactViewer({
   const panelClass =
     'fixed bottom-[calc(53px+env(safe-area-inset-bottom))] left-0 right-0 z-40 grid gap-3 p-5 md:bottom-24 md:left-auto md:right-6 md:w-[min(32rem,calc(100vw-3rem))]';
   return (
-    <section className="fixed inset-x-0 top-0 bottom-[72px] z-10 flex flex-col bg-card md:static md:z-auto md:h-[calc(100dvh-180px)]">
+    <section
+      ref={section}
+      className="fixed inset-x-0 top-0 bottom-[calc(53px+env(safe-area-inset-bottom))] z-10 flex flex-col bg-card md:static md:z-auto"
+    >
       <header className="flex items-center gap-2 border-b border-border px-3 py-2">
         <span className="shrink-0">{back(artifact)}</span>
         <h1 className="m-0 min-w-0 flex-1 truncate text-base sm:flex-none">{artifact.title}</h1>
@@ -171,13 +228,13 @@ function ArtifactViewer({
           type="button"
           aria-label="Pin a comment"
           aria-disabled={!ready ? 'true' : undefined}
-          aria-pressed={ready ? pinMode : false}
+          aria-pressed={ready ? effectiveMode : false}
           title={ready ? 'Pin a comment' : "This explainer can't take pins yet"}
           onClick={() => {
             if (!ready) return;
-            const next = !pinMode;
+            const next = !effectiveMode;
             setPinMode(next);
-            bridge.current?.setMode(next);
+            setHeldMode(false);
             if (!next) setPick(null);
           }}
         >
