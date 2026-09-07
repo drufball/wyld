@@ -1057,3 +1057,10 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 - **Game lane order (17:02):** M2 units 3–4 → [view decision `view-isometric`] → `controls-tap-to-move` (3 units) → `demo-scenarios` (1–2 units; brief to write) → M3. Pak lane: demo-player (#216) → artifacts ⌘-pin follow-on. One lead per package at a time.
 - 17:01 Dru (chain 94): means **real 2D, Link's Awakening**. Rumble `view-isometric` re-issued (scope) with 2D as option 1, blocking controls/M3/demo-scenarios. If 2D: a new quest "FIELDWORK in 2D" before controls — tile world (screens/rooms, 16 px tiles, 4 biomes from the existing region layout), procedural pixel sprites per body plan (no assets rule holds), 2D detection (vision cones, tile cover), tracks as tile sprites, day/night as palette; keep `guide/*`, `species.json`, `combat/*` maths, `ui/*` DOM. M2 units 3–4 (DOM book, map) proceed — the map/fog canvas gets a 2D re-skin later. Write that brief only if chosen.
 - 2D brief pre-written at `/tmp/wyld-leads/fw-2d/brief.md` (quest `fw-2d`, 3 units: tile world+screens+tap; creatures/sneaking/tracks in 2D; party+thumb HUD+map+`?scenario=`). It absorbs `controls-tap-to-move` and `demo-scenarios` if chosen — park those two quests with a note and re-point M3's brief at `fw-2d`. Only if Dru picks 2D.
+
+## DECISION 17:03 — the game goes 2D (Link's Awakening)
+
+- Quest `fw-2d` (planning) — brief `/tmp/wyld-leads/fw-2d/brief.md`. `controls-tap-to-move` and `demo-scenarios` **parked** (folded in). M3 brief re-pointed at `fw-2d`. Roadmap v12.
+- **Game lane:** M2 unit 3 (#215 green, merging) → unit 4 map (sampler-injectable; told the lead) → M2 disc ready → **spawn the 2D lead** (~18:15) → unit 1 tonight, unit 2 maybe, unit 3 tomorrow → M3.
+- Sleep Mode tonight: the 2D lead must leave any unfinished unit as a draft PR by 22:30.
+- M0/M1 discs stay as the 3D record; after 2D unit 3 their cards get scenario deep links (or are hidden — ask Dru then).
