@@ -9,7 +9,11 @@ describe('scenarios', () => {
     expect(scenarios.map((s) => s.id)).toEqual(['world', 'creatures', 'guide', 'party', 'arena']);
     expect(scenarios.every((s) => s.goal && Number.isInteger(s.start.tx) && s.phase)).toBe(true);
   });
-  it('builds the arena to the current screen with six deterministic rock tiles', () => {
+  it('builds the arena at the size of the screen', () => {
+    expect(buildArena(20, 15)).toMatchObject({ width: 20, height: 15 });
+    expect(buildArena(11, 22)).toMatchObject({ width: 11, height: 22 });
+  });
+  it('builds six deterministic rock tiles', () => {
     const arena = buildArena(11, 22, 'forest');
     let rocks = 0;
     for (let y = 0; y < arena.height; y++)
@@ -38,7 +42,7 @@ describe('scenarios', () => {
     expect(buildArena(20, 12).screenFlipping).toBe(false));
   it('gives the synthetic arena its own field-note goal', () => {
     expect(scenarioFromQuery('?scenario=arena')).toMatchObject({
-      goal: 'Open ground. Six low rocks. Pick the ground that suits the work.',
+      goal: 'Open ground. Six low rocks. Nowhere to hide.',
       synthetic: true,
     });
   });

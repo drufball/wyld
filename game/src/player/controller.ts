@@ -140,7 +140,7 @@ const createPlayerController = (o: ControllerOptions) => {
       d = Math.hypot(dx, dy),
       step = (o.speedTilesPerSecond ?? 2) * dt;
     facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-    if (d <= Math.max(step, 0.25)) {
+    if (d <= (path.length === 1 ? Math.max(step, 0.25) : step)) {
       tx = gx;
       ty = gy;
       path = path.slice(1);

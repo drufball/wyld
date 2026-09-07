@@ -1,46 +1,76 @@
 {
   "roster": [
     {
+      "id": "loamox",
+      "speciesId": "loamox",
+      "name": "Barrow",
+      "temperament": "Steady",
+      "stats": {
+        "vigor": 70,
+        "power": 3,
+        "speed": 4,
+        "focus": 40
+      }
+    },
+    {
       "id": "bramblehog",
       "speciesId": "bramblehog",
       "name": "Quill",
       "temperament": "Erratic",
-      "stats": { "vigor": 55, "power": 3, "speed": 6, "focus": 40 }
+      "stats": {
+        "vigor": 55,
+        "power": 3,
+        "speed": 6,
+        "focus": 40
+      }
     },
     {
       "id": "thornwren",
       "speciesId": "thornwren",
       "name": "Pip",
       "temperament": "Skittish",
-      "stats": { "vigor": 45, "power": 3, "speed": 7, "focus": 45 }
+      "stats": {
+        "vigor": 45,
+        "power": 3,
+        "speed": 7,
+        "focus": 45
+      }
     },
     {
       "id": "mirefin",
       "speciesId": "mirefin",
       "name": "Sedge",
       "temperament": "Steady",
-      "stats": { "vigor": 65, "power": 4, "speed": 4, "focus": 45 }
+      "stats": {
+        "vigor": 65,
+        "power": 4,
+        "speed": 4,
+        "focus": 45
+      }
     },
     {
       "id": "emberjack",
       "speciesId": "emberjack",
       "name": "Cinder",
       "temperament": "Erratic",
-      "stats": { "vigor": 55, "power": 4, "speed": 7, "focus": 45 }
-    },
-    {
-      "id": "tidewhelk",
-      "speciesId": "tidewhelk",
-      "name": "Whorl",
-      "temperament": "Steady",
-      "stats": { "vigor": 75, "power": 3, "speed": 3, "focus": 35 }
+      "stats": {
+        "vigor": 55,
+        "power": 4,
+        "speed": 7,
+        "focus": 45
+      }
     },
     {
       "id": "ashcrawl",
       "speciesId": "ashcrawl",
       "name": "Grit",
       "temperament": "Bold",
-      "stats": { "vigor": 150, "power": 5, "speed": 4, "focus": 55 }
+      "stats": {
+        "vigor": 150,
+        "power": 5,
+        "speed": 4,
+        "focus": 55
+      }
     }
   ],
   "enemies": [
@@ -49,15 +79,25 @@
       "speciesId": "antlerback",
       "name": "Antlerback",
       "temperament": "Bold",
-      "stats": { "vigor": 200, "power": 5, "speed": 4, "focus": 55 },
+      "stats": {
+        "vigor": 200,
+        "power": 5,
+        "speed": 4,
+        "focus": 55
+      },
       "biome": "forest"
     },
     {
-      "id": "dunecask",
-      "speciesId": "dunecask",
-      "name": "Dunecask",
-      "temperament": "Bold",
-      "stats": { "vigor": 185, "power": 6, "speed": 3, "focus": 50 },
+      "id": "glasswing",
+      "speciesId": "glasswing",
+      "name": "Glasswing",
+      "temperament": "Erratic",
+      "stats": {
+        "vigor": 150,
+        "power": 5,
+        "speed": 6,
+        "focus": 55
+      },
       "biome": "desert"
     },
     {
@@ -65,7 +105,12 @@
       "speciesId": "saltwing",
       "name": "Saltwing",
       "temperament": "Erratic",
-      "stats": { "vigor": 135, "power": 5, "speed": 7, "focus": 60 },
+      "stats": {
+        "vigor": 135,
+        "power": 5,
+        "speed": 7,
+        "focus": 60
+      },
       "biome": "archipelago"
     }
   ]

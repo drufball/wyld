@@ -53,7 +53,7 @@ const scenarios: readonly Scenario[] = [
   },
   {
     id: 'arena',
-    goal: 'Open ground. Six low rocks. Pick the ground that suits the work.',
+    goal: 'Open ground. Six low rocks. Nowhere to hide.',
     start: { tx: 0, ty: 0 },
     phase: 'Day',
     party: [],

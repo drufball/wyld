@@ -80,7 +80,7 @@ const propPlacements = placeProps({
 });
 const view = createCanvas();
 const grid = synthetic
-  ? buildArena(view.cols, view.rows, 'forest')
+  ? buildArena(view.cols, view.rows)
   : createTileGrid({ ...terrain, depthAt, propPlacements });
 const scenarioStart = synthetic
   ? { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) }
@@ -116,6 +116,7 @@ const player = createPlayerController({
   rows: () => view.rows,
   start: scenarioStart ? tileToWorld(scenarioStart.tx, scenarioStart.ty) : { x: -150, z: 50 },
   screenFlipping: scenario?.id !== 'arena',
+  diagonals: synthetic,
 });
 const partySpecies = scenario?.party ?? ['loamox'];
 const owned = partySpecies.map((speciesId, index) => {
@@ -223,7 +224,7 @@ const input = createInput(
   view.canvas,
   () => debugConsole.isOpen || guide?.isOpen || Boolean(player.sliding),
 );
-createControlsCard(debugConsole.available, () => debugConsole.isOpen);
+createControlsCard(debugConsole.available, () => debugConsole.isOpen, synthetic);
 let elapsedSeconds = scenario ? { Dawn: 0, Day: 180, Dusk: 360, Night: 540 }[scenario.phase] : 0;
 if (scenario) {
   for (const spawn of scenario.spawns) {
@@ -473,7 +474,7 @@ const beginArena = (state: PickState): void => {
   registry.add(buildArenaIndividual(foe), at.x, at.z, 0);
 };
 let arenaPick: ReturnType<typeof createArenaPick> | null = null;
-if (synthetic) arenaPick = createArenaPick(notebook, beginArena);
+if (synthetic) arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state));
 debugConsole.registerCommand('fight', {
   help: 'fight <enemyId> <a,b,c>',
   run: ([enemyId = '', partyList = '']) => {
@@ -769,17 +770,19 @@ const loop = createLoop({
         temperament: c.temperament,
       };
     });
-    observer.update(dt, {
-      day: clock.day,
-      phase: clock.phase,
-      region: pointToRegion(world.x, world.z)?.id ?? null,
-      playerPosition: { x: world.x, y: 0, z: world.z },
-      tracks: trackPlacements,
-      creatures: observed,
-    });
-    notebook.revealFog(world.x, world.z);
-    for (const camp of camps())
-      if (Math.hypot(camp.x - world.x, camp.z - world.z) <= 6) notebook.discoverCamp(camp.id);
+    if (!synthetic) {
+      observer.update(dt, {
+        day: clock.day,
+        phase: clock.phase,
+        region: pointToRegion(world.x, world.z)?.id ?? null,
+        playerPosition: { x: world.x, y: 0, z: world.z },
+        tracks: trackPlacements,
+        creatures: observed,
+      });
+      notebook.revealFog(world.x, world.z);
+      for (const camp of camps())
+        if (Math.hypot(camp.x - world.x, camp.z - world.z) <= 6) notebook.discoverCamp(camp.id);
+    }
     hud.update({
       ...clock,
       regionName: region?.name ?? null,

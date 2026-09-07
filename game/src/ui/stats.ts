@@ -6,10 +6,13 @@ type PerformanceStats = {
   frameMsP95: number;
   samples: number;
 };
+const sortedPercentile = (values: readonly number[], percent: number): number =>
+  values.length ? values[Math.max(0, Math.ceil(values.length * percent) - 1)]! : 0;
 const percentile = (values: readonly number[], percent: number): number =>
-  values.length
-    ? [...values].sort((a, b) => a - b)[Math.max(0, Math.ceil(values.length * percent) - 1)]!
-    : 0;
+  sortedPercentile(
+    [...values].sort((a, b) => a - b),
+    percent,
+  );
 const createStatsPanel = (available: boolean) => {
   let stats: PerformanceStats = {
       fps: 0,
@@ -32,7 +35,7 @@ const createStatsPanel = (available: boolean) => {
     document.body.append(panel);
     const responsive = document.createElement('style');
     responsive.textContent =
-      '@media(max-width:479px){[aria-label="Performance statistics"]{top:auto!important;right:8px!important;bottom:8px!important;min-width:112px!important;padding:6px 8px!important;font-size:10px!important;line-height:16px!important}}';
+      '@media(max-width:479px){[aria-label="Performance statistics"]{top:auto!important;right:8px!important;bottom:24px!important;min-width:112px!important;padding:6px 8px!important;font-size:10px!important;line-height:16px!important}}';
     document.head.append(responsive);
   }
   return {
@@ -43,12 +46,13 @@ const createStatsPanel = (available: boolean) => {
         if (intervals.length > 240) intervals.shift();
       }
       previousFrame = now;
+      const sortedIntervals = [...intervals].sort((a, b) => a - b);
       stats = {
         ...stats,
         tileMs,
         drawCalls,
-        frameMsP50: percentile(intervals, 0.5),
-        frameMsP95: percentile(intervals, 0.95),
+        frameMsP50: sortedPercentile(sortedIntervals, 0.5),
+        frameMsP95: sortedPercentile(sortedIntervals, 0.95),
         samples: intervals.length,
       };
       if (now - start >= 1000) {
