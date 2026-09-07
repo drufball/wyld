@@ -101,6 +101,12 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **15:27 M2 brief written** at `/tmp/wyld-leads/fw-m2/brief.md` (the pure notebook; tracks decals + observation + toasts; the
+  guide book with the merge animation; the map with fog of war) — spawns the moment M1's unit 4 lands. M1 unit 4 (detection, #208)
+  with Codex. **Checked a claim in the M1 lead's unit-3 note** ("calls from eleven species at the pond after dark"): `spawn.ts`
+  gates every maintain pass on `isEligible` (line 81) and despawns now-ineligible creatures > 80 m on `phaseChanged` (130–135), so
+  the habitat rules hold — the count was world-wide `creatureCalled` events, not earshot; lead asked to reword the note. Rule:
+  a lead's quest note is Dru-facing — a surprising number in one gets checked against the code before it stands.
 - **15:24 M1 unit 3 landed** (#205 / PR #207 spawn system + wander + synthesised calls, one round — spawn/wander/call scheduling split
   into independent seeded RNG streams for determinism); unit 4 (detection) next, then `fw-m1-creatures` → `demo`. **Second deflake
   (#204 / PR #206) root cause, for anyone writing Pak tests:** RTL's `waitFor`/`findBy*` sets `IS_REACT_ACT_ENVIRONMENT=false`, so
