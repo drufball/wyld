@@ -101,6 +101,17 @@ this file, the Pak, and GitHub._
 
 ## Open items
 
+- **M0 lead's findings (13:42), for every game lead:** spec resolutions — east = +x, north = −z, sea level y = 0; region radii ≈
+  half the nearest-neighbour distance, overlaps resolve to smallest dist/radius, ties by ascending id (`pointToRegion` is total);
+  all 8 camps placed on standable ground; the one directional light is placed at `player + sunDir × 120` with a ±60 shadow frustum
+  (§4.3 vs §14.5); `time <phase>` from inside that phase jumps a full day and **emits `phaseChanged` for every skipped boundary**.
+  Run-only defects (none visible in a diff): unhandled `requestPointerLock()` rejection; camera below the knees + inverted mouse-Y;
+  the archipelago was a beach (Channels at +7.2 m — found by rendering an offline map from `game/src`, not by a screenshot); sky
+  colours fed as linear not sRGB (Night came out `pow(v,1/2.2)`); unit 4 overwrote unit 3's `sun.position`. Tooling: headless
+  Chromium can't grant pointer lock, so a probe sees one 48° frustum — expose state via `__wyld`; `renderer.info.render.triangles`
+  includes the shadow pass; `tsx` is at `node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs`. Codex ~5–10 min/round today
+  (yesterday ~29); all four M0 units shipped real tests first pass. Leftover: Ash Fields reads bare from Ash Camp facing north —
+  a props-density round if the fps has headroom.
 - **13:41 M0 "Walk the world" is complete on `main` (`9b8ee13`, four units, PRs #189/#191/#193/#196, one round each); final disc
   `ready`.** `game/VERIFICATION.md`: four PASS (seeded RNG, region lookup, water/slope traversal measured at exactly 0.60 m and 56–64°,
   the 12-minute day at 9.98 s/10 s with `time Night` dropping sky brightness 122.7→28.1) and **one PARTIAL — 60 fps on an integrated
