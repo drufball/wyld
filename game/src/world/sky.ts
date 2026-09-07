@@ -89,25 +89,40 @@ const createSky = (
   scene: THREE.Scene,
   sun: THREE.DirectionalLight,
   hemisphere: THREE.HemisphereLight,
-) => ({
-  update(dayProgress: number): void {
-    const state = skyAt(dayProgress);
-    scene.background = new THREE.Color(state.background.r, state.background.g, state.background.b);
-    if (!(scene.fog instanceof THREE.Fog))
-      scene.fog = new THREE.Fog(0, state.fogNear, state.fogFar);
-    scene.fog.color.setRGB(state.fog.r, state.fog.g, state.fog.b);
-    scene.fog.near = state.fogNear;
-    scene.fog.far = state.fogFar;
-    sun.color.setRGB(state.sunColour.r, state.sunColour.g, state.sunColour.b);
-    sun.intensity = state.sunIntensity;
-    sun.position.set(
-      state.sunDirection.x * 70,
-      state.sunDirection.y * 70,
-      state.sunDirection.z * 70,
-    );
-    hemisphere.intensity = state.hemisphereIntensity;
-  },
-});
+) => {
+  const background = new THREE.Color();
+  scene.background = background;
+
+  return {
+    update(dayProgress: number): void {
+      const state = skyAt(dayProgress);
+      background.setRGB(
+        state.background.r,
+        state.background.g,
+        state.background.b,
+        THREE.SRGBColorSpace,
+      );
+      if (!(scene.fog instanceof THREE.Fog))
+        scene.fog = new THREE.Fog(0, state.fogNear, state.fogFar);
+      scene.fog.color.setRGB(state.fog.r, state.fog.g, state.fog.b, THREE.SRGBColorSpace);
+      scene.fog.near = state.fogNear;
+      scene.fog.far = state.fogFar;
+      sun.color.setRGB(
+        state.sunColour.r,
+        state.sunColour.g,
+        state.sunColour.b,
+        THREE.SRGBColorSpace,
+      );
+      sun.intensity = state.sunIntensity;
+      sun.position.set(
+        state.sunDirection.x * 70,
+        state.sunDirection.y * 70,
+        state.sunDirection.z * 70,
+      );
+      hemisphere.intensity = state.hemisphereIntensity;
+    },
+  };
+};
 
 export { createSky, skyAt };
 export type { SkyColour, SkyState };

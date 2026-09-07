@@ -17,7 +17,38 @@ type BandWater = {
 };
 type WaterBody = CircleWater | BandWater;
 
-const waterBodies = worldData.water as WaterBody[];
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+const isString = (value: unknown): value is string => typeof value === 'string';
+const isNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+const isWaterBody = (value: unknown): value is WaterBody => {
+  if (!isRecord(value) || !isString(value.id) || !isNumber(value.surfaceY) || !isString(value.kind))
+    return false;
+  if (value.kind === 'pond')
+    return (
+      isRecord(value.circle) &&
+      isNumber(value.circle.x) &&
+      isNumber(value.circle.z) &&
+      isNumber(value.circle.radius) &&
+      value.circle.radius > 0
+    );
+  if (value.kind === 'sea')
+    return (
+      isRecord(value.southBand) &&
+      isNumber(value.southBand.minZ) &&
+      isNumber(value.southBand.maxZ) &&
+      isNumber(value.southBand.minX) &&
+      isNumber(value.southBand.maxX) &&
+      value.southBand.minZ < value.southBand.maxZ &&
+      value.southBand.minX < value.southBand.maxX
+    );
+  return false;
+};
+
+if (!Array.isArray(worldData.water) || !worldData.water.every(isWaterBody))
+  throw new TypeError('Invalid water data');
+const waterBodies: readonly WaterBody[] = worldData.water;
 const contains = (body: WaterBody, x: number, z: number): boolean =>
   body.kind === 'pond'
     ? Math.hypot(x - body.circle.x, z - body.circle.z) <= body.circle.radius
