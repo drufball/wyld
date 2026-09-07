@@ -139,6 +139,21 @@ describe('pin bridge', () => {
       vi.fn(),
     );
     const message = listeners.get('message')?.[0];
+    const load = listeners.get('load')?.[0];
+    expect(documentStub.addEventListener).toHaveBeenCalledWith(
+      'DOMContentLoaded',
+      expect.any(Function),
+    );
+    const domContentLoaded = documentStub.addEventListener.mock.calls.find(
+      ([type]) => type === 'DOMContentLoaded',
+    )?.[1];
+
+    domContentLoaded?.();
+    expect(parentWindow.postMessage).toHaveBeenCalledWith({ type: 'wyld:pin:ready' }, '*');
+    parentWindow.postMessage.mockClear();
+    load?.({} as Event);
+    expect(parentWindow.postMessage).toHaveBeenCalledWith({ type: 'wyld:pin:ready' }, '*');
+    parentWindow.postMessage.mockClear();
 
     message?.({ source: {}, data: { type: 'wyld:pin:hello' } } as unknown as Event);
     expect(parentWindow.postMessage).not.toHaveBeenCalled();
