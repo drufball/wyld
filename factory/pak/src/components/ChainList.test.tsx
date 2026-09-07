@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider, type EventSourceFactory } from '../live/LiveEvents.js';
-import { ChainList } from './ChainList.js';
+import { ChainCard, ChainList } from './ChainList.js';
 
 const timestamp = '2026-09-05T12:00:00.000Z';
 const question = {
@@ -10,6 +11,11 @@ const question = {
   createdAt: timestamp,
   lastActivityAt: timestamp,
   questId: null,
+  snoozedUntil: null,
+  tags: [],
+  demoId: null,
+  payload: null,
+  rumble: null,
   anchor: null,
   messages: [{ id: 1, chainId: 1, author: 'human', text: 'Why?', ts: timestamp }],
 } as const;
@@ -148,6 +154,47 @@ describe('ChainList', () => {
 
     expect(closeCalls(fetch)).toHaveLength(1);
   });
+  const renderCard = (
+    anchor: { artifact: string; element: string; label: string } | null,
+    artifactName?: string,
+  ) =>
+    render(
+      <MemoryRouter>
+        <ChainCard
+          chain={{
+            ...question,
+            kind: 'question',
+            anchor,
+            tags: [...question.tags],
+            messages: [...question.messages],
+          }}
+          artifactName={artifactName}
+          onChange={() => undefined}
+          onClosed={() => undefined}
+        />
+      </MemoryRouter>,
+    );
+
+  it('links an anchored chain to its named artifact', () => {
+    renderCard({ artifact: 'forest-map', element: 'hero', label: 'Hero title' }, 'Forest map');
+
+    const link = screen.getByRole('link', { name: 'Pinned to Hero title · Forest map' });
+    expect(link.getAttribute('href')).toBe('/explain/forest-map');
+  });
+
+  it('falls back to the artifact slug in an anchored chain link', () => {
+    renderCard({ artifact: 'forest-map', element: 'hero', label: 'Hero title' });
+
+    const link = screen.getByRole('link', { name: 'Pinned to Hero title · forest-map' });
+    expect(link.getAttribute('href')).toBe('/explain/forest-map');
+  });
+
+  it('does not render a pinned link for an unanchored chain', () => {
+    renderCard(null);
+
+    expect(screen.queryByRole('link', { name: /Pinned to/ })).toBeNull();
+  });
+
   it('does not add an action chain after a live planner update when kind is all', async () => {
     let receive: EventListener | undefined;
     const action = { ...question, id: 2, kind: 'action', messages: [] };

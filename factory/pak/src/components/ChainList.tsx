@@ -16,6 +16,7 @@ import {
   closeChain,
   decideRumble,
   listChains,
+  listArtifacts,
   listQuests,
   postChainMessage,
   snoozeChain,
@@ -194,6 +195,8 @@ export function ChainActionsMenu({
 export function ChainCard({
   chain,
   questName,
+  artifactName,
+  defaultOpen,
   onChange,
   onClosed,
   onSnoozed,
@@ -203,6 +206,8 @@ export function ChainCard({
 }: {
   chain: Chain;
   questName?: string;
+  artifactName?: string;
+  defaultOpen?: boolean;
   onChange: (chain: Chain) => void;
   onClosed: (id: number) => void;
   onSnoozed?: (id: number) => void;
@@ -214,7 +219,7 @@ export function ChainCard({
   const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
   const collapsible = chain.kind === 'question' || chain.kind === 'message';
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [asking, setAsking] = useState(!rumbleCard);
   const [deciding, setDeciding] = useState(false);
@@ -426,6 +431,16 @@ export function ChainCard({
   }
   const messages = (
     <>
+      {chain.anchor !== null && (
+        <Link
+          to={`/explain/${encodeURIComponent(chain.anchor.artifact)}`}
+          className="m-0 min-h-11 py-2 text-muted-foreground"
+        >
+          <span className="wrap-anywhere">
+            Pinned to {chain.anchor.label} · {artifactName ?? chain.anchor.artifact}
+          </span>
+        </Link>
+      )}
       {chain.kind === 'rumble' && (
         <div className="flex flex-wrap gap-2">
           {!rumbleCard && (
@@ -689,6 +704,7 @@ export function ChainList({
 }) {
   const [chains, setChains] = useState<Chain[]>([]);
   const [questNames, setQuestNames] = useState<Record<string, string>>({});
+  const [artifactNames, setArtifactNames] = useState<Record<string, string>>({});
   const { subscribe } = useLiveEvents();
   const listedKinds: ChainKind[] = useMemo(
     () =>
@@ -714,12 +730,17 @@ export function ChainList({
   );
   useEffect(() => {
     load();
-    if (!showQuestChip) return;
-    void listQuests()
-      .then((quests) =>
-        setQuestNames(Object.fromEntries(quests.map(({ id, title }) => [id, title]))),
+    void listArtifacts()
+      .then((items) =>
+        setArtifactNames(Object.fromEntries(items.map(({ slug, title }) => [slug, title]))),
       )
       .catch(() => undefined);
+    if (showQuestChip)
+      void listQuests()
+        .then((quests) =>
+          setQuestNames(Object.fromEntries(quests.map(({ id, title }) => [id, title]))),
+        )
+        .catch(() => undefined);
   }, [load, showQuestChip]);
   useEffect(() => {
     const unsubscribe = [
@@ -763,6 +784,7 @@ export function ChainList({
             key={chain.id}
             chain={chain}
             questName={chain.questId === null ? undefined : questNames[chain.questId]}
+            artifactName={chain.anchor ? artifactNames[chain.anchor.artifact] : undefined}
             onChange={(changed) =>
               setChains((current) =>
                 current.map((item) => (item.id === changed.id ? changed : item)),

@@ -12,6 +12,7 @@ import {
   Presence,
   Quest,
   QuestNote,
+  ChainAnchor,
   Rumble,
   NewFeedback,
   Retro,
@@ -119,6 +120,7 @@ export async function listChains(
     kind?: string;
     status?: 'open' | 'settled' | 'converted' | 'all';
     includeSnoozed?: boolean;
+    artifact?: string;
   } = {},
 ): Promise<ChainType[]> {
   const params = new URLSearchParams();
@@ -126,6 +128,7 @@ export async function listChains(
   if (options.kind) params.set('kind', options.kind);
   if (options.status) params.set('status', options.status);
   if (options.includeSnoozed) params.set('includeSnoozed', '1');
+  if (options.artifact) params.set('artifact', options.artifact);
   const query = params.size > 0 ? `?${params.toString()}` : '';
   return Chain.array().parse(await request(`/api/chains${query}`, {}, 'Loading chains'));
 }
@@ -142,11 +145,19 @@ export async function unsnoozeChain(id: number): Promise<ChainType> {
   );
 }
 
-export async function postChain(text: string, questId?: string): Promise<ChainType> {
+export async function postChain(
+  text: string,
+  questId?: string,
+  anchor?: ChainAnchor,
+): Promise<ChainType> {
   return Chain.parse(
     await request(
       '/api/chains',
-      json('POST', { text, ...(questId === undefined ? {} : { questId }) }),
+      json('POST', {
+        text,
+        ...(questId === undefined ? {} : { questId }),
+        ...(anchor === undefined ? {} : { anchor }),
+      }),
       'Posting chain',
     ),
   );
