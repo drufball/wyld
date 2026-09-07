@@ -56,5 +56,5 @@ const roll = (species: SpeciesData, rng: Rng, id?: string): Individual => {
   };
 };
 
-export { roll };
+export { kebab, roll };
 export type { Individual, Temperament };

@@ -18,4 +18,24 @@ describe('pathing', () => {
     expect(findPath(grid(), { tx: 0, ty: 0 }, { tx: 3, ty: 3 })).toEqual(
       findPath(grid(), { tx: 0, ty: 0 }, { tx: 3, ty: 3 }),
     ));
+  it('keeps diagonals off by default', () =>
+    expect(findPath(grid(), { tx: 0, ty: 0 }, { tx: 1, ty: 1 })).toHaveLength(2));
+  it('uses one root-two diagonal when enabled', () =>
+    expect(
+      findPath(
+        grid(),
+        { tx: 0, ty: 0 },
+        { tx: 1, ty: 1 },
+        { minTx: 0, maxTx: 7, minTy: 0, maxTy: 7, diagonals: true },
+      ),
+    ).toHaveLength(1));
+  it('refuses a diagonal past blocked orthogonal tiles', () =>
+    expect(
+      findPath(
+        grid(['1,0', '0,1']),
+        { tx: 0, ty: 0 },
+        { tx: 1, ty: 1 },
+        { minTx: 0, maxTx: 7, minTy: 0, maxTy: 7, diagonals: true },
+      ),
+    ).toBeNull());
 });

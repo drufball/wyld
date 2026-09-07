@@ -48,6 +48,10 @@ import { createDebugConsole } from './ui/debug.js';
 import { createGuideBook } from './ui/guide.js';
 import { createHud } from './ui/hud.js';
 import { createStatsPanel } from './ui/stats.js';
+import { createArenaPick } from './ui/arena-pick.js';
+import { buildArenaIndividual, enemy, rosterMember } from './arena/roster.js';
+import { createPick, chooseEnemy, toggleMember, startFight, type PickState } from './arena/pick.js';
+import { resistance, weakness } from './combat/hides.js';
 import { createToastStack } from './ui/toasts.js';
 import { placeProps } from './world/props.js';
 import { camps, pointToRegion, regions } from './world/regions.js';
@@ -76,7 +80,7 @@ const propPlacements = placeProps({
 });
 const view = createCanvas();
 const grid = synthetic
-  ? buildArena(view.cols, view.rows)
+  ? buildArena(view.cols, view.rows, 'forest')
   : createTileGrid({ ...terrain, depthAt, propPlacements });
 const scenarioStart = synthetic
   ? { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) }
@@ -92,8 +96,8 @@ const trackPlacements = placeTracks({
     return grid.isWalkable(tx, ty);
   },
 });
-const tiles = createTileRenderer(grid, trackPlacements),
-  debugConsole = createDebugConsole({ seed }),
+let tiles = createTileRenderer(grid, synthetic ? [] : trackPlacements);
+const debugConsole = createDebugConsole({ seed }),
   stats = createStatsPanel(debugConsole.available),
   toasts = createToastStack(),
   hudActions: Parameters<typeof createHud>[2] = {},
@@ -148,6 +152,8 @@ const partyControllers = new Map(
       rows: () => view.rows,
       start: tileToWorld(member.tile.tx, member.tile.ty),
       screenFlipping: scenario?.id !== 'arena',
+      diagonals: synthetic,
+      speedTilesPerSecond: (3 + member.individual.stats.speed * 0.6) / 2,
     }),
   ]),
 );
@@ -159,6 +165,8 @@ const createPartyController = (member: (typeof partyState.party)[number]) =>
     rows: () => view.rows,
     start: tileToWorld(member.tile.tx, member.tile.ty),
     screenFlipping: !synthetic,
+    diagonals: synthetic,
+    speedTilesPerSecond: (3 + member.individual.stats.speed * 0.6) / 2,
   });
 hudActions.selectCreature = (id) => {
   partyState = selectCreature(partyState, id);
@@ -203,6 +211,7 @@ const spawnSystem = createSpawnSystem({
   nextCalls = new Map<string, number>();
 type AiState = { meter: number; behaviour: Behaviour; fleeUntil: number };
 const aiStates = new Map<string, AiState>();
+let arenaState: PickState | null = synthetic ? createPick() : null;
 const seedCreature = (id: string): void => {
   const c = registry.get(id);
   if (!c) return;
@@ -292,13 +301,6 @@ debugConsole.registerCommand('reveal', {
       return 'map revealed';
     }
     if (target.toLowerCase() !== 'guide') return 'usage: reveal <guide|map>';
-    const forcesByHide = {
-      Bark: ['Heat', 'Cut'],
-      Shell: ['Impact', 'Cut'],
-      Scale: ['Surge', 'Heat'],
-      Hide: ['Cut', 'Surge'],
-      Stone: ['Surge', 'Impact'],
-    } as const;
     const clock = timeAt(elapsedSeconds);
     for (const definition of species()) {
       const habitat = definition.habitat[0]!,
@@ -312,8 +314,8 @@ debugConsole.registerCommand('reveal', {
       notebook.recordTracks(definition.id, located);
       notebook.recordCall(definition.id, located);
       notebook.recordHide(definition.id, definition.hide);
-      notebook.recordWeakness(definition.id, forcesByHide[definition.hide][0]);
-      notebook.recordResistance(definition.id, forcesByHide[definition.hide][1]);
+      notebook.recordWeakness(definition.id, weakness(definition.hide));
+      notebook.recordResistance(definition.id, resistance(definition.hide));
       definition.signatureMoves.forEach(({ name }) => notebook.recordMove(definition.id, name));
       notebook.recordTemperament(
         definition.id,
@@ -427,14 +429,75 @@ debugConsole.registerCommand('tracks', {
       .map((t) => `${t.speciesId} ${t.regionId} ${t.x.toFixed(1)},${t.z.toFixed(1)}`)
       .join('\n') || 'no tracks',
 });
-const render = () => {
+const beginArena = (state: PickState): void => {
+  const foe = state.enemy ? enemy(state.enemy) : null;
+  if (!foe || state.party.length !== 3) return;
+  arenaState = state;
+  const built = buildArena(view.cols, view.rows, foe.biome);
+  Object.assign(grid, built);
+  tiles = createTileRenderer(grid, []);
+  registry.clear();
+  partyControllers.clear();
+  const centre = { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) };
+  player.teleport(tileToWorld(centre.tx, centre.ty).x, tileToWorld(centre.tx, centre.ty).z);
+  const offsets = [
+    { tx: 0, ty: 1 },
+    { tx: -1, ty: 1 },
+    { tx: 1, ty: 1 },
+  ];
+  const members = state.party.map((id, index) => {
+    const entry = rosterMember(id)!;
+    return {
+      individual: buildArenaIndividual(entry),
+      name: entry.name,
+      tile: { tx: centre.tx + offsets[index]!.tx, ty: centre.ty + offsets[index]!.ty },
+      path: [],
+    };
+  });
+  partyState = createParty(members);
+  for (const member of members)
+    partyControllers.set(member.individual.id, createPartyController(member));
+  let enemyTile = { tx: centre.tx, ty: Math.max(0, centre.ty - 6) };
+  if (!grid.isWalkable(enemyTile.tx, enemyTile.ty)) {
+    for (let radius = 1; radius < view.cols; radius++) {
+      const found = [-radius, radius]
+        .map((dx) => ({ tx: centre.tx + dx, ty: enemyTile.ty }))
+        .find((p) => grid.isWalkable(p.tx, p.ty));
+      if (found) {
+        enemyTile = found;
+        break;
+      }
+    }
+  }
+  const at = tileToWorld(enemyTile.tx, enemyTile.ty);
+  registry.add(buildArenaIndividual(foe), at.x, at.z, 0);
+};
+let arenaPick: ReturnType<typeof createArenaPick> | null = null;
+if (synthetic) arenaPick = createArenaPick(notebook, beginArena);
+debugConsole.registerCommand('fight', {
+  help: 'fight <enemyId> <a,b,c>',
+  run: ([enemyId = '', partyList = '']) => {
+    if (!synthetic) return 'not in the arena';
+    if (!enemy(enemyId)) return `unknown enemy: ${enemyId}`;
+    const ids = partyList.split(',').filter(Boolean);
+    if (ids.length !== 3) return 'choose exactly three roster creatures';
+    const unknown = ids.find((id) => !rosterMember(id));
+    if (unknown) return `unknown roster creature: ${unknown}`;
+    let next = chooseEnemy(createPick(), enemyId);
+    for (const id of ids) next = toggleMember(next, id);
+    next = startFight(next);
+    arenaPick?.setState(next);
+    return 'fight started';
+  },
+});
+const render = (alpha = 1) => {
   const clock = timeAt(elapsedSeconds),
     palette = paletteAt(clock.phase, clock.phaseProgress),
     key = paletteKey(clock.phase, clock.phaseProgress),
     screen = player.screen;
   const layer = tiles.layer(screen.x, screen.y, view.cols, view.rows, palette, key);
   view.context.drawImage(layer, 0, 0);
-  const tile = player.tile,
+  const tile = player.interpolated(alpha),
     localTileX = tile.x - screen.x * view.cols,
     localTileY = tile.y - screen.y * view.rows,
     playerOrigin = spriteOrigin(localTileX, localTileY, 16, 24),
@@ -456,7 +519,7 @@ const render = () => {
   let drawCalls = calls;
   for (const member of partyState.party) {
     const controller = partyControllers.get(member.individual.id)!;
-    const tile = controller.tile;
+    const tile = controller.interpolated(alpha);
     if (Math.floor(tile.x / view.cols) !== screen.x || Math.floor(tile.y / view.rows) !== screen.y)
       continue;
     const definition = speciesById(member.individual.speciesId)!;
@@ -557,7 +620,7 @@ const loop = createLoop({
       }
     }
     player.update(dt);
-    if (partyState.selection === 'player') {
+    if (!synthetic && partyState.selection === 'player') {
       const offsets = [
         { tx: 0, ty: 1 },
         { tx: -1, ty: 1 },
@@ -613,6 +676,7 @@ const loop = createLoop({
       aiStates.delete(id);
     }
     for (const creature of registry.list()) {
+      if (synthetic) continue;
       const definition = speciesById(creature.speciesId)!,
         ct = worldToTile(creature.position.x, creature.position.z),
         pt = worldToTile(world.x, world.z),
@@ -764,6 +828,7 @@ window.__wyld = {
       biome: synthetic ? null : terrain.biomeAt(world.x, world.z),
       ...clock,
       waterDepth: depthAt(world.x, world.z),
+      arena: arenaState,
       creatures: registry.list().map((c) => {
         const t = worldToTile(c.position.x, c.position.z),
           ai = aiStates.get(c.id);

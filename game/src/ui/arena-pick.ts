@@ -1,0 +1,165 @@
+import type { Notebook } from '../guide/notebook.js';
+import { arenaEnemies, arenaRoster, buildArenaIndividual } from '../arena/roster.js';
+import {
+  backToEnemies,
+  canFight,
+  chooseEnemy,
+  createPick,
+  startFight,
+  toggleMember,
+  type PickState,
+} from '../arena/pick.js';
+import { speciesById } from '../creatures/species.js';
+import { drawCreatureSprite } from '../render2d/creature-sprite.js';
+
+const createArenaPick = (notebook: Notebook, onFight: (state: PickState) => void) => {
+  const root = document.createElement('main');
+  let state = createPick();
+  root.setAttribute('aria-label', 'Arena selection');
+  root.style.cssText =
+    'position:fixed;inset:0;z-index:20;overflow:auto;box-sizing:border-box;padding:24px 16px;background:#f5f0dc;background-image:repeating-linear-gradient(0deg,transparent 0 27px,#77756635 27px 28px),linear-gradient(120deg,#fff8e8aa,#e8dfc5aa);color:#292b25;font:14px/1.45 ui-monospace,monospace';
+  document.body.append(root);
+  const sprite = (id: string) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 48;
+    canvas.height = 48;
+    canvas.style.cssText = 'image-rendering:pixelated;width:72px;height:72px';
+    drawCreatureSprite(canvas.getContext('2d')!, id, 'down', 'idle', 12, 12);
+    return canvas;
+  };
+  const card = (id: string, title: string, body: string, selected: boolean, click: () => void) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(selected));
+    b.style.cssText = `min-height:132px;padding:10px;border:1px solid #55584b;border-radius:2px;background:#f8f3e3;color:inherit;text-align:left;font:inherit;box-shadow:${selected ? '0 0 0 3px #8a542e' : '1px 2px 2px #0002'}`;
+    b.append(sprite(id));
+    const text = document.createElement('span');
+    text.style.display = 'block';
+    text.innerHTML = `<strong>${title}</strong><br>${body}`;
+    b.append(text);
+    b.onclick = click;
+    return b;
+  };
+  const render = () => {
+    root.replaceChildren();
+    const wrap = document.createElement('section');
+    wrap.style.cssText = 'max-width:960px;margin:auto';
+    const h = document.createElement('h1');
+    h.textContent = state.phase === 'pick-enemy' ? 'Pick an enemy' : 'Pick your three';
+    wrap.append(h);
+    const cards = document.createElement('div');
+    cards.style.cssText =
+      'display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px';
+    if (state.phase === 'pick-enemy')
+      for (const foe of arenaEnemies()) {
+        const page = notebook.page(foe.speciesId),
+          known = page && (page.identified || page.hide || page.moves.length);
+        const lines = known
+          ? [
+              page.hide && `Hide: ${page.hide}`,
+              page.weakness && `Weak to: ${page.weakness}`,
+              page.resistance && `Resists: ${page.resistance}`,
+              page.moves.length && `Moves: ${page.moves.join(', ')}`,
+              page.temperaments.length && `Temperament: ${page.temperaments.join(', ')}`,
+            ]
+              .filter(Boolean)
+              .join('<br>')
+          : 'You have not met this one.';
+        cards.append(
+          card(foe.id, foe.name, lines, false, () => {
+            state = chooseEnemy(state, foe.id);
+            render();
+          }),
+        );
+      }
+    else
+      for (const entry of arenaRoster()) {
+        const individual = buildArenaIndividual(entry),
+          definition = speciesById(entry.speciesId)!;
+        const moves = individual.repertoire
+          .map(
+            (m) =>
+              `<small style="display:inline-block;border:1px solid #777566;padding:2px 4px;margin:3px 2px 0 0">${m.name} · ${m.delivery} · ${m.force}</small>`,
+          )
+          .join('');
+        cards.append(
+          card(
+            entry.id,
+            entry.name,
+            `Hide: ${definition.hide}<br>${moves}`,
+            state.party.includes(entry.id),
+            () => {
+              state = toggleMember(state, entry.id);
+              render();
+            },
+          ),
+        );
+      }
+    wrap.append(cards);
+    if (state.phase === 'pick-party') {
+      const footer = document.createElement('div');
+      footer.style.cssText = 'display:flex;gap:12px;align-items:center;margin-top:18px';
+      const back = document.createElement('button');
+      back.textContent = 'Back';
+      back.style.minHeight = '44px';
+      back.onclick = () => {
+        state = backToEnemies(state);
+        render();
+      };
+      const count = document.createElement('span');
+      count.textContent = `${state.party.length} of 3 chosen`;
+      const fight = document.createElement('button');
+      fight.textContent = 'Fight';
+      fight.disabled = !canFight(state);
+      fight.style.cssText = 'min-width:88px;min-height:44px';
+      fight.onclick = () => finish();
+      footer.append(back, count, fight);
+      wrap.append(footer);
+    }
+    root.append(wrap);
+  };
+  const finish = () => {
+    state = startFight(state);
+    if (state.phase === 'fight') {
+      root.remove();
+      onFight(state);
+    }
+  };
+  const key = (event: KeyboardEvent) => {
+    if (state.phase === 'pick-enemy' && /^[1-3]$/.test(event.key)) {
+      const x = arenaEnemies()[Number(event.key) - 1];
+      if (x) {
+        state = chooseEnemy(state, x.id);
+        render();
+      }
+    } else if (state.phase === 'pick-party' && /^[1-6]$/.test(event.key)) {
+      const x = arenaRoster()[Number(event.key) - 1];
+      if (x) {
+        state = toggleMember(state, x.id);
+        render();
+      }
+    } else if (event.key === 'Enter') finish();
+    else if (event.key === 'Escape') {
+      state = backToEnemies(state);
+      render();
+    }
+  };
+  window.addEventListener('keydown', key);
+  render();
+  return {
+    root,
+    state: () => state,
+    setState(next: PickState) {
+      state = next;
+      if (next.phase === 'fight') {
+        root.remove();
+        onFight(next);
+      } else render();
+    },
+    dispose() {
+      window.removeEventListener('keydown', key);
+      root.remove();
+    },
+  };
+};
+export { createArenaPick };

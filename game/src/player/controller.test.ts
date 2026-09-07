@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { worldToTile } from '../world/tiles.js';
-import { pathForTap } from './controller.js';
+import { lerpTile, pathForTap } from './controller.js';
 
 const grid = (blocked: string[] = []) => ({
   isWalkable: (tx: number, ty: number) =>
@@ -66,5 +66,14 @@ describe('tap destinations', () => {
       8,
     );
     expect(path?.at(-1)).toEqual({ tx: 7, ty: 3 });
+  });
+});
+describe('render interpolation', () => {
+  it('interpolates between simulation steps', () =>
+    expect(lerpTile({ x: 1, y: 2 }, { x: 3, y: 6 }, 0.5)).toEqual({ x: 2, y: 4 }));
+  it('clamps alpha and preserves no movement', () => {
+    expect(lerpTile({ x: 1, y: 2 }, { x: 3, y: 6 }, 2)).toEqual({ x: 3, y: 6 });
+    expect(lerpTile({ x: 1, y: 2 }, { x: 3, y: 6 }, -1)).toEqual({ x: 1, y: 2 });
+    expect(lerpTile({ x: 1, y: 2 }, { x: 1, y: 2 }, 0.5)).toEqual({ x: 1, y: 2 });
   });
 });

@@ -1,9 +1,29 @@
-type PerformanceStats = { fps: number; tileMs: number; drawCalls: number };
+type PerformanceStats = {
+  fps: number;
+  tileMs: number;
+  drawCalls: number;
+  frameMsP50: number;
+  frameMsP95: number;
+  samples: number;
+};
+const percentile = (values: readonly number[], percent: number): number =>
+  values.length
+    ? [...values].sort((a, b) => a - b)[Math.max(0, Math.ceil(values.length * percent) - 1)]!
+    : 0;
 const createStatsPanel = (available: boolean) => {
-  let stats: PerformanceStats = { fps: 0, tileMs: 0, drawCalls: 0 },
+  let stats: PerformanceStats = {
+      fps: 0,
+      tileMs: 0,
+      drawCalls: 0,
+      frameMsP50: 0,
+      frameMsP95: 0,
+      samples: 0,
+    },
     frames = 0,
     start = performance.now(),
-    panel: HTMLDivElement | undefined;
+    panel: HTMLDivElement | undefined,
+    previousFrame: number | undefined;
+  const intervals: number[] = [];
   if (available) {
     panel = document.createElement('div');
     panel.setAttribute('aria-label', 'Performance statistics');
@@ -18,18 +38,30 @@ const createStatsPanel = (available: boolean) => {
   return {
     afterRender(tileMs: number, drawCalls: number, now = performance.now()) {
       frames++;
-      stats = { ...stats, tileMs, drawCalls };
+      if (previousFrame !== undefined) {
+        intervals.push(now - previousFrame);
+        if (intervals.length > 240) intervals.shift();
+      }
+      previousFrame = now;
+      stats = {
+        ...stats,
+        tileMs,
+        drawCalls,
+        frameMsP50: percentile(intervals, 0.5),
+        frameMsP95: percentile(intervals, 0.95),
+        samples: intervals.length,
+      };
       if (now - start >= 1000) {
         stats.fps = (frames * 1000) / (now - start);
         frames = 0;
         start = now;
       }
       if (panel)
-        panel.textContent = `FPS        ${stats.fps.toFixed(1)}\nTILE MS    ${stats.tileMs.toFixed(1)}\nDRAW CALLS ${stats.drawCalls}`;
+        panel.textContent = `FPS        ${stats.fps.toFixed(1)}\nTILE MS    ${stats.tileMs.toFixed(1)}\nP95 MS     ${stats.frameMsP95.toFixed(1)}\nDRAW CALLS ${stats.drawCalls}`;
     },
     read: () => ({ ...stats }),
     dispose: () => panel?.remove(),
   };
 };
-export { createStatsPanel };
+export { createStatsPanel, percentile };
 export type { PerformanceStats };

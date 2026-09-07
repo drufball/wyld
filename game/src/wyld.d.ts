@@ -11,6 +11,11 @@ type WyldGameState = {
   day: number;
   phaseProgress: number;
   waterDepth: number;
+  arena: {
+    phase: 'pick-enemy' | 'pick-party' | 'fight';
+    enemy: string | null;
+    party: readonly string[];
+  } | null;
   creatures: {
     id: string;
     species: string;
@@ -47,7 +52,14 @@ interface WyldGameApi {
   getState(): WyldGameState;
   screenshot(): string;
   debug(command: string): string;
-  perf(): { fps: number; tileMs: number; drawCalls: number };
+  perf(): {
+    fps: number;
+    tileMs: number;
+    drawCalls: number;
+    frameMsP50: number;
+    frameMsP95: number;
+    samples: number;
+  };
   log(): { kind: string; ts: number; payload: unknown }[];
 }
 

@@ -10,6 +10,8 @@ type ControllerOptions = {
   rows(): number;
   start?: { x: number; z: number };
   screenFlipping?: boolean;
+  speedTilesPerSecond?: number;
+  diagonals?: boolean;
 };
 type TilePoint = { tx: number; ty: number };
 type Screen = { sx: number; sy: number };
@@ -26,6 +28,7 @@ const pathForTap = (
   screen: Screen,
   cols: number,
   rows: number,
+  diagonals = false,
 ): readonly TilePoint[] | null => {
   const minTx = screen.sx * cols,
     maxTx = minTx + cols - 1,
@@ -36,7 +39,7 @@ const pathForTap = (
     onTop = target.ty === minTy,
     onBottom = target.ty === maxTy,
     edgeCount = Number(onLeft || onRight) + Number(onTop || onBottom),
-    bounds = { minTx, maxTx, minTy, maxTy };
+    bounds = { minTx, maxTx, minTy, maxTy, diagonals };
 
   // A non-corner edge tap asks to cross the screen. Search nearest-first along
   // that edge, preferring the lower coordinate just as findPath does on ties.
@@ -80,6 +83,7 @@ const createPlayerController = (o: ControllerOptions) => {
     path: readonly { tx: number; ty: number }[] = [],
     facing: Facing = 'down',
     screen = screenOf(initial.tx, initial.ty, o.cols(), o.rows()),
+    previous = { x: tx, y: ty },
     slide: {
       from: { sx: number; sy: number };
       to: { sx: number; sy: number };
@@ -98,6 +102,7 @@ const createPlayerController = (o: ControllerOptions) => {
       screen,
       o.cols(),
       o.rows(),
+      o.diagonals,
     );
     if (found) path = found;
   };
@@ -109,10 +114,12 @@ const createPlayerController = (o: ControllerOptions) => {
       screen,
       o.cols(),
       o.rows(),
+      o.diagonals,
     );
     if (found) path = found;
   };
   const update = (dt: number) => {
+    previous = { x: tx, y: ty };
     const resizedScreen = screenOf(Math.floor(tx), Math.floor(ty), o.cols(), o.rows());
     if (!slide && (resizedScreen.sx !== screen.sx || resizedScreen.sy !== screen.sy))
       screen = resizedScreen;
@@ -131,9 +138,9 @@ const createPlayerController = (o: ControllerOptions) => {
       dx = gx - tx,
       dy = gy - ty,
       d = Math.hypot(dx, dy),
-      step = 2 * dt;
+      step = (o.speedTilesPerSecond ?? 2) * dt;
     facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-    if (d <= step) {
+    if (d <= Math.max(step, 0.25)) {
       tx = gx;
       ty = gy;
       path = path.slice(1);
@@ -192,6 +199,12 @@ const createPlayerController = (o: ControllerOptions) => {
     get tile() {
       return { x: tx, y: ty };
     },
+    get previousTile() {
+      return { ...previous };
+    },
+    interpolated(alpha: number) {
+      return lerpTile(previous, { x: tx, y: ty }, alpha);
+    },
     get world() {
       return tileToWorld(tx - 0.5, ty - 0.5);
     },
@@ -209,6 +222,17 @@ const createPlayerController = (o: ControllerOptions) => {
     },
   };
 };
-export { createPlayerController };
+const lerpTile = (
+  previous: { x: number; y: number },
+  current: { x: number; y: number },
+  alpha: number,
+) => {
+  const amount = Math.max(0, Math.min(1, alpha));
+  return {
+    x: previous.x + (current.x - previous.x) * amount,
+    y: previous.y + (current.y - previous.y) * amount,
+  };
+};
+export { createPlayerController, lerpTile };
 export { pathForTap };
 export type { ControllerOptions, Facing };

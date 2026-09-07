@@ -18,6 +18,7 @@ type BuildStateOptions = {
   party?: WyldGameState['party'];
   selection?: string;
   target?: WyldGameState['target'];
+  arena?: WyldGameState['arena'];
 };
 const buildState = (o: BuildStateOptions): WyldGameState => ({
   version: o.version,
@@ -32,6 +33,7 @@ const buildState = (o: BuildStateOptions): WyldGameState => ({
   day: o.day,
   phaseProgress: o.phaseProgress,
   waterDepth: o.waterDepth,
+  arena: structuredClone(o.arena ?? null),
   creatures: structuredClone(o.creatures ?? []),
   party: structuredClone(o.party ?? []),
   selection: o.selection ?? 'player',
