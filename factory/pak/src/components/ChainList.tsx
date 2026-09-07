@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -45,147 +46,67 @@ function presetDate(preset: 'later' | 'tomorrow' | 'week') {
   return date.toISOString();
 }
 
-export function ChainCard({
+export function ChainActionsMenu({
   chain,
-  questName,
   onChange,
-  onClosed,
   onSnoozed,
-  onConvert,
-  showQuestChip = true,
-  rumbleCard = false,
+  extraItems,
+  onDismissOutside,
 }: {
   chain: Chain;
-  questName?: string;
   onChange: (chain: Chain) => void;
-  onClosed: (id: number) => void;
   onSnoozed?: (id: number) => void;
-  onConvert?: (text: string) => void;
-  showQuestChip?: boolean;
-  rumbleCard?: boolean;
+  extraItems?: (closeMenu: () => void) => ReactNode;
+  onDismissOutside?: () => void;
 }) {
-  const [text, setText] = useState('');
-  const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
-  const collapsible = chain.kind === 'question' || chain.kind === 'message';
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
-  const [asking, setAsking] = useState(!rumbleCard);
-  const [deciding, setDeciding] = useState(false);
-  const field = useRef<HTMLTextAreaElement>(null);
-  const cardRoot = useRef<HTMLElement>(null);
-  const openTrigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
-  const composerWasOpened = useRef(false);
-  useEffect(() => {
-    if (!collapsible) return;
-    if (open) {
-      composerWasOpened.current = true;
-      field.current?.focus();
-    } else if (composerWasOpened.current) {
-      openTrigger.current?.focus();
-    }
-  }, [collapsible, open]);
+  const closeMenu = () => {
+    setMenuOpen(false);
+    setSnoozeOpen(false);
+  };
+  const snoozed = chain.snoozedUntil !== null && new Date(chain.snoozedUntil) > new Date();
+
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (cardRoot.current?.contains(target)) return;
       if (!menu.current?.contains(target) && !menuTrigger.current?.contains(target)) {
-        setMenuOpen(false);
-        setSnoozeOpen(false);
+        onDismissOutside?.();
+        closeMenu();
+      }
+    };
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!menu.current?.contains(target) && !menuTrigger.current?.contains(target)) {
+        onDismissOutside?.();
+        closeMenu();
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      setMenuOpen(false);
-      setSnoozeOpen(false);
+      closeMenu();
       menuTrigger.current?.focus();
     };
     document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('click', onClick, true);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [menuOpen]);
-  useLayoutEffect(() => {
-    if (!field.current) return;
-    field.current.style.height = 'auto';
-    field.current.style.height = `${field.current.scrollHeight + field.current.offsetHeight - field.current.clientHeight}px`;
-  }, [text]);
-  const act = (action: () => Promise<Chain>, success: (result: Chain) => void) => {
-    setFailedAction(null);
-    void action()
-      .then(success)
-      .catch(() => setFailedAction(() => () => act(action, success)));
-  };
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const message = text.trim();
-    if (!message) return;
-    act(
-      () => postChainMessage(chain.id, message),
-      (updated) => {
-        setText('');
-        setHistoryOpen(false);
-        onChange(updated);
-      },
-    );
-  };
-  const close = (reason: 'settled' | 'converted' | 'done') =>
-    act(
-      () => closeChain(chain.id, reason),
-      () => {
-        onClosed(chain.id);
-        if (reason === 'converted')
-          onConvert?.(chain.messages.find(({ author }) => author === 'human')?.text ?? '');
-      },
-    );
-  const snooze = (preset: 'later' | 'tomorrow' | 'week') =>
-    act(
-      () => snoozeChain(chain.id, presetDate(preset)),
-      () => onSnoozed?.(chain.id),
-    );
+  }, [menuOpen, onDismissOutside]);
+
   const chooseSnooze = (preset: 'later' | 'tomorrow' | 'week') => {
-    setMenuOpen(false);
-    setSnoozeOpen(false);
-    snooze(preset);
+    closeMenu();
+    void snoozeChain(chain.id, presetDate(preset)).then(() => onSnoozed?.(chain.id));
   };
-  const decide = (id: string, chosen: string) => {
-    setDeciding(true);
-    setFailedAction(null);
-    void decideRumble(id, chosen)
-      .then(() => {
-        onClosed(chain.id);
-      })
-      .catch(() => setFailedAction(() => () => decide(id, chosen)))
-      .finally(() => setDeciding(false));
-  };
-  const earlierCount = Math.max(0, chain.messages.length - 2);
-  const earlier = chain.messages.slice(0, earlierCount);
-  const visible = chain.messages.slice(earlierCount);
-  const message = (item: Chain['messages'][number]) => (
-    <p className="m-0 wrap-anywhere whitespace-pre-wrap bg-muted p-2" key={item.id}>
-      <strong>{item.author === 'planner' ? 'Fable' : 'You'}</strong>{' '}
-      <span className="text-muted-foreground">· {noteDate(item.ts)}</span>
-      <br />
-      {item.text}
-    </p>
-  );
-  const snoozed = chain.snoozedUntil !== null && new Date(chain.snoozedUntil) > new Date();
-  const failure = failedAction !== null && (
-    <p className="m-0 text-destructive">
-      That didn't go through.{' '}
-      <Button variant="ghost" type="button" onClick={failedAction}>
-        Retry
-      </Button>
-    </p>
-  );
-  const menuActions = (
-    <div className="relative">
+
+  return (
+    <>
       <Button
         ref={menuTrigger}
         variant="retro"
@@ -206,6 +127,7 @@ export function ChainCard({
           role="menu"
           className="absolute right-0 bottom-full z-20 mb-1 grid w-max max-w-[calc(100vw-3rem)] gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
         >
+          {extraItems?.(closeMenu)}
           {snoozed ? (
             <Button
               role="menuitem"
@@ -213,8 +135,8 @@ export function ChainCard({
               type="button"
               className="w-full justify-start"
               onClick={() => {
-                setMenuOpen(false);
-                act(() => unsnoozeChain(chain.id), onChange);
+                closeMenu();
+                void unsnoozeChain(chain.id).then(onChange);
               }}
             >
               Unsnooze
@@ -266,7 +188,117 @@ export function ChainCard({
           )}
         </div>
       )}
-    </div>
+    </>
+  );
+}
+
+export function ChainCard({
+  chain,
+  questName,
+  onChange,
+  onClosed,
+  onSnoozed,
+  onConvert,
+  showQuestChip = true,
+  rumbleCard = false,
+}: {
+  chain: Chain;
+  questName?: string;
+  onChange: (chain: Chain) => void;
+  onClosed: (id: number) => void;
+  onSnoozed?: (id: number) => void;
+  onConvert?: (text: string) => void;
+  showQuestChip?: boolean;
+  rumbleCard?: boolean;
+}) {
+  const [text, setText] = useState('');
+  const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
+  const collapsible = chain.kind === 'question' || chain.kind === 'message';
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [asking, setAsking] = useState(!rumbleCard);
+  const [deciding, setDeciding] = useState(false);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const openTrigger = useRef<HTMLButtonElement>(null);
+  const suppressCardClick = useRef(false);
+  const composerWasOpened = useRef(false);
+  useEffect(() => {
+    if (!collapsible) return;
+    if (open) {
+      composerWasOpened.current = true;
+      field.current?.focus();
+    } else if (composerWasOpened.current) {
+      openTrigger.current?.focus();
+    }
+  }, [collapsible, open]);
+  useLayoutEffect(() => {
+    if (!field.current) return;
+    field.current.style.height = 'auto';
+    field.current.style.height = `${field.current.scrollHeight + field.current.offsetHeight - field.current.clientHeight}px`;
+  }, [text]);
+  const act = (action: () => Promise<Chain>, success: (result: Chain) => void) => {
+    setFailedAction(null);
+    void action()
+      .then(success)
+      .catch(() => setFailedAction(() => () => act(action, success)));
+  };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const message = text.trim();
+    if (!message) return;
+    act(
+      () => postChainMessage(chain.id, message),
+      (updated) => {
+        setText('');
+        setHistoryOpen(false);
+        onChange(updated);
+      },
+    );
+  };
+  const close = (reason: 'settled' | 'converted' | 'done') =>
+    act(
+      () => closeChain(chain.id, reason),
+      () => {
+        onClosed(chain.id);
+        if (reason === 'converted')
+          onConvert?.(chain.messages.find(({ author }) => author === 'human')?.text ?? '');
+      },
+    );
+  const snooze = (preset: 'later' | 'tomorrow' | 'week') =>
+    act(
+      () => snoozeChain(chain.id, presetDate(preset)),
+      () => onSnoozed?.(chain.id),
+    );
+  const decide = (id: string, chosen: string) => {
+    setDeciding(true);
+    setFailedAction(null);
+    void decideRumble(id, chosen)
+      .then(() => {
+        onClosed(chain.id);
+      })
+      .catch(() => setFailedAction(() => () => decide(id, chosen)))
+      .finally(() => setDeciding(false));
+  };
+  const earlierCount = Math.max(0, chain.messages.length - 2);
+  const earlier = chain.messages.slice(0, earlierCount);
+  const visible = chain.messages.slice(earlierCount);
+  const message = (item: Chain['messages'][number]) => (
+    <p className="m-0 wrap-anywhere whitespace-pre-wrap bg-muted p-2" key={item.id}>
+      <strong>{item.author === 'planner' ? 'Fable' : 'You'}</strong>{' '}
+      <span className="text-muted-foreground">· {noteDate(item.ts)}</span>
+      <br />
+      {item.text}
+    </p>
+  );
+  const snoozed = chain.snoozedUntil !== null && new Date(chain.snoozedUntil) > new Date();
+  const failure = failedAction !== null && (
+    <p className="m-0 text-destructive">
+      That didn't go through.{' '}
+      <Button variant="ghost" type="button" onClick={failedAction}>
+        Retry
+      </Button>
+    </p>
   );
   if (chain.kind === 'demo') {
     const demo = demoCard(chain);
@@ -288,10 +320,7 @@ export function ChainCard({
           ? 'accent'
           : 'ok';
     return (
-      <Card
-        ref={cardRoot}
-        className="chain-card demo-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
-      >
+      <Card className="chain-card demo-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
         <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
           <h2 className="m-0 wrap-anywhere text-xl leading-snug">{demo.title}</h2>
           <Badge variant="tone" data-tone={tone}>
@@ -303,7 +332,7 @@ export function ChainCard({
           <p className="m-0 text-muted-foreground">Building this now…</p>
         )}
         {demo.status === 'failed' && <p className="m-0">This one didn't build.</p>}
-        <div className="flex flex-wrap gap-2">
+        <div className="relative flex flex-wrap gap-2">
           {demo.status === 'ready' && (
             <Button asChild variant="retro">
               {demo.demoKind === 'pak' ? (
@@ -325,7 +354,7 @@ export function ChainCard({
           <Button asChild variant="ghost">
             <Link to={`/demos/${encodeURIComponent(demo.demoId)}`}>How to try it</Link>
           </Button>
-          {menuActions}
+          <ChainActionsMenu chain={chain} onChange={onChange} onSnoozed={onSnoozed} />
         </div>
         {failure}
       </Card>
@@ -514,7 +543,6 @@ export function ChainCard({
 
   return (
     <Card
-      ref={cardRoot}
       className="chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
       onClick={(event) => {
         if (
@@ -523,9 +551,8 @@ export function ChainCard({
           )
         )
           return;
-        if (menuOpen) {
-          setMenuOpen(false);
-          setSnoozeOpen(false);
+        if (suppressCardClick.current) {
+          suppressCardClick.current = false;
           return;
         }
         setOpen((value) => !value);
@@ -563,100 +590,30 @@ export function ChainCard({
             <Button variant="retro" type="button" onClick={() => close('settled')}>
               Settled
             </Button>
-            <Button
-              ref={menuTrigger}
-              variant="retro"
-              size="icon"
-              type="button"
-              aria-label="More actions"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-controls={`chain-menu-${chain.id}`}
-              onClick={() => setMenuOpen((value) => !value)}
-            >
-              <Ellipsis size={20} aria-hidden />
-            </Button>
-            {menuOpen && (
-              <div
-                ref={menu}
-                id={`chain-menu-${chain.id}`}
-                role="menu"
-                className="absolute right-0 bottom-full z-20 mb-1 grid w-max max-w-[calc(100vw-3rem)] gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
-              >
-                {onConvert && (
+            <ChainActionsMenu
+              chain={chain}
+              onChange={onChange}
+              onSnoozed={onSnoozed}
+              onDismissOutside={() => {
+                suppressCardClick.current = true;
+              }}
+              extraItems={(closeActions) =>
+                onConvert ? (
                   <Button
                     role="menuitem"
                     variant="ghost"
                     type="button"
                     className="w-full justify-start"
                     onClick={() => {
-                      setMenuOpen(false);
+                      closeActions();
                       close('converted');
                     }}
                   >
                     Make this a quest
                   </Button>
-                )}
-                {snoozed ? (
-                  <Button
-                    role="menuitem"
-                    variant="ghost"
-                    type="button"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      act(() => unsnoozeChain(chain.id), onChange);
-                    }}
-                  >
-                    Unsnooze
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      role="menuitem"
-                      variant="ghost"
-                      type="button"
-                      className="w-full justify-start"
-                      aria-expanded={snoozeOpen}
-                      onClick={() => setSnoozeOpen((value) => !value)}
-                    >
-                      Snooze
-                    </Button>
-                    {snoozeOpen && (
-                      <>
-                        <Button
-                          role="menuitem"
-                          variant="ghost"
-                          type="button"
-                          className="w-full justify-start"
-                          onClick={() => chooseSnooze('later')}
-                        >
-                          Later today
-                        </Button>
-                        <Button
-                          role="menuitem"
-                          variant="ghost"
-                          type="button"
-                          className="w-full justify-start"
-                          onClick={() => chooseSnooze('tomorrow')}
-                        >
-                          Tomorrow morning
-                        </Button>
-                        <Button
-                          role="menuitem"
-                          variant="ghost"
-                          type="button"
-                          className="w-full justify-start"
-                          onClick={() => chooseSnooze('week')}
-                        >
-                          Next week
-                        </Button>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+                ) : null
+              }
+            />
           </div>
         </div>
       )}
@@ -671,14 +628,12 @@ export function ChainList({
   onConvert,
   showQuestChip = true,
   addedChain,
-  onCountChange,
 }: {
   quest?: string;
   kind?: ChainKind | ChainKind[] | 'all';
   onConvert?: (text: string) => void;
   showQuestChip?: boolean;
   addedChain?: Chain | null;
-  onCountChange?: (count: number) => void;
 }) {
   const [chains, setChains] = useState<Chain[]>([]);
   const [questNames, setQuestNames] = useState<Record<string, string>>({});
@@ -729,7 +684,6 @@ export function ChainList({
         current.some(({ id }) => id === addedChain.id) ? current : [addedChain, ...current],
       );
   }, [addedChain, listedKinds]);
-  useEffect(() => onCountChange?.(chains.length), [chains.length, onCountChange]);
   if (chains.length === 0) return null;
   const remove = (id: number) => setChains((current) => current.filter((item) => item.id !== id));
   return (

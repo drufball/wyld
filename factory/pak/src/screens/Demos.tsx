@@ -1,5 +1,4 @@
 import type { Chain } from '@wyld/shared';
-import { Ellipsis } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -8,9 +7,9 @@ import {
   listChains,
   postFeedback,
   reopenChain,
-  snoozeChain,
   unsnoozeChain,
 } from '../api/client.js';
+import { ChainActionsMenu } from '../components/ChainList.js';
 import { Badge } from '../components/ui/badge.js';
 import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
@@ -24,6 +23,7 @@ export type WyldGameApi = {
   screenshot?: () => string | Promise<string>;
   getState?: () => Record<string, unknown> | Promise<Record<string, unknown>>;
 };
+
 type FeedbackExtras = () => Promise<{ screenshot?: string; state?: Record<string, unknown> }>;
 
 function FeedbackForm({
@@ -35,11 +35,11 @@ function FeedbackForm({
   getExtras?: FeedbackExtras;
   formClassName?: string;
 }) {
-  const [open, setOpen] = useState(false),
-    [text, setText] = useState(''),
-    [sending, setSending] = useState(false),
-    [failed, setFailed] = useState(false),
-    [thanks, setThanks] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [thanks, setThanks] = useState(false);
   const send = async (event?: FormEvent) => {
     event?.preventDefault();
     const submission = text.trim();
@@ -109,17 +109,16 @@ function FeedbackForm({
     </div>
   );
 }
+
 function DemoBody({ chain, demo, reload }: { chain: Chain; demo: DemoCard; reload: () => void }) {
-  const [busy, setBusy] = useState(false),
-    [failed, setFailed] = useState(false),
-    [menu, setMenu] = useState(false),
-    [snooze, setSnooze] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failedAction, setFailedAction] = useState<(() => void) | null>(null);
   const act = (action: () => Promise<unknown>) => {
     setBusy(true);
-    setFailed(false);
+    setFailedAction(null);
     void action()
       .then(reload)
-      .catch(() => setFailed(true))
+      .catch(() => setFailedAction(() => () => act(action)))
       .finally(() => setBusy(false));
   };
   const tone = demo.status === 'ready' ? 'ok' : demo.status === 'building' ? 'accent' : 'bad';
@@ -136,8 +135,8 @@ function DemoBody({ chain, demo, reload }: { chain: Chain; demo: DemoCard; reloa
       {demo.summary && <p className="m-0 wrap-anywhere">{demo.summary}</p>}
       {demo.steps.length > 0 && (
         <ol className="m-0 grid list-decimal gap-2 pl-6">
-          {demo.steps.map((step, i) => (
-            <li className="wrap-anywhere" key={i}>
+          {demo.steps.map((step, index) => (
+            <li className="wrap-anywhere" key={index}>
               {step}
             </li>
           ))}
@@ -147,8 +146,8 @@ function DemoBody({ chain, demo, reload }: { chain: Chain; demo: DemoCard; reloa
         <section className="grid min-w-0 gap-2">
           <h3 className="m-0 text-sm">What's already there</h3>
           <ul className="m-0 grid list-disc gap-1 pl-6">
-            {demo.seeded.map((item, i) => (
-              <li className="wrap-anywhere" key={i}>
+            {demo.seeded.map((item, index) => (
+              <li className="wrap-anywhere" key={index}>
                 {item}
               </li>
             ))}
@@ -186,7 +185,7 @@ function DemoBody({ chain, demo, reload }: { chain: Chain; demo: DemoCard; reloa
         >
           {chain.questId === null ? 'Hide' : 'Mark done'}
         </Button>
-        {demo.status === 'failed' && demo.demoKind === 'disc' && (
+        {demo.status === 'failed' && demo.demoKind !== 'live' && (
           <Button
             variant="retro"
             type="button"
@@ -196,68 +195,21 @@ function DemoBody({ chain, demo, reload }: { chain: Chain; demo: DemoCard; reloa
             Rebuild
           </Button>
         )}
-        <Button
-          variant="retro"
-          size="icon"
-          type="button"
-          aria-label="More actions"
-          aria-expanded={menu}
-          onClick={() => setMenu(!menu)}
-        >
-          <Ellipsis size={20} />
-        </Button>
-        {menu && (
-          <div
-            role="menu"
-            className="absolute right-0 bottom-full z-20 grid w-max gap-1 border border-border bg-popover p-1"
-          >
-            {chain.snoozedUntil ? (
-              <Button
-                role="menuitem"
-                variant="ghost"
-                onClick={() => act(() => unsnoozeChain(chain.id))}
-              >
-                Unsnooze
-              </Button>
-            ) : (
-              <>
-                <Button role="menuitem" variant="ghost" onClick={() => setSnooze(!snooze)}>
-                  Snooze
-                </Button>
-                {snooze &&
-                  [
-                    ['Later today', 4],
-                    ['Tomorrow morning', 24],
-                    ['Next week', 168],
-                  ].map(([label, hours]) => (
-                    <Button
-                      key={String(label)}
-                      role="menuitem"
-                      variant="ghost"
-                      onClick={() =>
-                        act(() =>
-                          snoozeChain(
-                            chain.id,
-                            new Date(Date.now() + Number(hours) * 36e5).toISOString(),
-                          ),
-                        )
-                      }
-                    >
-                      {label}
-                    </Button>
-                  ))}
-              </>
-            )}
-          </div>
-        )}
-        {failed && (
-          <p className="m-0 basis-full text-muted-foreground">That didn't go through. Retry</p>
+        <ChainActionsMenu chain={chain} onChange={reload} onSnoozed={reload} />
+        {failedAction && (
+          <p className="m-0 basis-full text-muted-foreground">
+            That didn't go through.{' '}
+            <Button variant="ghost" type="button" onClick={failedAction}>
+              Retry
+            </Button>
+          </p>
         )}
       </div>
       <FeedbackForm demoId={demo.demoId} />
     </>
   );
 }
+
 function DemoGrid() {
   const [chains, setChains] = useState<Chain[]>([]);
   const { subscribe } = useLiveEvents();
@@ -290,12 +242,14 @@ function DemoGrid() {
   }, [chains, load]);
   const now = Date.now();
   const grid = chains.filter(
-    (c) => c.status === 'open' && !(c.snoozedUntil && Date.parse(c.snoozedUntil) > now),
+    (chain) =>
+      chain.status === 'open' && !(chain.snoozedUntil && Date.parse(chain.snoozedUntil) > now),
   );
   const snoozed = chains.filter(
-    (c) => c.status === 'open' && c.snoozedUntil && Date.parse(c.snoozedUntil) > now,
+    (chain) =>
+      chain.status === 'open' && chain.snoozedUntil && Date.parse(chain.snoozedUntil) > now,
   );
-  const hidden = chains.filter((c) => c.status === 'settled');
+  const hidden = chains.filter((chain) => chain.status === 'settled');
   const fold = (
     label: string,
     items: Chain[],
@@ -305,7 +259,7 @@ function DemoGrid() {
   ) =>
     items.length ? (
       <details className="grid gap-2">
-        <summary className="min-h-11 py-3">
+        <summary className="flex min-h-11 cursor-pointer items-center py-2 font-display text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {label} ({items.length})
         </summary>
         <div className="grid gap-2">
@@ -317,9 +271,21 @@ function DemoGrid() {
                   <strong>{demo.title}</strong>
                   {demo.summary && <span>{demo.summary}</span>}
                   {wake && chain.snoozedUntil && (
-                    <span>Wakes {relativeTime(chain.snoozedUntil, new Date())}</span>
+                    <span>
+                      Wakes{' '}
+                      {new Intl.DateTimeFormat(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      }).format(new Date(chain.snoozedUntil))}
+                    </span>
                   )}
-                  <Button variant="retro" onClick={() => void action(chain).then(load)}>
+                  <Button
+                    variant="retro"
+                    type="button"
+                    onClick={() => void action(chain).then(load)}
+                  >
                     {verb}
                   </Button>
                 </Card>
@@ -354,11 +320,12 @@ function DemoGrid() {
           );
         })}
       </div>
-      {fold('Snoozed', snoozed, (c) => unsnoozeChain(c.id), 'Unsnooze', true)}
-      {fold('Hidden', hidden, (c) => reopenChain(c.id), 'Show again')}
+      {fold('Snoozed', snoozed, (chain) => unsnoozeChain(chain.id), 'Unsnooze', true)}
+      {fold('Hidden', hidden, (chain) => reopenChain(chain.id), 'Show again')}
     </div>
   );
 }
+
 function DemoPlayer({ id }: { id: string }) {
   const [found, setFound] = useState<{ chain: Chain; demo: DemoCard } | null | undefined>();
   const navigate = useNavigate();
@@ -399,7 +366,8 @@ function DemoPlayer({ id }: { id: string }) {
   const getExtras: FeedbackExtras = async () => {
     const api = (iframe.current?.contentWindow as (Window & { __wyld?: WyldGameApi }) | null)
       ?.__wyld;
-    let screenshot: string | undefined, state: Record<string, unknown> | undefined;
+    let screenshot: string | undefined;
+    let state: Record<string, unknown> | undefined;
     try {
       screenshot = await api?.screenshot?.();
     } catch {
@@ -434,6 +402,7 @@ function DemoPlayer({ id }: { id: string }) {
     </div>
   );
 }
+
 export function Demos() {
   const { id } = useParams();
   return id ? <DemoPlayer id={id} /> : <DemoGrid />;

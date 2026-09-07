@@ -4,8 +4,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
 import { Demos } from './Demos.js';
+
 const source = () => ({ addEventListener() {}, removeEventListener() {}, close() {} });
 const now = '2026-09-05T12:00:00Z';
+
 function demo(id: string, extra: Partial<Chain> = {}): Chain {
   return {
     id: Math.floor(Math.random() * 10000) + 1,
@@ -34,6 +36,7 @@ function demo(id: string, extra: Partial<Chain> = {}): Chain {
     ...extra,
   };
 }
+
 function response(value: unknown) {
   return Promise.resolve({
     ok: true,
@@ -42,6 +45,7 @@ function response(value: unknown) {
     text: () => Promise.resolve(''),
   } as Response);
 }
+
 function show(path = '/demos') {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -53,7 +57,9 @@ function show(path = '/demos') {
     </MemoryRouter>,
   );
 }
+
 afterEach(() => vi.unstubAllGlobals());
+
 describe('Demos', () => {
   it('renders chain-backed demo details and closes with the right reason', async () => {
     const chains = [demo('owned', { questId: 'quest' }), demo('loose')];
@@ -79,6 +85,28 @@ describe('Demos', () => {
       ),
     ).toBe(true);
   });
+
+  it('offers a retry when closing a demo fails and retries the close request', async () => {
+    const chain = demo('retry');
+    let closeAttempts = 0;
+    const fetch = vi.fn((url: string) => {
+      if (url.includes('/close')) {
+        closeAttempts += 1;
+        return closeAttempts === 1
+          ? Promise.reject(new Error('offline'))
+          : response({ ...chain, status: 'settled' });
+      }
+      return response([chain]);
+    });
+    vi.stubGlobal('fetch', fetch);
+    show();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Hide' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(closeAttempts).toBe(2));
+  });
+
   it('shows hidden and snoozed folds and restores their chains', async () => {
     const chains = [
       demo('hidden', { status: 'settled' }),
@@ -95,6 +123,14 @@ describe('Demos', () => {
     show();
     expect(await screen.findByText('Hidden (1)')).not.toBeNull();
     expect(screen.getByText('Snoozed (1)')).not.toBeNull();
+    const wakeTime = new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date('2099-01-01T00:00:00Z'));
+    expect(screen.getByText(`Wakes ${wakeTime}`)).not.toBeNull();
+    expect(screen.queryByText('Wakes just now')).toBeNull();
     fireEvent.click(screen.getByText('Hidden (1)'));
     fireEvent.click(screen.getByRole('button', { name: 'Show again' }));
     await waitFor(() =>
