@@ -195,7 +195,12 @@ function DemoBody({ chain, demo, reload }: { chain: Chain; demo: DemoCard; reloa
             Rebuild
           </Button>
         )}
-        <ChainActionsMenu chain={chain} onChange={reload} onSnoozed={reload} />
+        <ChainActionsMenu
+          chain={chain}
+          onChange={reload}
+          onSnoozed={reload}
+          runAction={(action, success) => act(() => action().then(success))}
+        />
         {failedAction && (
           <p className="m-0 basis-full text-muted-foreground">
             That didn't go through.{' '}

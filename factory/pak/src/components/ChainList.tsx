@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type RefObject,
   type ReactNode,
 } from 'react';
 import { Link } from 'react-router-dom';
@@ -50,14 +51,18 @@ export function ChainActionsMenu({
   chain,
   onChange,
   onSnoozed,
+  runAction,
   extraItems,
   onDismissOutside,
+  containerRef,
 }: {
   chain: Chain;
   onChange: (chain: Chain) => void;
   onSnoozed?: (id: number) => void;
+  runAction: (action: () => Promise<Chain>, success: (chain: Chain) => void) => void;
   extraItems?: (closeMenu: () => void) => ReactNode;
   onDismissOutside?: () => void;
+  containerRef?: RefObject<HTMLElement | null>;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
@@ -74,14 +79,7 @@ export function ChainActionsMenu({
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (!menu.current?.contains(target) && !menuTrigger.current?.contains(target)) {
-        onDismissOutside?.();
-        closeMenu();
-      }
-    };
-    const onClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!menu.current?.contains(target) && !menuTrigger.current?.contains(target)) {
-        onDismissOutside?.();
+        if (containerRef?.current?.contains(target)) onDismissOutside?.();
         closeMenu();
       }
     };
@@ -91,18 +89,19 @@ export function ChainActionsMenu({
       menuTrigger.current?.focus();
     };
     document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('click', onClick, true);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [menuOpen, onDismissOutside]);
+  }, [containerRef, menuOpen, onDismissOutside]);
 
   const chooseSnooze = (preset: 'later' | 'tomorrow' | 'week') => {
     closeMenu();
-    void snoozeChain(chain.id, presetDate(preset)).then(() => onSnoozed?.(chain.id));
+    runAction(
+      () => snoozeChain(chain.id, presetDate(preset)),
+      () => onSnoozed?.(chain.id),
+    );
   };
 
   return (
@@ -136,7 +135,7 @@ export function ChainActionsMenu({
               className="w-full justify-start"
               onClick={() => {
                 closeMenu();
-                void unsnoozeChain(chain.id).then(onChange);
+                runAction(() => unsnoozeChain(chain.id), onChange);
               }}
             >
               Unsnooze
@@ -221,6 +220,7 @@ export function ChainCard({
   const [deciding, setDeciding] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const openTrigger = useRef<HTMLButtonElement>(null);
+  const card = useRef<HTMLElement>(null);
   const suppressCardClick = useRef(false);
   const composerWasOpened = useRef(false);
   useEffect(() => {
@@ -354,7 +354,12 @@ export function ChainCard({
           <Button asChild variant="ghost">
             <Link to={`/demos/${encodeURIComponent(demo.demoId)}`}>How to try it</Link>
           </Button>
-          <ChainActionsMenu chain={chain} onChange={onChange} onSnoozed={onSnoozed} />
+          <ChainActionsMenu
+            chain={chain}
+            onChange={onChange}
+            onSnoozed={onSnoozed}
+            runAction={act}
+          />
         </div>
         {failure}
       </Card>
@@ -543,6 +548,7 @@ export function ChainCard({
 
   return (
     <Card
+      ref={card}
       className="chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5"
       onClick={(event) => {
         if (
@@ -594,6 +600,8 @@ export function ChainCard({
               chain={chain}
               onChange={onChange}
               onSnoozed={onSnoozed}
+              runAction={act}
+              containerRef={card}
               onDismissOutside={() => {
                 suppressCardClick.current = true;
               }}

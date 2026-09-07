@@ -107,6 +107,29 @@ describe('Demos', () => {
     await waitFor(() => expect(closeAttempts).toBe(2));
   });
 
+  it('offers a retry when snoozing a demo fails and retries the snooze request', async () => {
+    const chain = demo('retry-snooze');
+    let snoozeAttempts = 0;
+    const fetch = vi.fn((url: string) => {
+      if (url.includes('/snooze')) {
+        snoozeAttempts += 1;
+        return snoozeAttempts === 1
+          ? Promise.reject(new Error('offline'))
+          : response({ ...chain, snoozedUntil: '2099-01-01T00:00:00Z' });
+      }
+      return response([chain]);
+    });
+    vi.stubGlobal('fetch', fetch);
+    show();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'More actions' }))[0]!);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Snooze' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Tomorrow morning' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(snoozeAttempts).toBe(2));
+  });
+
   it('shows hidden and snoozed folds and restores their chains', async () => {
     const chains = [
       demo('hidden', { status: 'settled' }),
