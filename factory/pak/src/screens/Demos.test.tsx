@@ -53,6 +53,8 @@ function show(path = '/demos') {
       <LiveEventsProvider eventSourceFactory={source}>
         <Routes>
           <Route path="/demos/:id?" element={<Demos />} />
+          <Route path="/" element={<p>home screen</p>} />
+          <Route path="/sleep" element={<p>sleep screen</p>} />
         </Routes>
       </LiveEventsProvider>
     </MemoryRouter>,
@@ -240,21 +242,50 @@ describe('Demos', () => {
       expect(fetch.mock.calls.some(([url]) => String(url).includes('/reopen'))).toBe(true),
     );
   });
-  it('resolves the player by chain demoId', async () => {
+  it('redirects a live demo to its deep link', async () => {
+    const chain = demo('one-mechanism');
+    chain.payload = { ...chain.payload!, deepLink: '/' };
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => response([demo('live')])),
+      vi.fn(() => response([chain])),
     );
-    show('/demos/live');
-    expect(await screen.findByText('live summary')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'Feedback' })).not.toBeNull();
+    const { container } = show('/demos/one-mechanism');
+    expect(await screen.findByText('home screen')).not.toBeNull();
+    expect(container.querySelector('iframe')).toBeNull();
   });
-  it('reports an unknown demo', async () => {
+
+  it('plays a disc in the iframe', async () => {
+    const chain = demo('a-disc');
+    chain.payload = { ...chain.payload!, kind: 'disc' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => response([chain])),
+    );
+    show('/demos/a-disc');
+    expect((await screen.findByTitle('a-disc')).getAttribute('src')).toBe(
+      '/play/a-disc/?debug=1',
+    );
+  });
+
+  it('sends an unknown demo back to the demos grid', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() => response([])),
     );
     show('/demos/missing');
-    expect(await screen.findByText("That demo isn't here.")).not.toBeNull();
+    expect(await screen.findByText('Nothing to try yet.')).not.toBeNull();
+  });
+
+  it('sends a branch Pak demo to its url', async () => {
+    const chain = demo('branch');
+    chain.payload = { ...chain.payload!, kind: 'pak', url: '/play/branch/' };
+    const replace = vi.fn();
+    vi.stubGlobal('location', { ...window.location, replace });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => response([chain])),
+    );
+    show('/demos/branch');
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/play/branch/'));
   });
 });

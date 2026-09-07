@@ -1,6 +1,6 @@
 import type { Chain } from '@wyld/shared';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import {
   buildDemo,
   closeChain,
@@ -26,6 +26,10 @@ export type WyldGameApi = {
 };
 
 type FeedbackExtras = () => Promise<{ screenshot?: string; state?: Record<string, unknown> }>;
+
+function withDebugConsole(url: string) {
+  return `${url}${url.includes('?') ? '&' : '?'}debug=1`;
+}
 
 function FeedbackForm({
   demoId,
@@ -354,7 +358,6 @@ function DemoGrid() {
 
 function DemoPlayer({ id }: { id: string }) {
   const [found, setFound] = useState<{ chain: Chain; demo: DemoCard } | null | undefined>();
-  const navigate = useNavigate();
   const iframe = useRef<HTMLIFrameElement>(null);
   useEffect(() => {
     void listChains({ kind: 'demo', status: 'all', includeSnoozed: true })
@@ -366,29 +369,10 @@ function DemoPlayer({ id }: { id: string }) {
       .catch(() => setFound(null));
   }, [id]);
   if (found === undefined) return null;
-  if (found === null)
-    return (
-      <div className="grid gap-4">
-        <p>That demo isn't here.</p>
-        <Button asChild variant="retro">
-          <Link to="/demos">Back to demos</Link>
-        </Button>
-      </div>
-    );
-  const { chain, demo } = found;
-  if (demo.demoKind !== 'disc')
-    return (
-      <div className="grid gap-4">
-        <Button asChild variant="retro">
-          <Link to="/demos">Back to demos</Link>
-        </Button>
-        <Card asChild variant="bevel">
-          <article className="demo-card grid min-w-0 gap-3 p-5">
-            <DemoBody chain={chain} demo={demo} reload={() => navigate('/demos')} />
-          </article>
-        </Card>
-      </div>
-    );
+  if (found === null) return <Navigate to="/demos" replace />;
+  const { demo } = found;
+  if (demo.demoKind === 'live') return <Navigate to={demo.deepLink ?? '/'} replace />;
+  if (demo.demoKind === 'pak') return <PakRedirect url={demo.url} />;
   const getExtras: FeedbackExtras = async () => {
     const api = (iframe.current?.contentWindow as (Window & { __wyld?: WyldGameApi }) | null)
       ?.__wyld;
@@ -414,7 +398,7 @@ function DemoPlayer({ id }: { id: string }) {
       <iframe
         className="size-full border-0"
         ref={iframe}
-        src={`/play/${encodeURIComponent(id)}/`}
+        src={withDebugConsole(`/play/${encodeURIComponent(id)}/`)}
         title={demo.title}
         scrolling="no"
       />
@@ -427,6 +411,13 @@ function DemoPlayer({ id }: { id: string }) {
       </div>
     </div>
   );
+}
+
+function PakRedirect({ url }: { url: string }) {
+  useEffect(() => {
+    window.location.replace(url);
+  }, [url]);
+  return null;
 }
 
 export function Demos() {
