@@ -107,6 +107,29 @@ describe('Explain', () => {
     );
   });
 
+  it('remeasures when either the page body or viewer parent resizes', async () => {
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe = observe;
+        disconnect = disconnect;
+      },
+    );
+    mocks.getArtifact.mockResolvedValue(artifact);
+
+    const view = renderRoute('/explain/forest-map');
+    await screen.findByTitle(artifact.title);
+    const section = view.container.querySelector('section');
+
+    expect(section?.parentElement).not.toBe(document.body);
+    expect(observe).toHaveBeenCalledWith(document.body);
+    expect(observe).toHaveBeenCalledWith(section?.parentElement);
+    view.unmount();
+    expect(disconnect).toHaveBeenCalled();
+  });
+
   it('shows the explainer miss state', async () => {
     mocks.getArtifact.mockRejectedValue(new Error('missing'));
     renderRoute('/explain/missing');

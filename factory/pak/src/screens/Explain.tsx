@@ -145,6 +145,8 @@ function ArtifactViewer({
     };
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     observer?.observe(document.body);
+    const parent = section.parentElement;
+    if (parent && parent !== document.body) observer?.observe(parent);
     window.addEventListener('resize', measure);
     media?.addEventListener('change', measure);
     measure();
