@@ -262,7 +262,9 @@ describe('Demos', () => {
       vi.fn(() => response([chain])),
     );
     show('/demos/a-disc');
-    expect((await screen.findByTitle('a-disc')).getAttribute('src')).toBe('/play/a-disc/');
+    expect((await screen.findByTitle('a-disc')).getAttribute('src')).toBe(
+      '/play/a-disc/?debug=1',
+    );
   });
 
   it('sends an unknown demo back to the demos grid', async () => {

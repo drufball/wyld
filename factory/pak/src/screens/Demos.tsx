@@ -27,6 +27,10 @@ export type WyldGameApi = {
 
 type FeedbackExtras = () => Promise<{ screenshot?: string; state?: Record<string, unknown> }>;
 
+function withDebugConsole(url: string) {
+  return `${url}${url.includes('?') ? '&' : '?'}debug=1`;
+}
+
 function FeedbackForm({
   demoId,
   getExtras,
@@ -394,7 +398,7 @@ function DemoPlayer({ id }: { id: string }) {
       <iframe
         className="size-full border-0"
         ref={iframe}
-        src={`/play/${encodeURIComponent(id)}/`}
+        src={withDebugConsole(`/play/${encodeURIComponent(id)}/`)}
         title={demo.title}
         scrolling="no"
       />
