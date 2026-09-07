@@ -42,7 +42,7 @@ const createTerrain = (seed: number): Terrain => {
   const rawWeights = (x: number, z: number): BiomeWeights => {
     const boundaryWarp = warp(x, z) * 42;
     const volcano = smoothstep(-210, -260, z + boundaryWarp);
-    const archipelago = smoothstep(250, 300, z + boundaryWarp * 0.7);
+    const archipelago = smoothstep(220, 280, z + boundaryWarp * 0.2);
     const middle = (1 - volcano) * (1 - archipelago);
     const desert = middle * smoothstep(-10, 55, x + boundaryWarp);
     const forest = middle * (1 - smoothstep(-10, 55, x + boundaryWarp));
@@ -71,12 +71,11 @@ const createTerrain = (seed: number): Terrain => {
   };
   const archipelagoHeight = (x: number, z: number): number => {
     const islands: ReadonlyArray<readonly [number, number, number, number]> = [
-      [-100, 340, 48, 14],
-      [40, 380, 40, 11],
-      [160, 330, 62, 14],
-      [0, 300, 38, 9],
-      [260, 375, 42, 8],
-      [-250, 360, 45, 7],
+      [-100, 340, 28, 14],
+      [40, 380, 25, 13],
+      [160, 330, 30, 14],
+      [260, 375, 26, 13],
+      [-250, 360, 27, 12],
     ];
     let height = -5 + fbm(x / 80, z / 80, 3, 2, 0.5, noise) * 1.2;
     for (const [cx, cz, radius, peak] of islands) height += gaussian(x, z, cx, cz, radius) * peak;
@@ -84,8 +83,8 @@ const createTerrain = (seed: number): Terrain => {
   };
   const volcanoHeight = (x: number, z: number): number => {
     const distance = Math.hypot(x, z + 390);
-    const cone = Math.max(8, 114 - distance * 0.48);
-    const crater = 26 * gaussian(x, z, 0, -390, 19);
+    const cone = Math.max(8, 126 - distance * 0.48);
+    const crater = 38 * gaussian(x, z, 0, -390, 12);
     const roughness = fbm(x / 38, z / 38, 4, 2, 0.55, noise) * (3 + distance * 0.018);
     return cone - crater + roughness;
   };
