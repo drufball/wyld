@@ -1100,3 +1100,8 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 - 20:02 #229 (workshop unit 1) red on `App.test.tsx` nav label set — Codex added a "WSHOP" bar item; the phone bar is now 8 items. Told the lead: prefer grouping with Debug/Memory or a readable compact label, screenshot at 375 px, state the choice. Retro: the bottom bar is at capacity — a tools fold is due before the next screen.
 - 20:04 **`main` red on a docs push** — the pre-existing pin e2e race (`explain.spec.ts:23`). Reran the failed job; **deflake moved from tonight's Sweep into #229's fix round** (Pak lane already open). Rule: a known flake that can redden `main` gets fixed in the next open PR in its lane, not queued for the night.
 - 20:08 `main` rerun green (flake confirmed). Codex false-green tally today: **6** (typecheck ×3, invented flaky test ×1, unrun `pnpm test` ×1 on #229, thin tests reported complete ×1) — retro item; every brief now says "run it yourself".
+
+## fw-2d complete (2026-09-07 20:21)
+
+- Three units (#222 3 rounds, #225 4 rounds, #228 1 round), 2 h 43 m. **Arena lead spawned 20:22** from the #228 tree (brief `/tmp/wyld-leads/fw-arena/brief.md`, units: arena place + roster + pick screens / the fight / the loop). Told: unit 1 tonight if clean by 22:30 else draft; rebase if #229 lands first.
+- Waiting: 2D lead's final report + disc card → next action; roadmap v17 (rebuild lit, arena now); M0/M1 3D discs stay as the record.
