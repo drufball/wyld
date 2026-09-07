@@ -22,6 +22,7 @@ describe('pin bridge', () => {
     const onPick = vi.fn();
     const onRects = vi.fn();
     const bridge = createPinBridge({ frame, target, onReady, onPick, onRects });
+    expect(contentWindow.postMessage).toHaveBeenNthCalledWith(1, { type: 'wyld:pin:hello' }, '*');
     const send = (data: unknown, source: MessageEventSource = contentWindow) =>
       listeners.forEach((fn) => fn(new MessageEvent('message', { data, source })));
     send({ type: 'wyld:pin:ready' }, {} as Window);
@@ -51,17 +52,99 @@ describe('pin bridge', () => {
     bridge.setMode(true);
     bridge.locate(['hero']);
     expect(contentWindow.postMessage).toHaveBeenNthCalledWith(
-      1,
+      2,
       { type: 'wyld:pin:mode', on: true },
       '*',
     );
     expect(contentWindow.postMessage).toHaveBeenNthCalledWith(
-      2,
+      3,
       { type: 'wyld:pin:locate', elements: ['hero'] },
       '*',
     );
     bridge.stop();
     expect(listeners.size).toBe(0);
+  });
+
+  it('recovers a ready announcement that happened before the listener existed', () => {
+    const target = new EventTarget();
+    const onReady = vi.fn();
+    const contentWindow = {
+      postMessage(message: unknown) {
+        if (JSON.stringify(message) === JSON.stringify({ type: 'wyld:pin:hello' }))
+          target.dispatchEvent(
+            new MessageEvent('message', {
+              data: { type: 'wyld:pin:ready' },
+              source: contentWindow as unknown as Window,
+            }),
+          );
+      },
+    } as unknown as Window;
+
+    const bridge = createPinBridge({
+      frame: { contentWindow },
+      target: target as unknown as Window,
+      onReady,
+      onPick: vi.fn(),
+      onRects: vi.fn(),
+    });
+
+    expect(onReady).toHaveBeenCalledOnce();
+    bridge.stop();
+  });
+
+  it('posts hello again on frame load and unregisters the load listener', () => {
+    const target = new EventTarget();
+    const frameTarget = new EventTarget();
+    const postMessage = vi.fn();
+    const frame = {
+      contentWindow: { postMessage } as unknown as Window,
+      addEventListener: frameTarget.addEventListener.bind(frameTarget),
+      removeEventListener: vi.fn(frameTarget.removeEventListener.bind(frameTarget)),
+    };
+    const bridge = createPinBridge({
+      frame,
+      target: target as unknown as Window,
+      onReady: vi.fn(),
+      onPick: vi.fn(),
+      onRects: vi.fn(),
+    });
+
+    frameTarget.dispatchEvent(new Event('load'));
+    expect(postMessage).toHaveBeenCalledTimes(2);
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:hello' }, '*');
+    bridge.stop();
+    expect(frame.removeEventListener).toHaveBeenCalledWith('load', expect.any(Function));
+    frameTarget.dispatchEvent(new Event('load'));
+    expect(postMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('answers hello from its parent and ignores hello from any other source', () => {
+    const listeners = new Map<string, EventListener[]>();
+    const parentWindow = { postMessage: vi.fn() };
+    const frameWindow = {
+      parent: parentWindow,
+      addEventListener(type: string, listener: EventListener) {
+        listeners.set(type, [...(listeners.get(type) ?? []), listener]);
+      },
+    };
+    const documentStub = {
+      readyState: 'loading',
+      addEventListener: vi.fn(),
+      createElement: () => ({ textContent: '' }),
+      head: { appendChild: vi.fn() },
+    };
+    new Function('window', 'document', 'requestAnimationFrame', PIN_BRIDGE_SOURCE)(
+      frameWindow,
+      documentStub,
+      vi.fn(),
+    );
+    const message = listeners.get('message')?.[0];
+
+    message?.({ source: {}, data: { type: 'wyld:pin:hello' } } as unknown as Event);
+    expect(parentWindow.postMessage).not.toHaveBeenCalled();
+    message?.({ source: parentWindow, data: { type: 'wyld:pin:hello' } } as unknown as Event);
+    expect(parentWindow.postMessage).toHaveBeenCalledOnce();
+    expect(parentWindow.postMessage).toHaveBeenCalledWith({ type: 'wyld:pin:ready' }, '*');
   });
 
   it('ignores messages with a null source when the frame has no content window', () => {
