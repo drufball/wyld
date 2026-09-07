@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 
 import { createCallAudio } from './audio/calls.js';
-import { hasCover, reactionFor, stepDetection, visionRange } from './creatures/ai.js';
+import {
+  createPropIndex,
+  hasCover,
+  reactionFor,
+  releaseBehaviour,
+  stepDetection,
+  visionRange,
+} from './creatures/ai.js';
 import type { Behaviour, PropObstacle } from './creatures/ai.js';
 import { createInput } from './engine/input.js';
 import { createEventBus } from './engine/events.js';
@@ -87,6 +94,7 @@ const propPlacements = placeProps({
 const propObstacles: PropObstacle[] = propPlacements
   .filter((placement) => placement.kind !== 'fern')
   .map(({ x, z, scale }) => ({ x, z, radius: scale * 0.5, height: scale * 2 }));
+const propIndex = createPropIndex(propObstacles);
 const props = createProps(propPlacements, camera);
 scene.add(props);
 const sky = createSky(scene, sun, hemisphere);
@@ -342,7 +350,7 @@ const loop = createLoop({
           z: creature.position.z,
         },
         terrain.heightAt,
-        propObstacles,
+        propIndex,
       );
       const previousDetection = state.detection;
       state.detection = stepDetection(
@@ -373,22 +381,15 @@ const loop = createLoop({
       const speed = 3 + creature.individual.stats.speed * 0.6;
       const canSwim = data.innate.includes('Swim');
       if (state.behaviour === 'hold' && distance < 8) state.behaviour = 'aggro';
-      if (state.behaviour === 'aggro' && distance > range) {
-        state.behaviour = 'wander';
-        state.detection = 0;
-        wanderStates.set(
-          id,
-          wander.begin(
-            creature.position.x,
-            creature.position.z,
-            30,
-            elapsedSeconds,
-            creature.model.group.rotation.y,
-          ),
-        );
-      }
-      if (state.behaviour === 'flee' && elapsedSeconds >= state.fleeUntil) {
-        state.behaviour = 'wander';
+      const nextBehaviour = releaseBehaviour(
+        state.behaviour,
+        distance,
+        range,
+        state.detection,
+        elapsedSeconds >= state.fleeUntil,
+      );
+      if (nextBehaviour !== state.behaviour) {
+        state.behaviour = nextBehaviour;
         state.detection = 0;
         wanderStates.set(
           id,

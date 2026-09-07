@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { createRng } from '../engine/rng.js';
-import { detectionRate, hasCover, reactionFor, stepDetection, visionRange } from './ai.js';
+import {
+  createPropIndex,
+  detectionRate,
+  hasCover,
+  reactionFor,
+  releaseBehaviour,
+  stepDetection,
+  visionRange,
+} from './ai.js';
 
 describe('creature detection', () => {
   it('uses temperament vision ranges', () => {
@@ -86,6 +94,14 @@ describe('creature detection', () => {
     expect(fleeing).toBeLessThanOrEqual(550);
     expect(rolls.some((roll, index) => index > 0 && roll !== rolls[index - 1])).toBe(true);
   });
+  it('releases active behaviours under their respective conditions', () => {
+    expect(releaseBehaviour('hold', 21, 20, 1)).toBe('wander');
+    expect(releaseBehaviour('hold', 10, 20, 0)).toBe('wander');
+    expect(releaseBehaviour('aggro', 21, 20, 1)).toBe('wander');
+    expect(releaseBehaviour('flee', 10, 20, 1, true)).toBe('wander');
+    expect(releaseBehaviour('hold', 10, 20, 1)).toBe('hold');
+    expect(releaseBehaviour('flee', 30, 20, 0, false)).toBe('flee');
+  });
 });
 
 describe('hasCover', () => {
@@ -98,5 +114,23 @@ describe('hasCover', () => {
   it('ignores props beside or behind the segment', () => {
     expect(hasCover(eye, target, () => 0, [{ x: 5, z: 1, radius: 0.5, height: 3 }])).toBe(false);
     expect(hasCover(eye, target, () => 0, [{ x: 12, z: 0, radius: 1, height: 3 }])).toBe(false);
+  });
+  it('matches brute-force cover checks through the spatial index', () => {
+    const props = [
+      { x: 5, z: 0.4, radius: 0.5, height: 3 },
+      { x: 25, z: 25, radius: 1, height: 3 },
+      { x: -15, z: 30, radius: 2, height: 4 },
+    ];
+    const index = createPropIndex(props, 20);
+    const segments = [
+      [eye, target],
+      [{ x: 1, y: 2, z: 1 }, { x: 39, y: 2, z: 39 }],
+      [{ x: -30, y: 2, z: 30 }, { x: 30, y: 2, z: 30 }],
+      [{ x: 0, y: 2, z: 10 }, { x: 10, y: 2, z: 10 }],
+    ] as const;
+    for (const [from, to] of segments) {
+      expect(hasCover(from, to, () => 0, index)).toBe(hasCover(from, to, () => 0, props));
+    }
+    expect(index.near(segments[1][0], segments[1][1])).toContain(props[1]);
   });
 });
