@@ -119,6 +119,19 @@ this file, the Pak, and GitHub._
   registry against a scratch Pak (28 assertions incl. done→hide→reopen round trip), clean of `WAKE_URL` per `ps eww`. Host
   restarted at the lead boundary 21:18 for the changed shapes. Edges: comma is `%2C` in the URL; the tool's `status` omits
   `converted` (server accepts it); `kind` has no JSON `enum` any more (prose only).
+- **2026-09-07 morning.** No `lights_on` alarm arrived at 08:00 — the run had already ended, so the alarm is per-run; the
+  Catch-Up Dru saw at 08:22 was whatever the overnight events left (rewrite it at Reset *last*, or accept the mechanical one).
+  Env scrub verified live after the 23:00 restart: the Planner's own Bash has no `WAKE_URL/WAKE_SECRET/NTFY_URL/NTFY_BASE_URL`,
+  `PAK_URL` intact. **Dru 08:23: "only 23 builders merged seems pretty low … should we just be more ambitious about doing work
+  in parallel?"** Answered: builder ~5–8 min/unit, CI 3, the rest review + browser checks + 13 fix rounds; the limiter was
+  sequential units and ≤3 leads. **Decision: run quests in parallel by default and size units bigger where packages don't
+  collide; report cycle time per PR in tonight's retro** (derive from `gh pr list --state merged --json createdAt,mergedAt`).
+  08:25: two leads spawned — `one-mechanism` unit 3 (Pak: one list on Today for question|message|rumble|demo|unlock, `action`
+  never rendered, Demos/Rumble/VMU as filters, Hidden fold = reopen, sunset iff `needsYou===0`, action-rotation settles
+  planner-sourced; branch `codex/one-mechanism-pak`) and `artifacts` unit 1 (server+shared+wake: `artifacts` table
+  slug/quest/title/summary/html≤512KB/version, `GET|POST|DELETE /api/artifacts`, `GET /artifacts/:slug/` with a strict CSP and
+  no X-Frame-Options, chains gain `anchor {artifact, element, label}` + `?artifact=` filter, tools `pak_publish_artifact` /
+  `pak_read_artifacts`, `pak_read_chains artifact`, SW denylist + dev proxy for `/artifacts/`; branch `codex/artifacts-server`).
 - **Sleep Mode run 1 (Dru pressed GOODNIGHT 22:06; ended clean 22:59).** Drain empty; Sweep = four `night:` items via one lead,
   all merged (#171 Today's ChainList owns its kind set — root cause was wider: Today passed `kind=all`, which #165 expanded to
   all six kinds, so `action`/`demo` chains were in the *fetch*, not just SSE; #173 `PausedBanner` test TZ-agnostic — `TZ=UTC`
