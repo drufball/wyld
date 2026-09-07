@@ -1,0 +1,1093 @@
+[
+  {
+    "id": "loamox",
+    "name": "Loamox",
+    "rarity": "standing",
+    "tier": 1,
+    "bodyPlan": "heavy-quadruped",
+    "hide": "Hide",
+    "innate": [],
+    "forces": ["Impact"],
+    "stats": {
+      "vigor": [55, 75],
+      "power": [2, 4],
+      "speed": [3, 5],
+      "focus": [35, 45]
+    },
+    "temperament": {
+      "Steady": 0.6,
+      "Bold": 0.3,
+      "Skittish": 0.1
+    },
+    "habitat": [
+      {
+        "region": "hollow",
+        "phases": ["Day", "Dusk"]
+      },
+      {
+        "region": "deep-wood",
+        "phases": ["Day", "Dusk"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Shove",
+        "delivery": "Strike",
+        "force": "Impact",
+        "power": 3,
+        "speed": 1
+      },
+      {
+        "name": "Trample",
+        "delivery": "Sweep",
+        "force": "Impact",
+        "power": 2,
+        "speed": 1
+      }
+    ],
+    "tracks": {
+      "kind": "prints",
+      "toes": 4,
+      "stride": 1.0
+    },
+    "hints": {
+      "tracks": "Heavy going — whatever made these doesn't mind being seen.",
+      "call": "Slow, low breaths from the undergrowth.",
+      "identified": "A dun, box-headed quadruped with a cream belly and short horns."
+    },
+    "call": {
+      "waveform": "triangle",
+      "notes": [
+        {
+          "freq": 110,
+          "dur": 0.22
+        },
+        {
+          "freq": 98,
+          "dur": 0.26
+        }
+      ],
+      "noise": 0.5
+    },
+    "palette": {
+      "primary": "#8a6f4a",
+      "secondary": "#e0d3b0",
+      "accent": "#4a3c2a"
+    },
+    "visual": {
+      "length": 1.6,
+      "height": 1.0
+    }
+  },
+  {
+    "id": "bramblehog",
+    "name": "Bramblehog",
+    "rarity": "standing",
+    "tier": 1,
+    "bodyPlan": "light-quadruped",
+    "hide": "Bark",
+    "innate": [],
+    "forces": ["Impact", "Cut"],
+    "stats": {
+      "vigor": [40, 60],
+      "power": [2, 3],
+      "speed": [5, 7],
+      "focus": [30, 40]
+    },
+    "temperament": {
+      "Skittish": 0.5,
+      "Steady": 0.3,
+      "Erratic": 0.2
+    },
+    "habitat": [
+      {
+        "region": "hollow",
+        "phases": ["Dawn", "Dusk"]
+      },
+      {
+        "region": "pond-hollow",
+        "phases": ["Dawn", "Dusk"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Quill Jab",
+        "delivery": "Strike",
+        "force": "Cut",
+        "power": 2,
+        "speed": 2
+      },
+      {
+        "name": "Tumble",
+        "delivery": "Lunge",
+        "force": "Impact",
+        "power": 2,
+        "speed": 2
+      }
+    ],
+    "tracks": {
+      "kind": "prints",
+      "toes": 2,
+      "drag": true,
+      "stride": 0.5
+    },
+    "hints": {
+      "tracks": "Small, quick, and dragging something behind it.",
+      "call": "A dry rasp, always from low cover, always at the edges of the day.",
+      "identified": "Green-brown hide and a dark line of thin quills mark the animal."
+    },
+    "call": {
+      "waveform": "square",
+      "notes": [
+        {
+          "freq": 900,
+          "dur": 0.06
+        },
+        {
+          "freq": 950,
+          "dur": 0.06
+        },
+        {
+          "freq": 900,
+          "dur": 0.06
+        }
+      ],
+      "noise": 0.7
+    },
+    "palette": {
+      "primary": "#5a6b3a",
+      "secondary": "#3c4526",
+      "accent": "#2b2f1c"
+    },
+    "visual": {
+      "length": 0.8,
+      "height": 0.5
+    }
+  },
+  {
+    "id": "thornwren",
+    "name": "Thornwren",
+    "rarity": "standing",
+    "tier": 1,
+    "bodyPlan": "avian",
+    "hide": "Hide",
+    "innate": [],
+    "forces": ["Cut"],
+    "stats": {
+      "vigor": [40, 50],
+      "power": [2, 3],
+      "speed": [6, 7],
+      "focus": [40, 50]
+    },
+    "temperament": {
+      "Skittish": 0.7,
+      "Erratic": 0.3
+    },
+    "habitat": [
+      {
+        "region": "hollow",
+        "phases": ["Dawn"]
+      },
+      {
+        "region": "deep-wood",
+        "phases": ["Dawn"]
+      },
+      {
+        "region": "fern-chasm",
+        "phases": ["Dawn"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Needle",
+        "delivery": "Bolt",
+        "force": "Cut",
+        "power": 2,
+        "speed": 3
+      },
+      {
+        "name": "Dive",
+        "delivery": "Lunge",
+        "force": "Cut",
+        "power": 3,
+        "speed": 2
+      }
+    ],
+    "tracks": {
+      "kind": "feather"
+    },
+    "hints": {
+      "tracks": "A barbed feather. It was here, briefly, and left.",
+      "call": "Two notes climbing, from high up, only in the first light.",
+      "identified": "A small slate-blue bird shows a rust-coloured throat."
+    },
+    "call": {
+      "waveform": "sine",
+      "notes": [
+        {
+          "freq": 1760,
+          "dur": 0.18
+        },
+        {
+          "freq": 2637,
+          "dur": 0.26
+        }
+      ]
+    },
+    "palette": {
+      "primary": "#5b6f92",
+      "secondary": "#a8b6ce",
+      "accent": "#a8452c"
+    },
+    "visual": {
+      "length": 0.3,
+      "height": 0.25,
+      "wingspan": 0.55
+    }
+  },
+  {
+    "id": "mirefin",
+    "name": "Mirefin",
+    "rarity": "standing",
+    "tier": 1,
+    "bodyPlan": "amphibious",
+    "hide": "Scale",
+    "innate": ["Swim"],
+    "forces": ["Surge"],
+    "stats": {
+      "vigor": [50, 70],
+      "power": [2, 4],
+      "speed": [3, 5],
+      "focus": [40, 50]
+    },
+    "temperament": {
+      "Steady": 0.5,
+      "Skittish": 0.3,
+      "Bold": 0.2
+    },
+    "habitat": [
+      {
+        "region": "pond-hollow",
+        "phases": ["Dusk", "Night"]
+      },
+      {
+        "region": "south-shore",
+        "phases": ["Dusk", "Night"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Spit",
+        "delivery": "Bolt",
+        "force": "Surge",
+        "power": 2,
+        "speed": 2
+      },
+      {
+        "name": "Slap",
+        "delivery": "Strike",
+        "force": "Surge",
+        "power": 3,
+        "speed": 1
+      }
+    ],
+    "tracks": {
+      "kind": "prints",
+      "toes": 3,
+      "drag": true,
+      "stride": 0.6
+    },
+    "hints": {
+      "tracks": "The prints are fresh and lead toward water.",
+      "call": "A wet, bubbling call from the reeds after the light goes.",
+      "identified": "Mottled olive scales frame a pale throat and raised fin ridge."
+    },
+    "call": {
+      "waveform": "sawtooth",
+      "notes": [
+        {
+          "freq": 160,
+          "dur": 0.1
+        },
+        {
+          "freq": 120,
+          "dur": 0.12
+        },
+        {
+          "freq": 180,
+          "dur": 0.09
+        },
+        {
+          "freq": 130,
+          "dur": 0.14
+        }
+      ],
+      "noise": 0.35
+    },
+    "palette": {
+      "primary": "#55703c",
+      "secondary": "#cfd6a8",
+      "accent": "#7d9a4e"
+    },
+    "visual": {
+      "length": 1,
+      "height": 0.45
+    }
+  },
+  {
+    "id": "antlerback",
+    "name": "Antlerback",
+    "rarity": "standing",
+    "tier": 2,
+    "bodyPlan": "heavy-quadruped",
+    "hide": "Bark",
+    "innate": [],
+    "forces": ["Impact", "Cut"],
+    "stats": {
+      "vigor": [160, 200],
+      "power": [4, 6],
+      "speed": [4, 5],
+      "focus": [50, 60]
+    },
+    "temperament": {
+      "Steady": 0.6,
+      "Bold": 0.4
+    },
+    "habitat": [
+      {
+        "region": "deep-wood",
+        "phases": ["Day"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Gore",
+        "delivery": "Strike",
+        "force": "Cut",
+        "power": 5,
+        "speed": 1
+      },
+      {
+        "name": "Bull Rush",
+        "delivery": "Lunge",
+        "force": "Impact",
+        "power": 5,
+        "speed": 1
+      },
+      {
+        "name": "Rake",
+        "delivery": "Sweep",
+        "force": "Cut",
+        "power": 4,
+        "speed": 1
+      }
+    ],
+    "tracks": {
+      "kind": "prints",
+      "toes": 2,
+      "stride": 1.4
+    },
+    "hints": {
+      "tracks": "Cloven and wide — you could fit your hand in one.",
+      "call": "One long bellow at midday, from deep in the wood, and the birds go quiet.",
+      "identified": "A bark-grey bulk bears moss patches and branching antlers."
+    },
+    "call": {
+      "waveform": "sawtooth",
+      "notes": [
+        {
+          "freq": 85,
+          "dur": 0.12
+        },
+        {
+          "freq": 70,
+          "dur": 0.7
+        }
+      ],
+      "noise": 0.2
+    },
+    "palette": {
+      "primary": "#7b7468",
+      "secondary": "#5c7048",
+      "accent": "#b5ab97"
+    },
+    "visual": {
+      "length": 2.6,
+      "height": 1.8
+    }
+  },
+  {
+    "id": "tidewhelk",
+    "name": "Tidewhelk",
+    "rarity": "standing",
+    "tier": 1,
+    "bodyPlan": "shelled",
+    "hide": "Shell",
+    "innate": [],
+    "forces": ["Surge", "Impact"],
+    "stats": {
+      "vigor": [60, 80],
+      "power": [2, 3],
+      "speed": [3, 4],
+      "focus": [30, 40]
+    },
+    "temperament": {
+      "Steady": 0.8,
+      "Bold": 0.2
+    },
+    "habitat": [
+      {
+        "region": "near-island",
+        "phases": ["Dawn", "Day", "Dusk", "Night"]
+      },
+      {
+        "region": "south-shore",
+        "phases": ["Dawn", "Day", "Dusk", "Night"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Jet",
+        "delivery": "Strike",
+        "force": "Surge",
+        "power": 3,
+        "speed": 1
+      },
+      {
+        "name": "Shell Spin",
+        "delivery": "Sweep",
+        "force": "Impact",
+        "power": 2,
+        "speed": 1
+      }
+    ],
+    "tracks": {
+      "kind": "furrow"
+    },
+    "hints": {
+      "tracks": "Something dragged its whole weight along the sand.",
+      "call": "A knock like a stone on a shell, at the waterline.",
+      "identified": "A bone-white shell sits above a blue-grey body."
+    },
+    "call": {
+      "waveform": "square",
+      "notes": [
+        {
+          "freq": 330,
+          "dur": 0.05
+        },
+        {
+          "freq": 247,
+          "dur": 0.09
+        }
+      ],
+      "noise": 0.15
+    },
+    "palette": {
+      "primary": "#ece3cf",
+      "secondary": "#6d7f8c",
+      "accent": "#b9ab8d"
+    },
+    "visual": {
+      "length": 1,
+      "height": 0.7
+    }
+  },
+  {
+    "id": "saltwing",
+    "name": "Saltwing",
+    "rarity": "standing",
+    "tier": 2,
+    "bodyPlan": "avian",
+    "hide": "Hide",
+    "innate": [],
+    "forces": ["Cut"],
+    "stats": {
+      "vigor": [120, 150],
+      "power": [4, 5],
+      "speed": [6, 7],
+      "focus": [50, 60]
+    },
+    "temperament": {
+      "Erratic": 0.6,
+      "Skittish": 0.4
+    },
+    "habitat": [
+      {
+        "region": "stack-island",
+        "phases": ["Day"]
+      },
+      {
+        "region": "long-island",
+        "phases": ["Day"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Gale Cut",
+        "delivery": "Bolt",
+        "force": "Cut",
+        "power": 4,
+        "speed": 3
+      },
+      {
+        "name": "Stoop",
+        "delivery": "Lunge",
+        "force": "Cut",
+        "power": 5,
+        "speed": 2
+      },
+      {
+        "name": "Wingslash",
+        "delivery": "Arc",
+        "force": "Cut",
+        "power": 3,
+        "speed": 2
+      }
+    ],
+    "tracks": {
+      "kind": "feather"
+    },
+    "hints": {
+      "tracks": "A long white feather stiff with salt.",
+      "call": "A shriek over the stacks in full sun.",
+      "identified": "White wings cross a charcoal body above the stacks."
+    },
+    "call": {
+      "waveform": "sawtooth",
+      "notes": [
+        {
+          "freq": 2200,
+          "dur": 0.3
+        },
+        {
+          "freq": 1900,
+          "dur": 0.22
+        }
+      ],
+      "noise": 0.45
+    },
+    "palette": {
+      "primary": "#f2f0ea",
+      "secondary": "#3a3d42",
+      "accent": "#d8b25a"
+    },
+    "visual": {
+      "length": 1.2,
+      "height": 0.5,
+      "wingspan": 2.2
+    }
+  },
+  {
+    "id": "kelpmaw",
+    "name": "Kelpmaw",
+    "rarity": "rare",
+    "tier": 2,
+    "bodyPlan": "serpentine",
+    "hide": "Scale",
+    "innate": ["Swim"],
+    "forces": ["Surge", "Cut"],
+    "stats": {
+      "vigor": [150, 190],
+      "power": [5, 7],
+      "speed": [5, 6],
+      "focus": [60, 70]
+    },
+    "temperament": {
+      "Bold": 0.5,
+      "Erratic": 0.5
+    },
+    "habitat": [
+      {
+        "region": "channels",
+        "phases": ["Night"]
+      },
+      {
+        "region": "long-island",
+        "phases": ["Night"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Undertow",
+        "delivery": "Sweep",
+        "force": "Surge",
+        "power": 5,
+        "speed": 1
+      },
+      {
+        "name": "Fang",
+        "delivery": "Strike",
+        "force": "Cut",
+        "power": 6,
+        "speed": 2
+      },
+      {
+        "name": "Waterspout",
+        "delivery": "Arc",
+        "force": "Surge",
+        "power": 4,
+        "speed": 1
+      }
+    ],
+    "tracks": {
+      "kind": "coil"
+    },
+    "hints": {
+      "tracks": "A wide wet coil on the cave floor, still glistening.",
+      "call": "A moan from under the water that you feel more than hear.",
+      "identified": "A deep green-black coil turns to show its luminous pale underside."
+    },
+    "call": {
+      "waveform": "sine",
+      "notes": [
+        {
+          "freq": 60,
+          "dur": 0.9
+        },
+        {
+          "freq": 55,
+          "dur": 0.8
+        }
+      ],
+      "noise": 0.1
+    },
+    "palette": {
+      "primary": "#16302a",
+      "secondary": "#bfe0c6",
+      "accent": "#2f5c46"
+    },
+    "visual": {
+      "length": 4.5,
+      "height": 0.8
+    }
+  },
+  {
+    "id": "emberjack",
+    "name": "Emberjack",
+    "rarity": "standing",
+    "tier": 1,
+    "bodyPlan": "light-quadruped",
+    "hide": "Hide",
+    "innate": [],
+    "forces": ["Heat", "Cut"],
+    "stats": {
+      "vigor": [45, 65],
+      "power": [3, 4],
+      "speed": [6, 7],
+      "focus": [40, 50]
+    },
+    "temperament": {
+      "Skittish": 0.5,
+      "Erratic": 0.4,
+      "Steady": 0.1
+    },
+    "habitat": [
+      {
+        "region": "dunes",
+        "phases": ["Night", "Dawn"]
+      },
+      {
+        "region": "salt-flats",
+        "phases": ["Night", "Dawn"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Cinder Bite",
+        "delivery": "Strike",
+        "force": "Heat",
+        "power": 3,
+        "speed": 2
+      },
+      {
+        "name": "Ember Bolt",
+        "delivery": "Bolt",
+        "force": "Heat",
+        "power": 2,
+        "speed": 2
+      }
+    ],
+    "tracks": {
+      "kind": "prints",
+      "toes": 4,
+      "stride": 0.7
+    },
+    "hints": {
+      "tracks": "Light prints with singed edges. It's warmer than the sand.",
+      "call": "Two sharp yips carried a long way over cold sand.",
+      "identified": "Rust-orange fur, black ear tips and a glowing throat are visible."
+    },
+    "call": {
+      "waveform": "triangle",
+      "notes": [
+        {
+          "freq": 1245,
+          "dur": 0.07
+        },
+        {
+          "freq": 1480,
+          "dur": 0.07
+        }
+      ],
+      "noise": 0.1
+    },
+    "palette": {
+      "primary": "#c2622a",
+      "secondary": "#241d18",
+      "accent": "#ffb347"
+    },
+    "visual": {
+      "length": 0.9,
+      "height": 0.55
+    }
+  },
+  {
+    "id": "dunecask",
+    "name": "Dunecask",
+    "rarity": "standing",
+    "tier": 2,
+    "bodyPlan": "shelled",
+    "hide": "Stone",
+    "innate": [],
+    "forces": ["Impact"],
+    "stats": {
+      "vigor": [170, 200],
+      "power": [5, 7],
+      "speed": [3, 4],
+      "focus": [40, 50]
+    },
+    "temperament": {
+      "Bold": 0.6,
+      "Steady": 0.4
+    },
+    "habitat": [
+      {
+        "region": "mesa",
+        "phases": ["Day"]
+      },
+      {
+        "region": "dunes",
+        "phases": ["Day"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Boulder Butt",
+        "delivery": "Strike",
+        "force": "Impact",
+        "power": 6,
+        "speed": 1
+      },
+      {
+        "name": "Quake",
+        "delivery": "Sweep",
+        "force": "Impact",
+        "power": 5,
+        "speed": 1
+      }
+    ],
+    "tracks": {
+      "kind": "prints",
+      "stride": 1.2
+    },
+    "hints": {
+      "tracks": "Round and deep — it moves like it has all day.",
+      "call": "A grinding rumble from the rocks in the heat of the day.",
+      "identified": "A sandstone shell carries a pattern of darker plates."
+    },
+    "call": {
+      "waveform": "sawtooth",
+      "notes": [
+        {
+          "freq": 75,
+          "dur": 0.5
+        },
+        {
+          "freq": 68,
+          "dur": 0.45
+        }
+      ],
+      "noise": 0.6
+    },
+    "palette": {
+      "primary": "#d3b183",
+      "secondary": "#8a6f4c",
+      "accent": "#6d563b"
+    },
+    "visual": {
+      "length": 2,
+      "height": 1.2
+    }
+  },
+  {
+    "id": "glasswing",
+    "name": "Glasswing",
+    "rarity": "rare",
+    "tier": 2,
+    "bodyPlan": "avian",
+    "hide": "Shell",
+    "innate": [],
+    "forces": ["Heat", "Cut"],
+    "stats": {
+      "vigor": [120, 140],
+      "power": [5, 6],
+      "speed": [7, 8],
+      "focus": [60, 70]
+    },
+    "temperament": {
+      "Skittish": 0.6,
+      "Erratic": 0.4
+    },
+    "habitat": [
+      {
+        "region": "salt-flats",
+        "phases": ["Dusk"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Shard Rain",
+        "delivery": "Arc",
+        "force": "Cut",
+        "power": 4,
+        "speed": 2
+      },
+      {
+        "name": "Flare",
+        "delivery": "Bolt",
+        "force": "Heat",
+        "power": 5,
+        "speed": 3
+      },
+      {
+        "name": "Glide Cut",
+        "delivery": "Lunge",
+        "force": "Cut",
+        "power": 4,
+        "speed": 3
+      }
+    ],
+    "tracks": {
+      "kind": "shard"
+    },
+    "hints": {
+      "tracks": "A shard of something like glass, still warm, on the salt.",
+      "call": "A chime like struck glass, at the edge of hearing, as the sun goes down.",
+      "identified": "Translucent pale amber wings are crossed by dark veins."
+    },
+    "call": {
+      "waveform": "sine",
+      "notes": [
+        {
+          "freq": 2093,
+          "dur": 0.35
+        },
+        {
+          "freq": 3136,
+          "dur": 0.5
+        }
+      ]
+    },
+    "palette": {
+      "primary": "#e8cf95",
+      "secondary": "#4a3a22",
+      "accent": "#fff3d0"
+    },
+    "visual": {
+      "length": 1,
+      "height": 0.4,
+      "wingspan": 1.8
+    }
+  },
+  {
+    "id": "ashcrawl",
+    "name": "Ashcrawl",
+    "rarity": "standing",
+    "tier": 2,
+    "bodyPlan": "crawler",
+    "hide": "Stone",
+    "innate": ["Scale"],
+    "forces": ["Heat", "Impact"],
+    "stats": {
+      "vigor": [130, 170],
+      "power": [4, 6],
+      "speed": [4, 5],
+      "focus": [50, 60]
+    },
+    "temperament": {
+      "Steady": 0.7,
+      "Bold": 0.3
+    },
+    "habitat": [
+      {
+        "region": "ash-fields",
+        "phases": ["Dawn", "Day", "Dusk", "Night"]
+      },
+      {
+        "region": "vents",
+        "phases": ["Dawn", "Day", "Dusk", "Night"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Mandible",
+        "delivery": "Strike",
+        "force": "Impact",
+        "power": 5,
+        "speed": 1
+      },
+      {
+        "name": "Ash Spray",
+        "delivery": "Arc",
+        "force": "Heat",
+        "power": 4,
+        "speed": 1
+      },
+      {
+        "name": "Cinder Sweep",
+        "delivery": "Sweep",
+        "force": "Heat",
+        "power": 4,
+        "speed": 1
+      }
+    ],
+    "tracks": {
+      "kind": "prints",
+      "toes": 6,
+      "stride": 0.5
+    },
+    "hints": {
+      "tracks": "Six points, repeated, straight up the side of a rock.",
+      "call": "Clicking from the rock face, from somewhere above eye level.",
+      "identified": "A charcoal crawler has narrow orange seams between its plates."
+    },
+    "call": {
+      "waveform": "square",
+      "notes": [
+        {
+          "freq": 620,
+          "dur": 0.03
+        },
+        {
+          "freq": 640,
+          "dur": 0.03
+        },
+        {
+          "freq": 600,
+          "dur": 0.03
+        },
+        {
+          "freq": 650,
+          "dur": 0.03
+        },
+        {
+          "freq": 610,
+          "dur": 0.03
+        }
+      ],
+      "noise": 0.8
+    },
+    "palette": {
+      "primary": "#2e2c2b",
+      "secondary": "#d2611c",
+      "accent": "#4a4644"
+    },
+    "visual": {
+      "length": 1.8,
+      "height": 0.6
+    }
+  },
+  {
+    "id": "pyreclaw",
+    "name": "Pyreclaw",
+    "rarity": "rare",
+    "tier": 3,
+    "bodyPlan": "large-biped",
+    "hide": "Scale",
+    "innate": [],
+    "forces": ["Heat", "Impact", "Cut"],
+    "stats": {
+      "vigor": [400, 450],
+      "power": [8, 10],
+      "speed": [4, 5],
+      "focus": [90, 100]
+    },
+    "temperament": {
+      "Bold": 1
+    },
+    "habitat": [
+      {
+        "region": "crater-rim",
+        "phases": ["Night"]
+      }
+    ],
+    "signatureMoves": [
+      {
+        "name": "Furnace",
+        "delivery": "Sweep",
+        "force": "Heat",
+        "power": 8,
+        "speed": 1
+      },
+      {
+        "name": "Talon",
+        "delivery": "Strike",
+        "force": "Cut",
+        "power": 9,
+        "speed": 2
+      },
+      {
+        "name": "Slam",
+        "delivery": "Strike",
+        "force": "Impact",
+        "power": 8,
+        "speed": 1
+      },
+      {
+        "name": "Pyre Bolt",
+        "delivery": "Bolt",
+        "force": "Heat",
+        "power": 7,
+        "speed": 2
+      }
+    ],
+    "tracks": {
+      "kind": "prints",
+      "toes": 3,
+      "stride": 2.5
+    },
+    "hints": {
+      "tracks": "Three claws, each the length of your arm. You are close to the top.",
+      "call": "A roar you heard once from very far away, on your first morning.",
+      "identified": "An obsidian-black biped is split by magma-bright seams."
+    },
+    "call": {
+      "waveform": "sawtooth",
+      "notes": [
+        {
+          "freq": 92,
+          "dur": 0.5
+        },
+        {
+          "freq": 73,
+          "dur": 0.7
+        },
+        {
+          "freq": 110,
+          "dur": 0.35
+        }
+      ],
+      "noise": 0.55
+    },
+    "palette": {
+      "primary": "#14100f",
+      "secondary": "#ff5a1f",
+      "accent": "#6a2410"
+    },
+    "visual": {
+      "length": 3.2,
+      "height": 4.2
+    }
+  }
+]
