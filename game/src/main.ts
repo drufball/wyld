@@ -1,15 +1,20 @@
 import * as THREE from 'three';
 
-import { buildState, cameraPosition } from './state.js';
+import { createInput } from './engine/input.js';
+import { createLoop } from './engine/loop.js';
+import { createRng, resolveSeed } from './engine/rng.js';
+import { createPlayerController } from './player/controller.js';
+import { buildState } from './state.js';
+import { createDebugConsole } from './ui/debug.js';
 
-document.documentElement.style.cssText = 'height:100%;background:#10131c';
-document.body.style.cssText = 'height:100%;margin:0;overflow:hidden;background:#10131c';
+document.documentElement.style.cssText = 'height:100%;background:#a9c9c1';
+document.body.style.cssText = 'height:100%;margin:0;overflow:hidden;background:#a9c9c1';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x10131c);
-scene.fog = new THREE.Fog(0x10131c, 8, 18);
+scene.background = new THREE.Color(0xa9c9c1);
+scene.fog = new THREE.Fog(0xa9c9c1, 90, 350);
 
-const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 50);
+const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 500);
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -17,70 +22,41 @@ renderer.shadowMap.enabled = true;
 document.body.append(renderer.domElement);
 
 const ground = new THREE.Mesh(
-  new THREE.CircleGeometry(8, 12),
-  new THREE.MeshStandardMaterial({ color: 0x283e38, roughness: 0.95 }),
+  new THREE.PlaneGeometry(800, 800),
+  new THREE.MeshStandardMaterial({ color: 0x64805a, roughness: 1, flatShading: true }),
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-const creature = new THREE.Group();
-const green = new THREE.MeshStandardMaterial({ color: 0x7ccf70, roughness: 0.75 });
-const cream = new THREE.MeshStandardMaterial({ color: 0xe8dca8, roughness: 0.85 });
-const dark = new THREE.MeshStandardMaterial({ color: 0x171922, roughness: 0.7 });
-
-const body = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), green);
-body.scale.set(1, 0.82, 1.2);
-body.position.y = 1.25;
-creature.add(body);
-
-const head = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6), cream);
-head.position.set(0, 1.85, 0.72);
-creature.add(head);
-
-for (const side of [-1, 1]) {
-  const ear = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.75, 4), green);
-  ear.position.set(side * 0.45, 2.55, 0.65);
-  ear.rotation.z = side * -0.28;
-  creature.add(ear);
-
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), dark);
-  eye.position.set(side * 0.24, 2.02, 1.32);
-  creature.add(eye);
-
-  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.65, 0.4), green);
-  leg.position.set(side * 0.55, 0.45, 0.25);
-  creature.add(leg);
-}
-
-creature.traverse((object) => {
-  if (object instanceof THREE.Mesh) object.castShadow = true;
-});
-scene.add(creature);
-
-scene.add(new THREE.HemisphereLight(0xbad8ff, 0x29402d, 2.2));
-const sun = new THREE.DirectionalLight(0xffedc2, 3.2);
-sun.position.set(4, 7, 5);
+scene.add(new THREE.HemisphereLight(0xcfe7ff, 0x3a4b31, 2.2));
+const sun = new THREE.DirectionalLight(0xffefd0, 3);
+sun.position.set(30, 55, 25);
 sun.castShadow = true;
 scene.add(sun);
 
-const clock = new THREE.Clock();
+const gameRng = createRng(resolveSeed());
+const seed = gameRng.seed();
+const debugConsole = createDebugConsole({ seed });
+const input = createInput(renderer.domElement);
+const player = createPlayerController({
+  scene,
+  camera,
+  input,
+  heightAt: () => 0,
+  canMove: () => !debugConsole.isOpen,
+});
 let elapsedSeconds = 0;
 
-const renderFrame = (): void => {
-  const position = cameraPosition(elapsedSeconds);
-  camera.position.set(position.x, position.y, position.z);
-  camera.lookAt(0, 1.2, 0);
-  creature.position.y = Math.sin(elapsedSeconds * 1.5) * 0.08;
-  creature.rotation.y = Math.sin(elapsedSeconds * 0.45) * 0.25;
-  renderer.render(scene, camera);
-};
-
-const animate = (): void => {
-  elapsedSeconds = clock.getElapsedTime();
-  renderFrame();
-  window.requestAnimationFrame(animate);
-};
+const render = (): void => renderer.render(scene, camera);
+const loop = createLoop({
+  update: (dtSeconds) => {
+    elapsedSeconds += dtSeconds;
+    player.update(dtSeconds);
+    input.endFrame();
+  },
+  render,
+});
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -89,11 +65,20 @@ window.addEventListener('resize', () => {
 });
 
 window.__wyld = {
-  getState: () => buildState(__GAME_VERSION__, elapsedSeconds, camera.position),
+  getState: () =>
+    buildState(
+      __GAME_VERSION__,
+      elapsedSeconds,
+      camera.position,
+      player.object.position,
+      seed,
+      player.stance,
+    ),
   screenshot: () => {
-    renderFrame();
+    render();
     return renderer.domElement.toDataURL('image/jpeg', 0.6);
   },
+  debug: debugConsole.run,
 };
 
-animate();
+loop.start();
