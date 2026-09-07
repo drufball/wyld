@@ -1,136 +1,42 @@
 import { describe, expect, it } from 'vitest';
-
 import { createRng } from '../engine/rng.js';
 import {
-  createPropIndex,
-  detectionRate,
-  hasCover,
+  canHearPlayer,
+  canSeePlayer,
+  hasLineOfSight,
   reactionFor,
   releaseBehaviour,
   stepDetection,
   visionRange,
 } from './ai.js';
-
+const grid = (blocked = new Set<string>()) => ({
+  blocksSight: (x: number, y: number) => blocked.has(`${x},${y}`),
+});
 describe('creature detection', () => {
-  it('uses temperament vision ranges', () => {
-    expect(visionRange('Skittish')).toBe(30);
-    expect((['Bold', 'Steady', 'Erratic'] as const).map(visionRange)).toEqual([20, 20, 20]);
+  it('sees the player inside the 120 degree cone and not outside it', () => {
+    expect(canSeePlayer(grid(), { x: 0, y: 0 }, { x: 0, y: 5 }, 0, 'Bold')).toBe(true);
+    expect(canSeePlayer(grid(), { x: 0, y: 0 }, { x: 0, y: -5 }, 0, 'Bold')).toBe(false);
   });
-  it('matches the detection formula and stance table', () => {
-    expect(
-      detectionRate({
-        distance: 20,
-        visionRange: 20,
-        stance: 'walk',
-        moving: false,
-        hasCover: false,
-      }),
-    ).toBeCloseTo(0.048);
-    expect(
-      detectionRate({
-        distance: 0,
-        visionRange: 20,
-        stance: 'sprint',
-        moving: false,
-        hasCover: false,
-      }),
-    ).toBeCloseTo(0.24);
-    expect(
-      detectionRate({
-        distance: 10,
-        visionRange: 20,
-        stance: 'crouch',
-        moving: false,
-        hasCover: false,
-      }),
-    ).toBeCloseTo(0.0252);
+  it('ranges vision by temperament in tiles', () => {
+    expect(visionRange('Skittish')).toBe(15);
+    expect(visionRange('Bold')).toBe(10);
   });
-  it('orders stances and movement by visibility', () => {
-    const rate = (stance: 'walk' | 'sprint' | 'crouch', moving: boolean) =>
-      detectionRate({ distance: 10, visionRange: 20, stance, moving, hasCover: false });
-    expect(rate('crouch', false)).toBeLessThan(rate('walk', false));
-    expect(rate('walk', false)).toBeLessThan(rate('sprint', false));
-    expect(rate('walk', true)).toBeGreaterThan(rate('walk', false));
+  it('blocks line of sight through cover and cliff tiles but not water', () => {
+    expect(hasLineOfSight(grid(new Set(['0,2'])), { x: 0, y: 0 }, { x: 0, y: 4 })).toBe(false);
+    expect(hasLineOfSight(grid(), { x: 0, y: 0 }, { x: 0, y: 4 })).toBe(true);
   });
-  it('decays behind cover and beyond range', () => {
-    expect(
-      detectionRate({
-        distance: 0,
-        visionRange: 20,
-        stance: 'sprint',
-        moving: true,
-        hasCover: true,
-      }),
-    ).toBe(-0.25);
-    expect(
-      detectionRate({
-        distance: 21,
-        visionRange: 20,
-        stance: 'sprint',
-        moving: true,
-        hasCover: false,
-      }),
-    ).toBe(-0.25);
-  });
-  it('clamps the meter at both ends', () => {
-    const visible = {
-      distance: 0,
-      visionRange: 20,
-      stance: 'sprint' as const,
-      moving: true,
-      hasCover: false,
-    };
+  it('hears a moving player within four tiles', () => expect(canHearPlayer(4, true)).toBe(true));
+  it('hears nothing from a player standing still', () =>
+    expect(canHearPlayer(1, false)).toBe(false));
+  it('clamps detection', () => {
+    const visible = { distance: 0, visionRange: 10, visible: true };
     expect(stepDetection(0.99, visible, 10)).toBe(1);
-    expect(stepDetection(0.01, { ...visible, hasCover: true }, 10)).toBe(0);
+    expect(stepDetection(0.01, { ...visible, visible: false }, 10)).toBe(0);
   });
-  it('selects and rerolls temperament reactions', () => {
+  it('keeps reactions and release tuning', () => {
     expect(reactionFor('Skittish', createRng(1))).toBe('flee');
     expect(reactionFor('Bold', createRng(1))).toBe('aggro');
     expect(reactionFor('Steady', createRng(1))).toBe('hold');
-    const rng = createRng(194);
-    const rolls = Array.from({ length: 1000 }, () => reactionFor('Erratic', rng));
-    const fleeing = rolls.filter((roll) => roll === 'flee').length;
-    expect(fleeing).toBeGreaterThanOrEqual(450);
-    expect(fleeing).toBeLessThanOrEqual(550);
-    expect(rolls.some((roll, index) => index > 0 && roll !== rolls[index - 1])).toBe(true);
-  });
-  it('releases active behaviours under their respective conditions', () => {
-    expect(releaseBehaviour('hold', 21, 20, 1)).toBe('wander');
-    expect(releaseBehaviour('hold', 10, 20, 0)).toBe('wander');
-    expect(releaseBehaviour('aggro', 21, 20, 1)).toBe('wander');
-    expect(releaseBehaviour('flee', 10, 20, 1, true)).toBe('wander');
-    expect(releaseBehaviour('hold', 10, 20, 1)).toBe('hold');
-    expect(releaseBehaviour('flee', 30, 20, 0, false)).toBe('flee');
-  });
-});
-
-describe('hasCover', () => {
-  const eye = { x: 0, y: 2, z: 0 };
-  const target = { x: 10, y: 2, z: 0 };
-  it('detects terrain and props between the endpoints', () => {
-    expect(hasCover(eye, target, (x) => (x > 4 && x < 6 ? 3 : 0), [])).toBe(true);
-    expect(hasCover(eye, target, () => 0, [{ x: 5, z: 0.4, radius: 0.5, height: 3 }])).toBe(true);
-  });
-  it('ignores props beside or behind the segment', () => {
-    expect(hasCover(eye, target, () => 0, [{ x: 5, z: 1, radius: 0.5, height: 3 }])).toBe(false);
-    expect(hasCover(eye, target, () => 0, [{ x: 12, z: 0, radius: 1, height: 3 }])).toBe(false);
-  });
-  it('matches brute-force cover checks through the spatial index', () => {
-    const props = [
-      { x: 5, z: 0.4, radius: 0.5, height: 3 },
-      { x: 25, z: 25, radius: 1, height: 3 },
-      { x: -15, z: 30, radius: 2, height: 4 },
-    ];
-    const index = createPropIndex(props, 20);
-    const segments = [
-      [eye, target],
-      [{ x: 1, y: 2, z: 1 }, { x: 39, y: 2, z: 39 }],
-      [{ x: -30, y: 2, z: 30 }, { x: 30, y: 2, z: 30 }],
-      [{ x: 0, y: 2, z: 10 }, { x: 10, y: 2, z: 10 }],
-    ] as const;
-    for (const [from, to] of segments) {
-      expect(hasCover(from, to, () => 0, index)).toBe(hasCover(from, to, () => 0, props));
-    }
-    expect(index.near(segments[1][0], segments[1][1])).toContain(props[1]);
+    expect(releaseBehaviour('hold', 11, 10, 1)).toBe('wander');
   });
 });

@@ -1,4 +1,5 @@
 import { speciesById } from '../creatures/species.js';
+import { generateSprite } from '../creatures/sprites/index.js';
 import { stubTitle, type Notebook } from '../guide/notebook.js';
 import { regions } from '../world/regions.js';
 import type { MapViewOptions } from './map.js';
@@ -139,11 +140,26 @@ const createGuideBook = ({
   };
   const silhouette = (): HTMLElement => {
     const panel = document.createElement('figure');
-    const blank = document.createElement('div');
-    blank.textContent = BLANK;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const definition = speciesId ? speciesById(speciesId) : null;
+    if (definition) {
+      const sprite = generateSprite(definition, 'down', 'idle');
+      const scale = Math.max(
+        1,
+        Math.floor(Math.min(canvas.width / sprite.width, canvas.height / sprite.height)),
+      );
+      const context = canvas.getContext('2d');
+      if (context) context.fillStyle = '#292b25';
+      for (let y = 0; y < sprite.height; y++)
+        for (let x = 0; x < sprite.width; x++)
+          if (context && sprite.grid[y * sprite.width + x])
+            context.fillRect(x * scale, y * scale, scale, scale);
+    }
     const caption = document.createElement('figcaption');
-    caption.textContent = 'Silhouette — not yet drawn';
-    panel.append(blank, caption);
+    caption.textContent = `Silhouette ${BLANK}`;
+    panel.append(canvas, caption);
     return panel;
   };
   const renderPage = (): void => {

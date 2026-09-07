@@ -16,6 +16,8 @@ type SpawnWorld = {
   heightAt(x: number, z: number): number;
   slopeAt(x: number, z: number): number;
   depthAt(x: number, z: number): number;
+  isWalkable?(x: number, z: number, aquatic: boolean): boolean;
+  isOnScreen?(x: number, z: number): boolean;
 };
 type SpawnResult = { spawned: string[]; despawned: string[] };
 
@@ -98,8 +100,12 @@ const createSpawnSystem = ({
             const x = region.x + Math.cos(angle) * radius;
             const z = region.z + Math.sin(angle) * radius;
             const y = world.heightAt(x, z);
-            if (world.slopeAt(x, z) >= 30) continue;
-            if (!data.innate.includes('Swim') && world.depthAt(x, z) > 0) continue;
+            if (world.isWalkable) {
+              if (!world.isWalkable(x, z, data.innate.includes('Swim'))) continue;
+            } else {
+              if (world.slopeAt(x, z) >= 30) continue;
+              if (!data.innate.includes('Swim') && world.depthAt(x, z) > 0) continue;
+            }
             const point = { x, y, z };
             const far = distance(point, viewer) > 60;
             const occluded = isOccludedByTerrain(
@@ -107,7 +113,7 @@ const createSpawnSystem = ({
               point,
               world.heightAt,
             );
-            if (far || occluded) {
+            if (world.isOnScreen ? !world.isOnScreen(x, z) : far || occluded) {
               candidate = point;
               break;
             }

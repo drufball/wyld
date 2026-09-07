@@ -31,17 +31,17 @@ describe('observer', () => {
     notebook = createEmptyNotebook();
   });
 
-  it('records tracks at 5.9 m once, but not at 6.1 m', () => {
+  it('records tracks within three tiles once, but not beyond three tiles', () => {
     const observer = createObserver({ notebook });
     expect(
-      observer.update(0, frame({ tracks: [{ speciesId: 'bramblehog', x: 5.9, z: 0 }] })),
+      observer.update(0, frame({ tracks: [{ speciesId: 'bramblehog', x: 2.9, z: 0 }] })),
     ).toHaveLength(1);
     expect(
-      observer.update(0, frame({ tracks: [{ speciesId: 'bramblehog', x: 5.9, z: 0 }] })),
+      observer.update(0, frame({ tracks: [{ speciesId: 'bramblehog', x: 2.9, z: 0 }] })),
     ).toHaveLength(0);
     const other = createObserver({ notebook: createEmptyNotebook() });
     expect(
-      other.update(0, frame({ tracks: [{ speciesId: 'bramblehog', x: 6.1, z: 0 }] })),
+      other.update(0, frame({ tracks: [{ speciesId: 'bramblehog', x: 3.1, z: 0 }] })),
     ).toHaveLength(0);
   });
 
