@@ -16,7 +16,8 @@ type WyldGameState = {
     species: string;
     temperament: 'Skittish' | 'Bold' | 'Steady' | 'Erratic';
     position: { x: number; y: number; z: number };
-    state: 'idle' | 'locomotion' | 'execute';
+    state: 'idle' | 'walk' | 'execute';
+    tile: { x: number; y: number };
     region: string | null;
     detection: number;
     behaviour: 'wander' | 'flee' | 'aggro' | 'hold';

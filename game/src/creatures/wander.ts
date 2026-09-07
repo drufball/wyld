@@ -15,6 +15,7 @@ type WanderOptions = {
   canSwim: boolean;
   depthAt(x: number, z: number): number;
   slopeAt(x: number, z: number): number;
+  walkableAt?(x: number, z: number, canSwim: boolean): boolean;
 };
 
 const createWander = (rng: Rng) => {
@@ -49,8 +50,12 @@ const createWander = (rng: Rng) => {
           z: position.z + Math.cos(angle) * distance,
         };
         if (Math.hypot(target.x - state.homeX, target.z - state.homeZ) > state.radius) continue;
-        if (options.slopeAt(target.x, target.z) >= 30) continue;
-        if (!options.canSwim && options.depthAt(target.x, target.z) > 0) continue;
+        if (options.walkableAt) {
+          if (!options.walkableAt(target.x, target.z, options.canSwim)) continue;
+        } else {
+          if (options.slopeAt(target.x, target.z) >= 30) continue;
+          if (!options.canSwim && options.depthAt(target.x, target.z) > 0) continue;
+        }
         state.target = target;
         break;
       }

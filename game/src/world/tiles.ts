@@ -129,7 +129,10 @@ const createTileGrid = (options: TileGridOptions): TileGrid => {
     data,
     tileAt,
     isWalkable: (tx, ty) => ['walkable', 'hazard'].includes(tileAt(tx, ty).class),
-    blocksSight: (tx, ty) => ['cover', 'cliff'].includes(tileAt(tx, ty).class),
+    blocksSight: (tx, ty) => {
+      const tile = tileAt(tx, ty);
+      return tile.surface === 'tree' || tile.class === 'cliff';
+    },
     regionAt: (tx, ty) => {
       if (outside(tx, ty)) return null;
       const p = tileToWorld(tx, ty);

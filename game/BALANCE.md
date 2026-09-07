@@ -8,7 +8,8 @@ The species content table is authoritative, so validation permits this single nu
 ## 2D fieldwork prop density
 
 The original world-wide densities (placements per 1,000 m²) were too sparse at one 2 m tile per
-cell. Conifer changed from **1.3 to 18**, broadleaf from **0.7 to 12**, fern from **1.5 to 16**, and
-rock from **0.7 to 8**. Rejection sampling and biome masks keep these concentrated in their intended
-biomes; forest screens now provide meaningful cover while volcano and archipelago screens visibly
-read as rocky terrain.
+cell. Conifer changed from **1.3 to 10**, broadleaf from **0.7 to 7**, fern from **1.5 to 16**, and
+rock from **0.7 to 8**. The tree densities were reduced from their initial 2D values of 18 and 12 so
+creatures' 5–8 tile sight lines are usually clear while the forest still reads as forest. Rejection
+sampling and biome masks keep props concentrated in their intended biomes; rocks remain movement
+obstacles but no longer block sight.

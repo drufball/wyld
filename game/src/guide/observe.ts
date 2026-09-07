@@ -2,9 +2,9 @@ import { speciesById, type Temperament } from '../creatures/species.js';
 import type { Phase } from '../world/time.js';
 import { stubTitle, type Notebook, type Position, type Stub } from './notebook.js';
 
-const TRACKS_RANGE = 6;
+const TRACKS_RANGE = 3;
 const CALL_RANGE = 25;
-const IDENTIFY_RANGE = 40;
+const IDENTIFY_RANGE = 20;
 const IDENTIFY_SECONDS = 1.5;
 const TEMPERAMENT_SECONDS = 20;
 const SIGHTING_COOLDOWN_SECONDS = 30;

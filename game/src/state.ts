@@ -14,6 +14,7 @@ type BuildStateOptions = {
   waterDepth: number;
   guide?: WyldGameState['guide'];
   observe?: WyldGameState['observe'];
+  creatures?: WyldGameState['creatures'];
 };
 const buildState = (o: BuildStateOptions): WyldGameState => ({
   version: o.version,
@@ -28,7 +29,7 @@ const buildState = (o: BuildStateOptions): WyldGameState => ({
   day: o.day,
   phaseProgress: o.phaseProgress,
   waterDepth: o.waterDepth,
-  creatures: [],
+  creatures: structuredClone(o.creatures ?? []),
   guide: structuredClone(
     o.guide ?? {
       open: false,

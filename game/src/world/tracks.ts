@@ -18,6 +18,7 @@ type PlaceTracksOptions = {
   heightAt(x: number, z: number): number;
   slopeAt(x: number, z: number): number;
   depthAt(x: number, z: number): number;
+  isWalkable?(x: number, z: number): boolean;
 };
 
 const inside = (region: Region, x: number, z: number): boolean =>
@@ -40,7 +41,7 @@ const nearestWater = (
 
 /** Pure deterministic placement. Tracks are evidence in the world, independent of clock phase. */
 const placeTracks = (options: PlaceTracksOptions): TracksPlacement[] => {
-  const { rng, propPlacements, heightAt, slopeAt, depthAt } = options;
+  const { rng, propPlacements, heightAt, slopeAt, depthAt, isWalkable = () => true } = options;
   const placements: TracksPlacement[] = [];
   const regionById = new Map(regions().map((region) => [region.id, region]));
   // Kelpmaw's coil belongs inside the M5 grotto. Glasswing is rare and sighting-driven.
@@ -87,7 +88,13 @@ const placeTracks = (options: PlaceTracksOptions): TracksPlacement[] => {
           const dz = Math.cos(direction);
           const x = origin.x + dx * distance * fraction - dz * jitter;
           const z = origin.z + dz * distance * fraction + dx * jitter;
-          if (!inside(region, x, z) || slopeAt(x, z) >= 30 || depthAt(x, z) > 0) continue;
+          if (
+            !inside(region, x, z) ||
+            slopeAt(x, z) >= 30 ||
+            depthAt(x, z) > 0 ||
+            !isWalkable(x, z)
+          )
+            continue;
           const stride = entry.tracks.stride ?? 1;
           placements.push({
             speciesId: entry.id,
