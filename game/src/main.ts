@@ -9,6 +9,16 @@ import { createCreatureRegistry } from './creatures/registry2d.js';
 import { createSpawnSystem } from './creatures/spawn.js';
 import { createWander } from './creatures/wander.js';
 import { roll } from './creatures/individual.js';
+import {
+  addPartyMember,
+  createParty,
+  groundTapped,
+  removePartyMember,
+  selectCreature,
+  selectPlayer,
+  targetWildCreature,
+} from './party/party.js';
+import { buildArena, scenarioFromQuery } from './scenarios/scenarios.js';
 import { speciesById } from './creatures/species.js';
 import {
   canHearPlayer,
@@ -21,7 +31,7 @@ import {
   type Behaviour,
 } from './creatures/ai.js';
 import { drawCreatureSprite } from './render2d/creature-sprite.js';
-import { worldToTile } from './world/tiles.js';
+import { tileToWorld, worldToTile } from './world/tiles.js';
 import { createCallAudio } from './audio/calls.js';
 import { placeTracks } from './world/tracks.js';
 import { species, type Temperament } from './creatures/species.js';
@@ -48,6 +58,8 @@ import { createDepthAt } from './world/water.js';
 document.documentElement.style.cssText = 'height:100%;background:#19212d';
 document.body.style.cssText =
   'height:100%;margin:0;overflow:hidden;display:grid;place-items:center;background:#19212d';
+const scenario = scenarioFromQuery(location.search);
+const synthetic = scenario?.synthetic === true;
 const seed = resolveSeed(),
   rng = createRng(seed),
   terrain = createTerrain(seed),
@@ -61,7 +73,13 @@ const propPlacements = placeProps({
   densities: worldData.props,
   bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
 });
-const grid = createTileGrid({ ...terrain, depthAt, propPlacements });
+const view = createCanvas();
+const grid = synthetic
+  ? buildArena(view.cols, view.rows)
+  : createTileGrid({ ...terrain, depthAt, propPlacements });
+const scenarioStart = synthetic
+  ? { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) }
+  : scenario?.start;
 const trackPlacements = placeTracks({
   rng: createRng(seed ^ 0x71ac),
   propPlacements,
@@ -73,12 +91,12 @@ const trackPlacements = placeTracks({
     return grid.isWalkable(tx, ty);
   },
 });
-const view = createCanvas(),
-  tiles = createTileRenderer(grid, trackPlacements),
+const tiles = createTileRenderer(grid, trackPlacements),
   debugConsole = createDebugConsole({ seed }),
   stats = createStatsPanel(debugConsole.available),
   toasts = createToastStack(),
-  hud = createHud(debugConsole.available, toasts.root),
+  hudActions: Parameters<typeof createHud>[2] = {},
+  hud = createHud(debugConsole.available, toasts.root, hudActions),
   notebook = createNotebook(),
   observer = createObserver({ notebook }),
   callAudio = createCallAudio();
@@ -91,8 +109,59 @@ const player = createPlayerController({
   canvas: view.canvas,
   cols: () => view.cols,
   rows: () => view.rows,
-  start: { x: -150, z: 50 },
+  start: scenarioStart ? tileToWorld(scenarioStart.tx, scenarioStart.ty) : { x: -150, z: 50 },
+  screenFlipping: scenario?.id !== 'arena',
 });
+const partySpecies = scenario?.party ?? ['loamox'];
+const owned = partySpecies.map((speciesId, index) => {
+  const definition = speciesById(speciesId)!;
+  const individual = roll(definition, rng, `${speciesId}-party-${index + 1}`);
+  if (index === 0 && speciesId === 'loamox') {
+    individual.temperament = 'Steady';
+    individual.stats = { vigor: 70, power: 3, speed: 4, focus: 40 };
+  }
+  const formation = [
+    { tx: 0, ty: 1 },
+    { tx: -1, ty: 1 },
+    { tx: 1, ty: 1 },
+  ][index]!;
+  const start = {
+    tx: Math.max(0, scenarioStart?.tx ?? 125) + formation.tx,
+    ty: (scenarioStart?.ty ?? 225) + formation.ty,
+  };
+  return {
+    individual,
+    name: index === 0 && speciesId === 'loamox' ? 'Barrow' : definition.name,
+    tile: start,
+    path: [],
+  };
+});
+let partyState = createParty(owned);
+const partyControllers = new Map(
+  partyState.party.map((member) => [
+    member.individual.id,
+    createPlayerController({
+      grid,
+      canvas: view.canvas,
+      cols: () => view.cols,
+      rows: () => view.rows,
+      start: tileToWorld(member.tile.tx, member.tile.ty),
+      screenFlipping: scenario?.id !== 'arena',
+    }),
+  ]),
+);
+const createPartyController = (member: (typeof partyState.party)[number]) =>
+  createPlayerController({
+    grid,
+    canvas: view.canvas,
+    cols: () => view.cols,
+    rows: () => view.rows,
+    start: tileToWorld(member.tile.tx, member.tile.ty),
+    screenFlipping: !synthetic,
+  });
+hudActions.selectCreature = (id) => {
+  partyState = selectCreature(partyState, id);
+};
 const registry = createCreatureRegistry(terrain.heightAt, () => player.world);
 const onScreen = (x: number, z: number, margin = 0): boolean => {
   const t = worldToTile(x, z),
@@ -145,8 +214,25 @@ const input = createInput(
   () => debugConsole.isOpen || guide?.isOpen || Boolean(player.sliding),
 );
 createControlsCard(debugConsole.available, () => debugConsole.isOpen);
-let elapsedSeconds = 0;
+let elapsedSeconds = scenario ? { Dawn: 0, Day: 180, Dusk: 360, Night: 540 }[scenario.phase] : 0;
+if (scenario) {
+  for (const spawn of scenario.spawns) {
+    const definition = speciesById(spawn.speciesId)!;
+    const individual = roll(definition, rng);
+    if (spawn.temperament) individual.temperament = spawn.temperament;
+    const at = tileToWorld(spawn.tx, spawn.ty);
+    const creature = registry.add(individual, at.x, at.z, 0);
+    seedCreature(creature.id);
+  }
+  const goal = document.createElement('section');
+  goal.textContent = scenario.goal;
+  goal.style.cssText =
+    'position:fixed;z-index:7;top:70px;left:50%;transform:translateX(-50%);box-sizing:border-box;width:min(420px,calc(100vw - 32px));padding:10px 14px;border:1px solid #777566;background:#f4efd9f5;color:#292b25;text-align:center;font:700 13px/18px ui-monospace,monospace;box-shadow:1px 2px 2px #0004';
+  document.body.append(goal);
+  window.setTimeout(() => goal.remove(), 6000);
+}
 let renderedPaletteKey = '';
+const visitedScreens = new Set<string>();
 type GameEvents = {
   phaseChanged: { phase: Phase; day: number };
   creatureCalled: { id: string; species: string; position: { x: number; y: number; z: number } };
@@ -255,6 +341,48 @@ debugConsole.registerCommand('spawn', {
     return `${creature.speciesId} ${creature.temperament} ${creature.id}`;
   },
 });
+debugConsole.registerCommand('party', {
+  help: 'party <add speciesId|remove id|list>',
+  run: ([action = '', id = '']) => {
+    if (action === 'list')
+      return (
+        partyState.party
+          .map(({ individual, name }) => `${individual.id} ${individual.speciesId} ${name}`)
+          .join('\n') || 'party empty'
+      );
+    if (action === 'add') {
+      if (partyState.party.length >= 3) return 'party full (maximum 3)';
+      const definition = speciesById(id);
+      if (!definition) return `unknown species: ${id}`;
+      const index = partyState.party.length;
+      const offset = [
+        { tx: 0, ty: 1 },
+        { tx: -1, ty: 1 },
+        { tx: 1, ty: 1 },
+      ][index]!;
+      const member = {
+        individual: roll(definition, rng),
+        name: definition.name,
+        tile: {
+          tx: Math.floor(player.tile.x) + offset.tx,
+          ty: Math.floor(player.tile.y) + offset.ty,
+        },
+        path: [],
+      };
+      partyState = addPartyMember(partyState, member);
+      partyControllers.set(member.individual.id, createPartyController(member));
+      return `party added: ${member.individual.id} ${member.individual.speciesId}`;
+    }
+    if (action === 'remove') {
+      if (!partyState.party.some(({ individual }) => individual.id === id))
+        return `unknown party member: ${id}`;
+      partyState = removePartyMember(partyState, id);
+      partyControllers.delete(id);
+      return `party removed: ${id}`;
+    }
+    return 'usage: party <add speciesId|remove id|list>';
+  },
+});
 debugConsole.registerCommand('creatures', {
   help: 'list live creatures',
   run: () =>
@@ -325,6 +453,31 @@ const render = () => {
       player.facing === 'left',
     );
   let drawCalls = calls;
+  for (const member of partyState.party) {
+    const controller = partyControllers.get(member.individual.id)!;
+    const tile = controller.tile;
+    if (Math.floor(tile.x / view.cols) !== screen.x || Math.floor(tile.y / view.rows) !== screen.y)
+      continue;
+    const definition = speciesById(member.individual.speciesId)!;
+    const tx = tile.x - screen.x * view.cols,
+      ty = tile.y - screen.y * view.rows;
+    if (partyState.selection === member.individual.id) {
+      view.context.strokeStyle = definition.palette.accent ?? '#bd7132';
+      view.context.lineWidth = 1;
+      view.context.beginPath();
+      view.context.ellipse(Math.round(tx * 16), Math.round(ty * 16 + 4), 7, 3, 0, 0, Math.PI * 2);
+      view.context.stroke();
+    }
+    drawCalls += drawCreatureSprite(
+      view.context,
+      member.individual.speciesId,
+      'down',
+      controller.moving ? 'walk0' : 'idle',
+      Math.round(tx * 16 - definition.tier * 4),
+      Math.round(ty * 16 - (definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32)),
+      false,
+    );
+  }
   for (const creature of registry.list()) {
     if (!onScreen(creature.position.x, creature.position.z, 1)) continue;
     const definition = speciesById(creature.speciesId)!;
@@ -368,16 +521,86 @@ const render = () => {
 const loop = createLoop({
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
-    for (const tap of input.taps()) player.tap(tap.clientX, tap.clientY);
+    for (const tap of input.taps()) {
+      const rect = view.canvas.getBoundingClientRect();
+      const tx =
+        player.screen.x * view.cols +
+        Math.floor(((tap.clientX - rect.left) * view.canvas.width) / rect.width / 16);
+      const ty =
+        player.screen.y * view.rows +
+        Math.floor(((tap.clientY - rect.top) * view.canvas.height) / rect.height / 16);
+      const partyHit = partyState.party.find(({ individual }) => {
+        const tile = partyControllers.get(individual.id)!.tile;
+        return Math.floor(tile.x) === tx && Math.floor(tile.y) === ty;
+      });
+      const wildHit = registry.list().find((creature) => {
+        const tile = worldToTile(creature.position.x, creature.position.z);
+        return tile.tx === tx && tile.ty === ty;
+      });
+      if (partyHit) partyState = selectCreature(partyState, partyHit.individual.id);
+      else if (Math.floor(player.tile.x) === tx && Math.floor(player.tile.y) === ty)
+        partyState = selectPlayer(partyState);
+      else if (wildHit)
+        partyState = targetWildCreature(partyState, {
+          id: wildHit.id,
+          speciesId: wildHit.speciesId,
+        });
+      else {
+        partyState = groundTapped(partyState);
+        if (partyState.selection === 'player') player.tap(tap.clientX, tap.clientY);
+        else partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
+      }
+    }
     player.update(dt);
+    if (partyState.selection === 'player') {
+      const offsets = [
+        { tx: 0, ty: 1 },
+        { tx: -1, ty: 1 },
+        { tx: 1, ty: 1 },
+      ];
+      partyState.party.forEach(({ individual }, index) => {
+        const follower = partyControllers.get(individual.id)!;
+        const wanted = {
+          tx: Math.floor(player.tile.x) + offsets[index]!.tx,
+          ty: Math.floor(player.tile.y) + offsets[index]!.ty,
+        };
+        if (
+          !follower.moving &&
+          Math.hypot(follower.tile.x - wanted.tx, follower.tile.y - wanted.ty) > 2
+        )
+          follower.moveTo(wanted);
+      });
+    }
+    for (const controller of partyControllers.values()) controller.update(dt);
+    if (partyState.selection !== 'player') {
+      const leader = partyControllers.get(partyState.selection);
+      if (leader && (leader.screen.x !== player.screen.x || leader.screen.y !== player.screen.y)) {
+        const destination = leader.world;
+        player.teleport(destination.x, destination.z);
+        partyState.party.forEach(({ individual }, index) => {
+          if (individual.id === partyState.selection) return;
+          const offset = [
+            { x: 0, z: 2 },
+            { x: -2, z: 2 },
+            { x: 2, z: 2 },
+          ][index]!;
+          partyControllers
+            .get(individual.id)!
+            .teleport(destination.x + offset.x, destination.z + offset.z);
+        });
+      }
+    }
     const world = player.world,
-      region = pointToRegion(world.x, world.z),
+      region = synthetic ? null : pointToRegion(world.x, world.z),
       clock = timeAt(elapsedSeconds);
-    const spawned = spawnSystem.update(dt, clock.phase, {
-      x: world.x,
-      y: terrain.heightAt(world.x, world.z),
-      z: world.z,
-    });
+    visitedScreens.add(`${player.screen.x},${player.screen.y}`);
+    const spawned = scenario
+      ? { spawned: [] as string[], despawned: [] as string[] }
+      : spawnSystem.update(dt, clock.phase, {
+          x: world.x,
+          y: terrain.heightAt(world.x, world.z),
+          z: world.z,
+        });
     for (const id of spawned.spawned) seedCreature(id);
     for (const id of spawned.despawned) {
       wanderStates.delete(id);
@@ -491,8 +714,12 @@ const loop = createLoop({
     hud.update({
       ...clock,
       regionName: region?.name ?? null,
-      biome: terrain.biomeAt(world.x, world.z),
-      target: null,
+      biome: synthetic ? null : terrain.biomeAt(world.x, world.z),
+      target: partyState.target
+        ? { detection: aiStates.get(partyState.target.id)?.meter ?? 0.001 }
+        : null,
+      party: partyState.party,
+      selection: partyState.selection,
     });
     input.endFrame();
   },
@@ -502,11 +729,21 @@ guide = createGuideBook({
   notebook,
   debugOpen: () => debugConsole.isOpen,
   map: {
-    sampler: { biomeAt: terrain.biomeAt, waterAt: depthAt, heightAt: terrain.heightAt },
+    sampler: {
+      biomeAt: (x, z) => grid.tileAt(worldToTile(x, z).tx, worldToTile(x, z).ty).biome,
+      waterAt: (x, z) =>
+        grid.tileAt(worldToTile(x, z).tx, worldToTile(x, z).ty).surface === 'water' ? 1 : 0,
+      heightAt: terrain.heightAt,
+    },
     player: () => ({ ...player.world, heading: 0 }),
+    screen: () => ({ ...player.screen, cols: view.cols, rows: view.rows }),
+    visitedScreens: () => [...visitedScreens],
   },
   onOpenChange: (open) => (open ? loop.stop() : loop.start()),
 });
+hudActions.openBook = () => guide.open('index');
+hudActions.openMap = () => guide.open('map');
+hudActions.openConsole = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: '`' }));
 window.__wyld = {
   getState: () => {
     const world = player.world,
@@ -518,8 +755,8 @@ window.__wyld = {
       screen: player.screen,
       tile: player.tile,
       seed,
-      region: pointToRegion(world.x, world.z)?.id ?? null,
-      biome: terrain.biomeAt(world.x, world.z),
+      region: synthetic ? null : (pointToRegion(world.x, world.z)?.id ?? null),
+      biome: synthetic ? null : terrain.biomeAt(world.x, world.z),
       ...clock,
       waterDepth: depthAt(world.x, world.z),
       creatures: registry.list().map((c) => {
@@ -537,6 +774,17 @@ window.__wyld = {
           behaviour: ai?.behaviour ?? 'wander',
         };
       }),
+      party: partyState.party.map(({ individual, name }) => {
+        const tile = partyControllers.get(individual.id)!.tile;
+        return {
+          id: individual.id,
+          speciesId: individual.speciesId,
+          name,
+          tile: { x: tile.x, y: tile.y },
+        };
+      }),
+      selection: partyState.selection,
+      target: partyState.target,
       observe: { identifying: observer.identifying() },
       guide: {
         open: guide.isOpen,

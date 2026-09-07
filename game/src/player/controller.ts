@@ -9,6 +9,7 @@ type ControllerOptions = {
   cols(): number;
   rows(): number;
   start?: { x: number; z: number };
+  screenFlipping?: boolean;
 };
 type TilePoint = { tx: number; ty: number };
 type Screen = { sx: number; sy: number };
@@ -100,6 +101,17 @@ const createPlayerController = (o: ControllerOptions) => {
     );
     if (found) path = found;
   };
+  const moveTo = (target: TilePoint): void => {
+    const found = pathForTap(
+      o.grid,
+      { tx: Math.floor(tx), ty: Math.floor(ty) },
+      target,
+      screen,
+      o.cols(),
+      o.rows(),
+    );
+    if (found) path = found;
+  };
   const update = (dt: number) => {
     const resizedScreen = screenOf(Math.floor(tx), Math.floor(ty), o.cols(), o.rows());
     if (!slide && (resizedScreen.sx !== screen.sx || resizedScreen.sy !== screen.sy))
@@ -126,7 +138,7 @@ const createPlayerController = (o: ControllerOptions) => {
       ty = gy;
       path = path.slice(1);
       const next = crossedScreen(target.tx, target.ty, screen, o.cols(), o.rows());
-      if (next.sx !== screen.sx || next.sy !== screen.sy)
+      if (o.screenFlipping !== false && (next.sx !== screen.sx || next.sy !== screen.sy))
         slide = { from: screen, to: next, progress: 0 };
     } else {
       tx += (dx / d) * step;
@@ -135,6 +147,7 @@ const createPlayerController = (o: ControllerOptions) => {
   };
   return {
     tap,
+    moveTo,
     update,
     teleport(x: number, z: number) {
       const requested = worldToTile(x, z);

@@ -6,7 +6,7 @@ type WyldGameState = {
   tile: { x: number; y: number };
   seed: number;
   region: string | null;
-  biome: 'forest' | 'desert' | 'archipelago' | 'volcano';
+  biome: 'forest' | 'desert' | 'archipelago' | 'volcano' | null;
   phase: 'Dawn' | 'Day' | 'Dusk' | 'Night';
   day: number;
   phaseProgress: number;
@@ -22,6 +22,9 @@ type WyldGameState = {
     detection: number;
     behaviour: 'wander' | 'flee' | 'aggro' | 'hold';
   }[];
+  party: { id: string; speciesId: string; name: string; tile: { x: number; y: number } }[];
+  selection: string;
+  target: { id: string; speciesId: string } | null;
   guide: {
     open: boolean;
     tab: string;

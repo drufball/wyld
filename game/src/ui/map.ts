@@ -13,6 +13,8 @@ type MapViewOptions = {
   sampler: WorldSampler;
   player?: () => { x: number; z: number; heading: number };
   selectedSpecies?: () => string | null;
+  screen?: () => { x: number; y: number; cols: number; rows: number };
+  visitedScreens?: () => readonly string[];
 };
 
 const SIZE = 200;
@@ -24,6 +26,8 @@ const createMapView = ({
   sampler,
   player = () => ({ x: 0, z: 0, heading: 0 }),
   selectedSpecies = () => null,
+  screen,
+  visitedScreens = () => [],
 }: MapViewOptions) => {
   const canvas = document.createElement('canvas');
   canvas.width = SIZE * DISPLAY_SCALE;
@@ -83,6 +87,45 @@ const createMapView = ({
         );
       }
     context.shadowBlur = 0;
+    // Crater Rim is a known landmark even before nearby fog is lifted.
+    const craterRim = regions().find(({ id }) => id === 'crater-rim');
+    if (craterRim) {
+      context.fillStyle = '#463d3ccc';
+      context.beginPath();
+      context.ellipse(
+        pixel(craterRim.x),
+        pixel(craterRim.z),
+        craterRim.radius / 3,
+        craterRim.radius / 5,
+        -0.2,
+        0,
+        Math.PI * 2,
+      );
+      context.fill();
+    }
+    const currentScreen = screen?.();
+    if (currentScreen) {
+      const width = currentScreen.cols / 2;
+      const height = currentScreen.rows / 2;
+      context.fillStyle = '#292b2526';
+      for (const key of visitedScreens()) {
+        const [sx, sy] = key.split(',').map(Number);
+        context.fillRect(
+          (sx! * currentScreen.cols) / 2,
+          (sy! * currentScreen.rows) / 2,
+          width,
+          height,
+        );
+      }
+      context.strokeStyle = '#292b25';
+      context.lineWidth = 1;
+      context.strokeRect(
+        (currentScreen.x * currentScreen.cols) / 2,
+        (currentScreen.y * currentScreen.rows) / 2,
+        width,
+        height,
+      );
+    }
     const selected = speciesById(selectedSpecies() ?? '');
     if (selected) {
       context.strokeStyle = selected.palette.primary;
