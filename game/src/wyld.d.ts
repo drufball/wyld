@@ -1,10 +1,10 @@
 type WyldGameState = {
   version: string;
   elapsedSeconds: number;
-  camera: { x: number; y: number; z: number };
   player: { x: number; y: number; z: number };
+  screen: { x: number; y: number };
+  tile: { x: number; y: number };
   seed: number;
-  stance: 'walk' | 'sprint' | 'crouch';
   region: string | null;
   biome: 'forest' | 'desert' | 'archipelago' | 'volcano';
   phase: 'Dawn' | 'Day' | 'Dusk' | 'Night';
@@ -43,7 +43,7 @@ interface WyldGameApi {
   getState(): WyldGameState;
   screenshot(): string;
   debug(command: string): string;
-  perf(): { fps: number; triangles: number; drawCalls: number };
+  perf(): { fps: number; tileMs: number; drawCalls: number };
   log(): { kind: string; ts: number; payload: unknown }[];
 }
 

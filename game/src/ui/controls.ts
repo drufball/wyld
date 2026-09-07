@@ -2,13 +2,11 @@ type ControlRow = readonly [key: string, description: string];
 
 const buildControlRows = (debugAvailable: boolean): ControlRow[] => {
   const rows: ControlRow[] = [
-    ['W A S D', 'move'],
-    ['Shift', 'run'],
-    ['C', 'crouch'],
-    ['Mouse', 'look · click to look around'],
+    ['Tap the ground', 'walk'],
+    ['Walk to an edge', 'next screen'],
     ['G', 'field guide'],
     ['M', 'map'],
-    ['Esc', 'close / release the mouse'],
+    ['?', 'this card'],
   ];
   if (debugAvailable) rows.push(['`', 'console']);
   return rows;

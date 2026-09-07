@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
-import type * as THREE from 'three';
-
 import { speciesById } from '../creatures/species.js';
 import { createEmptyNotebook, type Notebook } from '../guide/notebook.js';
 import { BLANK, buildFragments, buildIndex, buildSpeciesPage, createGuideBook } from './guide.js';
@@ -123,7 +121,7 @@ describe('field guide view model', () => {
     const notebook = createEmptyNotebook();
     notebook.recordTracks('glasswing', { region: 'hollow', day: 1 });
     identify(notebook, 'glasswing');
-    const book = createGuideBook({ notebook, renderer: {} as THREE.WebGLRenderer, map });
+    const book = createGuideBook({ notebook, map });
     book.open();
     [...document.querySelectorAll('button')]
       .find((item) => item.textContent?.includes('Glasswing'))

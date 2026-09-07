@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 import { createNoise2D, fbm } from '../engine/noise.js';
 import { createRng } from '../engine/rng.js';
 import type { Biome } from './regions.js';
@@ -7,13 +5,10 @@ import type { Biome } from './regions.js';
 const WORLD_SIZE = 800;
 const WORLD_HALF = WORLD_SIZE / 2;
 const HEIGHTMAP_SIZE = 256;
-const CHUNKS_PER_SIDE = 8;
-const CELLS_PER_CHUNK = 32;
 
 type BiomeWeights = Record<Biome, number>;
 type HeightField = (x: number, z: number) => number;
 type Terrain = {
-  group: THREE.Group;
   heightmap: Float32Array;
   heightAt(x: number, z: number): number;
   slopeAt(x: number, z: number): number;
@@ -21,7 +16,8 @@ type Terrain = {
   biomeWeightsAt(x: number, z: number): BiomeWeights;
 };
 
-const clamp01 = (value: number): number => THREE.MathUtils.clamp(value, 0, 1);
+const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
+const lerp = (from: number, to: number, amount: number): number => from + (to - from) * amount;
 const smoothstep = (edge0: number, edge1: number, value: number): number => {
   const amount = clamp01((value - edge0) / (edge1 - edge0));
   return amount * amount * (3 - 2 * amount);
@@ -32,7 +28,7 @@ const gaussian = (x: number, z: number, cx: number, cz: number, radius: number):
 const sampleSlope = (heightField: HeightField, x: number, z: number, step = 1): number => {
   const dx = (heightField(x + step, z) - heightField(x - step, z)) / (2 * step);
   const dz = (heightField(x, z + step) - heightField(x, z - step)) / (2 * step);
-  return THREE.MathUtils.radToDeg(Math.atan(Math.hypot(dx, dz)));
+  return (Math.atan(Math.hypot(dx, dz)) * 180) / Math.PI;
 };
 const isSlopeStandable = (slopeDegrees: number): boolean => slopeDegrees <= 45;
 
@@ -67,7 +63,7 @@ const createTerrain = (seed: number): Terrain => {
     const dunes = 12 + fbm(x / 52, z / 52, 4, 2.1, 0.48, noise) * 10;
     const salt = gaussian(x, z, 300, -60, 70);
     const mesaShape = smoothstep(1, 0.72, Math.hypot((x - 250) / 78, (z + 180) / 60));
-    return THREE.MathUtils.lerp(dunes, 3.5, salt) + mesaShape * 20;
+    return lerp(dunes, 3.5, salt) + mesaShape * 20;
   };
   const archipelagoHeight = (x: number, z: number): number => {
     const islands: ReadonlyArray<readonly [number, number, number, number]> = [
@@ -126,17 +122,17 @@ const createTerrain = (seed: number): Terrain => {
     const z1 = Math.min(z0 + 1, HEIGHTMAP_SIZE - 1);
     const tx = mapX - x0;
     const tz = mapZ - z0;
-    const north = THREE.MathUtils.lerp(
+    const north = lerp(
       values[z0 * HEIGHTMAP_SIZE + x0] ?? 0,
       values[z0 * HEIGHTMAP_SIZE + x1] ?? 0,
       tx,
     );
-    const south = THREE.MathUtils.lerp(
+    const south = lerp(
       values[z1 * HEIGHTMAP_SIZE + x0] ?? 0,
       values[z1 * HEIGHTMAP_SIZE + x1] ?? 0,
       tx,
     );
-    return THREE.MathUtils.lerp(north, south, tz);
+    return lerp(north, south, tz);
   };
   const heightAt = (x: number, z: number): number => interpolate(heightmap, x, z);
   const biomeWeightsAt = (x: number, z: number): BiomeWeights => ({
@@ -153,57 +149,8 @@ const createTerrain = (seed: number): Terrain => {
   };
   const slopeAt = (x: number, z: number): number => sampleSlope(heightAt, x, z);
 
-  const colours: Record<Biome, THREE.Color> = {
-    forest: new THREE.Color(0x477044),
-    desert: new THREE.Color(0xc98b3d),
-    archipelago: new THREE.Color(0xd6c990),
-    volcano: new THREE.Color(0x302d2d),
-  };
-  const group = new THREE.Group();
-  group.name = 'terrain';
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-  const colour = new THREE.Color();
-  for (let chunkZ = 0; chunkZ < CHUNKS_PER_SIDE; chunkZ += 1) {
-    for (let chunkX = 0; chunkX < CHUNKS_PER_SIDE; chunkX += 1) {
-      const geometry = new THREE.PlaneGeometry(100, 100, CELLS_PER_CHUNK, CELLS_PER_CHUNK);
-      geometry.rotateX(-Math.PI / 2);
-      geometry.translate(-350 + chunkX * 100, 0, -350 + chunkZ * 100);
-      const positions = geometry.getAttribute('position');
-      const vertexColours = new Float32Array(positions.count * 3);
-      for (let vertex = 0; vertex < positions.count; vertex += 1) {
-        const x = positions.getX(vertex);
-        const z = positions.getZ(vertex);
-        positions.setY(vertex, heightAt(x, z));
-        const weights = biomeWeightsAt(x, z);
-        colour.setRGB(0, 0, 0);
-        for (const biome of Object.keys(weights) as Biome[]) {
-          const tint = colours[biome];
-          colour.r += tint.r * weights[biome];
-          colour.g += tint.g * weights[biome];
-          colour.b += tint.b * weights[biome];
-        }
-        vertexColours[vertex * 3] = colour.r;
-        vertexColours[vertex * 3 + 1] = colour.g;
-        vertexColours[vertex * 3 + 2] = colour.b;
-      }
-      geometry.setAttribute('color', new THREE.BufferAttribute(vertexColours, 3));
-      geometry.computeVertexNormals();
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.frustumCulled = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
-    }
-  }
-  return { group, heightmap, heightAt, slopeAt, biomeAt, biomeWeightsAt };
+  return { heightmap, heightAt, slopeAt, biomeAt, biomeWeightsAt };
 };
 
-export {
-  CHUNKS_PER_SIDE,
-  HEIGHTMAP_SIZE,
-  WORLD_HALF,
-  WORLD_SIZE,
-  createTerrain,
-  isSlopeStandable,
-  sampleSlope,
-};
+export { HEIGHTMAP_SIZE, WORLD_HALF, WORLD_SIZE, createTerrain, isSlopeStandable, sampleSlope };
 export type { Biome, BiomeWeights, HeightField, Terrain };

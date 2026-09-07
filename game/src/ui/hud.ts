@@ -23,9 +23,11 @@ const updateDetectionTarget = (
 const createHud = (showRegion: boolean, toastRoot: HTMLElement) => {
   const root = document.createElement('aside');
   root.setAttribute('aria-live', 'polite');
+  root.setAttribute('aria-label', 'Time and place');
   root.style.cssText =
     'position:fixed;z-index:4;top:16px;left:16px;width:190px;padding:13px 15px;color:#292b25;border:1px solid #777566;background:repeating-linear-gradient(0deg,#f4efd9ee 0,#f4efd9ee 21px,#cbc4a777 22px),linear-gradient(105deg,#fff9df,#e8dfc5);box-shadow:1px 2px 2px #0005;font:13px/22px ui-monospace,monospace;pointer-events:none';
   const heading = document.createElement('div');
+  heading.setAttribute('data-hud-heading', '');
   heading.style.cssText = 'display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700';
   const phase = document.createElement('span');
   const arc = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -42,6 +44,10 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement) => {
   root.append(heading, day);
   if (showRegion) root.append(region);
   document.body.append(root);
+  const responsive = document.createElement('style');
+  responsive.textContent =
+    '@media(max-width:479px){[aria-label="Time and place"]{top:8px!important;left:8px!important;width:134px!important;padding:7px 9px!important;font-size:10px!important;line-height:16px!important}[data-hud-heading]{gap:6px!important;font-size:13px!important}[data-hud-heading] svg{width:32px;height:18px}[aria-label="Time and place"] div:nth-child(3){margin-top:3px!important;font-size:9px!important}}';
+  document.head.append(responsive);
   const controlsHint = document.createElement('div');
   controlsHint.textContent = '? — controls';
   controlsHint.style.cssText =
