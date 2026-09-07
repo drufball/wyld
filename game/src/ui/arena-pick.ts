@@ -56,7 +56,6 @@ const createArenaPick = (
   };
   const render = () => {
     root.replaceChildren();
-    root.scrollTop = 0;
     const wrap = document.createElement('section');
     wrap.style.cssText = 'max-width:960px;margin:auto';
     const h = document.createElement('h1');
@@ -137,6 +136,9 @@ const createArenaPick = (
       wrap.append(footer);
     }
     root.append(wrap);
+    // Reset after replacing the focused card so the browser cannot restore the
+    // removed button's scroll position and clip the next screen's heading.
+    root.scrollTop = 0;
   };
   const dispose = () => {
     window.removeEventListener('keydown', key);
