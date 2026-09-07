@@ -1033,3 +1033,9 @@ The Pak's SQLite (`.factory/pak.sqlite`) is seeded with the real plan, via the A
 - Units 1–2 merged (#211 notebook, one typecheck fix round; #213 tracks/observe/toasts, one fix round). Unit 3 (the book, #214) with Codex. Each unit ≈ 25–45 min end to end; Codex ~10–17 min/round this hour.
 - Lead's review of #213 caught: a vacuous `every([])` test hiding zero Pyreclaw decals (Crater Rim has no cover props → chord fallback); aggro faking `creatureCalled` into the verified event stream (now `onCreatureAggro`, 25 m gate, both aggro paths); **one Mesh per decal doubled draw calls** (Hollow Camp 37→78) → instanced. Rule for M3: projectiles/decals must be instanced or pooled; leads measure draw calls at the three camps against `main`.
 - M2 explainer drafted at `/tmp/wyld-leads/artifacts/explainer-fw-m2.html` (interactive stub→merge, hint rules, Index, fog) and listed in `publish.mjs`; smoke-tested headless, no errors. Publish + roadmap v8 (M2 landed / M3 now) when the quest reaches `demo`.
+
+## Open: controls decision gates M3 (2026-09-07 16:50)
+
+- Dru's feedback on Creatures exist: tap-to-move (mobile), same tap directs creatures ("toggle between them and tap"; creature picks its own path). Rumble `controls-tap-to-move` (taste) raised, blocking `fw-m3-combat`; replied on the quest card.
+- **Do not spawn the M3 lead until it's chosen.** If option 1/2: a `controls-tap-to-move` quest (~2 units: ground tap/drag + pathing that respects water/slope + drag-orbit camera + crouch/sprint toggles + tap-to-target; touch HUD incl. a console button) runs **before** M3, and the M3 brief's key bindings (1/2/3, Tab, hold-E) become taps/holds. Option 3: spawn M3 as briefed.
+- Try-it steps for M0/M1 are keyboard-written; rewrite when the controls change.
