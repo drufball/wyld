@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveEventsProvider } from '../live/LiveEvents.js';
@@ -47,17 +47,30 @@ function renderRoute(path: string, roadmap = false) {
 }
 
 function publish(slug: string) {
-  liveListener?.(
-    new MessageEvent('event', {
-      data: JSON.stringify({
-        id: 1,
-        ts: '2026-09-07T10:00:00.000Z',
-        source: 'planner',
-        kind: 'planner.artifact_published',
-        payload: { slug, title: 'Updated', questId: null, version: 4 },
+  act(() => {
+    liveListener?.(
+      new MessageEvent('event', {
+        data: JSON.stringify({
+          id: 1,
+          ts: '2026-09-07T10:00:00.000Z',
+          source: 'planner',
+          kind: 'planner.artifact_published',
+          payload: { slug, title: 'Updated', questId: null, version: 4 },
+        }),
       }),
-    }),
-  );
+    );
+  });
+}
+
+async function fromFrame(
+  contentWindow: Window,
+  data: Record<string, unknown>,
+  consumed: () => void,
+) {
+  await waitFor(() => {
+    window.dispatchEvent(new MessageEvent('message', { source: contentWindow, data }));
+    consumed();
+  });
 }
 
 afterEach(() => {
@@ -170,14 +183,13 @@ describe('Explain', () => {
     fireEvent.click(button);
     expect(postMessage).not.toHaveBeenCalled();
 
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { type: 'wyld:pin:ready' },
-        source: contentWindow,
-      }),
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
+      expect(button.hasAttribute('aria-disabled')).toBe(false),
     );
-    await waitFor(() => expect(button.hasAttribute('aria-disabled')).toBe(false));
     expect(button.getAttribute('title')).toBe('Pin a comment');
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenLastCalledWith({ type: 'wyld:pin:locate', elements: [] }, '*'),
+    );
 
     fireEvent.click(button);
     expect(button.getAttribute('aria-pressed')).toBe('true');
@@ -210,19 +222,17 @@ describe('Explain', () => {
     const postMessage = vi.fn();
     const contentWindow = { postMessage } as unknown as Window;
     Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        source: contentWindow,
-        data: {
-          type: 'wyld:pin:pick',
-          element: 'hero',
-          label: 'Hero title',
-          rect: { x: 10, y: 20, w: 30, h: 40 },
-        },
-      }),
+    await fromFrame(
+      contentWindow,
+      {
+        type: 'wyld:pin:pick',
+        element: 'hero',
+        label: 'Hero title',
+        rect: { x: 10, y: 20, w: 30, h: 40 },
+      },
+      () => expect(screen.queryByText('Pinned to: Hero title')).not.toBeNull(),
     );
 
-    expect(await screen.findByText('Pinned to: Hero title')).not.toBeNull();
     const field = screen.getByRole('textbox');
     fireEvent.change(field, { target: { value: 'Why this hero?' } });
     fireEvent.keyDown(field, { key: 'Enter' });
@@ -244,18 +254,17 @@ describe('Explain', () => {
     const postMessage = vi.fn();
     const contentWindow = { postMessage } as unknown as Window;
     Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        source: contentWindow,
-        data: {
-          type: 'wyld:pin:pick',
-          element: 'hero',
-          label: 'Hero title',
-          rect: { x: 10, y: 20, w: 30, h: 40 },
-        },
-      }),
+    await fromFrame(
+      contentWindow,
+      {
+        type: 'wyld:pin:pick',
+        element: 'hero',
+        label: 'Hero title',
+        rect: { x: 10, y: 20, w: 30, h: 40 },
+      },
+      () => expect(screen.queryByRole('dialog')).not.toBeNull(),
     );
-    expect(await screen.findByRole('dialog')).not.toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')));
 
     fireEvent.keyDown(document, { key: 'Escape' });
 
@@ -302,30 +311,26 @@ describe('Explain', () => {
       left: 0,
       toJSON: () => ({}),
     });
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        source: contentWindow,
-        data: { type: 'wyld:pin:ready' },
-      }),
-    );
-    await waitFor(() =>
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
       expect(
         screen.getByRole('button', { name: 'Pin a comment' }).hasAttribute('aria-disabled'),
       ).toBe(false),
     );
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        source: contentWindow,
-        data: {
-          type: 'wyld:pin:rects',
-          rects: {
-            hero: { x: 100, y: 20, w: 30, h: 40 },
-          },
+    await fromFrame(
+      contentWindow,
+      {
+        type: 'wyld:pin:rects',
+        rects: {
+          hero: { x: 100, y: 20, w: 30, h: 40 },
         },
-      }),
+      },
+      () =>
+        expect(
+          screen.queryByRole('button', { name: 'Pinned comment 1: Hero title' }),
+        ).not.toBeNull(),
     );
 
-    const first = await screen.findByRole('button', { name: 'Pinned comment 1: Hero title' });
+    const first = screen.getByRole('button', { name: 'Pinned comment 1: Hero title' });
     const second = screen.getByRole('button', { name: 'Pinned comment 2: Details' });
     expect(first.style.left).toBe('130px');
     expect(first.style.top).toBe('20px');

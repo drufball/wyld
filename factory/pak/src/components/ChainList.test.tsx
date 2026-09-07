@@ -221,17 +221,19 @@ describe('ChainList', () => {
     await screen.findByText('Why?');
     expect(container.querySelectorAll('.chain-card')).toHaveLength(1);
 
-    receive?.(
-      new MessageEvent('event', {
-        data: JSON.stringify({
-          id: 9,
-          ts: timestamp,
-          source: 'planner',
-          kind: 'planner.chain_updated',
-          payload: { chainId: 2 },
+    act(() => {
+      receive?.(
+        new MessageEvent('event', {
+          data: JSON.stringify({
+            id: 9,
+            ts: timestamp,
+            source: 'planner',
+            kind: 'planner.chain_updated',
+            payload: { chainId: 2 },
+          }),
         }),
-      }),
-    );
+      );
+    });
 
     await waitFor(() => expect(chainRequests).toBe(2));
     expect(container.querySelectorAll('.chain-card')).toHaveLength(1);
@@ -261,17 +263,19 @@ describe('ChainList', () => {
     );
     await waitFor(() => expect(chainRequests).toBe(1));
 
-    receive?.(
-      new MessageEvent('event', {
-        data: JSON.stringify({
-          id: 10,
-          ts: timestamp,
-          source: 'planner',
-          kind: 'planner.chain_updated',
-          payload: { chainId: 1 },
+    act(() => {
+      receive?.(
+        new MessageEvent('event', {
+          data: JSON.stringify({
+            id: 10,
+            ts: timestamp,
+            source: 'planner',
+            kind: 'planner.chain_updated',
+            payload: { chainId: 1 },
+          }),
         }),
-      }),
-    );
+      );
+    });
 
     expect(await screen.findByText('Why?')).not.toBeNull();
   });
