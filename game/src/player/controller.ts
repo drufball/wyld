@@ -1,6 +1,6 @@
 import { canvasPixelToTile, crossedScreen, screenOf } from '../render2d/canvas.js';
 import { findPath } from './pathing.js';
-import { tileToWorld, worldToTile } from '../world/tiles.js';
+import { TILES_PER_SIDE, tileToWorld, worldToTile } from '../world/tiles.js';
 import type { TileGrid } from '../world/tiles.js';
 type Facing = 'down' | 'up' | 'left' | 'right';
 type ControllerOptions = {
@@ -29,19 +29,26 @@ const createPlayerController = (o: ControllerOptions) => {
       py = ((clientY - rect.top) * o.canvas.height) / rect.height,
       target = canvasPixelToTile(px, py, screen.sx, screen.sy, o.cols(), o.rows());
     if (!o.grid.isWalkable(target.tx, target.ty)) return;
-    const found = findPath(o.grid, { tx: Math.floor(tx), ty: Math.floor(ty) }, target);
-    if (!found) return;
     const localX = target.tx - screen.sx * o.cols();
     const localY = target.ty - screen.sy * o.rows();
     const dx = localX === 0 ? -1 : localX === o.cols() - 1 ? 1 : 0;
     const dy = localY === 0 ? -1 : localY === o.rows() - 1 ? 1 : 0;
     const across = { tx: target.tx + dx, ty: target.ty + dy };
-    path =
-      (dx !== 0 || dy !== 0) && o.grid.isWalkable(across.tx, across.ty)
-        ? [...found, across]
-        : found;
+    const crossesOneEdge = Number(dx !== 0) + Number(dy !== 0) === 1;
+    const destination = crossesOneEdge && o.grid.isWalkable(across.tx, across.ty) ? across : target;
+    const found = findPath(o.grid, { tx: Math.floor(tx), ty: Math.floor(ty) }, destination, {
+      minTx: screen.sx * o.cols(),
+      maxTx: (screen.sx + 1) * o.cols() - 1,
+      minTy: screen.sy * o.rows(),
+      maxTy: (screen.sy + 1) * o.rows() - 1,
+      across: destination === across ? across : undefined,
+    });
+    if (found) path = found;
   };
   const update = (dt: number) => {
+    const resizedScreen = screenOf(Math.floor(tx), Math.floor(ty), o.cols(), o.rows());
+    if (!slide && (resizedScreen.sx !== screen.sx || resizedScreen.sy !== screen.sy))
+      screen = resizedScreen;
     if (slide) {
       slide.progress += dt / 0.25;
       if (slide.progress >= 1) {
@@ -75,12 +82,44 @@ const createPlayerController = (o: ControllerOptions) => {
     tap,
     update,
     teleport(x: number, z: number) {
-      const p = worldToTile(x, z);
+      const requested = worldToTile(x, z);
+      let p = requested;
+      if (!o.grid.isWalkable(p.tx, p.ty)) {
+        const queue = [p],
+          seen = new Set([`${p.tx},${p.ty}`]);
+        while (queue.length) {
+          const candidate = queue.shift()!;
+          if (o.grid.isWalkable(candidate.tx, candidate.ty)) {
+            p = candidate;
+            break;
+          }
+          for (const [dx, dy] of [
+            [0, -1],
+            [-1, 0],
+            [1, 0],
+            [0, 1],
+          ] as const) {
+            const next = { tx: candidate.tx + dx, ty: candidate.ty + dy },
+              key = `${next.tx},${next.ty}`;
+            if (
+              !seen.has(key) &&
+              next.tx >= 0 &&
+              next.ty >= 0 &&
+              next.tx < TILES_PER_SIDE &&
+              next.ty < TILES_PER_SIDE
+            ) {
+              seen.add(key);
+              queue.push(next);
+            }
+          }
+        }
+      }
       tx = p.tx + 0.5;
       ty = p.ty + 0.5;
       path = [];
       slide = null;
       screen = screenOf(p.tx, p.ty, o.cols(), o.rows());
+      return tileToWorld(p.tx, p.ty);
     },
     get tile() {
       return { x: tx, y: ty };

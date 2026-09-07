@@ -1,6 +1,12 @@
 type Point = { tx: number; ty: number };
 type PathGrid = { isWalkable(tx: number, ty: number): boolean };
-const findPath = (grid: PathGrid, from: Point, to: Point): readonly Point[] | null => {
+type PathBounds = { minTx: number; maxTx: number; minTy: number; maxTy: number; across?: Point };
+const findPath = (
+  grid: PathGrid,
+  from: Point,
+  to: Point,
+  bounds?: PathBounds,
+): readonly Point[] | null => {
   if (!grid.isWalkable(to.tx, to.ty)) return null;
   const key = (p: Point) => `${p.tx},${p.ty}`;
   const start = { tx: Math.floor(from.tx), ty: Math.floor(from.ty) };
@@ -39,7 +45,14 @@ const findPath = (grid: PathGrid, from: Point, to: Point): readonly Point[] | nu
     ] as const) {
       const n = { tx: current.tx + dx, ty: current.ty + dy },
         nk = key(n);
-      if (!grid.isWalkable(n.tx, n.ty) || closed.has(nk)) continue;
+      const inBounds =
+        !bounds ||
+        (n.tx >= bounds.minTx &&
+          n.tx <= bounds.maxTx &&
+          n.ty >= bounds.minTy &&
+          n.ty <= bounds.maxTy) ||
+        (n.tx === bounds.across?.tx && n.ty === bounds.across.ty);
+      if (!inBounds || !grid.isWalkable(n.tx, n.ty) || closed.has(nk)) continue;
       const ng = g.get(ck)! + 1;
       if (ng < (g.get(nk) ?? Infinity)) {
         came.set(nk, current);
@@ -51,4 +64,4 @@ const findPath = (grid: PathGrid, from: Point, to: Point): readonly Point[] | nu
   return null;
 };
 export { findPath };
-export type { PathGrid, Point };
+export type { PathBounds, PathGrid, Point };

@@ -5,7 +5,18 @@ import type { PropPlacement } from './props.js';
 const TILE_METRES = 2;
 const TILES_PER_SIDE = 400;
 type TileClass = 'walkable' | 'water' | 'cliff' | 'cover' | 'hazard';
-type Surface = 'grass' | 'fern' | 'water' | 'sand' | 'salt' | 'rock' | 'ash' | 'vent' | 'path';
+type Surface =
+  | 'grass'
+  | 'fern'
+  | 'water'
+  | 'sand'
+  | 'salt'
+  | 'tree'
+  | 'rock'
+  | 'cliff'
+  | 'ash'
+  | 'vent'
+  | 'path';
 type Tile = { class: TileClass; surface: Surface; biome: Biome };
 type TileGridOptions = {
   heightAt(x: number, z: number): number;
@@ -28,7 +39,9 @@ const surfaces: readonly Surface[] = [
   'water',
   'sand',
   'salt',
+  'tree',
   'rock',
+  'cliff',
   'ash',
   'vent',
   'path',
@@ -83,6 +96,10 @@ const createTileGrid = (options: TileGridOptions): TileGrid => {
       let surface: Surface;
       if (tileClass === 'water') surface = 'water';
       else if (tileClass === 'hazard') surface = 'vent';
+      else if (tileClass === 'cliff') surface = 'cliff';
+      else if (tileClass === 'cover' && (kinds?.has('conifer') || kinds?.has('broadleaf')))
+        surface = 'tree';
+      else if (tileClass === 'cover') surface = 'rock';
       else if (
         tileClass === 'walkable' &&
         camps().some((camp) => Math.hypot(x - camp.x, z - camp.z) <= 3 * TILE_METRES)
@@ -114,8 +131,9 @@ const createTileGrid = (options: TileGridOptions): TileGrid => {
     isWalkable: (tx, ty) => ['walkable', 'hazard'].includes(tileAt(tx, ty).class),
     blocksSight: (tx, ty) => ['cover', 'cliff'].includes(tileAt(tx, ty).class),
     regionAt: (tx, ty) => {
+      if (outside(tx, ty)) return null;
       const p = tileToWorld(tx, ty);
-      return outside(tx, ty) ? null : pointToRegion(p.x, p.z);
+      return pointToRegion(p.x, p.z);
     },
   };
 };

@@ -32,6 +32,6 @@
 
 ## FIELDWORK in 2D — unit 1 (the tile world)
 
-The tile-grid, deterministic pathfinding, phase palettes, viewport sizing, canvas renderer, tap input, and 2D public-state unit tests pass. At 375 × 812 the viewport is 11 × 22 tiles at 2×; at 1280 × 720 it is 20 × 12 tiles at 3×.
+The tile-grid, deterministic pathfinding, phase palettes, viewport sizing, canvas renderer, tap input, and 2D public-state unit tests pass. At 375 × 812 the viewport is 11 × 22 tiles at 2×; at 1280 × 720 it is 20 × 15 tiles at 3×.
 
 This unit resolves §6.1's “inside the camera frustum” as **“on the same screen, with tile line of sight ≤ 20 tiles”**, and the spawn cap's “occluded from the player” as **“not on the player's screen”**; unit 2 lands both fully. Section §13.6's opening beat and volcano on the horizon have **no 2D equivalent**: the opening beat is M6's problem, and for now the Crater Rim shows on the map from the start as a dark smudge.

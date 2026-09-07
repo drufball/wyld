@@ -1,8 +1,9 @@
+import { TILES_PER_SIDE } from '../world/tiles.js';
+
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 const pixelScale = (vw: number, vh: number) => clamp(Math.floor(Math.min(vw, vh) / 200), 2, 4);
 const screenCols = (vw: number, scale: number) => clamp(Math.floor(vw / (16 * scale)), 8, 20);
-const screenRows = (vh: number, scale: number) =>
-  clamp(Math.floor(vh / (16 * scale)), 8, scale >= 3 ? 12 : 22);
+const screenRows = (vh: number, scale: number) => clamp(Math.floor(vh / (16 * scale)), 8, 22);
 const screenOf = (tx: number, ty: number, cols: number, rows: number) => ({
   sx: Math.floor(tx / cols),
   sy: Math.floor(ty / rows),
@@ -22,7 +23,7 @@ const crossedScreen = (
   cols: number,
   rows: number,
 ) => {
-  if (tx < 0 || ty < 0 || tx >= 400 || ty >= 400) return from;
+  if (tx < 0 || ty < 0 || tx >= TILES_PER_SIDE || ty >= TILES_PER_SIDE) return from;
   return screenOf(tx, ty, cols, rows);
 };
 const createCanvas = () => {

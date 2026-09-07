@@ -146,8 +146,20 @@
     }
   ],
   "spawnRules": {
-    "default": { "min": 1, "max": 2 },
-    "byRegion": { "hollow": { "min": 1, "max": 3 }, "pond-hollow": { "min": 1, "max": 3 } }
+    "default": {
+      "min": 1,
+      "max": 2
+    },
+    "byRegion": {
+      "hollow": {
+        "min": 1,
+        "max": 3
+      },
+      "pond-hollow": {
+        "min": 1,
+        "max": 3
+      }
+    }
   },
   "water": [
     {
@@ -232,19 +244,19 @@
   ],
   "props": {
     "conifer": {
-      "density": 1.3,
+      "density": 18,
       "scale": [0.8, 1.35]
     },
     "broadleaf": {
-      "density": 0.7,
+      "density": 12,
       "scale": [0.8, 1.35]
     },
     "fern": {
-      "density": 1.5,
+      "density": 16,
       "scale": [0.65, 1.25]
     },
     "rock": {
-      "density": 0.7,
+      "density": 8,
       "scale": [0.5, 1.7]
     },
     "cactus": {

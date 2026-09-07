@@ -1,8 +1,10 @@
 import worldData from './data/world.json';
 import { createInput } from './engine/input.js';
+import { createEventBus } from './engine/events.js';
 import { createLoop } from './engine/loop.js';
 import { createRng, resolveSeed } from './engine/rng.js';
 import { createNotebook, stubTitle } from './guide/notebook.js';
+import { species, type Temperament } from './creatures/species.js';
 import { createPlayerController } from './player/controller.js';
 import { blit } from './render2d/blit.js';
 import { createCanvas } from './render2d/canvas.js';
@@ -17,10 +19,11 @@ import { createHud } from './ui/hud.js';
 import { createStatsPanel } from './ui/stats.js';
 import { createToastStack } from './ui/toasts.js';
 import { placeProps } from './world/props.js';
-import { camps, pointToRegion } from './world/regions.js';
+import { camps, pointToRegion, regions } from './world/regions.js';
 import { createTerrain } from './world/terrain.js';
 import { createTileGrid } from './world/tiles.js';
-import { nextPhaseStart, phases, timeAt } from './world/time.js';
+import { nextPhaseStart, phaseBoundariesBetween, phases, timeAt } from './world/time.js';
+import type { Phase } from './world/time.js';
 import { createDepthAt } from './world/water.js';
 document.documentElement.style.cssText = 'height:100%;background:#19212d';
 document.body.style.cssText =
@@ -62,8 +65,23 @@ const input = createInput(
 );
 createControlsCard(debugConsole.available, () => debugConsole.isOpen);
 let elapsedSeconds = 0;
-const setTime = (n: number) => {
-  elapsedSeconds = n;
+let renderedPaletteKey = '';
+type GameEvents = {
+  phaseChanged: { phase: Phase; day: number };
+  creatureCalled: { id: string; species: string; position: { x: number; y: number; z: number } };
+  creatureExecutedMove: { species: string; move: string; distance: number; inView: boolean };
+};
+const events = createEventBus<GameEvents>();
+const eventLog: { kind: string; ts: number; payload: unknown }[] = [];
+for (const kind of ['phaseChanged', 'creatureCalled', 'creatureExecutedMove'] as const)
+  events.on(kind, (payload) => {
+    eventLog.push({ kind, ts: Date.now(), payload });
+    if (eventLog.length > 200) eventLog.shift();
+  });
+const setElapsedSeconds = (next: number): void => {
+  for (const boundary of phaseBoundariesBetween(elapsedSeconds, next))
+    events.emit('phaseChanged', { phase: boundary.phase, day: boundary.day });
+  elapsedSeconds = next;
 };
 debugConsole.registerCommand('time', {
   help: 'jump to the next Dawn, Day, Dusk, or Night',
@@ -74,7 +92,7 @@ debugConsole.registerCommand('time', {
         .toLowerCase(),
       phase = phases.find((p) => p.toLowerCase() === wanted);
     if (!phase) return `valid phases: ${phases.join(', ')}`;
-    setTime(nextPhaseStart(elapsedSeconds, phase));
+    setElapsedSeconds(nextPhaseStart(elapsedSeconds, phase));
     return `time: ${phase}, day ${timeAt(elapsedSeconds).day}`;
   },
 });
@@ -84,8 +102,8 @@ debugConsole.registerCommand('tp', {
     const x = Number(args[0]),
       z = Number(args[1]);
     if (args.length === 2 && Number.isFinite(x) && Number.isFinite(z)) {
-      player.teleport(x, z);
-      return `teleported: ${x}, ${z}`;
+      const landed = player.teleport(x, z);
+      return `teleported: ${landed.x}, ${landed.z}`;
     }
     const name = args
         .join(' ')
@@ -100,31 +118,58 @@ debugConsole.registerCommand('tp', {
 debugConsole.registerCommand('reveal', {
   help: 'reveal <guide|map>',
   run: ([target = '']) => {
-    if (target === 'map') {
+    if (target.toLowerCase() === 'map') {
       notebook.revealAllFog();
       guide.refresh();
       return 'map revealed';
     }
-    if (target === 'guide') return 'guide revealed';
-    return 'usage: reveal <guide|map>';
+    if (target.toLowerCase() !== 'guide') return 'usage: reveal <guide|map>';
+    const forcesByHide = {
+      Bark: ['Heat', 'Cut'],
+      Shell: ['Impact', 'Cut'],
+      Scale: ['Surge', 'Heat'],
+      Hide: ['Cut', 'Surge'],
+      Stone: ['Surge', 'Impact'],
+    } as const;
+    const clock = timeAt(elapsedSeconds);
+    for (const definition of species()) {
+      const habitat = definition.habitat[0]!,
+        region = regions().find(({ id }) => id === habitat.region)!;
+      const located = { region: region.id, day: clock.day };
+      notebook.identify(definition.id, {
+        ...located,
+        phase: habitat.phases[0]!,
+        position: { x: region.x, y: terrain.heightAt(region.x, region.z), z: region.z },
+      });
+      notebook.recordTracks(definition.id, located);
+      notebook.recordCall(definition.id, located);
+      notebook.recordHide(definition.id, definition.hide);
+      notebook.recordWeakness(definition.id, forcesByHide[definition.hide][0]);
+      notebook.recordResistance(definition.id, forcesByHide[definition.hide][1]);
+      definition.signatureMoves.forEach(({ name }) => notebook.recordMove(definition.id, name));
+      notebook.recordTemperament(
+        definition.id,
+        Object.keys(definition.temperament)[0] as Temperament,
+      );
+      notebook.recordCapture(definition.id);
+    }
+    guide.refresh();
+    return 'guide revealed';
   },
 });
 const render = () => {
   const clock = timeAt(elapsedSeconds),
     palette = paletteAt(clock.phase, clock.phaseProgress),
+    key = paletteKey(clock.phase, clock.phaseProgress),
     screen = player.screen;
-  const layer = tiles.layer(
-    screen.x,
-    screen.y,
-    view.cols,
-    view.rows,
-    palette,
-    paletteKey(clock.phase, clock.phaseProgress),
-  );
+  const layer = tiles.layer(screen.x, screen.y, view.cols, view.rows, palette, key);
   view.context.drawImage(layer, 0, 0);
   const tile = player.tile,
     x = (tile.x - screen.x * view.cols) * 16 - 8,
-    y = (tile.y - screen.y * view.rows) * 16 - 20,
+    y =
+      (tile.y - screen.y * view.rows) * 16 -
+      20 +
+      (player.moving ? 0 : Math.round(Math.sin(elapsedSeconds * 2) * 0.5 + 0.5)),
     frame = player.moving ? ((Math.floor(elapsedSeconds * 8) % 2) as 0 | 1) : 'idle';
   const calls =
     1 +
@@ -139,11 +184,14 @@ const render = () => {
       player.facing === 'left',
     );
   stats.afterRender(tiles.tileMs, calls);
-  document.body.style.background = `rgb(${palette.ash.shade.join(',')})`;
+  if (key !== renderedPaletteKey) {
+    document.body.style.background = `rgb(${palette.ash.shade.join(',')})`;
+    renderedPaletteKey = key;
+  }
 };
 const loop = createLoop({
   update: (dt) => {
-    elapsedSeconds += dt;
+    setElapsedSeconds(elapsedSeconds + dt);
     for (const tap of input.taps()) player.tap(tap.clientX, tap.clientY);
     player.update(dt);
     const world = player.world,
@@ -207,6 +255,6 @@ window.__wyld = {
   screenshot: view.screenshot,
   debug: debugConsole.run,
   perf: stats.read,
-  log: () => [],
+  log: () => eventLog.map((entry) => ({ ...entry })),
 };
 loop.start();

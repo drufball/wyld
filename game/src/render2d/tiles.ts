@@ -13,7 +13,7 @@ const createTileRenderer = (grid: TileGrid) => {
     palette: Palette,
     key: string,
   ) => {
-    const id = `${sx},${sy},${key}`;
+    const id = `${sx},${sy},${cols},${rows},${key}`;
     const hit = cache.get(id);
     if (hit) {
       cache.delete(id);
@@ -35,12 +35,35 @@ const createTileRenderer = (grid: TileGrid) => {
         ctx.fillRect(x * 16, y * 16, 16, 16);
         let hash = ((tx * 73856093) ^ (ty * 19349663)) >>> 0;
         ctx.fillStyle = rgb(colours.detail);
-        for (let i = 0; i < 4; i++) {
+        const marks = tile.surface === 'water' || tile.surface === 'sand' ? 2 : 3;
+        for (let i = 0; i < marks; i++) {
           hash = (hash * 1664525 + 1013904223) >>> 0;
-          ctx.fillRect(x * 16 + (hash & 15), y * 16 + ((hash >>> 8) & 15), 1, 1);
+          const mx = x * 16 + 2 + (hash % 11),
+            my = y * 16 + 3 + ((hash >>> 8) % 9);
+          if (tile.surface === 'water' || tile.surface === 'sand') ctx.fillRect(mx, my, 4, 1);
+          else ctx.fillRect(mx, my, 1, 2);
         }
-        ctx.fillStyle = rgb(colours.shade);
-        ctx.fillRect(x * 16, y * 16 + 15, 16, 1);
+        if (tile.surface === 'tree' || tile.surface === 'rock' || tile.surface === 'cliff') {
+          ctx.fillStyle = rgb(colours.shade);
+          ctx.fillRect(x * 16 + 2, y * 16 + 12, 13, 3);
+          ctx.fillStyle = rgb(colours.detail);
+          if (tile.surface === 'tree') {
+            if (hash & 1) {
+              ctx.beginPath();
+              ctx.arc(x * 16 + 8, y * 16 + 7, 6, 0, Math.PI * 2);
+              ctx.fill();
+            } else {
+              ctx.beginPath();
+              ctx.moveTo(x * 16 + 8, y * 16 + 1);
+              ctx.lineTo(x * 16 + 2, y * 16 + 13);
+              ctx.lineTo(x * 16 + 14, y * 16 + 13);
+              ctx.fill();
+            }
+          } else if (tile.surface === 'cliff') {
+            ctx.fillRect(x * 16 + 1, y * 16 + 4, 14, 5);
+            ctx.fillRect(x * 16 + 4, y * 16 + 9, 11, 4);
+          } else ctx.fillRect(x * 16 + 3, y * 16 + 5, 11, 8);
+        }
       }
     lastRebuildMs = performance.now() - started;
     cache.set(id, { canvas, cost: lastRebuildMs });

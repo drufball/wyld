@@ -127,11 +127,13 @@ const createGuideBook = ({
   root.hidden = true;
   root.setAttribute('aria-label', 'Field guide');
   root.style.cssText =
-    'position:fixed;inset:0;z-index:8;box-sizing:border-box;padding:clamp(8px,3vw,28px);overflow:hidden;color:#292b25;background:#252820cc;font:14px/1.55 ui-monospace,monospace';
+    'position:fixed;inset:0;z-index:8;box-sizing:border-box;padding:clamp(8px,3vw,28px);overflow:hidden;color:#292b25;background:#252820cc;font:14px/1.55 ui-monospace,"Segoe UI",monospace';
   document.body.append(root);
   const button = (text: string, action: () => void): HTMLButtonElement => {
     const element = document.createElement('button');
     element.textContent = text;
+    element.style.cssText =
+      'border:0;border-bottom:1px solid #777566;padding:7px 12px;background:transparent;color:inherit;font:inherit;cursor:pointer';
     element.addEventListener('click', action);
     return element;
   };
