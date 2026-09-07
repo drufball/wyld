@@ -104,8 +104,8 @@ describe('Today', () => {
           data: JSON.stringify({
             id: 1,
             ts: '2026-09-06T08:00:00Z',
-            source: 'pak',
-            kind: 'pak.achievement_unlocked',
+            source: 'planner',
+            kind: 'planner.chain_updated',
             payload: {},
           }),
         }),
