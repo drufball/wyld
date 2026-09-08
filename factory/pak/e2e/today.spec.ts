@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+test('the nav has seven destinations and no demos tab', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link')).toHaveCount(
+    7,
+  );
+  await expect(page.getByRole('link', { name: 'Demos' })).toHaveCount(0);
+  await page.goto('/demos');
+  await expect(page).toHaveURL('/');
+  await expect(page.getByText("What's on your mind?")).toBeVisible();
+});
+
 test('submits a message from Today', async ({ page, request }) => {
   const message = 'add a field guide screen';
   await page.goto('/');

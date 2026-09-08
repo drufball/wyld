@@ -272,6 +272,14 @@ const RegisterDemoArgs = z
       });
     }
   });
+const BuildDiscArgs = z
+  .object({
+    slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+    ref: z.string(),
+    quest: z.string().optional(),
+    target: z.enum(['game', 'pak']).default('game'),
+  })
+  .strict();
 const ReadDemosArgs = z.object({}).strict();
 const ReadFeedbackArgs = z.object({ demo: z.string().optional() }).strict();
 const PublishArtifactArgs = z
@@ -686,9 +694,25 @@ const tools = [
     },
   },
   {
+    name: 'pak_build_disc',
+    description:
+      "Build a game or Pak disc for a quest so an explainer can embed it at /play/<slug>/. It builds only — the way Dru is asked to look at something is pak_request_look on the quest's explainer.",
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,63}$' },
+        ref: { type: 'string' },
+        quest: { type: 'string' },
+        target: { type: 'string', enum: ['game', 'pak'], default: 'game' },
+      },
+      required: ['slug', 'ref'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'pak_register_demo',
     description:
-      'Register what Dru can try for a quest: a Demo Disc (a game build), a live try-it card, or a branch build of the Pak (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
+      'Deprecated — use pak_build_disc. Register what Dru can try for a quest: a Demo Disc (a game build), a live try-it card, or a branch build of the Pak (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -739,7 +763,7 @@ const tools = [
   {
     name: 'pak_read_demos',
     description:
-      'Read what Dru can try right now — game builds and live try-it cards — and whether each one is ready.',
+      "Read which discs have been built and whether each one is ready. Build status only — what Dru tries lives in the quest's explainer.",
     inputSchema: {
       type: 'object' as const,
       properties: {},
@@ -928,8 +952,10 @@ export type ToolRegistry = {
 export function createToolRegistry(options: {
   pakUrl: string;
   fetch?: typeof fetch;
+  logger?: Logger;
 }): ToolRegistry {
   const request = options.fetch ?? fetch;
+  const logger = options.logger ?? (() => undefined);
   const callTool = async (params: CallToolRequest['params']): Promise<CallToolResult> => {
     if (params.name === 'pak_read_sleep') {
       const parsed = ReadSleepArgs.safeParse(params.arguments);
@@ -1175,20 +1201,27 @@ export function createToolRegistry(options: {
       query.set('includeSnoozed', '1');
       return getTool(request, `${options.pakUrl}/api/rumbles?${query.toString()}`);
     }
-    if (params.name === 'pak_register_demo') {
-      const parsed = RegisterDemoArgs.safeParse(params.arguments);
+    if (params.name === 'pak_build_disc') {
+      const parsed = BuildDiscArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
-      const { slug, ref, quest, title, kind, summary, steps, seeded, deep_link } = parsed.data;
+      const { slug, ref, quest, target } = parsed.data;
       return postTool(request, `${options.pakUrl}/api/demos`, {
         id: slug,
         ref,
         ...(quest === undefined ? {} : { questId: quest }),
-        ...(title === undefined ? {} : { title }),
-        kind,
-        ...(summary === undefined ? {} : { summary }),
-        ...(steps === undefined ? {} : { steps }),
-        ...(seeded === undefined ? {} : { seeded }),
-        ...(deep_link === undefined ? {} : { deepLink: deep_link }),
+        kind: target === 'pak' ? 'pak' : 'disc',
+      });
+    }
+    if (params.name === 'pak_register_demo') {
+      const parsed = RegisterDemoArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      logger('info', 'deprecated tool used', { tool: 'pak_register_demo' });
+      const { slug, ref, quest, kind } = parsed.data;
+      return postTool(request, `${options.pakUrl}/api/demos`, {
+        id: slug,
+        ref,
+        ...(quest === undefined ? {} : { questId: quest }),
+        kind: kind === 'pak' ? 'pak' : 'disc',
       });
     }
     if (params.name === 'pak_read_demos') {
@@ -1301,7 +1334,7 @@ export function createToolRegistry(options: {
 
 export function registerPakTools(
   server: Server,
-  options: { pakUrl: string; fetch?: typeof fetch },
+  options: { pakUrl: string; fetch?: typeof fetch; logger?: Logger },
 ): { swap: (next: ToolRegistry) => void; current: () => ToolRegistry } {
   let registry = createToolRegistry(options);
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: registry.tools }));

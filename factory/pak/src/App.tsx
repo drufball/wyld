@@ -1,10 +1,9 @@
-import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Nav } from './components/Nav.js';
 import { PausedBanner } from './components/PausedBanner.js';
 import { postSeen } from './api/client.js';
 import { Debug } from './screens/Debug.js';
-import { Demos } from './screens/Demos.js';
 import { Explain, Roadmap } from './screens/Explain.js';
 import { Memory } from './screens/Memory.js';
 import { Sleep } from './screens/Sleep.js';
@@ -16,6 +15,7 @@ import { Workshop } from './screens/Workshop.js';
 import { LiveEventsProvider, type EventSourceFactory } from './live/LiveEvents.js';
 
 function Shell() {
+  const embed = new URLSearchParams(useLocation().search).get('embed') === '1';
   useEffect(() => {
     const seen = () => void postSeen().catch(() => undefined);
     const visible = () => document.visibilityState === 'visible' && seen();
@@ -25,9 +25,11 @@ function Shell() {
   }, []);
   return (
     <div className="min-h-dvh">
-      <Nav />
-      <main className="mx-auto w-full max-w-[760px] px-3 py-5 pb-[calc(88px+env(safe-area-inset-bottom))] md:px-5 md:pb-8">
-        <PausedBanner />
+      {!embed && <Nav />}
+      <main
+        className={`mx-auto w-full max-w-[760px] px-3 py-5 md:px-5 ${embed ? 'pb-5' : 'pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-8'}`}
+      >
+        {!embed && <PausedBanner />}
         <Outlet />
       </main>
     </div>
@@ -52,8 +54,6 @@ export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFa
           <Route path="roadmap" element={<Roadmap />} />
           <Route path="worlds" element={<LegacyWorldRedirect />} />
           <Route path="worlds/:id" element={<LegacyWorldRedirect />} />
-          <Route path="demos" element={<Demos />} />
-          <Route path="demos/:id" element={<Demos />} />
           <Route path="workshop" element={<Workshop />} />
           <Route path="rumble" element={<Rumble />} />
           <Route path="debug" element={<Debug />} />

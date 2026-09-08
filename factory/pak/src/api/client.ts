@@ -4,7 +4,6 @@ import {
   Artifact,
   ArtifactWithHtml,
   Chain,
-  Demo,
   Event,
   Feedback,
   HealthSnapshot,
@@ -23,11 +22,7 @@ import {
   type QuestStatus,
 } from '@wyld/shared';
 import type { Chain as ChainType } from '@wyld/shared';
-import type {
-  Demo as DemoType,
-  Feedback as FeedbackType,
-  NewFeedback as NewFeedbackType,
-} from '@wyld/shared';
+import type { Feedback as FeedbackType, NewFeedback as NewFeedbackType } from '@wyld/shared';
 
 async function request(input: string, init: RequestInit, description: string): Promise<unknown> {
   const response = await fetch(input, init);
@@ -203,16 +198,6 @@ export async function decideRumble(id: string, chosen: string) {
       `/api/rumbles/${encodeURIComponent(id)}/decide`,
       json('POST', { chosen }),
       'Deciding rumble',
-    ),
-  );
-}
-
-export async function buildDemo(id?: string): Promise<DemoType> {
-  return Demo.parse(
-    await request(
-      '/api/demos/build',
-      json('POST', id === undefined ? {} : { id }),
-      'Building demo',
     ),
   );
 }

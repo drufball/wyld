@@ -11,7 +11,7 @@ import { eq } from 'drizzle-orm';
 import { createApp } from './app.js';
 import type { DemoBuilder } from './builder.js';
 import { openDatabase, type AppDatabase } from './database.js';
-import { chainMessages, chains, demos, quests, worlds } from './schema.js';
+import { chains, demos, quests, worlds } from './schema.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 
@@ -51,15 +51,24 @@ describe('demo and feedback routes', () => {
       body: JSON.stringify(body),
     });
 
-  it('lists demos, sorts main first, and consistently orders unbuilt demos', async () => {
+  it('lists every disc with its build status', async () => {
     build.mockImplementation(() => new Promise(() => undefined));
     expect(await (await app.request('/api/demos')).json()).toEqual([]);
     for (const id of ['zeta', 'main', 'alpha']) {
       expect((await post('/api/demos', { id, ref: id })).status).toBe(201);
     }
+    database.db
+      .update(demos)
+      .set({ hiddenAt: clock.toISOString(), status: 'failed', error: 'nope' })
+      .where(eq(demos.id, 'zeta'))
+      .run();
     await vi.waitFor(async () => {
       const rows = Demo.array().parse(await (await app.request('/api/demos')).json());
       expect(rows.map(({ id }) => id)).toEqual(['main', 'alpha', 'zeta']);
+      expect(rows.find(({ id }) => id === 'zeta')).toMatchObject({
+        hiddenAt: clock.toISOString(),
+        status: 'failed',
+      });
       expect(rows[0]).toMatchObject({
         kind: 'disc',
         summary: null,
@@ -71,156 +80,15 @@ describe('demo and feedback routes', () => {
     });
   });
 
-  it('hides demos owned by done quests unless includeDone is requested', async () => {
-    database.db
-      .insert(worlds)
-      .values({ id: 'factory', name: 'Factory', kind: 'factory', order: 0, icon: 'gear' })
-      .run();
-    database.db
-      .insert(quests)
-      .values([
-        {
-          id: 'finished',
-          worldId: 'factory',
-          title: 'Finished',
-          pitch: '',
-          status: 'done',
-          sinceYouLooked: '',
-          lastNote: '',
-        },
-        {
-          id: 'previewing',
-          worldId: 'factory',
-          title: 'Previewing',
-          pitch: '',
-          status: 'demo',
-          sinceYouLooked: '',
-          lastNote: '',
-        },
-      ])
-      .run();
-    await post('/api/demos', { id: 'done-demo', ref: 'main', kind: 'live', questId: 'finished' });
-    await post('/api/demos', { id: 'open-demo', ref: 'main', kind: 'live', questId: 'previewing' });
-    await post('/api/demos', { id: 'main', ref: 'main', kind: 'live' });
-
-    const visible = Demo.array().parse(await (await app.request('/api/demos')).json());
-    const all = Demo.array().parse(await (await app.request('/api/demos?includeDone=1')).json());
-    expect(visible.map(({ id }) => id)).toEqual(['main', 'open-demo']);
-    expect(all.map(({ id }) => id)).toEqual(['main', 'done-demo', 'open-demo']);
+  it('does not create a chain when a disc is registered', async () => {
+    expect((await post('/api/demos', { id: 'plain-disc', ref: 'main' })).status).toBe(201);
+    expect(database.db.select().from(chains).all()).toEqual([]);
   });
 
-  it('hides and unhides questless demos, while fresh registration and builds restore them', async () => {
-    build.mockImplementation(() => new Promise(() => undefined));
-    await post('/api/demos', { id: 'hide-me', ref: 'main' });
-
-    const hidden = await post('/api/demos/hide-me/hide', {});
-    expect(hidden.status).toBe(200);
-    expect(Demo.parse(await hidden.json()).hiddenAt).toBe(clock.toISOString());
-    expect(await (await app.request('/api/demos')).json()).toEqual([]);
-    expect(
-      Demo.array()
-        .parse(await (await app.request('/api/demos?includeDone=1')).json())
-        .map(({ id }) => id),
-    ).toEqual(['hide-me']);
-
-    const unhidden = await post('/api/demos/hide-me/unhide', {});
-    expect(unhidden.status).toBe(200);
-    expect(Demo.parse(await unhidden.json()).hiddenAt).toBeNull();
-    expect(Demo.array().parse(await (await app.request('/api/demos')).json())).toHaveLength(1);
-
-    await post('/api/demos/hide-me/hide', {});
-    expect((await post('/api/demos', { id: 'hide-me', ref: 'fresh' })).status).toBe(201);
-    expect(
-      database.db.select().from(demos).where(eq(demos.id, 'hide-me')).get()?.hiddenAt,
-    ).toBeNull();
-
-    await post('/api/demos/hide-me/hide', {});
-    building.add('hide-me');
-    expect((await post('/api/demos/build', { id: 'hide-me' })).status).toBe(202);
-    expect(
-      database.db.select().from(demos).where(eq(demos.id, 'hide-me')).get()?.hiddenAt,
-    ).toBeNull();
-  });
-
-  it('keeps one refreshed demo chain in sync through registration, build, hide, and unhide', async () => {
-    build.mockImplementation(() => new Promise(() => undefined));
-    await post('/api/demos', {
-      id: 'chain-demo',
-      ref: 'one',
-      title: 'First',
-      summary: 'First summary',
-      steps: ['one'],
-      seeded: ['old'],
-    });
-    const first = database.db.select().from(chains).where(eq(chains.demoId, 'chain-demo')).get()!;
-    expect(first).toMatchObject({ kind: 'demo', status: 'open', tags: ['demo', 'disc'] });
-    expect(first.payload).toMatchObject({ title: 'First', steps: ['one'], seeded: ['old'] });
-
-    clock = new Date('2026-09-05T13:00:00.000Z');
-    await post('/api/demos', {
-      id: 'chain-demo',
-      ref: 'two',
-      kind: 'pak',
-      title: 'Second',
-      summary: 'Fresh summary',
-      steps: ['two'],
-      seeded: ['new'],
-      deepLink: '/sleep',
-    });
-    expect(database.db.select().from(chains).where(eq(chains.demoId, 'chain-demo')).all()).toEqual([
-      expect.objectContaining({ id: first.id, status: 'open', tags: ['demo', 'pak'] }),
-    ]);
-    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()?.payload).toEqual(
-      {
-        title: 'Second',
-        kind: 'pak',
-        summary: 'Fresh summary',
-        steps: ['two'],
-        seeded: ['new'],
-        deepLink: '/sleep',
-        url: '/play/chain-demo/sleep',
-        status: 'building',
-        builtAt: null,
-        error: null,
-      },
-    );
-    expect(
-      database.db.select().from(chainMessages).where(eq(chainMessages.chainId, first.id)).all(),
-    ).toEqual([expect.objectContaining({ author: 'planner', text: 'Fresh summary' })]);
-
-    expect((await post('/api/demos/chain-demo/hide', {})).status).toBe(200);
-    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()?.status).toBe(
-      'settled',
-    );
-    expect(database.db.select().from(demos).where(eq(demos.id, 'chain-demo')).get()?.hiddenAt).toBe(
-      clock.toISOString(),
-    );
-    expect((await post('/api/demos/chain-demo/unhide', {})).status).toBe(200);
-    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()?.status).toBe(
-      'open',
-    );
-    expect(
-      database.db.select().from(demos).where(eq(demos.id, 'chain-demo')).get()?.hiddenAt,
-    ).toBeNull();
-
-    await post('/api/demos/chain-demo/hide', {});
-    expect((await post('/api/demos/build', { id: 'chain-demo' })).status).toBe(202);
-    expect(
-      database.db.select().from(chains).where(eq(chains.demoId, 'chain-demo')).all(),
-    ).toHaveLength(1);
-    expect(
-      database.db.select().from(chainMessages).where(eq(chainMessages.chainId, first.id)).all(),
-    ).toHaveLength(1);
-    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()).toMatchObject({
-      status: 'open',
-      tags: ['demo', 'pak'],
-      payload: expect.objectContaining({ title: 'Second', steps: ['two'], seeded: ['new'] }),
-    });
-  });
-
-  it('returns not found from hide and unhide for an unknown demo', async () => {
-    expect((await post('/api/demos/missing/hide', {})).status).toBe(404);
-    expect((await post('/api/demos/missing/unhide', {})).status).toBe(404);
+  it('returns not found from the removed hide and unhide routes', async () => {
+    await post('/api/demos', { id: 'existing', ref: 'main' });
+    expect((await post('/api/demos/existing/hide', {})).status).toBe(404);
+    expect((await post('/api/demos/existing/unhide', {})).status).toBe(404);
   });
 
   it('upserts demos and defaults their title from the quest', async () => {
@@ -332,26 +200,6 @@ describe('demo and feedback routes', () => {
     const rebuild = await post('/api/demos/build', { id: 'branch-pak' });
     expect(rebuild.status).toBe(202);
     expect(build).toHaveBeenLastCalledWith('branch-pak', 'feature/pak', 'pak');
-  });
-
-  it('copies successful and failed build results into demo chain payloads', async () => {
-    build
-      .mockResolvedValueOnce({ ok: true })
-      .mockResolvedValueOnce({ ok: false, error: 'compiler exploded' });
-
-    await post('/api/demos', { id: 'ready-build', ref: 'ready' });
-    await vi.waitFor(() =>
-      expect(
-        database.db.select().from(chains).where(eq(chains.demoId, 'ready-build')).get()?.payload,
-      ).toMatchObject({ status: 'ready', builtAt: clock.toISOString(), error: null }),
-    );
-
-    await post('/api/demos', { id: 'failed-build', ref: 'failed' });
-    await vi.waitFor(() =>
-      expect(
-        database.db.select().from(chains).where(eq(chains.demoId, 'failed-build')).get()?.payload,
-      ).toMatchObject({ status: 'failed', error: 'compiler exploded' }),
-    );
   });
 
   it('accepts feedback on a live demo and stores the human feedback event', async () => {

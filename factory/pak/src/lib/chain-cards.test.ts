@@ -1,6 +1,6 @@
 import type { Chain } from '@wyld/shared';
 import { describe, expect, it } from 'vitest';
-import { demoCard, unlockCard } from './chain-cards.js';
+import { lookCard, unlockCard } from './chain-cards.js';
 
 const base: Chain = {
   id: 1,
@@ -20,30 +20,17 @@ const base: Chain = {
 };
 
 describe('chain card payloads', () => {
-  it('uses safe defaults for an old demo payload', () => {
-    expect(
-      demoCard({
-        ...base,
-        kind: 'demo',
-        demoId: 'old',
-        payload: { title: 'Old', deepLink: '/try' },
-      }),
-    ).toEqual({
-      demoId: 'old',
-      title: 'Old',
-      demoKind: 'live',
-      summary: null,
-      steps: [],
-      seeded: [],
-      deepLink: '/try',
-      url: '/try',
-      status: 'ready',
-      builtAt: null,
-      error: null,
+  it('reads the explainer off a look chain', () => {
+    expect(lookCard({ ...base, tags: ['look'], payload: { explainer: 'species' } })).toEqual({
+      explainer: 'species',
     });
   });
-  it('rejects unusable demos and narrows unlocks', () => {
-    expect(demoCard(base)).toBeNull();
+
+  it('ignores a chain with no explainer', () => {
+    expect(lookCard(base)).toBeNull();
+  });
+
+  it('narrows unlocks', () => {
     expect(
       unlockCard({
         ...base,

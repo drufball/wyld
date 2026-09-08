@@ -11,7 +11,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   getQuest,
   listArtifacts,
-  listChains,
   listQuests,
   listWorlds,
   patchQuestStatus,
@@ -25,7 +24,6 @@ import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { playSound } from '../lib/feedback.js';
-import { demoCard, type DemoCard } from '../lib/chain-cards.js';
 
 function AskComposer({ questId, onSent }: { questId: string; onSent: (chain: Chain) => void }) {
   const [text, setText] = useState('');
@@ -91,13 +89,11 @@ export function QuestCard({
   quest,
   worldName,
   onChange,
-  demo,
   artifact,
 }: {
   quest: Quest;
   worldName: string;
   onChange: (quest: Quest) => void;
-  demo?: DemoCard;
   artifact?: Artifact;
 }) {
   const [asking, setAsking] = useState(false);
@@ -214,24 +210,6 @@ export function QuestCard({
               <Link to={`/explain/${encodeURIComponent(artifact.slug)}`}>Explainer</Link>
             </Button>
           )}
-          {demo?.status === 'ready' ? (
-            <Button variant="retro" asChild>
-              {demo.demoKind === 'pak' ? (
-                <a href={demo.url}>Try it</a>
-              ) : demo.demoKind === 'disc' ? (
-                <Link to={`/demos/${encodeURIComponent(demo.demoId)}`}>Play</Link>
-              ) : (
-                <Link to={demo.deepLink ?? '/'}>Try it</Link>
-              )}
-            </Button>
-          ) : (
-            <span className="inline-flex items-center gap-2 text-muted-foreground">
-              <Button variant="retro" type="button" disabled>
-                Demo
-              </Button>{' '}
-              <small>not yet</small>
-            </span>
-          )}
         </div>
         {nudged && (
           <p
@@ -289,7 +267,6 @@ export function Quests() {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [worlds, setWorlds] = useState<Awaited<ReturnType<typeof listWorlds>>>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
-  const [demosByQuest, setDemosByQuest] = useState<Map<string, DemoCard>>(new Map());
   const [artifactsByQuest, setArtifactsByQuest] = useState<Map<string, Artifact>>(new Map());
   const [doneExpanded, setDoneExpanded] = useState(false);
   const { subscribe } = useLiveEvents();
@@ -309,21 +286,6 @@ export function Quests() {
     },
     [replaceQuest],
   );
-  const refreshDemos = useCallback(() => {
-    void listChains({ kind: 'demo' })
-      .then((chains) => {
-        const next = new Map<string, DemoCard>();
-        const demos = chains
-          .map((chain) => ({ chain, demo: demoCard(chain) }))
-          .filter((item): item is { chain: Chain; demo: DemoCard } => item.demo !== null)
-          .sort((left, right) => left.demo.demoId.localeCompare(right.demo.demoId));
-        for (const { chain, demo } of demos) {
-          if (chain.questId !== null && !next.has(chain.questId)) next.set(chain.questId, demo);
-        }
-        setDemosByQuest(next);
-      })
-      .catch(() => setDemosByQuest(new Map()));
-  }, []);
   const refreshArtifacts = useCallback(() => {
     void listArtifacts()
       .then((artifacts) => {
@@ -347,16 +309,13 @@ export function Quests() {
     void listQuests()
       .then(setQuests)
       .catch(() => setQuests([]));
-    refreshDemos();
     refreshArtifacts();
-  }, [refreshArtifacts, refreshDemos]);
+  }, [refreshArtifacts]);
   useEffect(() => {
     const unsubscribes = liveKinds.map((kind) => subscribe(kind, refreshQuest));
-    unsubscribes.push(subscribe('planner.chain_updated', refreshDemos));
-    unsubscribes.push(subscribe('human.chain_closed', refreshDemos));
     unsubscribes.push(subscribe('planner.artifact_published', refreshArtifacts));
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
-  }, [refreshArtifacts, refreshDemos, refreshQuest, subscribe]);
+  }, [refreshArtifacts, refreshQuest, subscribe]);
 
   const selectedStatuses = statusFilters.find((filter) => filter.id === status)?.statuses;
   const filtered = quests.filter(
@@ -383,7 +342,6 @@ export function Quests() {
             quest={selectedQuest}
             worldName={worldNames.get(selectedQuest.worldId) ?? selectedQuest.worldId}
             onChange={replaceQuest}
-            demo={demosByQuest.get(selectedQuest.id)}
             artifact={artifactsByQuest.get(selectedQuest.id)}
           />
           <Button
@@ -442,7 +400,6 @@ export function Quests() {
                 quest={quest}
                 worldName={worldNames.get(quest.worldId) ?? quest.worldId}
                 onChange={replaceQuest}
-                demo={demosByQuest.get(quest.id)}
                 artifact={artifactsByQuest.get(quest.id)}
               />
             ))}
@@ -464,7 +421,6 @@ export function Quests() {
                       quest={quest}
                       worldName={worldNames.get(quest.worldId) ?? quest.worldId}
                       onChange={replaceQuest}
-                      demo={demosByQuest.get(quest.id)}
                       artifact={artifactsByQuest.get(quest.id)}
                     />
                   ))}

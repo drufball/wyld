@@ -41,7 +41,6 @@ import {
   countNeedsYou,
   readOpenBriefing,
   upsertBriefingChain,
-  refreshDemoChainPayloads,
   replaceActionChain,
 } from './chain-cards.js';
 import { createArtifactRoutes, createArtifactServeRoutes } from './artifacts.js';
@@ -120,13 +119,24 @@ export type AppDependencies = {
 };
 
 export function createApp(dependencies: AppDependencies) {
-  refreshDemoChainPayloads(dependencies.database);
   const { db, sqlite } = dependencies.database;
   const now = dependencies.now ?? (() => new Date());
   const logger = dependencies.logger ?? log;
   const subscribers = new Set<Subscriber>();
   const startedAt = Date.now();
   const app = new Hono();
+  app.use('*', async (c, next) => {
+    await next();
+    if (c.req.path.startsWith('/api/') || dependencies.pakDist !== undefined) {
+      c.header('Access-Control-Allow-Origin', '*');
+    }
+  });
+  app.options('/api/*', (c) => {
+    c.header('Access-Control-Allow-Origin', '*');
+    c.header('Access-Control-Allow-Methods', 'GET, HEAD, POST');
+    c.header('Access-Control-Allow-Headers', 'content-type');
+    return c.body(null, 204);
+  });
   const sleepConfig = dependencies.sleepConfig ?? {
     timeZone: 'UTC',
     goodnight: '23:00',

@@ -30,12 +30,6 @@ const response = (value: unknown) =>
   } as Response);
 
 describe('Pak shell', () => {
-  it('navigates to Demos', async () => {
-    renderAt('/');
-    await screen.findByText("What's on your mind?");
-    fireEvent.click(screen.getByRole('link', { name: 'Demos' }));
-    expect(screen.getByRole('heading', { name: 'Demos' })).not.toBeNull();
-  });
   it.each([
     ['/worlds', 'All'],
     ['/worlds/wyld', 'WYLD'],
@@ -85,16 +79,7 @@ describe('Pak shell', () => {
     renderAt('/');
 
     expect(await screen.findByText("What's on your mind?")).not.toBeNull();
-    for (const label of [
-      'Today',
-      'Quests',
-      'Roadmap',
-      'Demos',
-      'Species',
-      'Rumble',
-      'Debug',
-      'Memory',
-    ]) {
+    for (const label of ['Today', 'Quests', 'Roadmap', 'Species', 'Rumble', 'Debug', 'Memory']) {
       expect(screen.getByRole('link', { name: label })).not.toBeNull();
     }
   });
@@ -112,7 +97,6 @@ describe('Pak shell', () => {
       'TODAY',
       'QUEST',
       'MAP',
-      'DEMOS',
       'SPECS',
       'RMBL',
       'DEBUG',
@@ -122,7 +106,6 @@ describe('Pak shell', () => {
       'TODAY',
       'QUESTS',
       'ROADMAP',
-      'DEMOS',
       'SPECIES',
       'RUMBLE',
       'DEBUG',
@@ -172,6 +155,46 @@ describe('Pak shell', () => {
 
     expect(screen.getByRole('heading', { name: 'VMU' })).not.toBeNull();
     expect(screen.queryByRole('navigation')).toBeNull();
+  });
+
+  it('hides the nav, the banner and the gate in an embed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        response(
+          url === '/api/health/snapshot'
+            ? {
+                ts: '2026-09-08T12:00:00Z',
+                planner: { state: 'paused' },
+                server: { ok: true, db: 'ok', uptimeSeconds: 1, version: 'test', eventsToday: 0 },
+                wake: { reachable: true },
+                github: { ciState: 'unknown', source: 'none' },
+                paused: {
+                  lane: 'planner',
+                  reason: 'Catch-up required',
+                  since: '2026-09-08T11:00:00Z',
+                },
+              }
+            : [],
+        ),
+      ),
+    );
+
+    const embedded = renderAt('/workshop?embed=1');
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
+    expect(screen.queryByText('Catch-up required')).toBeNull();
+    embedded.unmount();
+
+    renderAt('/workshop');
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).not.toBeNull();
+    expect(await screen.findByText(/Catch-up required/)).not.toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('sends /demos back to today', async () => {
+    renderAt('/demos');
+    await waitFor(() => expect(screen.getByText("What's on your mind?")).not.toBeNull());
+    expect(screen.getByRole('status', { name: 'Current location' }).textContent).toBe('/');
   });
 
   it('redirects unknown paths to Today', async () => {

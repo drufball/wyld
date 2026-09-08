@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { and, desc, eq, isNull, ne, or } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { Demo, Feedback, NewDemo, NewFeedback, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
@@ -12,7 +12,7 @@ import type { AppDatabase } from './database.js';
 import type { LogContext } from './logger.js';
 import { formatIssues } from './quests.js';
 import { demos, feedback, quests } from './schema.js';
-import { demoUrl, ensureDemoChain, reopenDemoChain, settleDemoChain } from './chain-cards.js';
+import { demoUrl } from './chain-cards.js';
 
 type Dependencies = {
   database: AppDatabase;
@@ -24,7 +24,6 @@ type Dependencies = {
 };
 const BuildRequest = z.object({ id: z.string().optional() });
 const FeedbackQuery = z.object({ demo: z.string().optional() });
-const DemosQuery = z.object({ includeDone: z.string().optional() });
 
 export const parseDemo = (row: typeof demos.$inferSelect) =>
   Demo.parse({
@@ -59,8 +58,6 @@ export function createDemoRoutes({
           )
           .where(eq(demos.id, id))
           .run();
-        const row = db.select().from(demos).where(eq(demos.id, id)).get();
-        if (row !== undefined) ensureDemoChain(database, row, now().toISOString());
       })
       .catch((error: unknown) => {
         logger('error', 'failed to record demo build result', { id, error: String(error) });
@@ -68,23 +65,10 @@ export function createDemoRoutes({
   };
 
   app.get('/demos', (c) => {
-    const parsed = DemosQuery.safeParse(c.req.query());
-    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
-    const query = db
-      .select({ demo: demos })
+    const rows = db
+      .select()
       .from(demos)
-      .leftJoin(quests, eq(demos.questId, quests.id));
-    // includeDone=1 is the escape hatch for the complete archive: done quests and hidden demos.
-    const rows = (
-      parsed.data.includeDone === '1'
-        ? query.all()
-        : query
-            .where(
-              and(isNull(demos.hiddenAt), or(isNull(quests.status), ne(quests.status, 'done'))),
-            )
-            .all()
-    )
-      .map(({ demo }) => demo)
+      .all()
       .sort((a, b) => {
         if (a.id === 'main' || b.id === 'main') return a.id === 'main' ? -1 : 1;
         if (a.builtAt === null && b.builtAt === null) return a.id.localeCompare(b.id);
@@ -142,18 +126,6 @@ export function createDemoRoutes({
       })
       .run();
     const demoRow = db.select().from(demos).where(eq(demos.id, parsed.data.id)).get()!;
-    const ensured = ensureDemoChain(database, demoRow, now().toISOString());
-    if (ensured.changed)
-      await storeEvent({
-        source: 'planner',
-        kind: 'planner.chain_updated',
-        ...(demoRow.questId === null ? {} : { questId: demoRow.questId }),
-        payload: {
-          chainId: ensured.chain.id,
-          text: demoRow.summary ?? demoRow.title,
-          ...(demoRow.questId === null ? {} : { questId: demoRow.questId }),
-        },
-      });
     if (!live)
       finishBuild(
         parsed.data.id,
@@ -189,22 +161,6 @@ export function createDemoRoutes({
     }
     if (row.kind === 'live') return c.json({ error: 'Live demos are not built' }, 400);
     db.update(demos).set({ hiddenAt: null }).where(eq(demos.id, id)).run();
-    const ensured = ensureDemoChain(
-      database,
-      db.select().from(demos).where(eq(demos.id, id)).get()!,
-      now().toISOString(),
-    );
-    if (ensured.changed)
-      await storeEvent({
-        source: 'planner',
-        kind: 'planner.chain_updated',
-        ...(row.questId === null ? {} : { questId: row.questId }),
-        payload: {
-          chainId: ensured.chain.id,
-          text: row.summary ?? row.title,
-          ...(row.questId === null ? {} : { questId: row.questId }),
-        },
-      });
     if (!builder.isBuilding(id)) {
       db.update(demos).set({ status: 'building', error: null }).where(eq(demos.id, id)).run();
       finishBuild(
@@ -213,57 +169,6 @@ export function createDemoRoutes({
       );
     }
     return c.json(parseDemo(db.select().from(demos).where(eq(demos.id, id)).get()!), 202);
-  });
-
-  const setHidden = (id: string, hiddenAt: string | null) => {
-    if (!validSlug(id)) return { error: 'invalid' as const };
-    const row = db.select().from(demos).where(eq(demos.id, id)).get();
-    if (row === undefined) return { error: 'missing' as const };
-    db.update(demos).set({ hiddenAt }).where(eq(demos.id, id)).run();
-    return { demo: parseDemo(db.select().from(demos).where(eq(demos.id, id)).get()!) };
-  };
-
-  app.post('/demos/:id/hide', async (c) => {
-    const ts = now().toISOString();
-    const result = setHidden(c.req.param('id'), ts);
-    if ('error' in result)
-      return result.error === 'invalid'
-        ? c.json({ error: 'Invalid demo slug' }, 400)
-        : c.json({ error: 'Demo not found' }, 404);
-    const changed = settleDemoChain(database, result.demo.id, ts);
-    if (changed !== undefined)
-      await storeEvent({
-        source: 'planner',
-        kind: 'planner.chain_updated',
-        ...(result.demo.questId === null ? {} : { questId: result.demo.questId }),
-        payload: {
-          chainId: changed.id,
-          text: `Settled: ${result.demo.summary ?? result.demo.title}`,
-          ...(result.demo.questId === null ? {} : { questId: result.demo.questId }),
-        },
-      });
-    return c.json(result.demo);
-  });
-
-  app.post('/demos/:id/unhide', async (c) => {
-    const result = setHidden(c.req.param('id'), null);
-    if ('error' in result)
-      return result.error === 'invalid'
-        ? c.json({ error: 'Invalid demo slug' }, 400)
-        : c.json({ error: 'Demo not found' }, 404);
-    const reopened = reopenDemoChain(database, result.demo.id, now().toISOString());
-    if (reopened?.changed)
-      await storeEvent({
-        source: 'planner',
-        kind: 'planner.chain_updated',
-        ...(result.demo.questId === null ? {} : { questId: result.demo.questId }),
-        payload: {
-          chainId: reopened.chain.id,
-          text: result.demo.summary ?? result.demo.title,
-          ...(result.demo.questId === null ? {} : { questId: result.demo.questId }),
-        },
-      });
-    return c.json(result.demo);
   });
 
   app.get('/feedback', (c) => {

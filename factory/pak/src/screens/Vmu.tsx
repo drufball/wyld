@@ -4,7 +4,6 @@ import { getHealthSnapshot, getPresence, listChains, listQuests } from '../api/c
 import { Card } from '../components/ui/card.js';
 import { SfxToggle } from '../components/SfxToggle.js';
 import { countInWords } from '../words.js';
-import { demoCard } from '../lib/chain-cards.js';
 
 export function Vmu() {
   const [nextAction, setNextAction] =
@@ -12,7 +11,6 @@ export function Vmu() {
   const [briefingReady, setBriefingReady] = useState(false);
   const [buildingCount, setBuildingCount] = useState<number | null>(null);
   const [rumbleCount, setRumbleCount] = useState<number | null>(null);
-  const [demoCount, setDemoCount] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
   const [needsYou, setNeedsYou] = useState(0);
 
@@ -35,11 +33,6 @@ export function Vmu() {
     void listChains({ kind: 'rumble' })
       .then((rumbles) => setRumbleCount(rumbles.length))
       .catch(() => setRumbleCount(0));
-    void listChains({ kind: 'demo' })
-      .then((demos) =>
-        setDemoCount(demos.filter((chain) => demoCard(chain)?.status === 'ready').length),
-      )
-      .catch(() => setDemoCount(0));
   }, []);
 
   const quiet = needsYou === 0 && buildingCount === 0 && nextAction === null;
@@ -76,14 +69,6 @@ export function Vmu() {
           to="/rumble"
         >
           {countInWords(rumbleCount)} {rumbleCount === 1 ? 'Rumble' : 'Rumbles'}
-        </Link>
-      )}
-      {demoCount !== null && demoCount > 0 && (
-        <Link
-          className="flex min-h-11 items-center border-2 border-accent p-3 font-display text-xs text-accent no-underline"
-          to="/demos"
-        >
-          {countInWords(demoCount)} {demoCount === 1 ? 'demo' : 'demos'} ready
         </Link>
       )}
       {nextAction !== null &&

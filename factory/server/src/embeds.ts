@@ -17,6 +17,13 @@ const deniedSrc = (src: string) => ({
   error: `Embed src not allowed: "${src}" (only /play/<slug>/... embeds are permitted)`,
 });
 
+export const PAK_EMBED_ROUTES = ['/workshop'] as const;
+
+const deniedPakView = (src: string) => ({
+  ok: false as const,
+  error: `Embed src not allowed: "${src}" (an explainer cannot embed the Pak's own explainer views)`,
+});
+
 export function rewriteEmbeds(html: string): RewriteEmbedsResult {
   let error: RewriteEmbedsResult | undefined;
   const rewritten = html.replace(/<iframe\b[^>]*>/gi, (tag) => {
@@ -48,13 +55,21 @@ export function rewriteEmbeds(html: string): RewriteEmbedsResult {
     const pathname = queryAt < 0 ? beforeHash : beforeHash.slice(0, queryAt);
     const query = queryAt < 0 ? '' : beforeHash.slice(queryAt + 1);
     const slugMatch = /^\/play\/([^/]+)\//.exec(pathname);
-    if (pathname.includes('..') || slugMatch === null || !DEMO_SLUG.test(slugMatch[1] ?? '')) {
+    const pakRoute = PAK_EMBED_ROUTES.some((route) => route === pathname);
+    if (pathname === '/' || pathname === '/roadmap' || pathname.startsWith('/explain/')) {
+      error = deniedPakView(src);
+      return tag;
+    }
+    if (
+      pathname.includes('..') ||
+      (!pakRoute && (slugMatch === null || !DEMO_SLUG.test(slugMatch[1] ?? '')))
+    ) {
       error = deniedSrc(src);
       return tag;
     }
 
     const parameters = new URLSearchParams(query);
-    parameters.set('debug', '1');
+    parameters.set(pakRoute ? 'embed' : 'debug', '1');
     const nextSrc = `${pathname}?${parameters.toString()}${fragment}`;
     let next = tag.replace(srcAttributes[0]!.match, ` src="${nextSrc}"`);
     next = next.replace(demoAttributes[0]!.match, ` data-wyld-demo="${demo || 'landscape'}"`);

@@ -12,7 +12,7 @@ import { upsertBriefingChain } from './chain-cards.js';
 import { ensureMechanicalBriefing } from './catchup.js';
 import { CHAIN_LIMIT } from './chains.js';
 import { openDatabase, type AppDatabase } from './database.js';
-import { artifacts, chains, demos, presence, quests, worlds } from './schema.js';
+import { artifacts, chains, presence, quests, worlds } from './schema.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 
@@ -396,7 +396,6 @@ describe('chain routes', () => {
     const message = Chain.parse(
       await (await post('/api/chains', { text: 'message', author: 'planner' })).json(),
     );
-    await post('/api/demos', { id: 'card', ref: 'main', kind: 'live', summary: 'Demo card' });
     await app.request('/api/presence/next-action', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -404,23 +403,11 @@ describe('chain routes', () => {
     });
     const defaults = (await (await app.request('/api/chains')).json()) as Chain[];
     expect(defaults.map(({ id }) => id)).toEqual([message.id, question.id]);
-    expect(await (await app.request('/api/chains?kind=demo,action')).json()).toMatchObject([
+    expect(await (await app.request('/api/chains?kind=action')).json()).toMatchObject([
       { kind: 'action' },
-      { kind: 'demo' },
     ]);
-    expect((await (await app.request('/api/chains?kind=all')).json()) as Chain[]).toHaveLength(4);
+    expect((await (await app.request('/api/chains?kind=all')).json()) as Chain[]).toHaveLength(3);
     expect((await app.request('/api/chains?kind=unknown')).status).toBe(400);
-
-    const demo = database.db.select().from(chains).where(eq(chains.demoId, 'card')).get()!;
-    await post(`/api/chains/${demo.id}/snooze`, { until: '2026-09-06T12:00:00.000Z' });
-    expect(await (await app.request('/api/chains?kind=demo')).json()).toEqual([]);
-    expect(
-      await (await app.request('/api/chains?kind=demo&includeSnoozed=1')).json(),
-    ).toMatchObject([{ id: demo.id }]);
-    await post(`/api/chains/${demo.id}/close`, { reason: 'settled' });
-    expect(
-      await (await app.request('/api/chains?kind=demo&status=settled&includeSnoozed=1')).json(),
-    ).toMatchObject([{ id: demo.id }]);
   });
 
   it('generates a mechanical briefing while listing briefing chains', async () => {
@@ -538,54 +525,6 @@ describe('chain routes', () => {
       expect((await post('/api/chains', { text: 'not allowed', kind })).status).toBe(400);
     },
   );
-
-  it('closes a quest demo as done and reopens its quest and visibility', async () => {
-    createQuest('demo-quest');
-    database.db.update(quests).set({ status: 'demo' }).where(eq(quests.id, 'demo-quest')).run();
-    await post('/api/demos', {
-      id: 'quest-demo',
-      ref: 'main',
-      kind: 'live',
-      questId: 'demo-quest',
-    });
-    const demoChain = database.db
-      .select()
-      .from(chains)
-      .where(eq(chains.demoId, 'quest-demo'))
-      .get()!;
-    const closed = await post(`/api/chains/${demoChain.id}/close`, { reason: 'done' });
-    expect(await closed.json()).toMatchObject({ status: 'settled' });
-    expect(database.db.select().from(quests).where(eq(quests.id, 'demo-quest')).get()?.status).toBe(
-      'done',
-    );
-    expect(
-      database.db.select().from(demos).where(eq(demos.id, 'quest-demo')).get()?.hiddenAt,
-    ).not.toBeNull();
-    expect((await events()).some(({ kind }) => kind === 'planner.quest_updated')).toBe(true);
-    expect(await (await app.request('/api/demos')).json()).toEqual([]);
-
-    const reopened = await post(`/api/chains/${demoChain.id}/reopen`, { source: 'human' });
-    expect(await reopened.json()).toMatchObject({ status: 'open' });
-    expect(database.db.select().from(quests).where(eq(quests.id, 'demo-quest')).get()?.status).toBe(
-      'demo',
-    );
-    expect(
-      database.db.select().from(demos).where(eq(demos.id, 'quest-demo')).get()?.hiddenAt,
-    ).toBeNull();
-    expect(await (await app.request('/api/demos')).json()).toHaveLength(1);
-    expect((await post(`/api/chains/${demoChain.id}/reopen`, {})).status).toBe(200);
-    expect((await post('/api/chains/999999/reopen', {})).status).toBe(404);
-
-    const question = await create('not a demo');
-    expect((await post(`/api/chains/${question.id}/close`, { reason: 'done' })).status).toBe(400);
-    await post('/api/demos', { id: 'questless', ref: 'main', kind: 'live' });
-    const questless = database.db
-      .select()
-      .from(chains)
-      .where(eq(chains.demoId, 'questless'))
-      .get()!;
-    expect((await post(`/api/chains/${questless.id}/close`, { reason: 'done' })).status).toBe(400);
-  });
 
   it('rejects reopening rumbles and does not auto-settle card chains', async () => {
     await post('/api/rumbles', { title: 'Choose', context: 'Now', options: ['A'], kind: 'taste' });

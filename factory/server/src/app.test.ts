@@ -58,6 +58,34 @@ describe('Pak server', () => {
     });
   }
 
+  it('serves the api and the pak build with a permissive CORS header', async () => {
+    const pakDist = path.join(directory, 'pak');
+    fs.mkdirSync(pakDist);
+    fs.writeFileSync(path.join(pakDist, 'index.html'), '<h1>Pak</h1>');
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      pakDist,
+      logger: silentLogger,
+    });
+
+    const responses = [
+      await app.request('/api/quests'),
+      await app.request('/'),
+      await app.request('/api/chains', {
+        method: 'OPTIONS',
+        headers: { origin: 'null', 'access-control-request-method': 'POST' },
+      }),
+    ];
+    for (const response of responses) {
+      expect(response.headers.get('access-control-allow-origin')).toBe('*');
+      expect(response.headers.get('access-control-allow-credentials')).toBeNull();
+    }
+    expect(responses[2]?.headers.get('access-control-allow-methods')).toBe('GET, HEAD, POST');
+    expect(responses[2]?.headers.get('access-control-allow-headers')).toBe('content-type');
+  });
+
   it('lists the catalogue and reflects unlock events', async () => {
     const initial = (await (await app.request('/api/achievements')).json()) as Array<{
       id: string;
@@ -443,7 +471,7 @@ describe('Pak server', () => {
     for (const kind of ['question', 'message', 'rumble', 'demo']) insert.run(kind, null);
     insert.run('action', null);
     insert.run('unlock', null);
-    expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(5);
+    expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(4);
     database.sqlite
       .prepare(
         "UPDATE chains SET snoozed_until = '2999-01-01T00:00:00.000Z' WHERE kind IN ('question', 'message', 'rumble', 'demo', 'unlock')",

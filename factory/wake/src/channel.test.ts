@@ -363,6 +363,7 @@ describe('Pak tools', () => {
       'pak_read_health',
       'pak_request_rumble',
       'pak_read_rumbles',
+      'pak_build_disc',
       'pak_register_demo',
       'pak_read_demos',
       'pak_read_feedback',
@@ -408,7 +409,7 @@ describe('Pak tools', () => {
       additionalProperties: false,
     });
     expect(result.tools?.find(({ name }) => name === 'pak_register_demo')?.description).toBe(
-      'Register what Dru can try for a quest: a Demo Disc (a game build), a live try-it card, or a branch build of the Pak (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
+      'Deprecated — use pak_build_disc. Register what Dru can try for a quest: a Demo Disc (a game build), a live try-it card, or a branch build of the Pak (what changed, numbered steps, seeded test data, and where to go). Re-registering the same slug updates the card.',
     );
     expect(result.tools?.find(({ name }) => name === 'pak_read_demos')?.inputSchema).toMatchObject({
       properties: {},
@@ -467,6 +468,11 @@ describe('Pak tools', () => {
       required: ['text'],
       additionalProperties: false,
     });
+  });
+
+  it('exposes pak_build_disc', async () => {
+    const [list] = handlers(vi.fn());
+    expect((await list!({})).tools?.some(({ name }) => name === 'pak_build_disc')).toBe(true);
   });
 
   it('exposes pak_request_look', async () => {
@@ -1078,13 +1084,13 @@ describe('Pak tools', () => {
     expect(fetch).toHaveBeenCalledWith(url, { method: 'GET', headers: {} });
   });
 
-  it('registers a Demo Disc with mapped arguments and omitted optionals', async () => {
+  it('builds a disc without a card', async () => {
     const fetch = vi.fn(async () => new Response('{"id":"demo-discs"}', { status: 200 }));
     const [, call] = handlers(fetch as typeof globalThis.fetch);
 
     const result = await call!({
       params: {
-        name: 'pak_register_demo',
+        name: 'pak_build_disc',
         arguments: {
           slug: 'demo-discs',
           ref: 'codex/wake-demo-tools',
@@ -1106,92 +1112,35 @@ describe('Pak tools', () => {
     });
   });
 
-  it('registers a titled main Demo Disc without a quest', async () => {
+  it('forwards a deprecated pak_register_demo call', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(
-      async () => new Response('{"id":"main"}', { status: 200 }),
+      async () => new Response('{"id":"branch-pak"}', { status: 200 }),
     );
-    const [, call] = handlers(fetch);
-
-    await call!({
-      params: {
-        name: 'pak_register_demo',
-        arguments: { slug: 'main', ref: 'main', title: 'Main build' },
+    const logger = vi.fn();
+    const registry = createToolRegistry({ pakUrl: 'http://pak', fetch, logger });
+    const result = await registry.callTool({
+      name: 'pak_register_demo',
+      arguments: {
+        slug: 'branch-pak',
+        ref: 'feature/pak',
+        quest: 'species',
+        kind: 'live',
+        title: 'Dropped',
+        summary: 'Dropped too.',
+        steps: ['Also dropped.'],
+        seeded: ['Dropped.'],
+        deep_link: '/workshop',
       },
     });
-
+    expect(result.isError).toBeUndefined();
     expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
-      id: 'main',
-      ref: 'main',
-      title: 'Main build',
+      id: 'branch-pak',
+      ref: 'feature/pak',
+      questId: 'species',
       kind: 'disc',
     });
-  });
-
-  it('registers a live try-it card with its card fields', async () => {
-    const fetch = vi.fn(async () => new Response('{"id":"sleep-mode"}', { status: 200 }));
-    const [, call] = handlers(fetch as typeof globalThis.fetch);
-
-    const result = await call!({
-      params: {
-        name: 'pak_register_demo',
-        arguments: {
-          slug: 'sleep-mode',
-          ref: 'codex/sleep-mode',
-          kind: 'live',
-          summary: 'Sleep mode is ready to try.',
-          steps: ['Open Sleep.', 'Choose a wake time.'],
-          seeded: ['An active quest'],
-          deep_link: '/sleep',
-        },
-      },
-    });
-
-    expect(result.isError).toBeUndefined();
-    expect(fetch).toHaveBeenCalledWith('http://pak/api/demos', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        id: 'sleep-mode',
-        ref: 'codex/sleep-mode',
-        kind: 'live',
-        summary: 'Sleep mode is ready to try.',
-        steps: ['Open Sleep.', 'Choose a wake time.'],
-        seeded: ['An active quest'],
-        deepLink: '/sleep',
-      }),
-    });
-  });
-
-  it('registers a Pak branch build with its card fields', async () => {
-    const fetch = vi.fn(async () => new Response('{"id":"branch-pak"}', { status: 200 }));
-    const [, call] = handlers(fetch as typeof globalThis.fetch);
-
-    const result = await call!({
-      params: {
-        name: 'pak_register_demo',
-        arguments: {
-          slug: 'branch-pak',
-          ref: 'feature/pak',
-          kind: 'pak',
-          summary: 'Try the branch.',
-          steps: ['Open Sleep.'],
-          deep_link: '/sleep',
-        },
-      },
-    });
-
-    expect(result.isError).toBeUndefined();
-    expect(fetch).toHaveBeenCalledWith('http://pak/api/demos', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        id: 'branch-pak',
-        ref: 'feature/pak',
-        kind: 'pak',
-        summary: 'Try the branch.',
-        steps: ['Open Sleep.'],
-        deepLink: '/sleep',
-      }),
+    expect(logger).toHaveBeenCalledWith('info', 'deprecated tool used', {
+      tool: 'pak_register_demo',
     });
   });
 

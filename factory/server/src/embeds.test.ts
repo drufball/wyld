@@ -45,8 +45,22 @@ describe('rewriteEmbeds', () => {
   it('rejects a protocol-relative url', () => {
     expect(rewrite('<iframe data-wyld-demo src="//host/x">')).toMatchObject({ ok: false });
   });
-  it.each(['/workshop', '/', '/artifacts/x/'])('rejects a path outside /play: %s', (src) => {
-    expect(rewrite(`<iframe data-wyld-demo src="${src}">`)).toMatchObject({ ok: false });
+  it('allows an allow-listed pak route and forces embed=1', () => {
+    expect(rewrite('<iframe data-wyld-demo src="/workshop?tab=all">')).toEqual({
+      ok: true,
+      html: '<main><iframe data-wyld-demo="landscape" src="/workshop?tab=all&embed=1"></main>',
+    });
+  });
+  it('rejects a pak route that is not on the allow-list', () => {
+    expect(rewrite('<iframe data-wyld-demo src="/artifacts/x/">')).toMatchObject({ ok: false });
+  });
+  it('rejects an explainer embedding an explainer', () => {
+    for (const src of ['/explain/x', '/roadmap', '/']) {
+      expect(rewrite(`<iframe data-wyld-demo src="${src}">`)).toEqual({
+        ok: false,
+        error: `Embed src not allowed: "${src}" (an explainer cannot embed the Pak's own explainer views)`,
+      });
+    }
   });
   it('rejects a play path containing dot segments', () => {
     expect(rewrite('<iframe data-wyld-demo src="/play/fw/../x">')).toMatchObject({ ok: false });
