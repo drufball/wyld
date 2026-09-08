@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { SpeciesData, SpeciesDraft, SpeciesLibrary, SpriteFrame } from '@wyld/sprites';
-import { deleteSpeciesDraft, listSpecies, putSpeciesDraft } from '../api/client.js';
+import {
+  summariseShip,
+  type SpeciesData,
+  type SpeciesDraft,
+  type SpeciesLibrary,
+  type SpriteFrame,
+} from '@wyld/sprites';
+import { deleteSpeciesDraft, listSpecies, putSpeciesDraft, shipSpecies } from '../api/client.js';
 import { SpeciesEditor } from '../components/SpeciesEditor.js';
 import { SpriteCanvas } from '../components/SpriteCanvas.js';
 import { Badge } from '../components/ui/badge.js';
@@ -51,7 +57,7 @@ function CreatureCard({
           />
         </div>
         <strong>{item.name}</strong>
-        <div className="flex justify-center gap-1">
+        <div className="flex flex-wrap justify-center gap-1">
           <Badge className="whitespace-nowrap">Tier {item.tier}</Badge>
           <Badge variant="outline">{item.rarity}</Badge>
           {draft && (
@@ -70,6 +76,9 @@ export function Workshop() {
   const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState('');
   const [editorRevision, setEditorRevision] = useState(0);
+  const [shipping, setShipping] = useState(false);
+  const [shipProblems, setShipProblems] = useState<string[]>([]);
+  const [shipped, setShipped] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const detailRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -86,6 +95,10 @@ export function Workshop() {
     for (const d of library.drafts) if (d.data) map.set(d.speciesId, d.data);
     return [...map.values()];
   }, [library]);
+  const summary = useMemo(
+    () => (library ? summariseShip(library.species, library.drafts) : null),
+    [library],
+  );
   if (failed) return <p>The workshop couldn't read the creature data. Try again.</p>;
   if (!library) return <p>Opening the creature workshop…</p>;
   const spec = effective.find((x) => x.id === selected) ?? effective[0];
@@ -152,6 +165,30 @@ export function Workshop() {
     );
     setSelected(value.id);
   };
+  const ship = async () => {
+    setShipping(true);
+    setShipProblems([]);
+    try {
+      const result = await shipSpecies();
+      if (!result.shipped) setShipProblems(result.problems);
+      else {
+        const fresh = await listSpecies();
+        setLibrary({ ...fresh, drafts: fresh.drafts ?? [], references: fresh.references ?? {} });
+        setShipped(true);
+      }
+    } catch (error) {
+      setShipProblems([error instanceof Error ? error.message : 'The workshop could not ship.']);
+    } finally {
+      setShipping(false);
+    }
+  };
+  const nameFor = (id: string) =>
+    effective.find((item) => item.id === id)?.name ??
+    library.species.find((item) => item.id === id)?.name ??
+    id;
+  const changeCount = summary
+    ? summary.added.length + summary.removed.length + summary.changed.length
+    : 0;
   return (
     <div className="space-y-4">
       <header>
@@ -159,6 +196,43 @@ export function Workshop() {
         <p className="text-muted-foreground">Shape every creature in the living world.</p>
         <Button onClick={() => void copy()}>New species</Button>
       </header>
+      {shipped ? (
+        <section className="rounded-lg border border-primary/40 bg-card p-4">
+          <strong>Shipped. It'll be in the next disc.</strong>
+        </section>
+      ) : changeCount > 0 && summary ? (
+        <section className="rounded-lg border border-primary/40 bg-card p-4" aria-busy={shipping}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <strong>{changeCount} species changed</strong>
+              <ul className="mt-2 text-sm text-muted-foreground">
+                {summary.changed.map(({ id, fields }) => (
+                  <li key={id}>
+                    {nameFor(id)} — {fields.join(', ')}
+                  </li>
+                ))}
+                {summary.added.map((id) => (
+                  <li key={id}>{nameFor(id)} — new species</li>
+                ))}
+                {summary.removed.map((id) => (
+                  <li key={id}>{nameFor(id)} — removed</li>
+                ))}
+              </ul>
+            </div>
+            <Button className="min-h-11" disabled={shipping} onClick={() => void ship()}>
+              {shipping ? 'Shipping…' : 'Ship'}
+            </Button>
+          </div>
+          {shipping && <p className="mt-2 text-sm">Running the game's own tests…</p>}
+          {shipProblems.length > 0 && (
+            <ul role="alert" className="mt-3 text-sm text-destructive">
+              {shipProblems.map((problem) => (
+                <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
       <div className="grid gap-5 md:grid-cols-2">
         <ul className="grid auto-rows-min grid-cols-2 gap-2 self-start">
           {effective.map((item) => {

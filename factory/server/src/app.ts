@@ -116,6 +116,7 @@ export type AppDependencies = {
   builder?: DemoBuilder;
   sleepConfig?: SleepConfig;
   repoDir?: string;
+  worktreesDir?: string;
 };
 
 export function createApp(dependencies: AppDependencies) {
@@ -433,6 +434,7 @@ export function createApp(dependencies: AppDependencies) {
     '/api',
     createSpeciesRoutes({
       repoDir: dependencies.repoDir,
+      worktreesDir: dependencies.worktreesDir,
       database: dependencies.database,
       logger,
       now,

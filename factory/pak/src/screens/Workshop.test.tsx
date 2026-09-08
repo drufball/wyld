@@ -2,8 +2,18 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SpeciesData } from '@wyld/sprites';
 
-const { listSpecies } = vi.hoisted(() => ({ listSpecies: vi.fn() }));
-vi.mock('../api/client.js', () => ({ listSpecies }));
+const { listSpecies, shipSpecies, putSpeciesDraft, deleteSpeciesDraft } = vi.hoisted(() => ({
+  listSpecies: vi.fn(),
+  shipSpecies: vi.fn(),
+  putSpeciesDraft: vi.fn(),
+  deleteSpeciesDraft: vi.fn(),
+}));
+vi.mock('../api/client.js', () => ({
+  listSpecies,
+  shipSpecies,
+  putSpeciesDraft,
+  deleteSpeciesDraft,
+}));
 vi.mock('../components/SpriteCanvas.js', () => ({
   SpriteCanvas: ({ facing, label }: { facing: string; label: string }) => (
     <div role="img" aria-label={label} data-facing={facing} />
@@ -52,6 +62,7 @@ const regions = [{ id: 'grove', name: 'Verdant Grove', biome: 'woods' }];
 describe('Workshop', () => {
   beforeEach(() => {
     listSpecies.mockReset();
+    shipSpecies.mockReset();
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -134,5 +145,120 @@ describe('Workshop', () => {
         screen.getByText("The workshop couldn't read the creature data. Try again."),
       ).not.toBeNull(),
     );
+  });
+
+  it('shows what would ship and lets you ship it', async () => {
+    listSpecies.mockResolvedValue({
+      species: [first],
+      regions,
+      drafts: [
+        {
+          speciesId: first.id,
+          state: 'edited',
+          data: { ...first, name: 'Loamox Prime' },
+          updatedAt: 'now',
+        },
+      ],
+      references: {},
+    });
+    shipSpecies.mockResolvedValue({ shipped: false, problems: ['Still testing'] });
+    render(<Workshop />);
+    expect(await screen.findByText('1 species changed')).not.toBeNull();
+    expect(screen.getByText('Loamox Prime — name')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Ship' }));
+    await waitFor(() => expect(shipSpecies).toHaveBeenCalled());
+  });
+
+  it('keeps the tier, rarity and draft badges inside the card', async () => {
+    listSpecies.mockResolvedValue({
+      species: [first],
+      regions,
+      drafts: [
+        {
+          speciesId: first.id,
+          state: 'edited',
+          data: first,
+          updatedAt: 'now',
+        },
+      ],
+      references: {},
+    });
+    render(<Workshop />);
+    const card = await screen.findByRole('button', { name: /Loamox/ });
+    const badgeRow = screen.getByText('Edited').parentElement;
+    expect(card.contains(badgeRow)).toBe(true);
+    expect(badgeRow?.classList.contains('flex-wrap')).toBe(true);
+  });
+
+  it('shows the failing rule in plain English and keeps the draft', async () => {
+    listSpecies.mockResolvedValue({
+      species: [first],
+      regions,
+      drafts: [
+        {
+          speciesId: first.id,
+          state: 'edited',
+          data: { ...first, name: 'Loamox Prime' },
+          updatedAt: 'now',
+        },
+      ],
+      references: {},
+    });
+    shipSpecies.mockResolvedValue({
+      shipped: false,
+      problems: ['Loamox vigor is outside its tier band'],
+    });
+    render(<Workshop />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Ship' }));
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Loamox vigor is outside its tier band',
+    );
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Ship' }).disabled).toBe(false);
+  });
+
+  it('says it shipped and clears the bar', async () => {
+    listSpecies
+      .mockResolvedValueOnce({
+        species: [first],
+        regions,
+        drafts: [
+          {
+            speciesId: first.id,
+            state: 'edited',
+            data: { ...first, name: 'Loamox Prime' },
+            updatedAt: 'now',
+          },
+        ],
+        references: {},
+      })
+      .mockResolvedValueOnce({ species: [first], regions, drafts: [], references: {} });
+    shipSpecies.mockResolvedValue({
+      shipped: true,
+      summary: { added: [], removed: [], changed: [{ id: first.id, fields: [] }] },
+      prUrl: 'https://example.invalid/change',
+    });
+    render(<Workshop />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Ship' }));
+    expect(await screen.findByText("Shipped. It'll be in the next disc.")).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ship' })).toBeNull();
+  });
+
+  it('never shows a branch, a pull request or CI wording', async () => {
+    listSpecies.mockResolvedValue({
+      species: [first],
+      regions,
+      drafts: [
+        {
+          speciesId: first.id,
+          state: 'edited',
+          data: { ...first, name: 'Loamox Prime' },
+          updatedAt: 'now',
+        },
+      ],
+      references: {},
+    });
+    render(<Workshop />);
+    await screen.findByText('1 species changed');
+    expect(document.body.textContent).not.toMatch(/\b(?:PR|branch|CI)\b|pull request|github\.com/i);
   });
 });

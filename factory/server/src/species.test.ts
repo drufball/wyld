@@ -2,16 +2,16 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { SpeciesDraft, SpeciesLibrary } from '@wyld/sprites';
+import { SpeciesDraft, SpeciesLibrary, type SpeciesData } from '@wyld/sprites';
 import { createSpeciesRoutes } from './species.js';
 import { openDatabase, type AppDatabase } from './database.js';
 
-const species = {
+const species: SpeciesData = {
   id: 'testling',
   name: 'Testling',
   rarity: 'standing',
   tier: 1,
-  bodyPlan: 'avian',
+  bodyPlan: 'heavy-quadruped',
   hide: 'Bark',
   innate: [],
   forces: ['Cut'],
@@ -23,7 +23,7 @@ const species = {
   hints: { tracks: 'Soft', call: 'Bright', identified: 'Small' },
   call: { waveform: 'sine', notes: [{ freq: 440, dur: 0.2 }] },
   palette: { primary: '#112233', secondary: '#445566' },
-  visual: { wings: 1 },
+  visual: { length: 1, height: 1 },
 };
 
 describe('species routes', () => {
@@ -46,6 +46,47 @@ describe('species routes', () => {
 
   const writeSpecies = () =>
     writeFile(path.join(repoDir, 'game/src/data/species.json'), JSON.stringify([species]));
+
+  const storeEditedDraft = async (
+    app: ReturnType<typeof createSpeciesRoutes>,
+    data: SpeciesData = { ...species, name: 'Shipped Testling' },
+  ) => {
+    const response = await app.request('/species/drafts/testling', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ state: 'edited', data }),
+    });
+    expect(response.status).toBe(200);
+  };
+
+  const shippingApp = (
+    runCommand: NonNullable<Parameters<typeof createSpeciesRoutes>[0]['runCommand']>,
+  ) =>
+    createSpeciesRoutes({
+      repoDir,
+      worktreesDir: path.join(repoDir, 'worktrees'),
+      database,
+      now: () => new Date('2026-02-03T04:05:06.000Z'),
+      logger: () => undefined,
+      runCommand,
+    });
+
+  const recordingRunner =
+    (
+      commands: string[],
+      fail?: (command: string, args: string[]) => Error | undefined,
+    ): NonNullable<Parameters<typeof createSpeciesRoutes>[0]['runCommand']> =>
+    async (command, args) => {
+      commands.push([command, ...args].join(' '));
+      const error = fail?.(command, args);
+      if (error) throw error;
+      if (args.includes('add') && args.includes('--detach')) {
+        const worktree = args.at(-2)!;
+        await mkdir(path.join(worktree, 'game/src/data'), { recursive: true });
+      }
+      if (command === 'gh') return { stdout: 'https://github.com/drufball/wyld/pull/999\n' };
+      return { stdout: '' };
+    };
 
   it('returns drafts and references with the species', async () => {
     await writeSpecies();
@@ -169,5 +210,126 @@ describe('species routes', () => {
     }).request('/species');
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: expect.stringContaining('creature data') });
+  });
+
+  it('refuses to ship when the checkout is dirty', async () => {
+    await writeSpecies();
+    const commands: string[] = [];
+    const app = shippingApp(async (command, args) => {
+      commands.push([command, ...args].join(' '));
+      return { stdout: ' M game/src/data/species.json\n' };
+    });
+    const response = await app.request('/species/ship', { method: 'POST' });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: expect.stringContaining('uncommitted changes'),
+    });
+    expect(commands).toEqual([`git -C ${repoDir} status --porcelain`]);
+  });
+
+  it('refuses to ship when nothing has changed', async () => {
+    await writeSpecies();
+    const commands: string[] = [];
+    const response = await shippingApp(recordingRunner(commands)).request('/species/ship', {
+      method: 'POST',
+    });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: 'Nothing has been changed yet.' });
+    expect(commands).toEqual([`git -C ${repoDir} status --porcelain`]);
+  });
+
+  it('refuses to ship a draft that breaks a rule and keeps it', async () => {
+    await writeSpecies();
+    const commands: string[] = [];
+    const app = shippingApp(recordingRunner(commands));
+    await storeEditedDraft(app, {
+      ...species,
+      stats: { ...species.stats, vigor: [0, 1] },
+    });
+    const response = await app.request('/species/ship', { method: 'POST' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ shipped: false, problems: expect.any(Array) });
+    expect(SpeciesLibrary.parse(await (await app.request('/species')).json()).drafts).toHaveLength(
+      1,
+    );
+    expect(commands).toEqual([`git -C ${repoDir} status --porcelain`]);
+  });
+
+  it('keeps the drafts when the game tests fail', async () => {
+    await writeSpecies();
+    const commands: string[] = [];
+    const app = shippingApp(
+      recordingRunner(commands, (command, args) =>
+        command === 'pnpm' && args.includes('test') ? new Error('tests failed') : undefined,
+      ),
+    );
+    await storeEditedDraft(app);
+    const response = await app.request('/species/ship', { method: 'POST' });
+    expect(await response.json()).toMatchObject({ shipped: false });
+    expect(SpeciesLibrary.parse(await (await app.request('/species')).json()).drafts).toHaveLength(
+      1,
+    );
+  });
+
+  it('reports the failing test names in plain English', async () => {
+    await writeSpecies();
+    const app = shippingApp(
+      recordingRunner([], (command, args) => {
+        if (command !== 'pnpm' || !args.includes('test')) return undefined;
+        return Object.assign(new Error('tests failed'), {
+          stderr: ' FAIL  src/rules.test.ts\n × creature rules > rejects weak creatures 12ms\n',
+        });
+      }),
+    );
+    await storeEditedDraft(app);
+    expect(await (await app.request('/species/ship', { method: 'POST' })).json()).toEqual({
+      shipped: false,
+      problems: ['creature rules — rejects weak creatures'],
+    });
+  });
+
+  it('opens a pull request and clears the drafts when the game tests pass', async () => {
+    await writeSpecies();
+    const commands: string[] = [];
+    const app = shippingApp(recordingRunner(commands));
+    await storeEditedDraft(app);
+    const response = await app.request('/species/ship', { method: 'POST' });
+    expect(await response.json()).toMatchObject({
+      shipped: true,
+      prUrl: 'https://github.com/drufball/wyld/pull/999',
+    });
+    expect(SpeciesLibrary.parse(await (await app.request('/species')).json()).drafts).toEqual([]);
+    const worktree = path.join(repoDir, 'worktrees/workshop');
+    expect(commands).toEqual([
+      `git -C ${repoDir} status --porcelain`,
+      `git -C ${repoDir} worktree remove --force ${worktree}`,
+      `git -C ${repoDir} worktree prune`,
+      `git -C ${repoDir} fetch origin main`,
+      `git -C ${repoDir} worktree add -f --detach ${worktree} origin/main`,
+      `git -C ${worktree} switch -c workshop/20260203-040506`,
+      'pnpm install --frozen-lockfile --prefer-offline',
+      'pnpm exec prettier --write game/src/data/species.json',
+      'pnpm --filter @wyld/game test',
+      `git -C ${worktree} add game/src/data/species.json`,
+      `git -C ${worktree} -c user.name=WYLD Creature Workshop -c user.email=workshop@wyld.local commit -m Workshop: 1 species changed`,
+      `git -C ${worktree} push -u origin workshop/20260203-040506`,
+      'gh pr create --base main --title Workshop: 1 species changed --body - **Shipped Testling** (`testling`) — name\n\nShipped from the creature workshop.',
+      `git -C ${repoDir} worktree remove --force ${worktree}`,
+    ]);
+  });
+
+  it('removes the worktree when a step throws', async () => {
+    await writeSpecies();
+    const commands: string[] = [];
+    const app = shippingApp(
+      recordingRunner(commands, (command, args) =>
+        command === 'pnpm' && args[0] === 'install' ? new Error('install failed') : undefined,
+      ),
+    );
+    await storeEditedDraft(app);
+    const response = await app.request('/species/ship', { method: 'POST' });
+    expect(response.status).toBe(500);
+    const removal = `git -C ${repoDir} worktree remove --force ${path.join(repoDir, 'worktrees/workshop')}`;
+    expect(commands.filter((command) => command === removal)).toHaveLength(2);
   });
 });
