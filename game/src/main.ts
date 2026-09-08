@@ -197,6 +197,15 @@ const onScreen = (x: number, z: number, margin = 0): boolean => {
     t.ty < (sc.y + 1) * view.rows + margin
   );
 };
+const tileOnScreen = (tx: number, ty: number, margin = 1): boolean => {
+  const sc = player.screen;
+  return (
+    tx >= sc.x * view.cols - margin &&
+    tx < (sc.x + 1) * view.cols + margin &&
+    ty >= sc.y * view.rows - margin &&
+    ty < (sc.y + 1) * view.rows + margin
+  );
+};
 const registryWorld = {
   regions,
   populationFor: (id: string) => {
@@ -542,7 +551,7 @@ const render = (alpha = 1) => {
       party: partyState.party.flatMap((member, index) => {
         const controller = partyControllers.get(member.individual.id)!;
         const tile = controller.interpolated(alpha);
-        if (!onScreen(tile.x, tile.y, 1)) return [];
+        if (!tileOnScreen(tile.x, tile.y, 1)) return [];
         return [
           {
             key: member.individual.id,
