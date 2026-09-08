@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { safeStorage } from './storage.js';
 
 const originalStorageDescriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
-const replaceStorage = (value: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>) =>
+const replaceStorage = (value: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined) =>
   Object.defineProperty(window, 'localStorage', { configurable: true, value });
 const denyStorageAccess = () =>
   Object.defineProperty(window, 'localStorage', {
@@ -33,6 +35,14 @@ describe('safe storage', () => {
   it('falls back to in-memory storage when reading localStorage throws a SecurityError', () => {
     denyStorageAccess();
     expect(() => safeStorage()).not.toThrow();
+  });
+
+  it('falls back to in-memory storage when localStorage is undefined', () => {
+    replaceStorage(undefined);
+    expect(() => safeStorage()).not.toThrow();
+    const storage = safeStorage();
+    storage.setItem('answer', '42');
+    expect(storage.getItem('answer')).toBe('42');
   });
 
   it('falls back to in-memory storage when setItem throws', () => {
@@ -76,11 +86,15 @@ describe('safe storage', () => {
   });
 
   it('has no direct localStorage access outside the storage accessor', () => {
-    const src = `${process.cwd()}/src`;
-    const allowed = new Set(['persist/storage.ts', 'persist/storage.test.ts']);
+    const testFileUrl = new URL(import.meta.url);
+    const src = fileURLToPath(new URL('../', testFileUrl));
+    const allowed = new Set(['persist/storage.ts']);
     const files = readdirSync(src, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .map((entry) => `${entry.parentPath.slice(src.length + 1)}/${entry.name}`);
+      .filter(
+        (entry) =>
+          entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts'),
+      )
+      .map((entry) => path.relative(src, path.join(entry.parentPath, entry.name)));
     const offenders = files.filter(
       (file) =>
         !allowed.has(file) && readFileSync(`${src}/${file}`, 'utf8').includes('localStorage'),

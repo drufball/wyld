@@ -1,5 +1,3 @@
-import type { StorageLike } from '../arena/persistence.js';
-
 const PROBE_KEY = '__wyld_probe__';
 
 const memoryStorage = (): Storage => {
@@ -17,7 +15,7 @@ const memoryStorage = (): Storage => {
   };
 };
 
-const safeStorage = (): StorageLike & Storage => {
+const safeStorage = (): Storage => {
   try {
     const storage = globalThis.localStorage;
     if (storage != null) {

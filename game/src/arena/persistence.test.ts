@@ -8,7 +8,7 @@ import {
 } from './persistence.js';
 import { safeStorage } from '../persist/storage.js';
 
-const storageProperty = `local${'Storage'}`;
+const storageProperty = 'localStorage';
 const originalStorageDescriptor = Object.getOwnPropertyDescriptor(window, storageProperty);
 const denyStorageAccess = () =>
   Object.defineProperty(window, storageProperty, {
@@ -67,14 +67,14 @@ describe('arena persistence', () => {
     expect(wipeArenaProgress(storage).runCount).toBe(0);
     expect(storage.getItem('fieldwork.arena.v1')).toBeNull();
   });
-  it(`loads empty arena progress when local${'Storage'} access throws`, () => {
+  it('loads empty arena progress when localStorage access throws', () => {
     denyStorageAccess();
     const progress = loadArenaProgress(safeStorage());
     expect(progress.runCount).toBe(0);
     expect(progress.fightsFought).toEqual({});
     expect(progress.notebook.toJSON()).toEqual(freshArenaProgress().notebook.toJSON());
   });
-  it(`saves and wipes without throwing when local${'Storage'} access throws`, () => {
+  it('saves and wipes without throwing when localStorage access throws', () => {
     denyStorageAccess();
     const storage = safeStorage();
     expect(() => saveArenaProgress(storage, loadArenaProgress(storage))).not.toThrow();
