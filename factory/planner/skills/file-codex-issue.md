@@ -63,3 +63,7 @@ until gh pr list --json number,headRefName | grep -q '"codex/'; do sleep 60; don
 ```
 
 When the PR appears → `review-pr.md`.
+
+## Migrations when leads run in parallel (from 2026-09-08)
+
+Five leads in one evening produced two migration-number collisions (`0019` landed mid-review; the other PR went CONFLICTING and had to renumber to `0020`). When an issue adds a database migration, the issue body says: **read `factory/server/src/migrations/_journal.json` immediately before pushing and take the next number then — not the number you saw when the issue was written**; if a rebase is needed, renumber and confirm the snapshot's `prevId` chains off the newest. The lead verifies the migration against a copy of the live database before merging.
