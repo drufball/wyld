@@ -23,3 +23,4 @@ export { generateSprite };
 export type { PixelSprite, SpriteFacing, SpriteFrame, SpriteSpec } from './types.js';
 export * from './species.js';
 export * from './validate.js';
+export * from './ship.js';

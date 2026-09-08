@@ -1,4 +1,4 @@
-import { SpeciesDraft, SpeciesLibrary, type SpeciesData } from '@wyld/sprites';
+import { ShipResult, SpeciesDraft, SpeciesLibrary, type SpeciesData } from '@wyld/sprites';
 import {
   Achievement,
   Artifact,
@@ -275,4 +275,16 @@ export async function deleteSpeciesDraft(speciesId: string) {
     { method: 'DELETE' },
     'Discarding species draft',
   );
+}
+
+export async function shipSpecies() {
+  const response = await fetch('/api/species/ship', { method: 'POST' });
+  const body: unknown = await response.json();
+  if (!response.ok) {
+    const parsed = body as { error?: unknown };
+    throw new Error(
+      typeof parsed.error === 'string' ? parsed.error : 'The workshop could not ship.',
+    );
+  }
+  return ShipResult.parse(body);
 }

@@ -1,8 +1,21 @@
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { readFile, readdir, stat, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { asc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { Species, SpeciesDraft, SpeciesLibrary } from '@wyld/sprites';
+import {
+  Species,
+  SpeciesDraft,
+  SpeciesLibrary,
+  applyDrafts,
+  describeShip,
+  serialiseSpecies,
+  shipTitle,
+  summariseShip,
+  validateHints,
+  validateSpecies,
+} from '@wyld/sprites';
 import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import { log, type LogContext } from './logger.js';
@@ -10,10 +23,23 @@ import { speciesDrafts } from './schema.js';
 
 type SpeciesRouteOptions = {
   repoDir?: string;
+  worktreesDir?: string;
   database: AppDatabase;
   now?: () => Date;
   logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
+  git?: string;
+  pnpm?: string;
+  gh?: string;
+  runCommand?: CommandRunner;
 };
+type CommandRunner = (
+  command: string,
+  args: string[],
+  options: { cwd?: string; timeout: number },
+) => Promise<{ stdout?: string; stderr?: string }>;
+const execFileAsync = promisify(execFile);
+const realRun: CommandRunner = async (command, args, options) =>
+  execFileAsync(command, args, { ...options, encoding: 'utf8' });
 const DraftBody = z.object({
   state: z.enum(['edited', 'new', 'deleted']),
   data: Species.nullable().optional(),
@@ -41,6 +67,11 @@ export function createSpeciesRoutes({
   database,
   now = () => new Date(),
   logger = log,
+  worktreesDir,
+  git = 'git',
+  pnpm = 'pnpm',
+  gh = 'gh',
+  runCommand = realRun,
 }: SpeciesRouteOptions) {
   const app = new Hono();
   let referenceCache:
@@ -129,5 +160,137 @@ export function createSpeciesRoutes({
       .run();
     return c.body(null, 204);
   });
+  app.post('/species/ship', async (c) => {
+    if (!repoDir || !worktreesDir)
+      return c.json({ error: 'The workshop is not configured for shipping.' }, 500);
+    const run = async (command: string, args: string[], cwd?: string) => {
+      logger('info', 'creature workshop command', { command, args, cwd });
+      return runCommand(command, args, { ...(cwd ? { cwd } : {}), timeout: 15 * 60 * 1000 });
+    };
+    const status = await run(git, ['-C', repoDir, 'status', '--porcelain']);
+    if ((status.stdout ?? '').trim())
+      return c.json(
+        { error: "The workshop can't ship while there are uncommitted changes in the checkout." },
+        409,
+      );
+    const drafts = database.db
+      .select()
+      .from(speciesDrafts)
+      .orderBy(asc(speciesDrafts.speciesId))
+      .all();
+    if (drafts.length === 0) return c.json({ error: 'Nothing has been changed yet.' }, 409);
+    const file = await readSpecies();
+    const shippedSpecies = applyDrafts(
+      file,
+      drafts.map((draft) => SpeciesDraft.parse(draft)),
+    );
+    const world = JSON.parse(
+      await readFile(path.join(repoDir, 'game/src/data/world.json'), 'utf8'),
+    ) as {
+      regions?: { id: string; name: string }[];
+    };
+    const regions = world.regions ?? [];
+    const problems = [
+      ...validateSpecies(
+        shippedSpecies,
+        regions.map(({ id }) => id),
+      ),
+      ...validateHints(
+        shippedSpecies,
+        regions.map(({ name }) => name),
+      ),
+    ];
+    if (problems.length) return c.json({ shipped: false as const, problems });
+
+    const worktree = path.join(worktreesDir, 'workshop');
+    const stamp = now().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+    const branch = `workshop/${stamp}`;
+    const summary = summariseShip(
+      file,
+      drafts.map((draft) => SpeciesDraft.parse(draft)),
+    );
+    const title = shipTitle(summary);
+    let prepared = false;
+    try {
+      await mkdir(worktreesDir, { recursive: true });
+      prepared = true;
+      await run(git, ['-C', repoDir, 'worktree', 'remove', '--force', worktree]).catch(
+        () => undefined,
+      );
+      await rm(worktree, { recursive: true, force: true });
+      await run(git, ['-C', repoDir, 'worktree', 'prune']);
+      await run(git, ['-C', repoDir, 'worktree', 'add', '-f', '--detach', worktree, 'main']);
+      await run(git, ['-C', worktree, 'switch', '-c', branch]);
+      await writeFile(
+        path.join(worktree, 'game/src/data/species.json'),
+        serialiseSpecies(shippedSpecies),
+      );
+      await run(pnpm, ['exec', 'prettier', '--write', 'game/src/data/species.json'], worktree);
+      await run(pnpm, ['install', '--frozen-lockfile', '--prefer-offline'], worktree);
+      try {
+        await run(pnpm, ['--filter', '@wyld/game', 'test'], worktree);
+      } catch (error) {
+        const output = commandFailureText(error);
+        return c.json({ shipped: false as const, problems: gameTestProblems(output) });
+      }
+      await run(git, ['-C', worktree, 'add', 'game/src/data/species.json']);
+      await run(git, [
+        '-C',
+        worktree,
+        '-c',
+        'user.name=WYLD Creature Workshop',
+        '-c',
+        'user.email=workshop@wyld.local',
+        'commit',
+        '-m',
+        title,
+      ]);
+      await run(git, ['-C', worktree, 'push', '-u', 'origin', branch]);
+      const pullRequest = await run(
+        gh,
+        [
+          'pr',
+          'create',
+          '--base',
+          'main',
+          '--title',
+          title,
+          '--body',
+          describeShip(summary, [...file, ...shippedSpecies]),
+        ],
+        worktree,
+      );
+      const prUrl = (pullRequest.stdout ?? '').trim();
+      database.db.delete(speciesDrafts).run();
+      return c.json({ shipped: true as const, summary, prUrl });
+    } catch (error) {
+      logger('error', 'creature workshop ship failed', { reason: commandFailureText(error) });
+      return c.json({ error: 'The workshop could not ship these changes. Try again.' }, 500);
+    } finally {
+      if (prepared) {
+        await run(git, ['-C', repoDir, 'worktree', 'remove', '--force', worktree]).catch(
+          () => undefined,
+        );
+        await rm(worktree, { recursive: true, force: true }).catch(() => undefined);
+      }
+    }
+  });
   return app;
+}
+
+function commandFailureText(error: unknown): string {
+  const value = error as { stdout?: unknown; stderr?: unknown; message?: unknown };
+  return [value.stdout, value.stderr, value.message ?? error]
+    .filter(Boolean)
+    .map(String)
+    .join('\n');
+}
+
+function gameTestProblems(output: string): string[] {
+  const names = output.split(/\r?\n/).flatMap((line) => {
+    const match = line.match(/^\s*(?:×|✗|❯)\s+(.+?)(?:\s+\d+ms)?\s*$/u);
+    if (!match || match[1]!.includes('.test.')) return [];
+    return [match[1]!.replace(/ > /g, ' — ')];
+  });
+  return names.length ? [...new Set(names)] : output.split(/\r?\n/).filter(Boolean).slice(-20);
 }

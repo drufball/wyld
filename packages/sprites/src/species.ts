@@ -103,3 +103,13 @@ export const SpeciesLibrary = z.object({
   references: z.record(z.string(), z.array(z.string())),
 });
 export type SpeciesLibrary = z.infer<typeof SpeciesLibrary>;
+export const ShipSummarySchema = z.object({
+  added: z.array(z.string()),
+  removed: z.array(z.string()),
+  changed: z.array(z.object({ id: z.string(), fields: z.array(z.string()) })),
+});
+export const ShipResult = z.discriminatedUnion('shipped', [
+  z.object({ shipped: z.literal(true), summary: ShipSummarySchema, prUrl: z.string() }),
+  z.object({ shipped: z.literal(false), problems: z.array(z.string()) }),
+]);
+export type ShipResult = z.infer<typeof ShipResult>;
