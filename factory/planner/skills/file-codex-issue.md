@@ -67,3 +67,7 @@ When the PR appears → `review-pr.md`.
 ## Migrations when leads run in parallel (from 2026-09-08)
 
 Five leads in one evening produced two migration-number collisions (`0019` landed mid-review; the other PR went CONFLICTING and had to renumber to `0020`). When an issue adds a database migration, the issue body says: **read `factory/server/src/migrations/_journal.json` immediately before pushing and take the next number then — not the number you saw when the issue was written**; if a rebase is needed, renumber and confirm the snapshot's `prevId` chains off the newest. The lead verifies the migration against a copy of the live database before merging.
+
+## Fresh checkouts build their dependencies first (from 2026-09-08)
+
+Three times in two days a command run in a fresh worktree failed because a workspace package it depends on had never been built there: the disc builder (#237), the Pak deploy on the day `@wyld/sprites` appeared, and Ship's test step (#261). CI never sees it, because the root `pnpm build` builds everything in topological order. So any issue that has code run `build`, `test` or `dev` for one package in a fresh checkout or worktree specifies the dependency selector — `pnpm --filter "@wyld/game..." <script>` (the `...` suffix builds the package's workspace dependencies first) — and the lead's review checks the filter string, not just the green run.
