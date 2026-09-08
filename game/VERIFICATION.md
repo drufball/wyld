@@ -47,3 +47,19 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 - Automated: scenario query fallback and the fixed 20 × 12 six-rock arena are covered in `src/scenarios/scenarios.test.ts`.
 - Automated: thumb-sized party, move, book, map, and gated console controls are covered in `src/ui/hud.test.ts`.
 - Scenarios: `world`, `creatures`, `guide`, `party`, and `arena`.
+
+## FIELDWORK — the arena, unit 1 (the place, the roster, the pick screens)
+
+## Covered automatically
+
+- Fixed roster data, species moves, hide match-ups and counter coverage.
+- Immutable enemy and party selection, including the three-creature limit.
+- Biome floors, six waist-high rocks, arena bounds and dry ground.
+- Optional diagonal pathing, movement interpolation and frame-time percentiles.
+
+## Manual review
+
+- Check both pick screens at 375 × 812 and 1280 × 720.
+- Pick each enemy and confirm its field, player, party and idle enemy placement.
+- Confirm taps select one unit at a time and that the others hold position.
+- Use `reveal guide`, then return to the enemy cards and inspect the known facts.

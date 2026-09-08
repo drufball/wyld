@@ -53,10 +53,10 @@ const scenarios: readonly Scenario[] = [
   },
   {
     id: 'arena',
-    goal: 'A flat place to practise. Nothing lives here yet.',
+    goal: 'Open ground. Six low rocks. Nowhere to hide.',
     start: { tx: 0, ty: 0 },
     phase: 'Day',
-    party: ['loamox', 'bramblehog', 'mirefin'],
+    party: [],
     spawns: [],
     synthetic: true,
   },
@@ -68,10 +68,12 @@ const scenarioFromQuery = (query: string): Scenario | null => {
 const buildArena = (
   cols: number,
   rows: number,
+  biome: 'forest' | 'desert' | 'archipelago' = 'forest',
 ): TileGrid & { width: number; height: number; screenFlipping: false } => {
-  const grass: Tile = { class: 'walkable', surface: 'grass', biome: 'forest' };
-  const rock: Tile = { class: 'cover', surface: 'rock', biome: 'forest' };
-  const outside: Tile = { class: 'cliff', surface: 'rock', biome: 'forest' };
+  const base = biome === 'forest' ? 'grass' : 'sand';
+  const detail = biome === 'forest' ? 'fern' : biome === 'desert' ? 'salt' : 'grass';
+  const rock: Tile = { class: 'cover', surface: 'rock', biome };
+  const outside: Tile = { class: 'cliff', surface: 'rock', biome };
   const rockPositions: readonly (readonly [number, number])[] = [
     [0.2, 0.25],
     [0.5, 0.18],
@@ -91,7 +93,14 @@ const buildArena = (
       ? outside
       : rockTiles.has(`${tx},${ty}`)
         ? rock
-        : grass;
+        : ({
+            class: 'walkable',
+            surface:
+              ((Math.imul(tx + 17, 73856093) ^ Math.imul(ty + 31, 19349663)) >>> 0) % 20 < 3
+                ? detail
+                : base,
+            biome,
+          } as Tile);
   return {
     width: cols,
     height: rows,
@@ -99,7 +108,7 @@ const buildArena = (
     data: new Uint8Array(cols * rows * 3),
     tileAt,
     isWalkable: (tx, ty) => tileAt(tx, ty).class === 'walkable',
-    blocksSight: (tx, ty) => tileAt(tx, ty).class !== 'walkable',
+    blocksSight: (tx, ty) => tileAt(tx, ty).class === 'cliff',
     regionAt: () => null,
   };
 };
