@@ -52,7 +52,7 @@ function CreatureCard({
         </div>
         <strong>{item.name}</strong>
         <div className="flex justify-center gap-1">
-          <Badge>Tier {item.tier}</Badge>
+          <Badge className="whitespace-nowrap">Tier {item.tier}</Badge>
           <Badge variant="outline">{item.rarity}</Badge>
           {draft && (
             <Badge>
@@ -160,7 +160,7 @@ export function Workshop() {
         <Button onClick={() => void copy()}>New species</Button>
       </header>
       <div className="grid gap-5 md:grid-cols-2">
-        <ul className="grid grid-cols-2 gap-2">
+        <ul className="grid auto-rows-min grid-cols-2 gap-2 self-start">
           {effective.map((item) => {
             const d = library.drafts.find((x) => x.speciesId === item.id);
             return (
