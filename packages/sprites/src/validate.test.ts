@@ -39,6 +39,11 @@ describe('species validation', () => {
       'uses a delivery heavy-quadruped cannot perform',
     );
   });
+  it('allows Kelpmaw its authored Arc move', () => {
+    const kelpmaw = shipped.find((entry) => entry.id === 'kelpmaw');
+    expect(kelpmaw).toBeDefined();
+    expect(validateSpecies([kelpmaw], regions)).toEqual([]);
+  });
   it('rejects an unknown hide', () => {
     const x = copy() as unknown as Record<string, unknown>[];
     x[0]!.hide = 'Silk';

@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { asc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -43,6 +43,8 @@ export function createSpeciesRoutes({
   logger = log,
 }: SpeciesRouteOptions) {
   const app = new Hono();
+  let referenceCache:
+    { directoryMtime: number; ids: string; value: Record<string, string[]> } | undefined;
   const readSpecies = async () => {
     if (!repoDir) throw new Error('The repository directory is not configured');
     return Species.array().parse(
@@ -55,6 +57,21 @@ export function createSpeciesRoutes({
       const world = JSON.parse(
         await readFile(path.join(repoDir!, 'game/src/data/world.json'), 'utf8'),
       ) as { regions?: unknown[] };
+      const ids = species.map(({ id }) => id);
+      const sourceDirectory = path.join(repoDir!, 'game/src');
+      const directoryMtime = (await stat(sourceDirectory)).mtimeMs;
+      const idsKey = ids.join('\0');
+      if (
+        !referenceCache ||
+        referenceCache.directoryMtime !== directoryMtime ||
+        referenceCache.ids !== idsKey
+      ) {
+        referenceCache = {
+          directoryMtime,
+          ids: idsKey,
+          value: await references(repoDir!, ids),
+        };
+      }
       return c.json(
         SpeciesLibrary.parse({
           species,
@@ -67,10 +84,7 @@ export function createSpeciesRoutes({
             .from(speciesDrafts)
             .orderBy(asc(speciesDrafts.speciesId))
             .all(),
-          references: await references(
-            repoDir!,
-            species.map(({ id }) => id),
-          ),
+          references: referenceCache.value,
         }),
       );
     } catch (error) {
@@ -84,7 +98,8 @@ export function createSpeciesRoutes({
     if (!parsed.success)
       return c.json({ error: parsed.error.issues.map((i) => i.message).join(', ') }, 400);
     const id = c.req.param('id');
-    const { state, data } = parsed.data;
+    const { state } = parsed.data;
+    const data = parsed.data.data ?? null;
     if (state !== 'deleted' && data == null) return c.json({ error: 'data is required' }, 400);
     if (state === 'deleted' && data !== null)
       return c.json({ error: 'deleted drafts must have null data' }, 400);

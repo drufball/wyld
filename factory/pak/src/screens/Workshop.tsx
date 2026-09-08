@@ -1,16 +1,74 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { SpeciesData, SpeciesDraft, SpeciesLibrary } from '@wyld/sprites';
+import type { SpeciesData, SpeciesDraft, SpeciesLibrary, SpriteFrame } from '@wyld/sprites';
 import { deleteSpeciesDraft, listSpecies, putSpeciesDraft } from '../api/client.js';
 import { SpeciesEditor } from '../components/SpeciesEditor.js';
 import { SpriteCanvas } from '../components/SpriteCanvas.js';
 import { Badge } from '../components/ui/badge.js';
 import { Button } from '../components/ui/button.js';
 
+function CreatureCard({
+  item,
+  selected,
+  draft,
+  onSelect,
+}: {
+  item: SpeciesData;
+  selected: boolean;
+  draft?: SpeciesDraft;
+  onSelect: () => void;
+}) {
+  const [frame, setFrame] = useState<SpriteFrame>('idle');
+  const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const stop = () => {
+    clearInterval(timer.current);
+    setFrame('idle');
+  };
+  useEffect(() => stop, []);
+  return (
+    <li>
+      <Button
+        variant="outline"
+        className={`h-full w-full min-h-44 flex-col ${draft?.state === 'deleted' ? 'line-through opacity-60' : ''}`}
+        aria-current={selected ? 'true' : undefined}
+        onClick={onSelect}
+        onPointerEnter={() => {
+          let next = false;
+          setFrame('walk0');
+          timer.current = setInterval(() => {
+            next = !next;
+            setFrame(next ? 'walk1' : 'walk0');
+          }, 400);
+        }}
+        onPointerLeave={stop}
+      >
+        <SpriteCanvas
+          spec={item}
+          facing="down"
+          frame={frame}
+          scale={4}
+          label={`${item.name} sprite`}
+        />
+        <strong>{item.name}</strong>
+        <div className="flex justify-center gap-1">
+          <Badge>Tier {item.tier}</Badge>
+          <Badge variant="outline">{item.rarity}</Badge>
+          {draft && (
+            <Badge>
+              {draft.state === 'new' ? 'New' : draft.state === 'edited' ? 'Edited' : 'Deleted'}
+            </Badge>
+          )}
+        </div>
+      </Button>
+    </li>
+  );
+}
+
 export function Workshop() {
   const [library, setLibrary] = useState<SpeciesLibrary | null>(null);
   const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const detailRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     void listSpecies()
       .then((x) => {
@@ -61,9 +119,10 @@ export function Workshop() {
   };
   const copy = async () => {
     let id = `${spec.id}-copy`,
-      n = 2;
+      suffix = 'copy';
     while (effective.some((x) => x.id === id)) {
-      id = `${spec.id}-copy-${n++}`;
+      suffix += 'copy';
+      id = `${spec.id}-${suffix}`;
     }
     const data = { ...structuredClone(spec), id, name: `${spec.name} copy` };
     setDraft(await putSpeciesDraft({ speciesId: id, state: 'new', data }));
@@ -81,42 +140,32 @@ export function Workshop() {
           {effective.map((item) => {
             const d = library.drafts.find((x) => x.speciesId === item.id);
             return (
-              <li key={item.id}>
-                <Button
-                  variant="outline"
-                  className={`h-full w-full min-h-44 flex-col ${d?.state === 'deleted' ? 'line-through opacity-60' : ''}`}
-                  aria-current={item.id === spec.id ? 'true' : undefined}
-                  onClick={() => setSelected(item.id)}
-                >
-                  <SpriteCanvas
-                    spec={item}
-                    facing="down"
-                    frame="idle"
-                    scale={4}
-                    label={`${item.name} sprite`}
-                  />
-                  <strong>{item.name}</strong>
-                  {d && (
-                    <Badge>
-                      {d.state === 'new' ? 'New' : d.state === 'edited' ? 'Edited' : 'Deleted'}
-                    </Badge>
-                  )}
-                </Button>
-              </li>
+              <CreatureCard
+                key={item.id}
+                item={item}
+                selected={item.id === spec.id}
+                draft={d}
+                onSelect={() => {
+                  setSelected(item.id);
+                  detailRef.current?.scrollIntoView({ block: 'start' });
+                }}
+              />
             );
           })}
         </ul>
-        <SpeciesEditor
-          key={spec.id}
-          spec={spec}
-          regions={library.regions}
-          all={effective}
-          references={library.references[spec.id] ?? []}
-          isNew={draft?.state === 'new'}
-          onChange={save}
-          onDiscard={() => void discard()}
-          onDelete={() => void remove()}
-        />
+        <div ref={detailRef} className="scroll-mt-4">
+          <SpeciesEditor
+            key={spec.id}
+            spec={spec}
+            regions={library.regions}
+            all={effective}
+            references={library.references[spec.id] ?? []}
+            isNew={draft?.state === 'new'}
+            onChange={save}
+            onDiscard={() => void discard()}
+            onDelete={() => void remove()}
+          />
+        </div>
       </div>
     </div>
   );

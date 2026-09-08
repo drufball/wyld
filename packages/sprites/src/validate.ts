@@ -137,7 +137,9 @@ export const validateSpecies = (value: unknown, regionIds: readonly string[]): s
             problems.push(`${id}.signatureMoves[${moveIndex}] uses an unavailable force`);
           if (
             oneOf(raw.bodyPlan, BODY_PLANS) &&
-            !BODY_PLAN_DELIVERIES[raw.bodyPlan as BodyPlanId].includes(move.delivery as Delivery)
+            !BODY_PLAN_DELIVERIES[raw.bodyPlan as BodyPlanId].includes(move.delivery as Delivery) &&
+            // §13.2 gives Kelpmaw an Arc move; it alone overrides the §5.5 serpentine delivery list.
+            !(raw.id === 'kelpmaw' && move.name === 'Waterspout')
           )
             problems.push(
               `${id}.signatureMoves[${moveIndex}] uses a delivery ${String(raw.bodyPlan)} cannot perform`,

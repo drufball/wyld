@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   BODY_PLANS,
   FORCES,
+  HIDE_TABLE,
   HIDES,
   INNATE,
   PHASES,
@@ -16,6 +17,8 @@ import {
   validateSpecies,
   type Region,
   type SpeciesData,
+  type SpriteFacing,
+  type SpriteFrame,
 } from '@wyld/sprites';
 import { SpriteCanvas } from './SpriteCanvas.js';
 import { Button } from './ui/button.js';
@@ -43,7 +46,25 @@ export function SpeciesEditor({
   onDelete,
 }: Props) {
   const [draft, setDraft] = useState(spec);
-  useEffect(() => setDraft(spec), [spec]);
+  const [facing, setFacing] = useState<SpriteFacing>('down');
+  const [walking, setWalking] = useState(false);
+  const [frame, setFrame] = useState<SpriteFrame>('idle');
+  useEffect(() => {
+    if (spec.id !== draft.id) setDraft(spec);
+  }, [draft.id, spec]);
+  useEffect(() => {
+    if (!walking) {
+      setFrame('idle');
+      return;
+    }
+    let next = false;
+    setFrame('walk0');
+    const timer = setInterval(() => {
+      next = !next;
+      setFrame(next ? 'walk1' : 'walk0');
+    }, 400);
+    return () => clearInterval(timer);
+  }, [walking]);
   const update = (next: SpeciesData) => {
     setDraft(next);
     onChange(next);
@@ -82,23 +103,42 @@ export function SpeciesEditor({
     </label>
   );
   return (
-    <div className="space-y-3">
+    <section className="space-y-3">
       <Card variant="bevel">
         <CardContent className="pt-5">
           <div className="flex h-48 items-center justify-center">
             <SpriteCanvas
               spec={draft}
-              facing="down"
-              frame="idle"
+              facing={facing}
+              frame={frame}
               scale={6}
               label={`${draft.name} detail sprite`}
             />
+          </div>
+          <div className="flex flex-wrap justify-center gap-1">
+            {(['down', 'up', 'side'] as const).map((value) => (
+              <Button
+                key={value}
+                variant={facing === value ? 'default' : 'outline'}
+                aria-pressed={facing === value}
+                onClick={() => setFacing(value)}
+              >
+                {value[0]!.toUpperCase() + value.slice(1)}
+              </Button>
+            ))}
+            <Button
+              variant={walking ? 'default' : 'outline'}
+              aria-pressed={walking}
+              onClick={() => setWalking(!walking)}
+            >
+              Walk
+            </Button>
           </div>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>{problems.length ? `${problems.length} problems` : 'Ready to ship'}</CardTitle>
+          <CardTitle>{draft.name}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <label>
@@ -133,7 +173,7 @@ export function SpeciesEditor({
               return (
                 <div key={stat}>
                   <span>
-                    {stat} — band {band.join('–')}
+                    {stat}: {range.join('–')} band {band.join('–')}
                   </span>
                   <div className="grid grid-cols-2 gap-2">
                     {[0, 1].map((i) => (
@@ -155,6 +195,49 @@ export function SpeciesEditor({
                 </div>
               );
             })}
+          </section>
+          <section>
+            <h3 className="font-bold">Creature facts</h3>
+            <p>
+              {draft.hide} · Weak to {HIDE_TABLE[draft.hide].weak} · Resists{' '}
+              {HIDE_TABLE[draft.hide].resists}
+            </p>
+            <p>{draft.bodyPlan}</p>
+            <p>{deliveriesFor(draft.bodyPlan).join(' · ')}</p>
+            <p>
+              {Object.entries(draft.temperament)
+                .map(([key, value]) => `${key} ${value}`)
+                .join(' · ')}
+            </p>
+            {draft.habitat.map((habitat, index) => (
+              <p key={index}>
+                {regions.find((region) => region.id === habitat.region)?.name ?? habitat.region} ·{' '}
+                {habitat.phases.join(', ')}
+              </p>
+            ))}
+            {draft.signatureMoves.map((move, index) => (
+              <p key={index}>
+                {move.name} · power {move.power} · speed {move.speed}
+              </p>
+            ))}
+            <p>
+              {draft.tracks.kind}
+              {draft.tracks.toes === undefined ? '' : ` · toes ${draft.tracks.toes}`}
+              {draft.tracks.drag === undefined ? '' : ` · drag ${draft.tracks.drag}`}
+              {draft.tracks.stride === undefined ? '' : ` · stride ${draft.tracks.stride}`}
+            </p>
+            <p>
+              {draft.call.waveform} · {draft.call.notes.length} notes
+              {draft.call.noise === undefined ? '' : ` · noise ${draft.call.noise}`}
+            </p>
+            <p>Tracks: {draft.hints.tracks}</p>
+            <p>Call: {draft.hints.call}</p>
+            <p>Identified: {draft.hints.identified}</p>
+            {Object.entries(draft.palette).map(([key, value]) => (
+              <span key={key}>
+                {key} {value}{' '}
+              </span>
+            ))}
           </section>
           <section>
             <h3 className="font-bold">Innate</h3>
@@ -204,12 +287,13 @@ export function SpeciesEditor({
                   step="0.1"
                   className={inputClass}
                   value={draft.temperament[x] ?? ''}
-                  onChange={(e) =>
-                    update({
-                      ...draft,
-                      temperament: { ...draft.temperament, [x]: Number(e.target.value) },
-                    })
-                  }
+                  aria-label={`${x} temperament`}
+                  onChange={(e) => {
+                    const temperament = { ...draft.temperament };
+                    if (e.target.value === '') delete temperament[x];
+                    else temperament[x] = Number(e.target.value);
+                    update({ ...draft, temperament });
+                  }}
                 />
               </label>
             ))}
@@ -286,7 +370,9 @@ export function SpeciesEditor({
                 {select(
                   `Move ${i + 1} delivery`,
                   m.delivery,
-                  deliveriesFor(draft.bodyPlan),
+                  deliveriesFor(draft.bodyPlan).includes(m.delivery)
+                    ? deliveriesFor(draft.bodyPlan)
+                    : [...deliveriesFor(draft.bodyPlan), m.delivery],
                   (v) => {
                     const a = [...draft.signatureMoves];
                     a[i] = { ...m, delivery: v as typeof m.delivery };
@@ -298,6 +384,22 @@ export function SpeciesEditor({
                   a[i] = { ...m, force: v as typeof m.force };
                   update({ ...draft, signatureMoves: a });
                 })}
+                {(['power', 'speed'] as const).map((field) => (
+                  <label key={field}>
+                    {field}
+                    <input
+                      aria-label={`Move ${i + 1} ${field}`}
+                      type="number"
+                      className={inputClass}
+                      value={m[field]}
+                      onChange={(e) => {
+                        const a = [...draft.signatureMoves];
+                        a[i] = { ...m, [field]: Number(e.target.value) };
+                        update({ ...draft, signatureMoves: a });
+                      }}
+                    />
+                  </label>
+                ))}
                 <Button
                   onClick={() =>
                     update({
@@ -310,6 +412,25 @@ export function SpeciesEditor({
                 </Button>
               </div>
             ))}
+            <Button
+              onClick={() =>
+                update({
+                  ...draft,
+                  signatureMoves: [
+                    ...draft.signatureMoves,
+                    {
+                      name: 'New move',
+                      delivery: deliveriesFor(draft.bodyPlan)[0]!,
+                      force: draft.forces[0] ?? 'Impact',
+                      power: 1,
+                      speed: 1,
+                    },
+                  ],
+                })
+              }
+            >
+              Add move
+            </Button>
           </section>
           <section>
             <h3 className="font-bold">Tracks & call</h3>
@@ -319,12 +440,99 @@ export function SpeciesEditor({
                 tracks: { ...draft.tracks, kind: v as typeof draft.tracks.kind },
               }),
             )}
+            {(['toes', 'stride'] as const).map((field) => (
+              <label key={field}>
+                {field}
+                <input
+                  aria-label={`Track ${field}`}
+                  type="number"
+                  className={inputClass}
+                  value={draft.tracks[field] ?? ''}
+                  onChange={(e) => {
+                    const tracks = { ...draft.tracks };
+                    if (e.target.value === '') delete tracks[field];
+                    else tracks[field] = Number(e.target.value);
+                    update({ ...draft, tracks });
+                  }}
+                />
+              </label>
+            ))}
+            <label>
+              <input
+                aria-label="Track drag"
+                type="checkbox"
+                checked={draft.tracks.drag ?? false}
+                onChange={(e) =>
+                  update({ ...draft, tracks: { ...draft.tracks, drag: e.target.checked } })
+                }
+              />
+              drag
+            </label>
             {select('Waveform', draft.call.waveform, WAVEFORMS, (v) =>
               update({
                 ...draft,
                 call: { ...draft.call, waveform: v as typeof draft.call.waveform },
               }),
             )}
+            {draft.call.notes.map((note, index) => (
+              <div key={index}>
+                {(['freq', 'dur'] as const).map((field) => (
+                  <label key={field}>
+                    {field}
+                    <input
+                      aria-label={`Note ${index + 1} ${field}`}
+                      type="number"
+                      className={inputClass}
+                      value={note[field]}
+                      onChange={(e) => {
+                        const notes = [...draft.call.notes];
+                        notes[index] = { ...note, [field]: Number(e.target.value) };
+                        update({ ...draft, call: { ...draft.call, notes } });
+                      }}
+                    />
+                  </label>
+                ))}
+                <Button
+                  onClick={() =>
+                    update({
+                      ...draft,
+                      call: {
+                        ...draft.call,
+                        notes: draft.call.notes.filter((_, i) => i !== index),
+                      },
+                    })
+                  }
+                >
+                  Remove note
+                </Button>
+              </div>
+            ))}
+            <Button
+              onClick={() =>
+                update({
+                  ...draft,
+                  call: { ...draft.call, notes: [...draft.call.notes, { freq: 440, dur: 0.2 }] },
+                })
+              }
+            >
+              Add note
+            </Button>
+            <label>
+              noise
+              <input
+                aria-label="Call noise"
+                type="number"
+                step="0.1"
+                className={inputClass}
+                value={draft.call.noise ?? ''}
+                onChange={(e) => {
+                  const call = { ...draft.call };
+                  if (e.target.value === '') delete call.noise;
+                  else call.noise = Number(e.target.value);
+                  update({ ...draft, call });
+                }}
+              />
+            </label>
           </section>
           <section>
             <h3 className="font-bold">Hints</h3>
@@ -365,9 +573,12 @@ export function SpeciesEditor({
                   aria-label={`${key} hex`}
                   className={inputClass}
                   value={draft.palette[key] ?? ''}
-                  onChange={(e) =>
-                    update({ ...draft, palette: { ...draft.palette, [key]: e.target.value } })
-                  }
+                  onChange={(e) => {
+                    const palette = { ...draft.palette };
+                    if (key === 'accent' && e.target.value === '') delete palette.accent;
+                    else palette[key] = e.target.value;
+                    update({ ...draft, palette });
+                  }}
                 />
               </div>
             ))}
@@ -393,11 +604,11 @@ export function SpeciesEditor({
             {problems.length === 0 ? (
               <p>Ready to ship</p>
             ) : (
-              <ul>
+              <div>
                 {problems.map((x) => (
-                  <li key={x}>{x}</li>
+                  <p key={x}>{x}</p>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
           <Button onClick={onDiscard}>Discard changes</Button>
@@ -407,6 +618,6 @@ export function SpeciesEditor({
           {!isNew && references.length > 0 && <p>Used by {references.join(', ')}</p>}
         </CardContent>
       </Card>
-    </div>
+    </section>
   );
 }

@@ -43,7 +43,7 @@ export const BODY_PLAN_DELIVERIES: Record<BodyPlanId, readonly Delivery[]> = {
   'light-quadruped': ['Strike', 'Lunge', 'Bolt'],
   avian: ['Bolt', 'Arc', 'Lunge'],
   amphibious: ['Strike', 'Bolt', 'Sweep'],
-  serpentine: ['Strike', 'Lunge', 'Sweep', 'Bolt', 'Arc'],
+  serpentine: ['Strike', 'Lunge', 'Sweep', 'Bolt'],
   shelled: ['Strike', 'Sweep'],
   crawler: ['Strike', 'Sweep', 'Arc'],
   'large-biped': ['Strike', 'Lunge', 'Sweep', 'Arc', 'Bolt'],
