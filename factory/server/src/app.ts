@@ -21,7 +21,7 @@ import { log, type LogContext } from './logger.js';
 import { chainMessages, events, healthReports, pauses, presence } from './schema.js';
 import {
   CATCHUP_AWAY_SECONDS,
-  CATCHUP_UNSEEN_EVENTS,
+  CATCHUP_PLANNER_ALIVE_SECONDS,
   ensureMechanicalBriefing,
 } from './catchup.js';
 import { createStaticHandler } from './static.js';
@@ -82,7 +82,7 @@ const CatchupPost = z
     },
   );
 
-export { CATCHUP_AWAY_SECONDS, CATCHUP_UNSEEN_EVENTS };
+export { CATCHUP_AWAY_SECONDS, CATCHUP_PLANNER_ALIVE_SECONDS };
 export const PLANNER_STALE_SECONDS = 600;
 export const OPS_STALE_SECONDS = 600;
 
