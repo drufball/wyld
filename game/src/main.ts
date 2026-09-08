@@ -588,6 +588,10 @@ const render = (alpha = 1) => {
   activeFlatScreen = { sx: screen.x, sy: screen.y };
   if (look === 'diorama') {
     const yaw = { down: 0, up: Math.PI, right: -Math.PI / 2, left: Math.PI / 2 } as const;
+    const combat = encounter?.state() ?? null;
+    const enemyCreature = combat
+      ? registry.list().find(({ speciesId }) => speciesId === combat.enemy.speciesId)
+      : undefined;
     const result = dioramaView!.render({
       screen,
       sliding: player.sliding,
@@ -601,22 +605,32 @@ const render = (alpha = 1) => {
         facing: player.facing,
         moving: player.moving,
       },
-      creatures: registry
-        .list()
-        .filter((creature) => onScreen(creature.position.x, creature.position.z, 1))
-        .map((creature) => ({
-          key: creature.id,
-          speciesId: creature.speciesId,
-          tileX: (creature.position.x + 400) / TILE_METRES,
-          tileY: (creature.position.z + 400) / TILE_METRES,
-          facing: creature.facing,
-          state: creature.state,
-          phaseOffset: creature.frameClock,
-          meter: aiStates.get(creature.id)?.meter ?? 0,
-        })),
+      creatures: registry.list().flatMap((creature) => {
+        const enemy = creature.id === enemyCreature?.id ? combat?.enemy : undefined;
+        const tileX = enemy ? enemy.tile.x : (creature.position.x + 400) / TILE_METRES;
+        const tileY = enemy ? enemy.tile.y : (creature.position.z + 400) / TILE_METRES;
+        if (!tileOnScreen(tileX, tileY, 1)) return [];
+        return [
+          {
+            key: creature.id,
+            speciesId: creature.speciesId,
+            tileX,
+            tileY,
+            facing: enemy?.facing ?? creature.facing,
+            state: creature.state,
+            phaseOffset: creature.frameClock,
+            meter: aiStates.get(creature.id)?.meter ?? 0,
+            downed: enemy?.downed,
+            hp: enemy ? { value: enemy.hp, max: enemy.maxHp } : undefined,
+            focus: enemy ? { value: enemy.focus, max: enemy.maxFocus } : undefined,
+            windup: enemy?.windup?.progress,
+          },
+        ];
+      }),
       party: partyState.party.flatMap((member, index) => {
         const controller = partyControllers.get(member.individual.id)!;
         const tile = controller.interpolated(alpha);
+        const combatant = combat?.party.find(({ id }) => id === member.individual.id);
         if (!tileOnScreen(tile.x, tile.y, 1)) return [];
         return [
           {
@@ -627,10 +641,13 @@ const render = (alpha = 1) => {
             facing: yaw[controller.facing],
             state: controller.moving ? ('walk' as const) : ('idle' as const),
             phaseOffset: index,
+            downed: combatant?.downed,
+            windup: combatant?.windup?.progress,
           },
         ];
       }),
       selection: partyState.selection,
+      combat: combat ? { projectiles: combat.projectiles, flashes: combat.flashes } : null,
     });
     stats.afterRender(result.frameMs, result.drawCalls);
     return;
