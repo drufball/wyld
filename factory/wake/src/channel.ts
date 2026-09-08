@@ -205,6 +205,7 @@ const WriteCatchupArgs = z
     demos: z.array(CatchupLineArg).default([]),
     shipped: z.array(CatchupLineArg).default([]),
     fyi: z.array(z.string().min(1)).default([]),
+    headline: z.string().min(1).max(160).optional(),
     from_event_id: z.number().int().min(0).optional(),
     to_event_id: z.number().int().min(0).optional(),
   })
@@ -315,7 +316,7 @@ const AnswerChainArgs = z
 const CloseChainArgs = z
   .object({
     chain: z.number().int().positive(),
-    reason: z.enum(['settled', 'done']).default('settled'),
+    reason: z.enum(['settled', 'done', 'read']).default('settled'),
   })
   .strict();
 const ReopenChainArgs = z.object({ chain: z.number().int().positive() }).strict();
@@ -562,7 +563,7 @@ const tools = [
   {
     name: 'pak_write_catchup',
     description:
-      "Write the Catch-Up briefing Dru sees when he returns: what's waiting, what shipped, and anything worth knowing. Plain English, no GitHub references.",
+      "Update the briefing card pinned to the top of Today — what's waiting on Dru, what's ready to try, what shipped, and anything worth knowing. Writing again rewrites the same card in place rather than making a second one; it stays until he dismisses it. Plain English, no GitHub references.",
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -597,6 +598,7 @@ const tools = [
           default: [],
         },
         fyi: { type: 'array', items: { type: 'string', minLength: 1 }, default: [] },
+        headline: { type: 'string', minLength: 1, maxLength: 160 },
         from_event_id: { type: 'integer', minimum: 0 },
         to_event_id: { type: 'integer', minimum: 0 },
       },
@@ -606,7 +608,7 @@ const tools = [
   {
     name: 'pak_read_catchup',
     description:
-      'Read the Catch-Up the Pak would show right now — whether it would show, how much has happened since Dru last looked, and the current digest. Use it before writing a better one.',
+      'Read the briefing card as it stands right now, or null if there is no open one. Use it before rewriting so you keep what is still true.',
     inputSchema: {
       type: 'object' as const,
       properties: {},
@@ -868,12 +870,12 @@ const tools = [
   {
     name: 'pak_close_chain',
     description:
-      'Settle a card once it is genuinely done with, so it folds away on Today. Pass reason done to also mark the quest done — that is only valid on a demo card that belongs to a quest. Dru can settle a card himself, and quiet chains settle on their own after a day. Undo either with pak_reopen_chain.',
+      'Settle a card once it is genuinely done with. Pass read for a briefing card to record how far Dru has caught up; done is only valid on a quest demo. Undo with pak_reopen_chain.',
     inputSchema: {
       type: 'object' as const,
       properties: {
         chain: { type: 'integer', minimum: 1 },
-        reason: { type: 'string', enum: ['settled', 'done'], default: 'settled' },
+        reason: { type: 'string', enum: ['settled', 'done', 'read'], default: 'settled' },
       },
       required: ['chain'],
       additionalProperties: false,
@@ -1081,13 +1083,14 @@ export function createToolRegistry(options: {
     if (params.name === 'pak_write_catchup') {
       const parsed = WriteCatchupArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
-      const { from_event_id, to_event_id, ...digest } = parsed.data;
+      const { from_event_id, to_event_id, headline, ...digest } = parsed.data;
       const mapLines = (lines: z.infer<typeof CatchupLineArg>[]) =>
         lines.map(({ text, deep_link }) => ({
           text,
           ...(deep_link === undefined ? {} : { deepLink: deep_link }),
         }));
       return postTool(request, `${options.pakUrl}/api/catchup`, {
+        ...(headline === undefined ? {} : { headline }),
         digest: {
           rumbles: mapLines(digest.rumbles),
           demos: mapLines(digest.demos),

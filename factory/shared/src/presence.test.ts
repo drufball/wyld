@@ -1,24 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { Catchup, CatchupLine, CatchupView, NextAction, Presence } from './presence.js';
+import { CatchupDigest, CatchupLine, NextAction, Presence } from './presence.js';
 
 const presence = {
   lastSeenAt: '2026-09-05T12:30:00Z',
   lastCatchupEventId: null,
   nextAction: { text: 'Play demo', deepLink: '/demos/1' },
-};
-const catchup = {
-  id: 1,
-  fromEventId: 1,
-  toEventId: 9,
-  digest: {
-    rumbles: [{ text: 'A rumble' }],
-    demos: [{ text: 'A demo', deepLink: '/demos' }],
-    shipped: [{ text: 'A quest', deepLink: '/worlds/pak' }],
-    fyi: ['All healthy'],
-  },
-  generatedBy: 'planner',
-  createdAt: '2026-09-05T12:30:00Z',
 };
 
 describe('presence schemas', () => {
@@ -56,18 +43,13 @@ describe('presence schemas', () => {
     });
   });
 
-  it('parses presence and catchups', () => {
+  it('parses presence and catch-up digest lines', () => {
     expect(Presence.parse(presence)).toEqual({ ...presence, needsYou: 0 });
-    expect(Catchup.parse(catchup)).toEqual(catchup);
-    expect(
-      CatchupView.parse({ show: false, awaySeconds: 0, unseenCount: 0, catchup, nextAction: null }),
-    ).toBeTruthy();
+    expect(CatchupDigest.parse({ rumbles: [], demos: [], shipped: [], fyi: [] })).toBeTruthy();
     expect(CatchupLine.safeParse({ text: '', deepLink: '//outside' }).success).toBe(false);
   });
   it('rejects missing actions and invalid generators', () => {
     expect(Presence.safeParse({ ...presence, nextAction: undefined }).success).toBe(false);
     expect(Presence.safeParse({ ...presence, lastCatchupEventId: 'event-1' }).success).toBe(false);
-    expect(Catchup.safeParse({ ...catchup, generatedBy: 'human' }).success).toBe(false);
-    expect(Catchup.safeParse({ ...catchup, fromEventId: 0, toEventId: 0 }).success).toBe(true);
   });
 });

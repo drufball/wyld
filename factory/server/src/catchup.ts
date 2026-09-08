@@ -1,4 +1,13 @@
-import type { CatchupDigest, DemoKind, Event, QuestStatus } from '@wyld/shared';
+import { Event, type CatchupDigest, type DemoKind, type QuestStatus } from '@wyld/shared';
+import { desc, gt } from 'drizzle-orm';
+
+import type { AppDatabase } from './database.js';
+import { demoUrl, readOpenBriefing, upsertBriefingChain } from './chain-cards.js';
+import { demos, events, presence, quests } from './schema.js';
+import { listOrderedRumbleRows } from './rumbles.js';
+
+export const CATCHUP_AWAY_SECONDS = 7200;
+export const CATCHUP_UNSEEN_EVENTS = 20;
 
 export type CatchupQuest = {
   id: string;
@@ -85,4 +94,52 @@ export function mechanicalDigest(input: {
   }
   digest.fyi = [...paused, ...resumed, ...parked, ...building].slice(0, 8);
   return digest;
+}
+
+export function ensureMechanicalBriefing(database: AppDatabase, now: Date): void {
+  if (readOpenBriefing(database) !== undefined) return;
+  const { db } = database;
+  const currentPresence = db.select().from(presence).get();
+  if (currentPresence === undefined) throw new Error('Presence row is missing');
+  const from = currentPresence.lastCatchupEventId ?? 0;
+  const to = db.select({ id: events.id }).from(events).orderBy(desc(events.id)).get()?.id ?? 0;
+  const unseen = db
+    .select()
+    .from(events)
+    .where(gt(events.id, from))
+    .orderBy(events.id)
+    .all()
+    .map((event) => Event.parse({ ...event, questId: event.questId ?? undefined }));
+  const awaySeconds = Math.max(
+    0,
+    Math.floor((now.getTime() - new Date(currentPresence.lastSeenAt).getTime()) / 1000),
+  );
+  if (awaySeconds <= CATCHUP_AWAY_SECONDS && unseen.length <= CATCHUP_UNSEEN_EVENTS) return;
+  const digest = mechanicalDigest({
+    events: unseen,
+    quests: db
+      .select({
+        id: quests.id,
+        worldId: quests.worldId,
+        title: quests.title,
+        status: quests.status,
+      })
+      .from(quests)
+      .all(),
+    demos: db
+      .select({
+        id: demos.id,
+        questId: demos.questId,
+        summary: demos.summary,
+        kind: demos.kind,
+        deepLink: demos.deepLink,
+      })
+      .from(demos)
+      .all()
+      .map((demo) => ({ ...demo, url: demoUrl(demo) })),
+    openRumbles: listOrderedRumbleRows(database, 'open', { now: () => now }).map(
+      ({ slug, title }) => ({ id: slug!, title: title! }),
+    ),
+  });
+  upsertBriefingChain(database, { digest, fromEventId: from, toEventId: to }, now.toISOString());
 }

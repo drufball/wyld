@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import { formatIssues } from './quests.js';
 import { compareRumbles } from './rumbles.js';
-import { artifacts, chainMessages, chains, demos, quests } from './schema.js';
+import { artifacts, chainMessages, chains, demos, presence, quests } from './schema.js';
 
 export const CHAIN_QUIET_SECONDS = 86_400;
 export const CHAIN_LIMIT = 5;
@@ -16,7 +16,7 @@ const ChainCreate = z
     text: z.string().min(1).max(2000),
     questId: z.string().min(1).optional(),
     author: z.enum(['human', 'planner']).default('human'),
-    kind: ChainKind.exclude(['rumble', 'demo', 'action', 'unlock']).optional(),
+    kind: ChainKind.exclude(['rumble', 'demo', 'action', 'unlock', 'briefing']).optional(),
     anchor: ChainAnchor.optional(),
   })
   .strict();
@@ -33,7 +33,7 @@ const MessageCreate = z
   .strict();
 const ChainClose = z
   .object({
-    reason: z.enum(['settled', 'converted', 'done']).default('settled'),
+    reason: z.enum(['settled', 'converted', 'done', 'read']).default('settled'),
     source: z.enum(['human', 'planner']).default('human'),
   })
   .strict();
@@ -135,8 +135,8 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
       (kind): kind is 'question' | 'message' => kind === 'question' || kind === 'message',
     );
     const cardKinds = requestedKinds.filter(
-      (kind): kind is 'demo' | 'action' | 'unlock' =>
-        kind === 'demo' || kind === 'action' || kind === 'unlock',
+      (kind): kind is 'demo' | 'action' | 'unlock' | 'briefing' =>
+        kind === 'demo' || kind === 'action' || kind === 'unlock' || kind === 'briefing',
     );
     const normalRows =
       conversationalKinds.length > 0
@@ -289,6 +289,20 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
         },
         400,
       );
+    if (parsed.data.reason === 'read' && current.kind !== 'briefing')
+      return c.json(
+        {
+          error: 'Invalid request',
+          issues: [
+            {
+              code: 'custom',
+              path: ['reason'],
+              message: 'read requires a briefing chain',
+            },
+          ],
+        },
+        400,
+      );
     if (parsed.data.reason === 'done') {
       const quest = db.select().from(quests).where(eq(quests.id, current.questId!)).get()!;
       db.update(quests).set({ status: 'done' }).where(eq(quests.id, quest.id)).run();
@@ -304,11 +318,19 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
         .set({ hiddenAt: now().toISOString() })
         .where(and(eq(demos.id, current.demoId), isNull(demos.hiddenAt)))
         .run();
-    const status = parsed.data.reason === 'done' ? 'settled' : parsed.data.reason;
+    if (current.kind === 'briefing') {
+      const toEventId = current.payload?.['toEventId'];
+      if (typeof toEventId === 'number')
+        db.update(presence).set({ lastCatchupEventId: toEventId }).where(eq(presence.id, 1)).run();
+    }
+    const status =
+      parsed.data.reason === 'done' || parsed.data.reason === 'read'
+        ? 'settled'
+        : parsed.data.reason;
     db.update(chains).set({ status }).where(eq(chains.id, id)).run();
     const firstText = current.messages[0]?.text ?? '';
     const text =
-      `${parsed.data.reason === 'settled' ? 'Settled' : parsed.data.reason === 'done' ? 'Done' : 'Made a quest of'}: ${firstText}`.slice(
+      `${parsed.data.reason === 'settled' ? 'Settled' : parsed.data.reason === 'done' ? 'Done' : parsed.data.reason === 'read' ? 'Read' : 'Made a quest of'}: ${firstText}`.slice(
         0,
         160,
       );

@@ -1,3 +1,4 @@
+import type { Chain } from '@wyld/shared';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -49,6 +50,48 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('ChainList', () => {
+  const briefing = {
+    ...question,
+    id: 50,
+    kind: 'briefing',
+    tags: ['briefing'],
+    payload: {
+      rumbles: [{ text: 'Choose a trail', deepLink: '/rumble' }],
+      demos: [{ text: 'Try the arena', deepLink: '/demos/arena' }],
+      shipped: [{ text: 'Map shipped', deepLink: '/quests' }],
+      fyi: ['Factory is healthy'],
+      fromEventId: 2,
+      toEventId: 9,
+      updatedAt: timestamp,
+    },
+    messages: [{ id: 50, chainId: 50, author: 'planner', text: 'Morning briefing', ts: timestamp }],
+  } as Chain;
+
+  it('renders the briefing sections with tappable lines and dismisses as read', async () => {
+    const fetch = vi.fn((url: string) =>
+      url === '/api/chains/50/close' ? response({ ...briefing, status: 'settled' }) : response([]),
+    );
+    vi.stubGlobal('fetch', fetch);
+    render(
+      <MemoryRouter>
+        <ChainCard chain={briefing} onChange={() => undefined} onClosed={() => undefined} />
+      </MemoryRouter>,
+    );
+
+    for (const heading of ['Waiting on you', 'Ready to try', 'Shipped', 'Worth knowing'])
+      expect(screen.getByRole('heading', { name: heading })).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Choose a trail' }).getAttribute('href')).toBe(
+      '/rumble',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/chains/50/close',
+        expect.objectContaining({ body: JSON.stringify({ reason: 'read', source: 'human' }) }),
+      ),
+    );
+  });
+
   function unlockFetch(closeResult: 'success' | 'failure' = 'success') {
     const fetch = vi.fn((url: string, init?: RequestInit) => {
       if (url === '/api/chains/42/close' && init?.method === 'POST')
@@ -295,7 +338,7 @@ describe('ChainList', () => {
 
     await waitFor(() =>
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/chains?kind=question%2Cmessage%2Crumble%2Cdemo%2Cunlock',
+        '/api/chains?kind=question%2Cmessage%2Crumble%2Cdemo%2Cunlock%2Cbriefing',
         {},
       ),
     );
