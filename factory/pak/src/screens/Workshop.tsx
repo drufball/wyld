@@ -1,39 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  BODY_PLAN_DELIVERIES,
-  HIDE_TABLE,
-  STAT_NAMES,
-  TIER_BANDS,
-  type Region,
-  type SpeciesData,
-  type SpriteFacing,
-  type SpriteFrame,
-} from '@wyld/sprites';
-import { listSpecies } from '../api/client.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { SpeciesData, SpeciesDraft, SpeciesLibrary, SpriteFrame } from '@wyld/sprites';
+import { deleteSpeciesDraft, listSpecies, putSpeciesDraft } from '../api/client.js';
+import { SpeciesEditor } from '../components/SpeciesEditor.js';
 import { SpriteCanvas } from '../components/SpriteCanvas.js';
 import { Badge } from '../components/ui/badge.js';
 import { Button } from '../components/ui/button.js';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.js';
 
-const descriptor = (value: Record<string, unknown>) =>
-  Object.entries(value)
-    .flatMap(([key, item]) =>
-      key === 'notes' && Array.isArray(item)
-        ? `${item.length} notes`
-        : key === 'kind' || key === 'waveform'
-          ? String(item)
-          : item === undefined
-            ? []
-            : `${key} ${String(item)}`,
-    )
-    .join(' · ');
 function CreatureCard({
-  spec,
+  item,
   selected,
+  draft,
   onSelect,
 }: {
-  spec: SpeciesData;
+  item: SpeciesData;
   selected: boolean;
+  draft?: SpeciesDraft;
   onSelect: () => void;
 }) {
   const [frame, setFrame] = useState<SpriteFrame>('idle');
@@ -47,7 +28,7 @@ function CreatureCard({
     <li>
       <Button
         variant="outline"
-        className={`h-full w-full flex-col p-2 ${selected ? 'border-accent' : ''}`}
+        className={`h-full w-full flex-col p-2 ${draft?.state === 'deleted' ? 'line-through opacity-60' : ''}`}
         aria-current={selected ? 'true' : undefined}
         onClick={onSelect}
         onPointerEnter={() => {
@@ -62,195 +43,153 @@ function CreatureCard({
       >
         <div className="flex h-32 items-center justify-center">
           <SpriteCanvas
-            spec={spec}
+            spec={item}
             facing="down"
             frame={frame}
             scale={4}
-            label={`${spec.name} sprite`}
+            label={`${item.name} sprite`}
           />
         </div>
-        <strong>{spec.name}</strong>
+        <strong>{item.name}</strong>
         <div className="flex justify-center gap-1">
-          <Badge className="whitespace-nowrap">Tier {spec.tier}</Badge>
-          <Badge variant="outline">{spec.rarity}</Badge>
+          <Badge className="whitespace-nowrap">Tier {item.tier}</Badge>
+          <Badge variant="outline">{item.rarity}</Badge>
+          {draft && (
+            <Badge>
+              {draft.state === 'new' ? 'New' : draft.state === 'edited' ? 'Edited' : 'Deleted'}
+            </Badge>
+          )}
         </div>
       </Button>
     </li>
   );
 }
+
 export function Workshop() {
-  const [data, setData] = useState<{ species: SpeciesData[]; regions: Region[] } | null>(null);
+  const [library, setLibrary] = useState<SpeciesLibrary | null>(null);
   const [failed, setFailed] = useState(false);
-  const [selected, setSelected] = useState(0);
-  const [facing, setFacing] = useState<SpriteFacing>('down');
-  const [walking, setWalking] = useState(false);
-  const [frame, setFrame] = useState<SpriteFrame>('idle');
+  const [selected, setSelected] = useState('');
+  const [editorRevision, setEditorRevision] = useState(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const detailRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     void listSpecies()
-      .then(setData)
+      .then((x) => {
+        setLibrary({ ...x, drafts: x.drafts ?? [], references: x.references ?? {} });
+        setSelected(x.species[0]?.id ?? '');
+      })
       .catch(() => setFailed(true));
   }, []);
-  useEffect(() => {
-    if (!walking) {
-      setFrame('idle');
+  const effective = useMemo(() => {
+    if (!library) return [];
+    const map = new Map(library.species.map((x) => [x.id, x]));
+    for (const d of library.drafts) if (d.data) map.set(d.speciesId, d.data);
+    return [...map.values()];
+  }, [library]);
+  if (failed) return <p>The workshop couldn't read the creature data. Try again.</p>;
+  if (!library) return <p>Opening the creature workshop…</p>;
+  const spec = effective.find((x) => x.id === selected) ?? effective[0];
+  if (!spec) return <p>No creatures found.</p>;
+  const draft = library.drafts.find((x) => x.speciesId === spec.id);
+  const setDraft = (saved: SpeciesDraft) =>
+    setLibrary(
+      (x) =>
+        x && { ...x, drafts: [...x.drafts.filter((d) => d.speciesId !== saved.speciesId), saved] },
+    );
+  const save = (value: SpeciesData) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(
+      () =>
+        void putSpeciesDraft({
+          speciesId: value.id,
+          state: draft?.state === 'new' ? 'new' : 'edited',
+          data: value,
+        }).then(setDraft),
+      500,
+    );
+  };
+  const discard = async () => {
+    clearTimeout(timer.current);
+    await deleteSpeciesDraft(spec.id);
+    setLibrary((x) => x && { ...x, drafts: x.drafts.filter((d) => d.speciesId !== spec.id) });
+    if (draft?.state === 'new') setSelected(library.species[0]?.id ?? '');
+    else setEditorRevision((value) => value + 1);
+  };
+  const remove = async () => {
+    if (draft?.state === 'new') {
+      await discard();
       return;
     }
-    let next = false;
-    setFrame('walk0');
-    const timer = setInterval(() => {
-      next = !next;
-      setFrame(next ? 'walk1' : 'walk0');
-    }, 400);
-    return () => clearInterval(timer);
-  }, [walking]);
-  if (failed) return <p>The workshop couldn't read the creature data. Try again.</p>;
-  if (!data) return <p>Opening the creature workshop…</p>;
-  const spec = data.species[selected];
-  if (!spec) return <p>No creatures found.</p>;
-  const hide = HIDE_TABLE[spec.hide];
+    setDraft(await putSpeciesDraft({ speciesId: spec.id, state: 'deleted', data: null }));
+  };
+  const copy = async () => {
+    let id = `${spec.id}-copy`,
+      suffix = 'copy';
+    while (effective.some((x) => x.id === id)) {
+      suffix += 'copy';
+      id = `${spec.id}-${suffix}`;
+    }
+    const data = { ...structuredClone(spec), id, name: `${spec.name} copy` };
+    setDraft(await putSpeciesDraft({ speciesId: id, state: 'new', data }));
+    setSelected(id);
+  };
+  const rename = async (value: SpeciesData) => {
+    clearTimeout(timer.current);
+    const previousId = spec.id;
+    await deleteSpeciesDraft(previousId);
+    const saved = await putSpeciesDraft({ speciesId: value.id, state: 'new', data: value });
+    setLibrary(
+      (current) =>
+        current && {
+          ...current,
+          drafts: [
+            ...current.drafts.filter(
+              (item) => item.speciesId !== previousId && item.speciesId !== saved.speciesId,
+            ),
+            saved,
+          ],
+        },
+    );
+    setSelected(value.id);
+  };
   return (
     <div className="space-y-4">
       <header>
         <h1>Workshop</h1>
-        <p className="text-muted-foreground">Review every creature in the living world.</p>
+        <p className="text-muted-foreground">Shape every creature in the living world.</p>
+        <Button onClick={() => void copy()}>New species</Button>
       </header>
       <div className="grid gap-5 md:grid-cols-2">
-        <ul className="grid grid-cols-2 gap-2">
-          {data.species.map((item, index) => (
-            <CreatureCard
-              key={item.id}
-              spec={item}
-              selected={index === selected}
-              onSelect={() => {
-                setSelected(index);
-                detailRef.current?.scrollIntoView({ block: 'start' });
-              }}
-            />
-          ))}
+        <ul className="grid auto-rows-min grid-cols-2 gap-2 self-start">
+          {effective.map((item) => {
+            const d = library.drafts.find((x) => x.speciesId === item.id);
+            return (
+              <CreatureCard
+                key={item.id}
+                item={item}
+                selected={item.id === spec.id}
+                draft={d}
+                onSelect={() => {
+                  setSelected(item.id);
+                  detailRef.current?.scrollIntoView({ block: 'start' });
+                }}
+              />
+            );
+          })}
         </ul>
-        <div ref={detailRef} className="scroll-mt-4 space-y-3">
-          <Card variant="bevel">
-            <CardContent className="pt-5">
-              <div className="flex h-48 items-center justify-center">
-                <SpriteCanvas
-                  spec={spec}
-                  facing={facing}
-                  frame={frame}
-                  scale={6}
-                  label={`${spec.name} detail sprite`}
-                />
-              </div>
-              <div className="flex flex-wrap justify-center gap-1">
-                {(['down', 'up', 'side'] as const).map((value) => (
-                  <Button
-                    variant={facing === value ? 'default' : 'outline'}
-                    aria-pressed={facing === value}
-                    onClick={() => setFacing(value)}
-                    key={value}
-                  >
-                    {value[0]!.toUpperCase() + value.slice(1)}
-                  </Button>
-                ))}
-                <Button
-                  variant={walking ? 'default' : 'outline'}
-                  aria-pressed={walking}
-                  onClick={() => setWalking(!walking)}
-                >
-                  Walk
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>{spec.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <section>
-                <h3 className="font-bold">Stats</h3>
-                {STAT_NAMES.map((stat) => (
-                  <p key={stat}>
-                    {stat}: {spec.stats[stat].join('–')}{' '}
-                    <span className="text-muted-foreground">
-                      band {TIER_BANDS[spec.tier][stat].join('–')}
-                    </span>
-                  </p>
-                ))}
-              </section>
-              <section>
-                <h3 className="font-bold">Hide</h3>
-                <p>
-                  {spec.hide} · Weak to {hide.weak} · Resists {hide.resists}
-                </p>
-              </section>
-              <section>
-                <h3 className="font-bold">Body plan</h3>
-                <p>{spec.bodyPlan}</p>
-                <div className="flex flex-wrap gap-1">
-                  {BODY_PLAN_DELIVERIES[spec.bodyPlan].map((x) => (
-                    <Badge key={x}>{x}</Badge>
-                  ))}
-                  {spec.innate.map((x) => (
-                    <Badge variant="outline" key={x}>
-                      {x}
-                    </Badge>
-                  ))}
-                </div>
-              </section>
-              <section>
-                <h3 className="font-bold">Temperament</h3>
-                <p>
-                  {Object.entries(spec.temperament)
-                    .map(([k, v]) => `${k} ${v}`)
-                    .join(' · ')}
-                </p>
-              </section>
-              <section>
-                <h3 className="font-bold">Habitat</h3>
-                {spec.habitat.map((h, i) => (
-                  <p key={i}>
-                    {data.regions.find((r) => r.id === h.region)?.name ?? h.region} ·{' '}
-                    {h.phases.join(', ')}
-                  </p>
-                ))}
-              </section>
-              <section>
-                <h3 className="font-bold">Signature moves</h3>
-                {spec.signatureMoves.map((m) => (
-                  <div key={m.name}>
-                    {m.name} · power {m.power} · speed {m.speed} <Badge>{m.delivery}</Badge>{' '}
-                    <Badge variant="outline">{m.force}</Badge>
-                  </div>
-                ))}
-              </section>
-              <section>
-                <h3 className="font-bold">Tracks & call</h3>
-                <p>{descriptor(spec.tracks)}</p>
-                <p>{descriptor(spec.call)}</p>
-              </section>
-              <section>
-                <h3 className="font-bold">Hints</h3>
-                <p>Tracks: {spec.hints.tracks}</p>
-                <p>Call: {spec.hints.call}</p>
-                <p>Identified: {spec.hints.identified}</p>
-              </section>
-              <section>
-                <h3 className="font-bold">Palette</h3>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(spec.palette).map(([name, color]) => (
-                    <span key={name}>
-                      <i
-                        className="mr-1 inline-block size-4 border"
-                        style={{ backgroundColor: color }}
-                      />
-                      {name} {color}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            </CardContent>
-          </Card>
+        <div ref={detailRef} className="scroll-mt-4">
+          <SpeciesEditor
+            key={`${spec.id}:${editorRevision}`}
+            spec={spec}
+            regions={library.regions}
+            all={effective}
+            references={library.references[spec.id] ?? []}
+            isNew={draft?.state === 'new'}
+            onChange={save}
+            onRename={(value) => void rename(value)}
+            onDiscard={() => void discard()}
+            onDelete={() => void remove()}
+          />
         </div>
       </div>
     </div>

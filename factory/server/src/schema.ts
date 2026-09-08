@@ -1,5 +1,13 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import type { ChainAnchor, SleepAlarm, SleepPhaseEntry } from '@wyld/shared';
+import type { SpeciesData } from '@wyld/sprites';
+
+export const speciesDrafts = sqliteTable('species_drafts', {
+  speciesId: text('species_id').primaryKey(),
+  state: text('state', { enum: ['edited', 'new', 'deleted'] }).notNull(),
+  data: text('data', { mode: 'json' }).$type<SpeciesData>(),
+  updatedAt: text('updated_at').notNull(),
+});
 
 export const achievements = sqliteTable('achievements', {
   id: text('id').primaryKey(),

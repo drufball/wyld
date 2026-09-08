@@ -25,6 +25,7 @@ export type Force = (typeof FORCES)[number];
 export type Delivery = (typeof DELIVERIES)[number];
 export type Temperament = (typeof TEMPERAMENTS)[number];
 export type Phase = (typeof PHASES)[number];
+export type StatName = (typeof STAT_NAMES)[number];
 export const TIER_BANDS = {
   1: { vigor: [40, 80], power: [2, 4], speed: [3, 7], focus: [30, 50] },
   2: { vigor: [120, 200], power: [4, 7], speed: [3, 7], focus: [40, 70] },
@@ -86,7 +87,19 @@ export const Species = z.object({
   visual: z.record(z.string(), z.number()),
 });
 export type SpeciesData = z.infer<typeof Species>;
+export const SpeciesDraft = z.object({
+  speciesId: z.string(),
+  state: z.enum(['edited', 'new', 'deleted']),
+  data: Species.nullable(),
+  updatedAt: z.string(),
+});
+export type SpeciesDraft = z.infer<typeof SpeciesDraft>;
 export const Region = z.object({ id: z.string(), name: z.string(), biome: z.string() });
 export type Region = z.infer<typeof Region>;
-export const SpeciesLibrary = z.object({ species: Species.array(), regions: Region.array() });
+export const SpeciesLibrary = z.object({
+  species: Species.array(),
+  regions: Region.array(),
+  drafts: SpeciesDraft.array(),
+  references: z.record(z.string(), z.array(z.string())),
+});
 export type SpeciesLibrary = z.infer<typeof SpeciesLibrary>;
