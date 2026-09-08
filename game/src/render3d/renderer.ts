@@ -6,6 +6,7 @@ import type { Phase } from '../world/time.js';
 import { cameraOffset, cameraTarget, orthoFrustum, pickTileFromNdc } from './camera.js';
 import { createCover } from './cover.js';
 import {
+  ambientColourAt,
   ambientIntensityAt,
   skyAt,
   sunColourAt,
@@ -77,7 +78,7 @@ const createDiorama = (grid: TileGrid) => {
   const render = (frame: DioramaFrame) => {
     const started = performance.now();
     target = cameraTarget(frame.screen, frame.sliding, cols, rows);
-    frustum = orthoFrustum(cols, rows, innerWidth, innerHeight);
+    frustum = orthoFrustum(cols, rows);
     camera.left = -frustum.halfWidth;
     camera.right = frustum.halfWidth;
     camera.top = frustum.halfHeight;
@@ -119,7 +120,7 @@ const createDiorama = (grid: TileGrid) => {
     scene.background = skyAt(frame.phase, frame.phaseProgress);
     sun.color.copy(sunColourAt(frame.phase, frame.phaseProgress));
     sun.intensity = sunIntensityAt(frame.phase, frame.phaseProgress);
-    ambient.color.copy(scene.background);
+    ambient.color.copy(ambientColourAt(frame.phase, frame.phaseProgress));
     ambient.intensity = ambientIntensityAt(frame.phase, frame.phaseProgress);
     sun.position.set(target.x - 33, 43.2, target.z + 25.2);
     sun.target.position.set(target.x, 0, target.z);

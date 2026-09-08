@@ -1,4 +1,4 @@
-export const TILT_FROM_VERTICAL = (38 * Math.PI) / 180;
+export const TILT_FROM_VERTICAL = (50 * Math.PI) / 180;
 export const ELEVATION = Math.PI / 2 - TILT_FROM_VERTICAL;
 export const TALL_TILES = 1.6;
 type Screen = { x: number; y: number };
@@ -21,19 +21,10 @@ const cameraOffset = (distance: number) => ({
   y: distance * Math.sin(ELEVATION),
   z: distance * Math.cos(ELEVATION),
 });
-const orthoFrustum = (
-  cols: number,
-  rows: number,
-  canvasWidth: number,
-  canvasHeight: number,
-): Frustum => {
-  const wantW = cols;
-  const wantH = rows * Math.sin(ELEVATION) + TALL_TILES * Math.cos(ELEVATION);
-  const aspect = canvasWidth / canvasHeight;
-  return wantW / wantH > aspect
-    ? { halfWidth: wantW / 2, halfHeight: wantW / aspect / 2 }
-    : { halfWidth: (wantH * aspect) / 2, halfHeight: wantH / 2 };
-};
+const orthoFrustum = (cols: number, rows: number): Frustum => ({
+  halfWidth: cols / 2,
+  halfHeight: (rows * Math.sin(ELEVATION) + TALL_TILES * Math.cos(ELEVATION)) / 2,
+});
 const projectTile = (
   tileX: number,
   tileZ: number,

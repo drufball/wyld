@@ -5,12 +5,16 @@ import type { Surface, TileGrid } from '../world/tiles.js';
 type Screen = { x: number; y: number };
 const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
   const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const meshes = new Map<Surface, THREE.InstancedMesh>();
+  const meshes = new Map<
+    Surface,
+    { mesh: THREE.InstancedMesh; points: { tx: number; ty: number }[] }
+  >();
   let water: THREE.Mesh | null = null;
   let currentPalette: Palette | null = null;
   const clear = () => {
-    for (const mesh of meshes.values()) {
+    for (const { mesh } of meshes.values()) {
       scene.remove(mesh);
+      mesh.dispose();
       (mesh.material as THREE.Material).dispose();
     }
     meshes.clear();
@@ -26,8 +30,8 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
     const screens = Array.isArray(screen) ? screen : [screen];
     const coords = new Map<string, { tx: number; ty: number }>();
     for (const s of screens)
-      for (let ty = s.y * rows - 1; ty <= (s.y + 1) * rows; ty++)
-        for (let tx = s.x * cols - 1; tx <= (s.x + 1) * cols; tx++)
+      for (let ty = s.y * rows - 2; ty <= (s.y + 1) * rows + 1; ty++)
+        for (let tx = s.x * cols - 2; tx <= (s.x + 1) * cols + 1; tx++)
           coords.set(`${tx},${ty}`, { tx, ty });
     const grouped = new Map<Surface, { tx: number; ty: number }[]>();
     for (const p of coords.values()) {
@@ -52,14 +56,27 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
           scale.set(1, depth, 1),
         );
         mesh.setMatrixAt(index, matrix);
-        if (currentPalette) mesh.setColorAt(index, toColor(currentPalette[surface].base, colour));
+        if (currentPalette) {
+          const factor = jitter(tx, ty);
+          mesh.setColorAt(
+            index,
+            toColor(
+              currentPalette[surface].base.map((channel) => channel * factor) as [
+                number,
+                number,
+                number,
+              ],
+              colour,
+            ),
+          );
+        }
       });
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       mesh.receiveShadow = true;
       mesh.castShadow = false;
       mesh.userData.surface = surface;
-      meshes.set(surface, mesh);
+      meshes.set(surface, { mesh, points });
       scene.add(mesh);
     }
     if (grouped.has('water')) {
@@ -82,9 +99,18 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
   const recolour = (palette: Palette) => {
     currentPalette = palette;
     const colour = new THREE.Color();
-    for (const [surface, mesh] of meshes) {
-      for (let i = 0; i < mesh.count; i++)
-        mesh.setColorAt(i, toColor(palette[surface].base, colour));
+    for (const [surface, { mesh, points }] of meshes) {
+      for (let i = 0; i < mesh.count; i++) {
+        const point = points[i]!;
+        const factor = jitter(point.tx, point.ty);
+        mesh.setColorAt(
+          i,
+          toColor(
+            palette[surface].base.map((channel) => channel * factor) as [number, number, number],
+            colour,
+          ),
+        );
+      }
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
     if (water)
@@ -101,4 +127,8 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
     },
   };
 };
-export { createSlabs };
+const jitter = (tx: number, ty: number): number => {
+  const h = (Math.imul(((tx * 73856093) ^ (ty * 19349663)) >>> 0, 1664525) + 1013904223) >>> 0;
+  return 0.92 + (h / 0x100000000) * 0.16;
+};
+export { createSlabs, jitter };

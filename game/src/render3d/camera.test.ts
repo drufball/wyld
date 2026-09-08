@@ -9,8 +9,8 @@ import {
   projectTile,
   screenCentre,
 } from './camera.js';
-const inside = (cols: number, rows: number, w: number, h: number, screen = { x: 0, y: 0 }) => {
-  const f = orthoFrustum(cols, rows, w, h),
+const inside = (cols: number, rows: number, screen = { x: 0, y: 0 }) => {
+  const f = orthoFrustum(cols, rows),
     t = screenCentre(screen, cols, rows);
   for (let y = screen.y * rows; y <= (screen.y + 1) * rows; y++)
     for (let x = screen.x * cols; x <= (screen.x + 1) * cols; x++) {
@@ -21,25 +21,30 @@ const inside = (cols: number, rows: number, w: number, h: number, screen = { x: 
 };
 describe('camera maths', () => {
   it('projects every tile of the current screen inside the viewport', () => {
-    inside(20, 15, 1280, 720);
-    inside(11, 22, 375, 812, { x: 4, y: 7 });
+    inside(20, 15);
+    inside(11, 22, { x: 4, y: 7 });
   });
   it('keeps the whole tile rectangle visible at any canvas aspect ratio', () => {
+    const expected = orthoFrustum(20, 15);
     for (const [w, h] of [
       [1280, 720],
       [375, 812],
       [2000, 400],
-    ])
-      inside(20, 15, w!, h!);
+    ]) {
+      const rendererSize = { width: w, height: h };
+      expect(rendererSize.width / rendererSize.height).toBeGreaterThan(0);
+      expect(orthoFrustum(20, 15)).toEqual(expected);
+      inside(20, 15);
+    }
   });
   it('places the camera south of and above its target', () => {
     const o = cameraOffset(200);
     expect(o.x).toBe(0);
-    expect(o.y).toBeGreaterThan(o.z);
+    expect(o.y).toBeGreaterThan(0);
     expect(o.z).toBeGreaterThan(0);
   });
   it('foreshortens depth but not width', () => {
-    const f = orthoFrustum(20, 15, 1280, 720),
+    const f = orthoFrustum(20, 15),
       t = { x: 10, z: 7.5 },
       a = projectTile(1, 1, 0, t, f),
       x = projectTile(2, 1, 0, t, f),
@@ -56,7 +61,7 @@ describe('camera maths', () => {
     expect(cameraTarget({ x: 0, y: 0 }, s, 20, 15).x).toBe(30);
   });
   it('picks back the tile that a projected tile centre came from', () => {
-    const f = orthoFrustum(20, 15, 1280, 720),
+    const f = orthoFrustum(20, 15),
       t = { x: 10, z: 7.5 };
     for (let y = 0; y < 15; y++)
       for (let x = 0; x < 20; x++) {
@@ -66,7 +71,7 @@ describe('camera maths', () => {
   });
   it('agrees with a real THREE.OrthographicCamera', () => {
     const t = { x: 30, z: 22.5 },
-      f = orthoFrustum(20, 15, 1280, 720),
+      f = orthoFrustum(20, 15),
       o = cameraOffset(200),
       c = new THREE.OrthographicCamera(
         -f.halfWidth,

@@ -19,14 +19,16 @@ const createCover = (grid: TileGrid, scene: THREE.Scene) => {
   const coniferLow = add(new THREE.ConeGeometry(0.42, 0.75));
   const coniferHigh = add(new THREE.ConeGeometry(0.3, 0.6));
   const crown = add(new THREE.IcosahedronGeometry(0.45, 0));
-  const rock = add(new THREE.BoxGeometry(1, 1, 1));
-  const fernA = add(new THREE.PlaneGeometry(0.5, 0.4));
-  const fernB = add(new THREE.PlaneGeometry(0.5, 0.4));
-  fernA.material.side = fernB.material.side = THREE.DoubleSide;
+  const rock = add(new THREE.DodecahedronGeometry(0.5, 0));
+  const fernA = add(new THREE.IcosahedronGeometry(0.3, 0));
+  const fernB = add(new THREE.IcosahedronGeometry(0.2, 0));
   let palette: Palette | null = null;
   const clear = () =>
     parts.forEach((p) => {
-      if (p.mesh) scene.remove(p.mesh);
+      if (p.mesh) {
+        scene.remove(p.mesh);
+        p.mesh.dispose();
+      }
       p.mesh = undefined;
     });
   const hashFor = (tx: number, ty: number) => ((tx * 73856093) ^ (ty * 19349663)) >>> 0;
@@ -35,8 +37,8 @@ const createCover = (grid: TileGrid, scene: THREE.Scene) => {
     const screens = Array.isArray(screen) ? screen : [screen];
     const coords = new Map<string, { tx: number; ty: number }>();
     for (const s of screens)
-      for (let ty = s.y * rows - 1; ty <= (s.y + 1) * rows; ty++)
-        for (let tx = s.x * cols - 1; tx <= (s.x + 1) * cols; tx++)
+      for (let ty = s.y * rows - 2; ty <= (s.y + 1) * rows + 1; ty++)
+        for (let tx = s.x * cols - 2; tx <= (s.x + 1) * cols + 1; tx++)
           coords.set(`${tx},${ty}`, { tx, ty });
     const placements = new Map<Part, THREE.Matrix4[]>();
     parts.forEach((p) => placements.set(p, []));
@@ -63,11 +65,17 @@ const createCover = (grid: TileGrid, scene: THREE.Scene) => {
       let hash = hashFor(tx, ty);
       const advance = () => (hash = (Math.imul(hash, 1664525) + 1013904223) >>> 0);
       if (surface === 'tree') {
-        put(trunk, tx, ty, 0.25);
-        if (hash & 1) {
-          put(coniferLow, tx, ty, 0.75);
-          put(coniferHigh, tx, ty, 1.25);
-        } else put(crown, tx, ty, 1.05);
+        const kind = hash & 1;
+        const jv = [advance(), advance()];
+        const jr = (v: number, a: number, b: number) => a + (v / 0xffffffff) * (b - a);
+        const s = jr(jv[0]!, 0.82, 1.18);
+        const scale = new THREE.Vector3(s, s, s);
+        const yaw = new THREE.Euler(0, jr(jv[1]!, 0, Math.PI * 2), 0);
+        put(trunk, tx, ty, 0.25 * s, scale, yaw);
+        if (kind) {
+          put(coniferLow, tx, ty, 0.75 * s, scale, yaw);
+          put(coniferHigh, tx, ty, 1.25 * s, scale, yaw);
+        } else put(crown, tx, ty, 1.05 * s, scale, yaw);
       } else if (surface === 'rock') {
         const values = [advance(), advance(), advance(), advance(), advance(), advance()];
         const range = (v: number, a: number, b: number) => a + (v / 0xffffffff) * (b - a);
@@ -87,8 +95,18 @@ const createCover = (grid: TileGrid, scene: THREE.Scene) => {
           ),
         );
       } else if (surface === 'fern') {
-        put(fernA, tx, ty, 0.2);
-        put(fernB, tx, ty, 0.2, new THREE.Vector3(1, 1, 1), new THREE.Euler(0, Math.PI / 2, 0));
+        const fv = [advance(), advance(), advance()];
+        const fr = (v: number, a: number, b: number) => a + (v / 0xffffffff) * (b - a);
+        const yaw = new THREE.Euler(0, fr(fv[2]!, 0, Math.PI * 2), 0);
+        put(
+          fernA,
+          tx,
+          ty,
+          0.16,
+          new THREE.Vector3(fr(fv[0]!, 0.8, 1.2), 0.55, fr(fv[1]!, 0.8, 1.2)),
+          yaw,
+        );
+        put(fernB, tx, ty, 0.24, new THREE.Vector3(1, 0.6, 1), yaw);
       }
     }
     for (const part of parts) {
@@ -112,7 +130,7 @@ const createCover = (grid: TileGrid, scene: THREE.Scene) => {
     set(coniferHigh, next.tree.base);
     set(crown, next.tree.detail);
     set(rock, next.rock.base);
-    set(fernA, next.fern.detail);
+    set(fernA, next.fern.shade);
     set(fernB, next.fern.detail);
   };
   return {

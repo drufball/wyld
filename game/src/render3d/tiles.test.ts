@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import type { Tile, TileGrid } from '../world/tiles.js';
 import { paletteAt } from '../render2d/palette.js';
-import { createSlabs } from './tiles.js';
+import { createSlabs, jitter } from './tiles.js';
 const tileAt = (x: number, y: number): Tile => {
   void y;
   return {
@@ -23,7 +23,7 @@ describe('slabs', () => {
     );
     expect(meshes).toHaveLength(3);
     expect(scene.children.filter((x) => x instanceof THREE.Mesh)).toHaveLength(4);
-    expect(meshes.reduce((n, m) => n + m.count, 0)).toBe(16);
+    expect(meshes.reduce((n, m) => n + m.count, 0)).toBe(36);
     s.dispose();
   });
   it('sits every slab top at its surface height with the tile centred at i + 0.5', () => {
@@ -46,5 +46,11 @@ describe('slabs', () => {
       expect(top).toBeCloseTo(surface === 'water' ? -0.3 : surface === 'cliff' ? 0.6 : 0);
     }
     s.dispose();
+  });
+  it('uses deterministic, bounded brightness jitter that varies between neighbours', () => {
+    expect(jitter(7, 11)).toBe(jitter(7, 11));
+    expect(jitter(7, 11)).toBeGreaterThanOrEqual(0.92);
+    expect(jitter(7, 11)).toBeLessThanOrEqual(1.08);
+    expect(jitter(7, 11)).not.toBe(jitter(8, 11));
   });
 });

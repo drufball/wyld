@@ -559,6 +559,7 @@ const loop = createLoop({
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
     for (const tap of input.taps()) {
+      activeFlatScreen = { sx: player.screen.x, sy: player.screen.y };
       const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
       const partyHit = partyState.party.find(({ individual }) => {
         const tile = partyControllers.get(individual.id)!.tile;
