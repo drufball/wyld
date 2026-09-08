@@ -13,7 +13,7 @@ describe('combat resolution', () => {
     const move = buildArenaIndividual(enemy('antlerback')!).repertoire.find(
       (m) => m.power === 5 && m.force === 'Impact',
     )!;
-    // The spec's 29 uses 0.6 + 5/10 = 1.15; the arithmetic result is 1.1 and 28 damage.
+    // wyld-spec.md §7.4 worked check: 5×5×(0.6+0.5)×1.0 = 27.5 → 28.
     expect(damage(move, 5, speciesById('loamox')!.hide)).toBe(28);
   });
   it('does 48 from a power-6 Heat move at Power 4 into Bark', () =>
