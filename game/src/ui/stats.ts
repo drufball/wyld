@@ -25,6 +25,10 @@ const createStatsPanel = (available: boolean) => {
     frames = 0,
     start = performance.now(),
     panel: HTMLDivElement | undefined,
+    fpsLine: HTMLSpanElement | undefined,
+    tileLine: HTMLSpanElement | undefined,
+    p95Line: HTMLSpanElement | undefined,
+    drawCallsLine: HTMLSpanElement | undefined,
     previousFrame: number | undefined;
   const intervals: number[] = [];
   if (available) {
@@ -32,10 +36,17 @@ const createStatsPanel = (available: boolean) => {
     panel.setAttribute('aria-label', 'Performance statistics');
     panel.style.cssText =
       'position:fixed;z-index:5;right:14px;top:14px;min-width:132px;padding:9px 12px;background:#f5f0dce8;border:1px solid #55584b;color:#25291f;font:12px/22px ui-monospace,monospace;white-space:pre';
+    fpsLine = document.createElement('span');
+    tileLine = document.createElement('span');
+    tileLine.dataset.performanceStat = 'tile';
+    p95Line = document.createElement('span');
+    drawCallsLine = document.createElement('span');
+    for (const line of [fpsLine, tileLine, p95Line, drawCallsLine]) line.style.display = 'block';
+    panel.append(fpsLine, tileLine, p95Line, drawCallsLine);
     document.body.append(panel);
     const responsive = document.createElement('style');
     responsive.textContent =
-      '@media(max-width:479px){[aria-label="Performance statistics"]{top:auto!important;right:8px!important;bottom:24px!important;min-width:112px!important;padding:6px 8px!important;font-size:10px!important;line-height:16px!important}}';
+      '@media(max-width:479px){[aria-label="Performance statistics"]{top:auto!important;right:8px!important;bottom:60px!important;min-width:112px!important;padding:6px 8px!important;font-size:10px!important;line-height:16px!important}[aria-label="Performance statistics"] [data-performance-stat="tile"]{display:none!important}}';
     document.head.append(responsive);
   }
   return {
@@ -60,8 +71,12 @@ const createStatsPanel = (available: boolean) => {
         frames = 0;
         start = now;
       }
-      if (panel)
-        panel.textContent = `FPS        ${stats.fps.toFixed(1)}\nTILE MS    ${stats.tileMs.toFixed(1)}\nP95 MS     ${stats.frameMsP95.toFixed(1)}\nDRAW CALLS ${stats.drawCalls}`;
+      if (panel) {
+        fpsLine!.textContent = `FPS        ${stats.fps.toFixed(1)}`;
+        tileLine!.textContent = `TILE MS    ${stats.tileMs.toFixed(1)}`;
+        p95Line!.textContent = `P95 MS     ${stats.frameMsP95.toFixed(1)}`;
+        drawCallsLine!.textContent = `DRAW CALLS ${stats.drawCalls}`;
+      }
     },
     read: () => ({ ...stats }),
     dispose: () => panel?.remove(),
