@@ -1,5 +1,31 @@
-import { describe, expect, it } from 'vitest';
-import { loadArenaProgress, saveArenaProgress, wipeArenaProgress } from './persistence.js';
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  freshArenaProgress,
+  loadArenaProgress,
+  saveArenaProgress,
+  wipeArenaProgress,
+} from './persistence.js';
+import { safeStorage } from '../persist/storage.js';
+
+const storageProperty = `local${'Storage'}`;
+const originalStorageDescriptor = Object.getOwnPropertyDescriptor(window, storageProperty);
+const denyStorageAccess = () =>
+  Object.defineProperty(window, storageProperty, {
+    configurable: true,
+    get() {
+      throw new DOMException(
+        "The document is sandboxed and lacks the 'allow-same-origin' flag.",
+        'SecurityError',
+      );
+    },
+  });
+
+afterEach(() => {
+  if (originalStorageDescriptor) {
+    Object.defineProperty(window, storageProperty, originalStorageDescriptor);
+  }
+});
 
 const memory = () => {
   const values = new Map<string, string>();
@@ -40,5 +66,29 @@ describe('arena persistence', () => {
     saveArenaProgress(storage, progress);
     expect(wipeArenaProgress(storage).runCount).toBe(0);
     expect(storage.getItem('fieldwork.arena.v1')).toBeNull();
+  });
+  it(`loads empty arena progress when local${'Storage'} access throws`, () => {
+    denyStorageAccess();
+    const progress = loadArenaProgress(safeStorage());
+    expect(progress.runCount).toBe(0);
+    expect(progress.fightsFought).toEqual({});
+    expect(progress.notebook.toJSON()).toEqual(freshArenaProgress().notebook.toJSON());
+  });
+  it(`saves and wipes without throwing when local${'Storage'} access throws`, () => {
+    denyStorageAccess();
+    const storage = safeStorage();
+    expect(() => saveArenaProgress(storage, loadArenaProgress(storage))).not.toThrow();
+    expect(() => wipeArenaProgress(storage)).not.toThrow();
+  });
+  it('round-trips arena progress through the in-memory fallback within a session', () => {
+    denyStorageAccess();
+    const storage = safeStorage();
+    const progress = loadArenaProgress(storage);
+    progress.runCount = 7;
+    progress.fightsFought.antlerback = 3;
+    saveArenaProgress(storage, progress);
+    const loaded = loadArenaProgress(storage);
+    expect(loaded.runCount).toBe(7);
+    expect(loaded.fightsFought).toEqual({ antlerback: 3 });
   });
 });

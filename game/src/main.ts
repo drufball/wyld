@@ -61,6 +61,7 @@ import { createEncounter } from './combat/encounter.js';
 import { createToastStack } from './ui/toasts.js';
 import { learnFromCombat, type LearnedFact } from './arena/learning.js';
 import { loadArenaProgress, saveArenaProgress, wipeArenaProgress } from './arena/persistence.js';
+import { safeStorage } from './persist/storage.js';
 import { createArenaResult } from './ui/arena-result.js';
 import { placeProps } from './world/props.js';
 import { camps, pointToRegion, regions } from './world/regions.js';
@@ -117,9 +118,10 @@ let tiles = createTileRenderer(grid, synthetic ? [] : trackPlacements);
 const debugConsole = createDebugConsole({ seed }),
   stats = createStatsPanel(debugConsole.available),
   toasts = createToastStack(),
+  arenaStorage = safeStorage(),
   hudActions: Parameters<typeof createHud>[2] = {},
   hud = createHud(debugConsole.available, toasts.root, hudActions),
-  arenaProgress = synthetic ? loadArenaProgress(localStorage) : null,
+  arenaProgress = synthetic ? loadArenaProgress(arenaStorage) : null,
   notebook = arenaProgress?.notebook ?? createNotebook(),
   observer = createObserver({ notebook }),
   callAudio = createCallAudio();
@@ -571,7 +573,7 @@ debugConsole.registerCommand('wipe', {
   help: 'clear arena field guide progress',
   run: () => {
     if (!synthetic) return 'not in the arena';
-    if (arenaProgress) Object.assign(arenaProgress, wipeArenaProgress(localStorage));
+    if (arenaProgress) Object.assign(arenaProgress, wipeArenaProgress(arenaStorage));
     return 'arena progress wiped';
   },
 });
@@ -811,7 +813,7 @@ const loop = createLoop({
           arenaProgress.runCount += 1;
           arenaProgress.fightsFought[foeEntry.speciesId] =
             (arenaProgress.fightsFought[foeEntry.speciesId] ?? 0) + 1;
-          saveArenaProgress(localStorage, arenaProgress);
+          saveArenaProgress(arenaStorage, arenaProgress);
           resultScreen = createArenaResult({
             phase: combat.phase,
             enemyName: foeEntry.name,
