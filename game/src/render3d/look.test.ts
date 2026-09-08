@@ -5,8 +5,8 @@ describe('lookFromQuery', () => {
     expect(lookFromQuery('?look=diorama')).toBe('diorama');
     expect(lookFromQuery('look=flat')).toBe('flat');
   });
-  it('falls back to flat for a missing or unknown look', () => {
-    expect(lookFromQuery('')).toBe('flat');
-    expect(lookFromQuery('?look=nope')).toBe('flat');
+  it('defaults missing or unknown looks to diorama', () => {
+    expect(lookFromQuery('')).toBe('diorama');
+    expect(lookFromQuery('?look=nope')).toBe('diorama');
   });
 });
