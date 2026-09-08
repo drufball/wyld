@@ -89,11 +89,10 @@ describe('creature workshop shipping', () => {
           removed: ['dunecask'],
           changed: [{ id: 'loamox', fields: ['palette', 'stats'] }],
         },
-        [
-          base,
-          { ...base, id: 'mossback', name: 'Mossback' },
-          { ...base, id: 'dunecask', name: 'Dunecask' },
-        ],
+        {
+          before: [base, { ...base, id: 'dunecask', name: 'Dunecask' }],
+          after: [base, { ...base, id: 'mossback', name: 'Mossback' }],
+        },
       ),
     ).toBe(
       '- **Loamox** (`loamox`) — palette, stats\n- **Mossback** (`mossback`) — new species\n- **Dunecask** (`dunecask`) — removed\n\nShipped from the creature workshop.',

@@ -219,14 +219,15 @@ export function createSpeciesRoutes({
       );
       await rm(worktree, { recursive: true, force: true });
       await run(git, ['-C', repoDir, 'worktree', 'prune']);
-      await run(git, ['-C', repoDir, 'worktree', 'add', '-f', '--detach', worktree, 'main']);
+      await run(git, ['-C', repoDir, 'fetch', 'origin', 'main']);
+      await run(git, ['-C', repoDir, 'worktree', 'add', '-f', '--detach', worktree, 'origin/main']);
       await run(git, ['-C', worktree, 'switch', '-c', branch]);
       await writeFile(
         path.join(worktree, 'game/src/data/species.json'),
         serialiseSpecies(shippedSpecies),
       );
-      await run(pnpm, ['exec', 'prettier', '--write', 'game/src/data/species.json'], worktree);
       await run(pnpm, ['install', '--frozen-lockfile', '--prefer-offline'], worktree);
+      await run(pnpm, ['exec', 'prettier', '--write', 'game/src/data/species.json'], worktree);
       try {
         await run(pnpm, ['--filter', '@wyld/game', 'test'], worktree);
       } catch (error) {
@@ -256,7 +257,7 @@ export function createSpeciesRoutes({
           '--title',
           title,
           '--body',
-          describeShip(summary, [...file, ...shippedSpecies]),
+          describeShip(summary, { before: file, after: shippedSpecies }),
         ],
         worktree,
       );

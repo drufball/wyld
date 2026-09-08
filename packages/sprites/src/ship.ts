@@ -74,19 +74,26 @@ export function summariseShip(
   return { added, removed, changed };
 }
 
-const displayName = (id: string, file: readonly SpeciesData[]) =>
-  file.find((species) => species.id === id)?.name ??
+type ShipSpecies = {
+  before: readonly SpeciesData[];
+  after: readonly SpeciesData[];
+};
+
+const displayName = (id: string) =>
   id.replace(/(^|-)([a-z])/g, (_match, separator: string, letter: string) =>
     separator ? ` ${letter.toUpperCase()}` : letter.toUpperCase(),
   );
 
-export function describeShip(summary: ShipSummary, file: readonly SpeciesData[]): string {
+export function describeShip(summary: ShipSummary, species: ShipSpecies): string {
+  const before = new Map(species.before.map(({ id, name }) => [id, name]));
+  const after = new Map(species.after.map(({ id, name }) => [id, name]));
+  const name = (id: string, table: Map<string, string>) => table.get(id) ?? displayName(id);
   const lines = [
     ...summary.changed.map(
-      ({ id, fields }) => `- **${displayName(id, file)}** (\`${id}\`) — ${fields.join(', ')}`,
+      ({ id, fields }) => `- **${name(id, after)}** (\`${id}\`) — ${fields.join(', ')}`,
     ),
-    ...summary.added.map((id) => `- **${displayName(id, file)}** (\`${id}\`) — new species`),
-    ...summary.removed.map((id) => `- **${displayName(id, file)}** (\`${id}\`) — removed`),
+    ...summary.added.map((id) => `- **${name(id, after)}** (\`${id}\`) — new species`),
+    ...summary.removed.map((id) => `- **${name(id, before)}** (\`${id}\`) — removed`),
   ];
   return `${lines.join('\n')}\n\nShipped from the creature workshop.`;
 }
