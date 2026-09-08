@@ -229,9 +229,11 @@ export function createSpeciesRoutes({
       await run(pnpm, ['install', '--frozen-lockfile', '--prefer-offline'], worktree);
       await run(pnpm, ['exec', 'prettier', '--write', 'game/src/data/species.json'], worktree);
       try {
+        await run(pnpm, ['--filter', '@wyld/game^...', 'build'], worktree);
         await run(pnpm, ['--filter', '@wyld/game', 'test'], worktree);
       } catch (error) {
         const output = commandFailureText(error);
+        logger('error', 'creature workshop game tests could not pass', { reason: output });
         return c.json({ shipped: false as const, problems: gameTestProblems(output) });
       }
       await run(git, ['-C', worktree, 'add', 'game/src/data/species.json']);
@@ -293,5 +295,7 @@ function gameTestProblems(output: string): string[] {
     if (!match || match[1]!.includes('.test.')) return [];
     return [match[1]!.replace(/ > /g, ' — ')];
   });
-  return names.length ? [...new Set(names)] : output.split(/\r?\n/).filter(Boolean).slice(-20);
+  return names.length
+    ? [...new Set(names)]
+    : ["The game's own tests could not run on this change. The details are in the factory log."];
 }
