@@ -72,7 +72,7 @@ export const validateSpecies = (value: unknown, regionIds: readonly string[]): s
       raw.forces.length === 0 ||
       !raw.forces.every((x) => oneOf(x, FORCES))
     )
-      problems.push(`${id}.FORCES is invalid`);
+      problems.push(`${id}.forces is invalid`);
 
     if (!isRecord(raw.stats)) problems.push(`${id}.stats must be an object`);
     else
@@ -116,7 +116,7 @@ export const validateSpecies = (value: unknown, regionIds: readonly string[]): s
           if (!regionIds.includes(entry.region))
             problems.push(`${id}.habitat has unknown region ${entry.region}`);
           if (entry.phases.length === 0 || !entry.phases.every((phase) => oneOf(phase, PHASES)))
-            problems.push(`${id}.habitat[${habitatIndex}].PHASES is invalid or empty`);
+            problems.push(`${id}.habitat[${habitatIndex}].phases is invalid or empty`);
         }
       });
     if (!Array.isArray(raw.signatureMoves)) problems.push(`${id}.signatureMoves must be an array`);
