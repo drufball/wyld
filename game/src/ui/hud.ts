@@ -1,5 +1,6 @@
 import type { TimeState } from '../world/time.js';
 import type { Individual } from '../creatures/individual.js';
+import type { CombatState } from '../combat/encounter.js';
 
 type HudState = TimeState & {
   regionName: string | null;
@@ -7,9 +8,11 @@ type HudState = TimeState & {
   target?: { detection: number } | null;
   party?: { individual: Individual; name: string }[];
   selection?: string;
+  combat?: CombatState | null;
 };
 type HudActions = {
   selectCreature?(id: string): void;
+  useMove?(moveId: string): void;
   openBook?(): void;
   openMap?(): void;
   openConsole?(): void;
@@ -122,15 +125,34 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
           button.setAttribute('aria-pressed', String(state.selection === individual.id));
           button.dataset.partyId = individual.id;
           if (state.selection === individual.id) button.style.outline = '2px solid #bd7132';
+          const combatant = state.combat?.party.find((c) => c.id === individual.id);
+          if (combatant) {
+            const bars = document.createElement('span');
+            bars.style.cssText = 'display:block;width:52px;height:5px;background:#292b25';
+            bars.innerHTML = `<i style="display:block;width:${(combatant.hp / combatant.maxHp) * 100}%;height:2px;background:#bd7132"></i><i style="display:block;width:${(combatant.focus / combatant.maxFocus) * 100}%;height:2px;background:#4e8292"></i>`;
+            button.append(bars);
+          }
           return button;
         }),
       );
       moves.replaceChildren();
       const selected = state.party?.find(({ individual }) => individual.id === state.selection);
       for (const move of selected?.individual.repertoire ?? []) {
-        const button = control(move.name);
+        const combatant = state.combat?.party.find((c) => c.id === selected?.individual.id);
+        const cooldown = combatant?.cooldowns[move.id];
+        const cost = { Strike: 6, Lunge: 10, Bolt: 8, Arc: 12, Sweep: 10 }[move.delivery];
+        const button = control(
+          `${move.name}${cooldown?.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
+        );
         button.dataset.moveId = move.id;
-        button.addEventListener('click', () => (button.textContent = 'Not yet.'));
+        button.disabled = Boolean(
+          combatant && (combatant.focus < cost || (cooldown?.remaining ?? 0) > 0),
+        );
+        button.style.opacity = button.disabled ? '0.45' : '1';
+        button.style.background = cooldown?.remaining
+          ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
+          : '#f4efd9ee';
+        button.addEventListener('click', () => actions.useMove?.(move.id));
         moves.append(button);
       }
     },

@@ -94,12 +94,13 @@ describe('thumb HUD', () => {
       'true',
     );
   });
-  it("renders the selected creature's move buttons as inert", () => {
-    const hud = createHud(false, document.body);
+  it("executes the selected creature's move button", () => {
+    let used = '';
+    const hud = createHud(false, document.body, { useMove: (id) => (used = id) });
     hud.update(state(undefined, 'a'));
     const button = document.querySelector('[data-move-id]') as HTMLButtonElement;
     button.click();
-    expect(button.textContent).toBe('Not yet.');
+    expect(used).toBe('loamox:move');
   });
   it('hides the console button when the console is unavailable', () => {
     createHud(false, document.body);

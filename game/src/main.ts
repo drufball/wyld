@@ -56,6 +56,7 @@ import { createArenaPick } from './ui/arena-pick.js';
 import { buildArenaIndividual, enemy, rosterMember } from './arena/roster.js';
 import { createPick, chooseEnemy, toggleMember, startFight, type PickState } from './arena/pick.js';
 import { resistance, weakness } from './combat/hides.js';
+import { createEncounter } from './combat/encounter.js';
 import { createToastStack } from './ui/toasts.js';
 import { placeProps } from './world/props.js';
 import { camps, pointToRegion, regions } from './world/regions.js';
@@ -227,6 +228,8 @@ const spawnSystem = createSpawnSystem({
 type AiState = { meter: number; behaviour: Behaviour; fleeUntil: number };
 const aiStates = new Map<string, AiState>();
 let arenaState: PickState | null = synthetic ? createPick() : null;
+let encounter: ReturnType<typeof createEncounter> | null = null;
+let damageLogging = false;
 const seedCreature = (id: string): void => {
   const c = registry.get(id);
   if (!c) return;
@@ -486,6 +489,13 @@ const beginArena = (state: PickState): void => {
   }
   const at = tileToWorld(enemyTile.tx, enemyTile.ty);
   registry.add(buildArenaIndividual(foe), at.x, at.z, 0);
+  encounter = createEncounter({
+    party: members.map((m) => m.individual),
+    enemy: buildArenaIndividual(foe),
+    grid,
+    rng,
+    player: { x: centre.tx, y: centre.ty },
+  });
 };
 let arenaPick: ReturnType<typeof createArenaPick> | null = null;
 if (synthetic) arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state));
@@ -505,6 +515,25 @@ debugConsole.registerCommand('fight', {
     return 'fight started';
   },
 });
+debugConsole.registerCommand('damage', {
+  help: 'damage log',
+  run: ([arg = '']) => {
+    if (arg !== 'log') return 'usage: damage log';
+    damageLogging = !damageLogging;
+    return `damage log: ${damageLogging ? 'on' : 'off'}`;
+  },
+});
+debugConsole.registerCommand('heal', {
+  help: 'restore combatants',
+  run: () => {
+    if (!encounter) return 'no fight';
+    encounter.heal();
+    return 'combatants healed';
+  },
+});
+hudActions.useMove = (moveId) => {
+  if (partyState.selection !== 'player') encounter?.useMove(partyState.selection, moveId);
+};
 const render = (alpha = 1) => {
   const clock = timeAt(elapsedSeconds),
     palette = paletteAt(clock.phase, clock.phaseProgress),
@@ -577,6 +606,13 @@ const render = (alpha = 1) => {
       origin.y,
       false,
     );
+    const combatant = encounter?.state().party.find((c) => c.id === member.individual.id);
+    if (combatant?.windup) {
+      view.context.fillStyle = '#292b25';
+      view.context.fillRect(origin.x, origin.y - 4, size, 3);
+      view.context.fillStyle = '#f4efd9';
+      view.context.fillRect(origin.x, origin.y - 4, size * combatant.windup.progress, 2);
+    }
   }
   for (const creature of registry.list()) {
     if (!onScreen(creature.position.x, creature.position.z, 1)) continue;
@@ -614,6 +650,50 @@ const render = (alpha = 1) => {
       flat.context.fillRect(ex + 2, ey + 2, Math.ceil(meter * 3), 1);
     }
   }
+  const combat = encounter?.state();
+  if (combat) {
+    const bar = (
+      at: { x: number; y: number },
+      hp: number,
+      maxHp: number,
+      focus: number,
+      maxFocus: number,
+    ) => {
+      const bx = Math.round((at.x - screen.x * view.cols) * 16 - 12);
+      const by = Math.round((at.y - screen.y * view.rows) * 16 - 22);
+      view.context.fillStyle = '#292b25';
+      view.context.fillRect(bx, by, 24, 5);
+      view.context.fillStyle = '#bd7132';
+      view.context.fillRect(bx + 1, by + 1, (22 * hp) / maxHp, 1);
+      view.context.fillStyle = '#4e8292';
+      view.context.fillRect(bx + 1, by + 3, (22 * focus) / maxFocus, 1);
+    };
+    bar(
+      combat.enemy.tile,
+      combat.enemy.hp,
+      combat.enemy.maxHp,
+      combat.enemy.focus,
+      combat.enemy.maxFocus,
+    );
+    for (const p of combat.projectiles) {
+      view.context.fillStyle = '#f4efd9';
+      view.context.fillRect(
+        Math.round((p.position.x - screen.x * view.cols) * 16) - 2,
+        Math.round((p.position.y - screen.y * view.rows) * 16) - 2,
+        4,
+        4,
+      );
+    }
+    for (const flash of combat.flashes) {
+      view.context.fillStyle = '#ffffff99';
+      view.context.fillRect(
+        Math.round((flash.at.x - screen.x * view.cols) * 16) - 8,
+        Math.round((flash.at.y - screen.y * view.rows) * 16) - 12,
+        16,
+        16,
+      );
+    }
+  }
   stats.afterRender(tiles.tileMs, drawCalls);
   if (key !== renderedPaletteKey) {
     document.body.style.background = `rgb(${palette.ash.shade.join(',')})`;
@@ -623,6 +703,30 @@ const render = (alpha = 1) => {
 const loop = createLoop({
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
+    if (encounter) {
+      const combatEvents = encounter.update(
+        dt,
+        Object.fromEntries(
+          partyState.party.map(({ individual }) => {
+            const t = partyControllers.get(individual.id)!.tile;
+            return [individual.id, { x: t.x, y: t.y }];
+          }),
+        ),
+      );
+      for (const event of combatEvents)
+        if (damageLogging && event.type === 'hit')
+          eventLog.push({
+            kind: 'damage',
+            ts: Date.now(),
+            payload: {
+              attacker: event.attacker,
+              move: event.move,
+              base: event.base,
+              hideMult: event.hideMult,
+              final: event.final,
+            },
+          });
+    }
     for (const tap of input.taps()) {
       activeFlatScreen = { sx: player.screen.x, sy: player.screen.y };
       const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
@@ -820,6 +924,7 @@ const loop = createLoop({
         : null,
       party: partyState.party,
       selection: partyState.selection,
+      combat: encounter?.state() ?? null,
     });
     input.endFrame();
   },
@@ -860,6 +965,7 @@ window.__wyld = {
       ...clock,
       waterDepth: depthAt(world.x, world.z),
       arena: arenaState,
+      combat: encounter?.state() ?? null,
       creatures: registry.list().map((c) => {
         const t = worldToTile(c.position.x, c.position.z),
           ai = aiStates.get(c.id);

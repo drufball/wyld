@@ -16,6 +16,7 @@ type WyldGameState = {
     enemy: string | null;
     party: readonly string[];
   } | null;
+  combat: import('./combat/encounter.js').CombatState | null;
   creatures: {
     id: string;
     species: string;
