@@ -18,6 +18,7 @@ function demo(id: string, extra: Partial<Chain> = {}): Chain {
     questId: null,
     anchor: null,
     snoozedUntil: null,
+    pinnedAt: null,
     tags: ['demo'],
     demoId: id,
     payload: {

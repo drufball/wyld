@@ -62,6 +62,7 @@ describe('Today', () => {
       lastActivityAt: '2026-09-06T08:00:00Z',
       questId: null,
       snoozedUntil: null,
+      pinnedAt: null,
       tags: [],
       demoId: null,
       payload: { achievementId: 'first-light', name: 'First Light', badge: 'sun' },
@@ -181,6 +182,7 @@ describe('Today', () => {
           questId: null,
           anchor: null,
           snoozedUntil: null,
+          pinnedAt: null,
           rumble: {
             id: 'rumble',
             title: 'Choose',
@@ -234,6 +236,7 @@ describe('Today', () => {
           questId: null,
           anchor: null,
           snoozedUntil: null,
+          pinnedAt: null,
           rumble: null,
           messages: [
             {
@@ -260,6 +263,7 @@ describe('Today', () => {
           questId: null,
           anchor: null,
           snoozedUntil: null,
+          pinnedAt: null,
           rumble: {
             id: 'rumble',
             title: 'Choose',

@@ -170,6 +170,7 @@ export function upsertBriefingChain(
         },
         createdAt: now,
         lastActivityAt: now,
+        pinnedAt: now,
       })
       .returning()
       .get();

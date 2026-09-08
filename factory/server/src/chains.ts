@@ -508,5 +508,21 @@ export function createChainRoutes({ database, now, storeEvent, config }: Depende
     return c.json(readChain(id)!);
   });
 
+  app.post('/chains/:id/pin', (c) => {
+    const id = Number(c.req.param('id'));
+    const current = Number.isInteger(id) ? readChain(id) : undefined;
+    if (current === undefined) return notFound(c);
+    if (current.pinnedAt === null)
+      db.update(chains).set({ pinnedAt: now().toISOString() }).where(eq(chains.id, id)).run();
+    return c.json(readChain(id)!);
+  });
+
+  app.post('/chains/:id/unpin', (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id) || readChain(id) === undefined) return notFound(c);
+    db.update(chains).set({ pinnedAt: null }).where(eq(chains.id, id)).run();
+    return c.json(readChain(id)!);
+  });
+
   return app;
 }

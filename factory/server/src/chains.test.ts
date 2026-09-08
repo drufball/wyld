@@ -638,6 +638,29 @@ describe('chain routes', () => {
     expect(await events()).toHaveLength(eventCount);
   });
 
+  it('pins and unpins idempotently without changing activity', async () => {
+    const chain = await create('keep this handy');
+    const first = Chain.parse(await (await post(`/api/chains/${chain.id}/pin`, undefined)).json());
+    expect(first.pinnedAt).toBe(clock.toISOString());
+    expect(first.lastActivityAt).toBe(chain.lastActivityAt);
+    expect(Chain.array().parse(await (await app.request('/api/chains')).json())[0]?.pinnedAt).toBe(
+      first.pinnedAt,
+    );
+
+    clock = new Date(clock.getTime() + 60_000);
+    const second = Chain.parse(await (await post(`/api/chains/${chain.id}/pin`, undefined)).json());
+    expect(second.pinnedAt).toBe(first.pinnedAt);
+    expect(second.lastActivityAt).toBe(chain.lastActivityAt);
+    expect(
+      Chain.parse(await (await post(`/api/chains/${chain.id}/unpin`, undefined)).json()).pinnedAt,
+    ).toBeNull();
+  });
+
+  it('returns 404 when pinning or unpinning an unknown chain', async () => {
+    expect((await post('/api/chains/999/pin', undefined)).status).toBe(404);
+    expect((await post('/api/chains/999/unpin', undefined)).status).toBe(404);
+  });
+
   it('does not append to a closed chain', async () => {
     const chain = await create('done');
     await post(`/api/chains/${chain.id}/close`, { reason: 'settled' });

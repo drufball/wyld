@@ -11,6 +11,7 @@ const base: Chain = {
   questId: null,
   anchor: null,
   snoozedUntil: null,
+  pinnedAt: null,
   tags: [],
   demoId: null,
   payload: null,

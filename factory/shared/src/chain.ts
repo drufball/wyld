@@ -51,6 +51,7 @@ export const Chain = z
     lastActivityAt: Timestamp,
     questId: Id.nullable(),
     snoozedUntil: Timestamp.nullable().default(null),
+    pinnedAt: Timestamp.nullable().default(null),
     tags: z.array(z.string()).default([]),
     demoId: Id.nullable().default(null),
     payload: z.record(z.string(), z.unknown()).nullable().default(null),

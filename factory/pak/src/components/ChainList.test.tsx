@@ -13,6 +13,7 @@ const question = {
   lastActivityAt: timestamp,
   questId: null,
   snoozedUntil: null,
+  pinnedAt: null,
   tags: [],
   demoId: null,
   payload: null,
@@ -54,6 +55,7 @@ describe('ChainList', () => {
     ...question,
     id: 50,
     kind: 'briefing',
+    pinnedAt: timestamp,
     tags: ['briefing'],
     payload: {
       rumbles: [{ text: 'Choose a trail', deepLink: '/rumble' }],
@@ -619,6 +621,26 @@ describe('ChainList', () => {
       ),
     );
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('offers Pin, updates to Unpin, and shows the pinned glyph', async () => {
+    const pinned = { ...question, pinnedAt: timestamp };
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      response(url === '/api/chains' ? [question] : init?.method === 'POST' ? pinned : []),
+    );
+    vi.stubGlobal('fetch', fetch);
+    renderList();
+    await screen.findByText('Why?');
+    fireEvent.click(screen.getByRole('button', { name: 'Reply or settle' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Pin' }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith('/api/chains/1/pin', { method: 'POST' }),
+    );
+
+    expect(await screen.findByText('Pinned')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Unpin' })).not.toBeNull();
   });
 
   it('lets the next card click toggle after an outside click closes the actions menu', async () => {

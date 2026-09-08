@@ -124,6 +124,15 @@ describe('demo chain payload refresh', () => {
       '2026-09-05T13:00:00.000Z',
     );
 
+    expect(first.chain.pinnedAt).toBe('2026-09-05T12:00:00.000Z');
+    database.db.update(chains).set({ pinnedAt: null }).where(eq(chains.id, first.chain.id)).run();
+    const third = upsertBriefingChain(
+      database,
+      { digest: { ...empty, fyi: ['Third'] }, fromEventId: 99, toEventId: 13 },
+      '2026-09-05T14:00:00.000Z',
+    );
+    expect(third.chain.pinnedAt).toBeNull();
+
     expect(second.chain.id).toBe(first.chain.id);
     expect(second.created).toBe(false);
     expect(database.db.select().from(chains).all()).toHaveLength(1);
