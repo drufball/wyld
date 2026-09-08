@@ -399,6 +399,142 @@ describe('Explain', () => {
     expect(postMessage).toHaveBeenCalledWith({ type: 'wyld:pin:mode', on: false }, '*');
   });
 
+  it('attaches the demo capture to a pinned comment', async () => {
+    mocks.getArtifact.mockResolvedValue(artifact);
+    mocks.postChain.mockResolvedValue({
+      id: 4,
+      kind: 'question',
+      status: 'open',
+      createdAt: '2026-09-07T12:00:00.000Z',
+      lastActivityAt: '2026-09-07T12:00:00.000Z',
+      questId: null,
+      snoozedUntil: null,
+      tags: [],
+      demoId: null,
+      payload: null,
+      rumble: null,
+      anchor: { artifact: 'forest-map', element: 'demo', label: 'Demo' },
+      messages: [],
+    });
+    renderRoute('/explain/forest-map');
+    const frame = (await screen.findByTitle(artifact.title)) as HTMLIFrameElement;
+    const postMessage = vi.fn();
+    const contentWindow = { postMessage } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
+      expect(
+        screen.getByRole('button', { name: 'Pin a comment' }).hasAttribute('aria-disabled'),
+      ).toBe(false),
+    );
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: contentWindow,
+          data: {
+            type: 'wyld:pin:pick',
+            element: 'demo',
+            label: 'Demo',
+            rect: { x: 10, y: 20, w: 30, h: 40 },
+          },
+        }),
+      );
+    });
+    expect(screen.queryByText('Pinned to: Demo')).not.toBeNull();
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(
+        { type: 'wyld:pin:capture', id: 1, element: 'demo' },
+        '*',
+      ),
+    );
+    const capture = { screenshot: 'data:image/png;base64,YQ==', state: { day: 3 } };
+    await fromFrame(contentWindow, { type: 'wyld:pin:capture:result', id: 1, capture }, () =>
+      expect(screen.queryByText('Attached: what the demo looked like')).not.toBeNull(),
+    );
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Remember this' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() =>
+      expect(mocks.postChain).toHaveBeenCalledWith(
+        'Remember this',
+        undefined,
+        { artifact: 'forest-map', element: 'demo', label: 'Demo' },
+        capture,
+      ),
+    );
+  });
+
+  it('shows what the demo looked like on a pin that has a capture', async () => {
+    mocks.getArtifact.mockResolvedValue(artifact);
+    mocks.listChains.mockResolvedValue([
+      {
+        id: 8,
+        kind: 'question',
+        status: 'open',
+        createdAt: '2026-09-07T12:00:00.000Z',
+        lastActivityAt: '2026-09-07T12:00:00.000Z',
+        questId: null,
+        snoozedUntil: null,
+        tags: [],
+        demoId: null,
+        payload: {
+          capture: { screenshot: '/api/chains/8/screenshot', state: { day: 3, phase: 'night' } },
+        },
+        rumble: null,
+        anchor: { artifact: 'forest-map', element: 'demo', label: 'Demo' },
+        messages: [
+          {
+            id: 1,
+            chainId: 8,
+            author: 'human',
+            text: 'Remember this',
+            ts: '2026-09-07T12:00:00.000Z',
+          },
+        ],
+      },
+    ]);
+    renderRoute('/explain/forest-map');
+    const frame = (await screen.findByTitle(artifact.title)) as HTMLIFrameElement;
+    const contentWindow = { postMessage: vi.fn() } as unknown as Window;
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: contentWindow });
+    vi.spyOn(frame, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 500,
+      height: 500,
+      top: 0,
+      right: 500,
+      bottom: 500,
+      left: 0,
+      toJSON: () => ({}),
+    });
+    await fromFrame(contentWindow, { type: 'wyld:pin:ready' }, () =>
+      expect(
+        screen.getByRole('button', { name: 'Pin a comment' }).hasAttribute('aria-disabled'),
+      ).toBe(false),
+    );
+    await waitFor(() =>
+      expect(contentWindow.postMessage).toHaveBeenCalledWith(
+        { type: 'wyld:pin:locate', elements: ['demo'] },
+        '*',
+      ),
+    );
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: contentWindow,
+          data: {
+            type: 'wyld:pin:rects',
+            rects: { demo: { x: 10, y: 20, w: 30, h: 40 } },
+          },
+        }),
+      );
+    });
+    expect(await screen.findByRole('button', { name: 'Pinned comment 1: Demo' })).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Pinned comment 1: Demo' }));
+    const image = await screen.findByRole('img', { name: 'What the demo looked like' });
+    expect(image.getAttribute('src')).toBe('/api/chains/8/screenshot');
+    expect(screen.getByText('Day 3 · night · —')).not.toBeNull();
+  });
+
   it('closes the pin composer on Escape without changing frame pin mode', async () => {
     mocks.getArtifact.mockResolvedValue(artifact);
     renderRoute('/explain/forest-map');

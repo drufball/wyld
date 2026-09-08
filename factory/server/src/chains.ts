@@ -312,22 +312,19 @@ export function createChainRoutes({ database, now, storeEvent, config }: Depende
         ? (row.payload.capture as { screenshot?: unknown }).screenshot
         : null;
     if (typeof screenshot !== 'string') return notFound(c);
-    const extension =
-      screenshot.endsWith('/screenshot') &&
-      (await fs
-        .access(path.join(config.feedbackDir, `chain-${id.data}.jpg`))
-        .then(() => 'jpg')
-        .catch(() => 'png'));
-    try {
-      const bytes = await fs.readFile(
-        path.join(config.feedbackDir, `chain-${id.data}.${extension}`),
-      );
-      return new Response(bytes, {
-        headers: { 'content-type': extension === 'png' ? 'image/png' : 'image/jpeg' },
-      });
-    } catch {
-      return notFound(c);
+    for (const extension of ['jpg', 'png'] as const) {
+      try {
+        const bytes = await fs.readFile(
+          path.join(config.feedbackDir, `chain-${id.data}.${extension}`),
+        );
+        return new Response(bytes, {
+          headers: { 'content-type': extension === 'png' ? 'image/png' : 'image/jpeg' },
+        });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
+    return notFound(c);
   });
 
   app.post('/chains/:id/messages', async (c) => {
