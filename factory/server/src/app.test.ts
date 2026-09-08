@@ -535,6 +535,22 @@ describe('Pak server', () => {
     expect(await response.text()).toBe('branch pak');
   });
 
+  it('serves disc assets with a permissive CORS header', async () => {
+    fs.mkdirSync(path.join(directory, 'demos/disc/assets'), { recursive: true });
+    fs.writeFileSync(path.join(directory, 'demos/disc/index.html'), 'game');
+    fs.writeFileSync(path.join(directory, 'demos/disc/assets/game.js'), 'export {};');
+
+    for (const url of ['/play/disc/', '/play/disc/assets/game.js']) {
+      const response = await app.request(url);
+      expect(response.headers.get('access-control-allow-origin')).toBe('*');
+      expect(response.headers.has('access-control-allow-credentials')).toBe(false);
+    }
+    expect((await app.request('/play/disc')).headers.get('access-control-allow-origin')).toBe('*');
+    expect(
+      (await app.request('/play/missing/nope')).headers.get('access-control-allow-origin'),
+    ).toBe('*');
+  });
+
   it('does not let encoded play paths escape a demo directory', async () => {
     fs.mkdirSync(path.join(directory, 'demos/main'), { recursive: true });
     fs.writeFileSync(path.join(directory, 'demos/main/index.html'), 'game');

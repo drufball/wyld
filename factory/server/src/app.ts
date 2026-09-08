@@ -621,6 +621,7 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/', createArtifactServeRoutes({ database: dependencies.database, now, storeEvent }));
 
   app.all('/play/:slug', (c) => {
+    c.header('Access-Control-Allow-Origin', '*');
     const slug = c.req.param('slug');
     if (!DEMO_SLUG.test(slug)) return c.json({ error: 'Invalid demo slug' }, 400);
     if (c.req.method !== 'GET' && c.req.method !== 'HEAD')
@@ -628,6 +629,7 @@ export function createApp(dependencies: AppDependencies) {
     return c.redirect(`/play/${slug}/`, 301);
   });
   app.all('/play/:slug/*', (c) => {
+    c.header('Access-Control-Allow-Origin', '*');
     const slug = c.req.param('slug');
     if (!DEMO_SLUG.test(slug)) return c.json({ error: 'Invalid demo slug' }, 400);
     if (c.req.method !== 'GET' && c.req.method !== 'HEAD')
@@ -638,6 +640,7 @@ export function createApp(dependencies: AppDependencies) {
       c.req.path.slice(prefix.length) || '/',
       c.req.method,
     );
+    response?.headers.set('Access-Control-Allow-Origin', '*');
     return response ?? c.json({ error: 'Demo not found' }, 404);
   });
   if (dependencies.pakDist !== undefined) app.all('*', createStaticHandler(dependencies.pakDist));

@@ -3,6 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPinBridge, PIN_BRIDGE_SNIPPET, PIN_BRIDGE_SOURCE } from './pin-bridge.js';
 
 describe('pin bridge', () => {
+  it('styles landscape and portrait embeds', () => {
+    expect(PIN_BRIDGE_SOURCE).toContain('aspect-ratio:16/9');
+    expect(PIN_BRIDGE_SOURCE).toContain('aspect-ratio:9/16');
+  });
+
+  it('lets pin mode click through an embed', () => {
+    expect(PIN_BRIDGE_SOURCE).toContain(
+      '.wyld-pin-mode iframe[data-wyld-demo]{pointer-events:none}',
+    );
+  });
+
   it('ships a self-contained valid snippet', () => {
     expect(() => new Function(PIN_BRIDGE_SOURCE)).not.toThrow();
     expect(PIN_BRIDGE_SNIPPET.startsWith('<script>')).toBe(true);

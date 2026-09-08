@@ -10,6 +10,7 @@ import {
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
+import { rewriteEmbeds } from './embeds.js';
 import { formatIssues } from './quests.js';
 import { artifacts, quests } from './schema.js';
 
@@ -49,6 +50,8 @@ export function createArtifactRoutes({ database: { db }, now, storeEvent }: Depe
   app.post('/artifacts', async (c) => {
     const parsed = NewArtifact.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
+    const rewritten = rewriteEmbeds(parsed.data.html);
+    if (!rewritten.ok) return c.json({ error: rewritten.error }, 400);
     const questId = parsed.data.questId ?? null;
     if (
       questId !== null &&
@@ -59,13 +62,20 @@ export function createArtifactRoutes({ database: { db }, now, storeEvent }: Depe
     const ts = now().toISOString();
     const version = (existing?.version ?? 0) + 1;
     db.insert(artifacts)
-      .values({ ...parsed.data, questId, version, createdAt: ts, updatedAt: ts })
+      .values({
+        ...parsed.data,
+        html: rewritten.html,
+        questId,
+        version,
+        createdAt: ts,
+        updatedAt: ts,
+      })
       .onConflictDoUpdate({
         target: artifacts.slug,
         set: {
           title: parsed.data.title,
           summary: parsed.data.summary,
-          html: parsed.data.html,
+          html: rewritten.html,
           questId,
           version,
           updatedAt: ts,
@@ -91,7 +101,7 @@ export function createArtifactRoutes({ database: { db }, now, storeEvent }: Depe
 }
 
 const CSP =
-  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'";
+  "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src 'self'; form-action 'none'; base-uri 'none'";
 export function createArtifactServeRoutes({ database: { db } }: Dependencies) {
   const app = new Hono();
   app.all('/artifacts/:slug', (c) => {
