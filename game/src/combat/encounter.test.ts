@@ -237,7 +237,7 @@ describe('combat encounter', () => {
     expect(Math.max(...actedAt.slice(1).map((at, index) => at - actedAt[index]!))).toBeLessThan(4);
   });
 
-  it('finishes an Antlerback fight in 30–90 s using the best affordable move off cooldown', () => {
+  it('runs a full Antlerback encounter to a win under a slow policy', () => {
     const party = ['emberjack', 'loamox', 'bramblehog'].map((id) => {
       const individual = member(id);
       return { ...individual, stats: { ...individual.stats, vigor: 1000 } };

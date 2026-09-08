@@ -110,12 +110,14 @@ type GuideOptions = {
   notebook: Notebook;
   onOpenChange?(open: boolean): void;
   debugOpen?(): boolean;
+  contextualSpecies?(): string | null;
   map: Omit<MapViewOptions, 'notebook' | 'selectedSpecies'>;
 };
 const createGuideBook = ({
   notebook,
   onOpenChange,
   debugOpen = () => false,
+  contextualSpecies = () => null,
   map,
 }: GuideOptions) => {
   let opened = false;
@@ -319,6 +321,10 @@ const createGuideBook = ({
     if (event.key.toLowerCase() === 'g' || event.key.toLowerCase() === 'm') {
       event.preventDefault();
       if (event.key.toLowerCase() === 'm') currentTab = 'map';
+      else if (!opened && contextualSpecies()) {
+        speciesId = contextualSpecies();
+        currentTab = 'species';
+      }
       setOpen(!opened);
     } else if (event.key === 'Escape' && opened) {
       event.preventDefault();
@@ -344,6 +350,11 @@ const createGuideBook = ({
     setTab(tab: GuideTab) {
       currentTab = tab;
       if (opened) renderPage();
+    },
+    openSpecies(id: string) {
+      speciesId = id;
+      currentTab = 'species';
+      setOpen(true);
     },
     refresh() {
       if (opened) renderPage();
