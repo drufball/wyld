@@ -59,7 +59,7 @@ describe('ChainList', () => {
     tags: ['briefing'],
     payload: {
       rumbles: [{ text: 'Choose a trail', deepLink: '/rumble' }],
-      demos: [{ text: 'Try the arena', deepLink: '/demos/arena' }],
+      demos: [{ text: 'Try the arena', deepLink: '/rumble' }],
       shipped: [{ text: 'Map shipped', deepLink: '/quests' }],
       fyi: ['Factory is healthy'],
       fromEventId: 2,
@@ -161,7 +161,7 @@ describe('ChainList', () => {
     );
   });
 
-  it('sorts the briefing above every other card', async () => {
+  it('does not render a demo chain', async () => {
     const rumble = {
       ...question,
       id: 51,
@@ -192,8 +192,8 @@ describe('ChainList', () => {
         summary: 'Try demo one',
         steps: [],
         seeded: [],
-        deepLink: '/demos',
-        url: '/demos',
+        deepLink: '/roadmap',
+        url: '/roadmap',
         status: 'ready',
         builtAt: timestamp,
         error: null,
@@ -223,6 +223,32 @@ describe('ChainList', () => {
 
     await screen.findByText('Morning briefing');
     expect(container.querySelector('.chain-card')?.textContent).toContain('Morning briefing');
+    expect(screen.queryByText('Try demo one')).toBeNull();
+  });
+
+  it('shows a Look button on a look chain', () => {
+    render(
+      <MemoryRouter>
+        <ChainCard
+          chain={
+            {
+              ...question,
+              kind: 'message',
+              payload: { explainer: 'species-grid' },
+              tags: ['look'],
+              messages: [...question.messages],
+            } as Chain
+          }
+          defaultOpen
+          onChange={() => undefined}
+          onClosed={() => undefined}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: 'Look' }).getAttribute('href')).toBe(
+      '/explain/species-grid',
+    );
   });
 
   it('pinned chains sort above every unpinned card', async () => {
@@ -524,7 +550,7 @@ describe('ChainList', () => {
 
     await waitFor(() =>
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/chains?kind=question%2Cmessage%2Crumble%2Cdemo%2Cunlock%2Cbriefing',
+        '/api/chains?kind=question%2Cmessage%2Crumble%2Cunlock%2Cbriefing',
         {},
       ),
     );

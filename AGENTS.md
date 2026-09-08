@@ -46,6 +46,12 @@ All four of `typecheck`, `lint`, `test`, `build` must pass before a PR is ready.
 - Workspace packages are named `@wyld/<dir>` (e.g. `@wyld/shared`, `@wyld/server`).
 - Commit the `pnpm-lock.yaml` whenever dependencies change.
 
+### Demos and explainers
+
+A quest's explainer is the demo. Discs build to `/play/<slug>/` and are embedded with
+`<iframe data-wyld-demo="landscape|portrait" src="/play/<slug>/?…">`. Embeds are validated at
+publish time by `factory/server/src/embeds.ts`. There is no Demos screen and no try-it card.
+
 ## Never
 
 - **Never touch `factory/planner/`.** That directory is owned by the Planner.

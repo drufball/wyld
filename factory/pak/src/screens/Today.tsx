@@ -17,26 +17,20 @@ import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { countInWords } from '../words.js';
 import { playSound } from '../lib/feedback.js';
-import { demoCard } from '../lib/chain-cards.js';
 
-export type TodaySignals = { rumbles: number; demos: number; memory: string | null };
+export type TodaySignals = { rumbles: number; memory: string | null };
 
 function compactCount(count: number) {
   return count > 9 ? '9+' : String(count);
 }
 
-export function Signals({ rumbles, demos, memory }: TodaySignals) {
-  if (rumbles <= 0 && demos <= 0 && memory === null) return null;
+export function Signals({ rumbles, memory }: TodaySignals) {
+  if (rumbles <= 0 && memory === null) return null;
   return (
     <section className="grid gap-2 text-muted-foreground" aria-label="Signals">
       {rumbles > 0 && (
         <Link className="min-h-11 py-2 text-accent underline" to="/rumble">
           {compactCount(rumbles)} Rumbles
-        </Link>
-      )}
-      {demos > 0 && (
-        <Link className="min-h-11 py-2 text-accent underline" to="/demos">
-          {compactCount(demos)} demos ready
         </Link>
       )}
       {memory !== null && <p className="m-0">{memory}</p>}
@@ -166,11 +160,7 @@ export function LastMemoryCard() {
   );
 }
 
-export function Today({
-  signals = { rumbles: 0, demos: 0, memory: null },
-}: {
-  signals?: TodaySignals;
-}) {
+export function Today({ signals = { rumbles: 0, memory: null } }: { signals?: TodaySignals }) {
   const [text, setText] = useState('');
   const [failedSubmission, setFailedSubmission] = useState<{
     text: string;
@@ -179,7 +169,6 @@ export function Today({
   const [addedChain, setAddedChain] = useState<Chain | null>(null);
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
   const [rumbleCount, setRumbleCount] = useState(signals.rumbles);
-  const [demoCount, setDemoCount] = useState(signals.demos);
   const [needsYou, setNeedsYou] = useState<number | null>(null);
   const [buildingCount, setBuildingCount] = useState(0);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -251,24 +240,6 @@ export function Today({
     ];
     return () => stops.forEach((stop) => stop());
   }, [loadRumbles, subscribe]);
-  const loadDemos = useCallback(
-    () =>
-      void listChains({ kind: 'demo' })
-        .then((items) =>
-          setDemoCount(items.filter((chain) => demoCard(chain)?.status === 'ready').length),
-        )
-        .catch(() => undefined),
-    [],
-  );
-  useEffect(() => {
-    loadDemos();
-    const stops = [
-      subscribe('planner.quest_updated', loadDemos),
-      subscribe('planner.chain_updated', loadDemos),
-      subscribe('human.chain_closed', loadDemos),
-    ];
-    return () => stops.forEach((stop) => stop());
-  }, [loadDemos, subscribe]);
   const loadUnlocks = useCallback(
     () =>
       void listChains({ kind: 'unlock' })
@@ -459,7 +430,7 @@ export function Today({
       ) : null}
       <ChainList kind="all" addedChain={addedChain} onConvert={sendIntent} />
       <InFlight heading={!goOutside} />
-      <Signals {...signals} rumbles={rumbleCount} demos={demoCount} />
+      <Signals {...signals} rumbles={rumbleCount} />
       <Button
         ref={composerButton}
         id="today-composer-button"

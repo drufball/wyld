@@ -22,7 +22,7 @@ function jsonResponse(value: unknown, ok = true) {
     text: () => Promise.resolve('nope'),
   } as Response);
 }
-function renderToday(signals?: { rumbles: number; demos: number; memory: string | null }) {
+function renderToday(signals?: { rumbles: number; memory: string | null }) {
   return render(
     <MemoryRouter>
       <LiveEventsProvider eventSourceFactory={source}>
@@ -557,30 +557,29 @@ describe('Today', () => {
     const fetch = vi.fn((url: string) =>
       jsonResponse(
         url === '/api/presence'
-          ? { ...presence, nextAction: { text: 'Try demo', deepLink: '/demos' } }
+          ? { ...presence, nextAction: { text: 'Read roadmap', deepLink: '/roadmap' } }
           : presence,
       ),
     );
     vi.stubGlobal('fetch', fetch);
     renderToday();
-    expect((await screen.findByRole('link', { name: 'Try demo' })).getAttribute('href')).toBe(
-      '/demos',
+    expect((await screen.findByRole('link', { name: 'Read roadmap' })).getAttribute('href')).toBe(
+      '/roadmap',
     );
   });
 
   it('renders no signals at zero and caps visible counts', () => {
     const { container, rerender } = render(
       <MemoryRouter>
-        <Signals rumbles={0} demos={0} memory={null} />
+        <Signals rumbles={0} memory={null} />
       </MemoryRouter>,
     );
     expect(container.innerHTML).toBe('');
     rerender(
       <MemoryRouter>
-        <Signals rumbles={12} demos={1} memory={null} />
+        <Signals rumbles={12} memory={null} />
       </MemoryRouter>,
     );
     expect(screen.getByRole('link', { name: '9+ Rumbles' }).getAttribute('href')).toBe('/rumble');
-    expect(screen.getByRole('link', { name: '1 demos ready' }).getAttribute('href')).toBe('/demos');
   });
 });

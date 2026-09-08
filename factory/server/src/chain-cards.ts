@@ -12,104 +12,6 @@ export function demoUrl(row: Pick<DemoRow, 'id' | 'kind' | 'deepLink'>) {
     : `/play/${row.id}/${(row.deepLink ?? '/').replace(/^\//, '')}`;
 }
 
-export function demoPayload(row: DemoRow) {
-  return {
-    title: row.title,
-    kind: row.kind,
-    summary: row.summary,
-    steps: row.steps ?? [],
-    seeded: row.seeded ?? [],
-    deepLink: row.deepLink,
-    url: demoUrl(row),
-    status: row.status,
-    builtAt: row.builtAt,
-    error: row.error,
-  };
-}
-
-export function ensureDemoChain(database: AppDatabase, row: DemoRow, now: string) {
-  const { db } = database;
-  const existing = db.select().from(chains).where(eq(chains.demoId, row.id)).get();
-  const tags = ['demo', row.kind, ...(row.questId === null ? [] : ['quest'])];
-  if (existing === undefined) {
-    const created = db
-      .insert(chains)
-      .values({
-        kind: 'demo',
-        status: 'open',
-        createdAt: now,
-        lastActivityAt: now,
-        questId: row.questId,
-        tags,
-        demoId: row.id,
-        payload: demoPayload(row),
-      })
-      .returning()
-      .get();
-    db.insert(chainMessages)
-      .values({ chainId: created.id, author: 'planner', text: row.summary ?? row.title, ts: now })
-      .run();
-    return { chain: created, changed: true };
-  }
-  db.update(chains)
-    .set({
-      status: 'open',
-      lastActivityAt: existing.status === 'open' ? existing.lastActivityAt : now,
-      questId: row.questId,
-      tags,
-      payload: demoPayload(row),
-    })
-    .where(eq(chains.id, existing.id))
-    .run();
-  const message = db
-    .select()
-    .from(chainMessages)
-    .where(eq(chainMessages.chainId, existing.id))
-    .get();
-  if (message === undefined)
-    db.insert(chainMessages)
-      .values({ chainId: existing.id, author: 'planner', text: row.summary ?? row.title, ts: now })
-      .run();
-  else
-    db.update(chainMessages)
-      .set({ text: row.summary ?? row.title })
-      .where(eq(chainMessages.id, message.id))
-      .run();
-  const refreshed = db.select().from(chains).where(eq(chains.id, existing.id)).get()!;
-  return { chain: refreshed, changed: existing.status !== 'open' };
-}
-
-export function refreshDemoChainPayloads(database: AppDatabase): number {
-  return database.db
-    .select()
-    .from(demos)
-    .all()
-    .reduce(
-      (updated, row) =>
-        updated +
-        database.db
-          .update(chains)
-          .set({ payload: demoPayload(row) })
-          .where(eq(chains.demoId, row.id))
-          .run().changes,
-      0,
-    );
-}
-
-export function settleDemoChain(database: AppDatabase, demoId: string, now: string) {
-  return database.db
-    .update(chains)
-    .set({ status: 'settled', lastActivityAt: now })
-    .where(and(eq(chains.demoId, demoId), eq(chains.status, 'open')))
-    .returning()
-    .get();
-}
-
-export function reopenDemoChain(database: AppDatabase, demoId: string, now: string) {
-  const row = database.db.select().from(demos).where(eq(demos.id, demoId)).get();
-  return row === undefined ? undefined : ensureDemoChain(database, row, now);
-}
-
 export function replaceActionChain(
   database: AppDatabase,
   action: { text: string; deepLink: string | null; backAt: string | null },
@@ -251,7 +153,7 @@ export function countNeedsYou(database: AppDatabase, now: string) {
       .where(
         and(
           eq(chains.status, 'open'),
-          inArray(chains.kind, ['question', 'message', 'rumble', 'demo', 'unlock']),
+          inArray(chains.kind, ['question', 'message', 'rumble', 'unlock']),
           or(isNull(chains.snoozedUntil), lt(chains.snoozedUntil, now)),
         ),
       )

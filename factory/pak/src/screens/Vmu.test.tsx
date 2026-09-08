@@ -64,7 +64,7 @@ describe('VMU', () => {
       (await screen.findByRole('link', { name: 'two things need you' })).getAttribute('href'),
     ).toBe('/');
   });
-  it('counts rumbles and ready demos from chains', async () => {
+  it('counts rumbles from chains', async () => {
     vi.mocked(listChains).mockImplementation(async (options) =>
       options?.kind === 'briefing'
         ? []
@@ -84,11 +84,10 @@ describe('VMU', () => {
                 },
               }),
             ]
-          : [chain({ kind: 'demo', demoId: 'd', payload: { title: 'Demo', status: 'ready' } })],
+          : [],
     );
     renderVmu();
     expect(await screen.findByRole('link', { name: 'one Rumble' })).not.toBeNull();
-    expect(await screen.findByRole('link', { name: 'one demo ready' })).not.toBeNull();
   });
   it('is quiet only when needs-you, building, and next action are empty', async () => {
     renderVmu();

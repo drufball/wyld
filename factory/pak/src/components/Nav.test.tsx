@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { Nav } from './Nav.js';
 
 describe('Nav', () => {
-  it('shows all desktop and mobile destinations in order', () => {
+  it('lists seven destinations without demos', () => {
     render(
       <MemoryRouter>
         <Nav />
@@ -15,7 +15,6 @@ describe('Nav', () => {
       '/',
       '/quests',
       '/roadmap',
-      '/demos',
       '/workshop',
       '/rumble',
       '/debug',

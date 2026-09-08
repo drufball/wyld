@@ -27,7 +27,10 @@ const mcp = new Server(
     instructions: CHANNEL_INSTRUCTIONS,
   },
 );
-const registerOptions = { pakUrl: process.env.PAK_URL ?? 'http://localhost:8787' };
+const registerOptions = {
+  pakUrl: process.env.PAK_URL ?? 'http://localhost:8787',
+  logger: channelLog,
+};
 const registry = registerPakTools(mcp, registerOptions);
 await mcp.connect(new StdioServerTransport());
 
