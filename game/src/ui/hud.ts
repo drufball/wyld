@@ -1,5 +1,7 @@
 import type { TimeState } from '../world/time.js';
 import type { Individual } from '../creatures/individual.js';
+import type { CombatState } from '../combat/encounter.js';
+import { deliveries } from '../combat/resolve.js';
 
 type HudState = TimeState & {
   regionName: string | null;
@@ -7,9 +9,11 @@ type HudState = TimeState & {
   target?: { detection: number } | null;
   party?: { individual: Individual; name: string }[];
   selection?: string;
+  combat?: CombatState | null;
 };
 type HudActions = {
   selectCreature?(id: string): void;
+  useMove?(moveId: string): void;
   openBook?(): void;
   openMap?(): void;
   openConsole?(): void;
@@ -82,27 +86,43 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
   const tray = document.createElement('nav');
   tray.setAttribute('aria-label', 'Party and tools');
   tray.style.cssText =
-    'position:fixed;z-index:5;left:8px;right:8px;bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px;pointer-events:auto;font:11px/14px ui-monospace,monospace';
+    'position:fixed;z-index:5;left:8px;right:8px;bottom:8px;display:flex;flex-direction:column;gap:4px;pointer-events:auto;font:11px/14px ui-monospace,monospace';
   const partyCards = document.createElement('div');
-  partyCards.style.cssText = 'display:flex;gap:4px;align-items:end';
+  partyCards.dataset.trayRow = 'party';
+  partyCards.style.cssText = 'display:flex;flex:1;min-width:0;gap:4px;align-items:end';
   const moves = document.createElement('div');
-  moves.style.cssText = 'display:flex;gap:4px;justify-content:center';
+  moves.dataset.trayRow = 'moves';
+  moves.style.cssText = 'display:flex;width:100%;gap:4px;justify-content:center';
   const tools = document.createElement('div');
+  tools.dataset.trayRow = 'tools';
   tools.style.cssText = 'display:flex;gap:4px;justify-content:flex-end';
+  const partyAndTools = document.createElement('div');
+  partyAndTools.style.cssText = 'display:flex;min-width:0;gap:4px;align-items:end';
   const control = (label: string, action?: () => void): HTMLButtonElement => {
     const button = document.createElement('button');
     button.textContent = label;
     button.style.cssText =
-      'box-sizing:border-box;min-width:44px;min-height:44px;padding:4px;border:1px solid #777566;background:#f4efd9ee;color:#292b25;font:inherit;cursor:pointer';
+      'box-sizing:border-box;min-width:44px;height:44px;padding:4px;border:1px solid #777566;background:#f4efd9ee;color:#292b25;font:inherit;cursor:pointer';
+    // Set touch-target dimensions separately because older CSSOM implementations reject
+    // the entire declaration block when they cannot parse the translucent paper color.
+    button.style.minWidth = '44px';
+    button.style.height = '44px';
     if (action) button.addEventListener('click', action);
     return button;
   };
+  const tool = (icon: string, label: string, action: () => void) => {
+    const button = control(icon, action);
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    return button;
+  };
   tools.append(
-    control('Book', () => actions.openBook?.()),
-    control('Map', () => actions.openMap?.()),
+    tool('\u25a4', 'Book', () => actions.openBook?.()),
+    tool('\u2316', 'Map', () => actions.openMap?.()),
   );
-  if (showRegion) tools.append(control('Console', () => actions.openConsole?.()));
-  tray.append(partyCards, moves, tools);
+  if (showRegion) tools.append(tool('>_', 'Console', () => actions.openConsole?.()));
+  partyAndTools.append(partyCards, tools);
+  tray.append(moves, partyAndTools);
   document.body.append(tray);
   return {
     update(state: HudState): void {
@@ -119,18 +139,41 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
           const button = control(`${name}\n${individual.speciesId}`, () =>
             actions.selectCreature?.(individual.id),
           );
+          button.style.flex = '1 1 0';
+          button.style.minWidth = '0';
           button.setAttribute('aria-pressed', String(state.selection === individual.id));
           button.dataset.partyId = individual.id;
           if (state.selection === individual.id) button.style.outline = '2px solid #bd7132';
+          const combatant = state.combat?.party.find((c) => c.id === individual.id);
+          if (combatant) {
+            const bars = document.createElement('span');
+            bars.style.cssText = 'display:block;width:52px;height:5px;background:#292b25';
+            bars.innerHTML = `<i style="display:block;width:${(combatant.hp / combatant.maxHp) * 100}%;height:2px;background:#bd7132"></i><i style="display:block;width:${(combatant.focus / combatant.maxFocus) * 100}%;height:2px;background:#4e8292"></i>`;
+            button.append(bars);
+          }
           return button;
         }),
       );
       moves.replaceChildren();
       const selected = state.party?.find(({ individual }) => individual.id === state.selection);
       for (const move of selected?.individual.repertoire ?? []) {
-        const button = control(move.name);
+        const combatant = state.combat?.party.find((c) => c.id === selected?.individual.id);
+        const cooldown = combatant?.cooldowns[move.id];
+        const cost = deliveries[move.delivery].focus;
+        const button = control(
+          `${move.name}${cooldown?.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
+        );
         button.dataset.moveId = move.id;
-        button.addEventListener('click', () => (button.textContent = 'Not yet.'));
+        button.style.flex = '1 1 0';
+        button.style.minWidth = '0';
+        button.disabled = Boolean(
+          combatant && (combatant.focus < cost || (cooldown?.remaining ?? 0) > 0),
+        );
+        button.style.opacity = button.disabled ? '0.45' : '1';
+        button.style.background = cooldown?.remaining
+          ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
+          : '#f4efd9ee';
+        button.addEventListener('click', () => actions.useMove?.(move.id));
         moves.append(button);
       }
     },

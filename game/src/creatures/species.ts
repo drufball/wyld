@@ -44,6 +44,8 @@ type SpeciesData = {
 };
 type SpeciesId = SpeciesData['id'];
 
+const forces = ['Impact', 'Cut', 'Heat', 'Surge'] as const satisfies readonly Force[];
+const hides = ['Bark', 'Shell', 'Scale', 'Hide', 'Stone'] as const satisfies readonly HideType[];
 const regionIds = regions().map(({ id }) => id);
 const validationProblems = validateSpecies(speciesJson, regionIds);
 if (validationProblems.length > 0)
@@ -62,7 +64,7 @@ const isEligible = (speciesId: string, regionId: string, phase: Phase): boolean 
   );
 };
 
-export { isEligible, species, speciesById, validateSpecies };
+export { forces, hides, isEligible, species, speciesById, validateSpecies };
 export type {
   BodyPlanId,
   CallDescriptor,
