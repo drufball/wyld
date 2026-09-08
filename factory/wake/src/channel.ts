@@ -244,6 +244,11 @@ const RequestRumbleArgs = z
     }
   });
 const ReadRumblesArgs = z.object({ status: z.enum(['open', 'decided']).optional() }).strict();
+const DemoDeepLink = z
+  .string()
+  .refine((deepLink) => deepLink.startsWith('?') || /^\/(?!\/)/.test(deepLink), {
+    message: 'deep_link must start with / or ?',
+  });
 const RegisterDemoArgs = z
   .object({
     slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
@@ -254,7 +259,7 @@ const RegisterDemoArgs = z
     summary: z.string().min(1).max(400).optional(),
     steps: z.array(z.string().min(1).max(200)).max(12).optional(),
     seeded: z.array(z.string().min(1).max(200)).max(12).optional(),
-    deep_link: z.string().startsWith('/').optional(),
+    deep_link: DemoDeepLink.optional(),
   })
   .strict()
   .superRefine((demo, context) => {
@@ -264,13 +269,6 @@ const RegisterDemoArgs = z
         message: 'live and pak demos need a summary and at least one step',
       });
     }
-    if (demo.kind === 'disc' && demo.deep_link !== undefined) {
-      context.addIssue({
-        code: 'custom',
-        path: ['deep_link'],
-        message: 'deep_link only applies to live and pak demos',
-      });
-    }
   });
 const BuildDiscArgs = z
   .object({
@@ -278,6 +276,7 @@ const BuildDiscArgs = z
     ref: z.string(),
     quest: z.string().optional(),
     target: z.enum(['game', 'pak']).default('game'),
+    deep_link: DemoDeepLink.optional(),
   })
   .strict();
 const ReadDemosArgs = z.object({}).strict();
@@ -704,6 +703,11 @@ const tools = [
         ref: { type: 'string' },
         quest: { type: 'string' },
         target: { type: 'string', enum: ['game', 'pak'], default: 'game' },
+        deep_link: {
+          type: 'string',
+          pattern: '^[/?]',
+          description: 'The query or path appended inside the disc, for example /?scenario=arena.',
+        },
       },
       required: ['slug', 'ref'],
       additionalProperties: false,
@@ -751,9 +755,9 @@ const tools = [
         },
         deep_link: {
           type: 'string',
-          pattern: '^/',
+          pattern: '^[/?]',
           description:
-            'The Pak path the Try it button opens, for example /sleep or /quests?quest=sleep-mode. Live cards only.',
+            'For a disc, the query or path appended inside /play/<slug>/; for a live card, the Pak path opened.',
         },
       },
       required: ['slug', 'ref'],
@@ -1204,11 +1208,12 @@ export function createToolRegistry(options: {
     if (params.name === 'pak_build_disc') {
       const parsed = BuildDiscArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
-      const { slug, ref, quest, target } = parsed.data;
+      const { slug, ref, quest, target, deep_link } = parsed.data;
       return postTool(request, `${options.pakUrl}/api/demos`, {
         id: slug,
         ref,
         ...(quest === undefined ? {} : { questId: quest }),
+        ...(deep_link === undefined ? {} : { deepLink: deep_link }),
         kind: target === 'pak' ? 'pak' : 'disc',
       });
     }
@@ -1216,11 +1221,12 @@ export function createToolRegistry(options: {
       const parsed = RegisterDemoArgs.safeParse(params.arguments);
       if (!parsed.success) return invalidArguments(parsed.error);
       logger('info', 'deprecated tool used', { tool: 'pak_register_demo' });
-      const { slug, ref, quest, kind } = parsed.data;
+      const { slug, ref, quest, kind, deep_link } = parsed.data;
       return postTool(request, `${options.pakUrl}/api/demos`, {
         id: slug,
         ref,
         ...(quest === undefined ? {} : { questId: quest }),
+        ...(deep_link === undefined ? {} : { deepLink: deep_link }),
         kind: kind === 'pak' ? 'pak' : 'disc',
       });
     }

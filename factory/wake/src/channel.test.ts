@@ -403,7 +403,7 @@ describe('Pak tools', () => {
           maxItems: 12,
           items: { type: 'string', minLength: 1, maxLength: 200 },
         },
-        deep_link: { type: 'string', pattern: '^/' },
+        deep_link: { type: 'string', pattern: '^[/?]' },
       },
       required: ['slug', 'ref'],
       additionalProperties: false,
@@ -472,7 +472,17 @@ describe('Pak tools', () => {
 
   it('exposes pak_build_disc', async () => {
     const [list] = handlers(vi.fn());
-    expect((await list!({})).tools?.some(({ name }) => name === 'pak_build_disc')).toBe(true);
+    expect(
+      (await list!({})).tools?.find(({ name }) => name === 'pak_build_disc')?.inputSchema,
+    ).toMatchObject({
+      properties: {
+        deep_link: {
+          type: 'string',
+          pattern: '^[/?]',
+          description: 'The query or path appended inside the disc, for example /?scenario=arena.',
+        },
+      },
+    });
   });
 
   it('exposes pak_request_look', async () => {
@@ -1112,6 +1122,55 @@ describe('Pak tools', () => {
     });
   });
 
+  it('forwards a disc deep link and round-trips its playable URL', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response('{"id":"fw-arena","url":"/play/fw-arena/?scenario=arena"}', {
+          status: 200,
+        }),
+    );
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    const result = await call!({
+      params: {
+        name: 'pak_build_disc',
+        arguments: {
+          slug: 'fw-arena',
+          ref: 'abc123',
+          deep_link: '/?scenario=arena',
+        },
+      },
+    });
+
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
+      id: 'fw-arena',
+      ref: 'abc123',
+      deepLink: '/?scenario=arena',
+      kind: 'disc',
+    });
+    expect(JSON.parse(result.content![0]!.text)).toMatchObject({
+      url: '/play/fw-arena/?scenario=arena',
+    });
+  });
+
+  it('accepts a bare query string as a disc deep link', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response('{}', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+
+    const result = await call!({
+      params: {
+        name: 'pak_build_disc',
+        arguments: { slug: 'fw-arena', ref: 'abc123', deep_link: '?scenario=arena' },
+      },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toHaveProperty(
+      'deepLink',
+      '?scenario=arena',
+    );
+  });
+
   it('forwards a deprecated pak_register_demo call', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(
       async () => new Response('{"id":"branch-pak"}', { status: 200 }),
@@ -1124,12 +1183,11 @@ describe('Pak tools', () => {
         slug: 'branch-pak',
         ref: 'feature/pak',
         quest: 'species',
-        kind: 'live',
         title: 'Dropped',
         summary: 'Dropped too.',
         steps: ['Also dropped.'],
         seeded: ['Dropped.'],
-        deep_link: '/workshop',
+        deep_link: '/?scenario=arena',
       },
     });
     expect(result.isError).toBeUndefined();
@@ -1137,11 +1195,26 @@ describe('Pak tools', () => {
       id: 'branch-pak',
       ref: 'feature/pak',
       questId: 'species',
+      deepLink: '/?scenario=arena',
       kind: 'disc',
     });
     expect(logger).toHaveBeenCalledWith('info', 'deprecated tool used', {
       tool: 'pak_register_demo',
     });
+  });
+
+  it('does not send deepLink when deprecated registration omits it', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () => new Response('{"id":"main"}', { status: 200 }),
+    );
+    const [, call] = handlers(fetch);
+
+    const result = await call!({
+      params: { name: 'pak_register_demo', arguments: { slug: 'main', ref: 'main' } },
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).not.toHaveProperty('deepLink');
   });
 
   it.each([
@@ -1150,7 +1223,6 @@ describe('Pak tools', () => {
     { slug: 'main', ref: 'main', kind: 'live', steps: ['Open it.'] },
     { slug: 'main', ref: 'main', kind: 'live', summary: 'Ready.', steps: [] },
     { slug: 'main', ref: 'main', kind: 'pak', summary: 'Ready.', steps: [] },
-    { slug: 'main', ref: 'main', deep_link: '/quests' },
     { slug: 'main', ref: 'main', steps: Array.from({ length: 13 }, () => 'A step') },
     {
       slug: 'main',
@@ -1170,6 +1242,22 @@ describe('Pak tools', () => {
     expect(result.content?.[0]?.text).toContain('Invalid arguments');
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it.each(['https://example.com', 'arena', '//example.com'])(
+    'rejects invalid deep link %s with the shared validation message',
+    async (deep_link) => {
+      const fetch = vi.fn<typeof globalThis.fetch>();
+      const [, call] = handlers(fetch);
+
+      const result = await call!({
+        params: { name: 'pak_register_demo', arguments: { slug: 'main', ref: 'main', deep_link } },
+      });
+
+      expect(result).toMatchObject({ isError: true });
+      expect(result.content?.[0]?.text).toContain('deep_link must start with / or ?');
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
 
   it('passes live try-it card fields through when reading demos', async () => {
     const demos = [
