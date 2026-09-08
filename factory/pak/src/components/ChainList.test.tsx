@@ -83,6 +83,10 @@ describe('ChainList', () => {
     expect(screen.getByRole('link', { name: 'Choose a trail' }).getAttribute('href')).toBe(
       '/rumble',
     );
+    expect(screen.getByRole('link', { name: 'Choose a trail' }).className).toContain('underline');
+    expect(screen.getByRole('heading', { name: 'Waiting on you' }).className).toContain(
+      'font-display',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
@@ -90,6 +94,70 @@ describe('ChainList', () => {
         expect.objectContaining({ body: JSON.stringify({ reason: 'read', source: 'human' }) }),
       ),
     );
+  });
+
+  it('sorts the briefing above every other card', async () => {
+    const rumble = {
+      ...question,
+      id: 51,
+      kind: 'rumble',
+      tags: ['rumble'],
+      slug: 'choose-one',
+      rumble: {
+        id: 'choose-one',
+        title: 'Choose one',
+        context: 'A choice',
+        options: ['A', 'B'],
+        chosen: null,
+        chosenAt: null,
+        blockingQuestIds: [],
+        kind: 'taste',
+      },
+      messages: [],
+    } as Chain;
+    const demo = {
+      ...question,
+      id: 52,
+      kind: 'demo',
+      tags: ['demo'],
+      demoId: 'demo-one',
+      payload: {
+        title: 'Demo one',
+        kind: 'live',
+        summary: 'Try demo one',
+        steps: [],
+        seeded: [],
+        deepLink: '/demos',
+        url: '/demos',
+        status: 'ready',
+        builtAt: timestamp,
+        error: null,
+      },
+      messages: [{ id: 52, chainId: 52, author: 'planner', text: 'Try demo one', ts: timestamp }],
+    } as Chain;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        response(url.startsWith('/api/chains?') ? [rumble, demo, briefing] : []),
+      ),
+    );
+
+    const { container } = render(
+      <MemoryRouter>
+        <LiveEventsProvider
+          eventSourceFactory={() => ({
+            addEventListener() {},
+            removeEventListener() {},
+            close() {},
+          })}
+        >
+          <ChainList kind="all" />
+        </LiveEventsProvider>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Morning briefing');
+    expect(container.querySelector('.chain-card')?.textContent).toContain('Morning briefing');
   });
 
   function unlockFetch(closeResult: 'success' | 'failure' = 'success') {

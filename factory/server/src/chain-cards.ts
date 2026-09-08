@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 import type { Achievement, CatchupDigest } from '@wyld/shared';
 
 import type { AppDatabase } from './database.js';
@@ -144,9 +144,8 @@ export function readOpenBriefing(database: AppDatabase): typeof chains.$inferSel
     .select()
     .from(chains)
     .where(and(eq(chains.kind, 'briefing'), eq(chains.status, 'open')))
-    .orderBy(chains.id)
-    .all()
-    .at(-1);
+    .orderBy(desc(chains.id))
+    .get();
 }
 
 export function upsertBriefingChain(

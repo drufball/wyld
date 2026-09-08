@@ -620,6 +620,36 @@ describe('quest API', () => {
     expect((await send('/api/worlds', 'POST', { id: '', name: '', kind: 'bad' })).status).toBe(400);
   });
 
+  it('includes human and Planner completions but excludes quests no longer done', async () => {
+    await createWorldAndQuest();
+    await send('/api/quests', 'POST', {
+      id: 'planner-done',
+      worldId: 'game',
+      title: 'Planner Done',
+      pitch: 'Ship it',
+    });
+    await send('/api/quests', 'POST', {
+      id: 'reverted',
+      worldId: 'game',
+      title: 'Reverted',
+      pitch: 'Not yet',
+    });
+    await send('/api/quests/catch-up', 'PATCH', { status: 'done', source: 'human' });
+    await send('/api/quests/planner-done', 'PATCH', { status: 'done', source: 'planner' });
+    await send('/api/quests/reverted', 'PATCH', { status: 'done', source: 'planner' });
+    await send('/api/quests/reverted', 'PATCH', { status: 'building', source: 'planner' });
+    database.sqlite
+      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
+      .run('2000-01-01T00:00:00.000Z');
+
+    const briefing = Chain.parse(await (await app.request('/api/catchup')).json());
+
+    expect(briefing.payload?.['shipped']).toEqual([
+      { text: 'Catch-Up', deepLink: '/worlds/game' },
+      { text: 'Planner Done', deepLink: '/worlds/game' },
+    ]);
+  });
+
   it('creates, filters, patches, and rejects invalid or unknown quests', async () => {
     const created = await createWorldAndQuest();
     expect(await created.json()).toMatchObject({

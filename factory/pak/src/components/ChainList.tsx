@@ -429,10 +429,16 @@ export function ChainCard({
         {sections.map(({ heading, lines, links }) =>
           lines.length === 0 ? null : (
             <section className="grid gap-1" key={heading}>
-              <h2 className="m-0 text-lg">{heading}</h2>
+              <h2 className="mb-2 mt-0 font-display text-[10px] leading-loose text-accent">
+                {heading}
+              </h2>
               {lines.map((line, index) =>
                 links && line.deepLink ? (
-                  <Link className="flex min-h-11 items-center py-2" to={line.deepLink} key={index}>
+                  <Link
+                    className="flex min-h-11 items-center rounded-[var(--radius)] px-3 py-2 text-foreground underline hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                    to={line.deepLink}
+                    key={index}
+                  >
                     {line.text}
                   </Link>
                 ) : (

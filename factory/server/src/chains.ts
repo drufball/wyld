@@ -4,6 +4,7 @@ import { Chain, ChainAnchor, ChainKind, ChainStatus, Timestamp, type NewEvent } 
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
+import { ensureMechanicalBriefing } from './catchup.js';
 import { formatIssues } from './quests.js';
 import { compareRumbles } from './rumbles.js';
 import { artifacts, chainMessages, chains, demos, presence, quests } from './schema.js';
@@ -45,7 +46,8 @@ type Dependencies = {
   storeEvent: (event: NewEvent) => Promise<unknown>;
 };
 
-export function createChainRoutes({ database: { db }, now, storeEvent }: Dependencies) {
+export function createChainRoutes({ database, now, storeEvent }: Dependencies) {
+  const { db } = database;
   const app = new Hono();
   const notFound = (c: Context) => c.json({ error: 'Not Found' }, 404);
   const readChain = (id: number) => {
@@ -96,6 +98,7 @@ export function createChainRoutes({ database: { db }, now, storeEvent }: Depende
         },
         400,
       );
+    if (requestedKinds.includes('briefing')) ensureMechanicalBriefing(database, now());
     if (
       parsed.data.quest !== undefined &&
       db.select().from(quests).where(eq(quests.id, parsed.data.quest)).get() === undefined
