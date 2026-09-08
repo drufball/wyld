@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
+import { buildArenaIndividual, enemy, rosterMember } from '../arena/roster.js';
+import { createEncounter } from '../combat/encounter.js';
 import { speciesById } from '../creatures/species.js';
 import { createEmptyNotebook, type Notebook } from '../guide/notebook.js';
 import { BLANK, buildFragments, buildIndex, buildSpeciesPage, createGuideBook } from './guide.js';
@@ -128,6 +130,53 @@ describe('field guide view model', () => {
       ?.click();
     expect(document.body.textContent).toContain(BLANK);
     expect(document.body.textContent).toContain(speciesById('glasswing')!.hints.tracks);
+    book.dispose();
+  });
+
+  it('does not advance the encounter while the guide is open', () => {
+    const member = buildArenaIndividual(rosterMember('loamox')!);
+    const foe = buildArenaIndividual(enemy('antlerback')!);
+    const encounter = createEncounter({
+      party: [member],
+      enemy: foe,
+      grid: { isWalkable: () => true },
+      rng: { next: () => 0 },
+      partyTiles: { [member.id]: { x: 0, y: 0 } },
+      enemyTile: { x: 1, y: 0 },
+      player: { x: 0, y: 0 },
+    });
+    const move = member.repertoire[0]!;
+    expect(encounter.useMove(member.id, move.id)).toBe(true);
+
+    let running = true;
+    const frame = (): void => {
+      if (running) encounter.update(0.25);
+    };
+    const book = createGuideBook({
+      notebook: createEmptyNotebook(),
+      map,
+      onOpenChange: (open) => (running = !open),
+    });
+    frame();
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }));
+    const paused = encounter.state();
+    frame();
+    frame();
+    expect(encounter.state().elapsed).toBe(paused.elapsed);
+    expect(encounter.state().party[0]!.cooldowns[move.id]!.remaining).toBe(
+      paused.party[0]!.cooldowns[move.id]!.remaining,
+    );
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }));
+    frame();
+    expect(encounter.state().elapsed).toBeGreaterThan(paused.elapsed);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }));
+    const pausedAgain = encounter.state().elapsed;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    frame();
+    expect(encounter.state().elapsed).toBeGreaterThan(pausedAgain);
     book.dispose();
   });
 });
