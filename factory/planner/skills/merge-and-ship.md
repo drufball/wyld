@@ -29,10 +29,19 @@ pnpm install --frozen-lockfile && ls factory/server/node_modules/@wyld/
 # touched @wyld/shared (or any package the server imports)?  → rebuild it or the live server crashes
 # on its watcher restart:
 pnpm --filter @wyld/shared build
+# touched @wyld/shared or factory/server?  → ALSO rebuild the server's dist. The live server runs
+# from src via tsx, but the smoke suite boots factory/server/dist — a stale dist fails smoke on an
+# import that no longer exists, silently, until someone runs it (2026-09-08: dist was a day old).
+pnpm --filter "@wyld/server..." build
 # touched factory/pak?   → rebuild the served bundle or Dru keeps seeing the old UI:
 pnpm --filter @wyld/pak build
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:8787/api/events?limit=1"   # expect 200
 ```
+
+Verify a deploy with reads (`GET`), never by writing as Dru: closing, settling or dismissing a
+chain through the API writes a `human.*` event he never made (2026-09-08, a lead dismissed a
+briefing "as read" — it landed in his event stream as his own dismissal). Leads verify by reading;
+only the Planner writes to chains, and only as itself.
 
 Skipping the Pak rebuild is how "the flatten merged but Dru still saw the Worlds tab" happened
 (2026-09-05). Then clean up: `git worktree remove <scratchpad>/wt-<slug>` if you made one. The

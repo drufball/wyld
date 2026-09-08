@@ -1208,3 +1208,6 @@ Units 1–2 merged (#247 f1c4858, #257 f4432ee); 3a (#266/#268) drafted behind t
 
 ## 2026-09-08 21:27Z — Sleep run 3 started by Dru (22:27 local)
 Drain: hotfix lead (a8cdd455d48fdf475, #269) and briefing lead (a5411be4d0e024716, #270) still running — let both land. Diorama 3a drafted till morning. Then: Sweep lead from /tmp/wyld-leads/sweep-0908/brief.md (items 1–6), QA (qa.cjs + smoke), Retro (retro-draft.md), Reset (briefing rewrite, next action). Host restart for the new MCP tools at the END of Reset with a STATE handoff — **the new host must not end the run; wait for lights_on 08:00**. Dru settled every open chain before bed (131–137, 113–129).
+
+## 2026-09-08 21:37Z — briefing fix landed (#272, 5d73fcc)
+Dismiss advances lastCatchupEventId to max(events.id); mechanical fallback needs away>7200 s AND no dismiss within 7200 s AND no online/working heartbeat in 900 s (CATCHUP_PLANNER_ALIVE_SECONDS); CATCHUP_UNSEEN_EVENTS removed. Verified live; smoke 14 green after `pnpm --filter "@wyld/server..." build` (dist was stale since the shared refactor → merge-and-ship §2 now rebuilds server dist). The lead dismissed briefing 136 via the API as "read" → a fake human.chain_closed event (21:35:16Z) — merge-and-ship §2 now says leads verify by reading only. Quest note posted on catchup-chain. Drain: only the hotfix lead (#271, reviewed, merging) remains.
