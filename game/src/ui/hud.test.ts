@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { CombatState } from '../combat/encounter.js';
 import type { Individual } from '../creatures/individual.js';
-import { createHud, updateDetectionTarget } from './hud.js';
+import { createHud, updateDetectionTarget, type HudState } from './hud.js';
 
 const elements = () => {
   const attributes = new Map<string, string>();
@@ -104,9 +105,63 @@ describe('thumb HUD', () => {
   });
   it('hides the console button when the console is unavailable', () => {
     createHud(false, document.body);
-    expect(
-      [...document.querySelectorAll('button')].some((button) => button.textContent === 'Console'),
-    ).toBe(false);
+    expect(document.querySelector('[aria-label="Console"]')).toBeNull();
+  });
+  it('keeps three party cards, three moves, and all tools inside a 375px tray', () => {
+    const selected = creature('Barrow');
+    selected.individual.repertoire = [
+      ...selected.individual.repertoire,
+      { ...selected.individual.repertoire[0]!, id: 'loamox:move-2', name: 'Trample' },
+      { ...selected.individual.repertoire[0]!, id: 'loamox:move-3', name: 'Stampede' },
+    ];
+    const party = [selected, creature('Quill'), creature('Pip')];
+    const combatant = (member: (typeof party)[number]) => ({
+      id: member.individual.id,
+      speciesId: member.individual.speciesId,
+      hp: 70,
+      maxHp: 70,
+      focus: 40,
+      maxFocus: 40,
+      tile: { x: 1, y: 1 },
+      facing: 0,
+      windup: null,
+      downed: false,
+      cooldowns: {},
+      desiredTile: null,
+    });
+    const combat: CombatState = {
+      phase: 'fight',
+      elapsed: 1,
+      enemy: combatant(creature('enemy')),
+      party: party.map(combatant),
+      projectiles: [],
+      flashes: [],
+    };
+    const hud = createHud(true, document.body);
+    hud.update({ ...state(party, 'Barrow'), combat } satisfies HudState);
+
+    const innerWidth = 375 - 16;
+    const gap = 4;
+    const moves = [...document.querySelectorAll<HTMLButtonElement>('[data-move-id]')];
+    const tools = [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-tray-row="tools"] button'),
+    ];
+    const cards = [...document.querySelectorAll<HTMLButtonElement>('[data-party-id]')];
+    const moveWidth = (innerWidth - gap * (moves.length - 1)) / moves.length;
+    const toolWidth = 44;
+    const cardArea = innerWidth - tools.length * toolWidth - gap * tools.length;
+    const cardWidth = (cardArea - gap * (cards.length - 1)) / cards.length;
+    const rightEdges = [
+      ...moves.map((_, index) => 8 + (index + 1) * moveWidth + index * gap),
+      ...cards.map((_, index) => 8 + (index + 1) * cardWidth + index * gap),
+      ...tools.map((_, index) => 8 + cardArea + gap + (index + 1) * toolWidth + index * gap),
+    ];
+
+    expect(moves).toHaveLength(3);
+    expect(rightEdges.every((edge) => edge <= 375 - 8)).toBe(true);
+    expect([...moves, ...cards, ...tools].map((button) => button.style.height)).toEqual(
+      Array.from({ length: moves.length + cards.length + tools.length }, () => '44px'),
+    );
   });
   it('suppresses location for a synthetic scenario', () => {
     const hud = createHud(true, document.body);

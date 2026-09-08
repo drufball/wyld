@@ -45,6 +45,7 @@ import { createDiorama } from './render3d/renderer.js';
 import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
 import { spriteOrigin } from './render2d/placement.js';
+import { combatBarOrigin } from './render2d/combat-bar.js';
 import { createTileRenderer } from './render2d/tiles.js';
 import { buildState } from './state.js';
 import { createControlsCard } from './ui/controls.js';
@@ -661,29 +662,24 @@ const render = (alpha = 1) => {
   }
   const combat = encounter?.state();
   if (combat) {
-    const bar = (
-      at: { x: number; y: number },
-      hp: number,
-      maxHp: number,
-      focus: number,
-      maxFocus: number,
-    ) => {
-      const bx = Math.round((at.x - screen.x * view.cols) * 16 - 12);
-      const by = Math.round((at.y - screen.y * view.rows) * 16 - 22);
+    const definition = speciesById(combat.enemy.speciesId)!;
+    const size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32;
+    const bar = (hp: number, maxHp: number, focus: number, maxFocus: number) => {
+      const { x: bx, y: by } = combatBarOrigin(
+        combat.enemy.tile,
+        screen,
+        view.cols,
+        view.rows,
+        size,
+      );
       flat.context.fillStyle = '#292b25';
-      flat.context.fillRect(bx, by, 24, 5);
+      flat.context.fillRect(bx, by, size, 3);
       flat.context.fillStyle = '#bd7132';
-      flat.context.fillRect(bx + 1, by + 1, (22 * hp) / maxHp, 1);
+      flat.context.fillRect(bx, by, (size * hp) / maxHp, 1);
       flat.context.fillStyle = '#4e8292';
-      flat.context.fillRect(bx + 1, by + 3, (22 * focus) / maxFocus, 1);
+      flat.context.fillRect(bx, by + 2, (size * focus) / maxFocus, 1);
     };
-    bar(
-      combat.enemy.tile,
-      combat.enemy.hp,
-      combat.enemy.maxHp,
-      combat.enemy.focus,
-      combat.enemy.maxFocus,
-    );
+    bar(combat.enemy.hp, combat.enemy.maxHp, combat.enemy.focus, combat.enemy.maxFocus);
     for (const p of combat.projectiles) {
       flat.context.fillStyle = '#f4efd9';
       flat.context.fillRect(

@@ -86,27 +86,43 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
   const tray = document.createElement('nav');
   tray.setAttribute('aria-label', 'Party and tools');
   tray.style.cssText =
-    'position:fixed;z-index:5;left:8px;right:8px;bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px;pointer-events:auto;font:11px/14px ui-monospace,monospace';
+    'position:fixed;z-index:5;left:8px;right:8px;bottom:8px;display:flex;flex-direction:column;gap:4px;pointer-events:auto;font:11px/14px ui-monospace,monospace';
   const partyCards = document.createElement('div');
-  partyCards.style.cssText = 'display:flex;gap:4px;align-items:end';
+  partyCards.dataset.trayRow = 'party';
+  partyCards.style.cssText = 'display:flex;flex:1;min-width:0;gap:4px;align-items:end';
   const moves = document.createElement('div');
-  moves.style.cssText = 'display:flex;gap:4px;justify-content:center';
+  moves.dataset.trayRow = 'moves';
+  moves.style.cssText = 'display:flex;width:100%;gap:4px;justify-content:center';
   const tools = document.createElement('div');
+  tools.dataset.trayRow = 'tools';
   tools.style.cssText = 'display:flex;gap:4px;justify-content:flex-end';
+  const partyAndTools = document.createElement('div');
+  partyAndTools.style.cssText = 'display:flex;min-width:0;gap:4px;align-items:end';
   const control = (label: string, action?: () => void): HTMLButtonElement => {
     const button = document.createElement('button');
     button.textContent = label;
     button.style.cssText =
-      'box-sizing:border-box;min-width:44px;min-height:44px;padding:4px;border:1px solid #777566;background:#f4efd9ee;color:#292b25;font:inherit;cursor:pointer';
+      'box-sizing:border-box;min-width:44px;height:44px;padding:4px;border:1px solid #777566;background:#f4efd9ee;color:#292b25;font:inherit;cursor:pointer';
+    // Set touch-target dimensions separately because older CSSOM implementations reject
+    // the entire declaration block when they cannot parse the translucent paper color.
+    button.style.minWidth = '44px';
+    button.style.height = '44px';
     if (action) button.addEventListener('click', action);
     return button;
   };
+  const tool = (icon: string, label: string, action: () => void) => {
+    const button = control(icon, action);
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    return button;
+  };
   tools.append(
-    control('Book', () => actions.openBook?.()),
-    control('Map', () => actions.openMap?.()),
+    tool('\u25a4', 'Book', () => actions.openBook?.()),
+    tool('\u2316', 'Map', () => actions.openMap?.()),
   );
-  if (showRegion) tools.append(control('Console', () => actions.openConsole?.()));
-  tray.append(partyCards, moves, tools);
+  if (showRegion) tools.append(tool('>_', 'Console', () => actions.openConsole?.()));
+  partyAndTools.append(partyCards, tools);
+  tray.append(moves, partyAndTools);
   document.body.append(tray);
   return {
     update(state: HudState): void {
@@ -123,6 +139,8 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
           const button = control(`${name}\n${individual.speciesId}`, () =>
             actions.selectCreature?.(individual.id),
           );
+          button.style.flex = '1 1 0';
+          button.style.minWidth = '0';
           button.setAttribute('aria-pressed', String(state.selection === individual.id));
           button.dataset.partyId = individual.id;
           if (state.selection === individual.id) button.style.outline = '2px solid #bd7132';
@@ -146,6 +164,8 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
           `${move.name}${cooldown?.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
         );
         button.dataset.moveId = move.id;
+        button.style.flex = '1 1 0';
+        button.style.minWidth = '0';
         button.disabled = Boolean(
           combatant && (combatant.focus < cost || (cooldown?.remaining ?? 0) > 0),
         );
