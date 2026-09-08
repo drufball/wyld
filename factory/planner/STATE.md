@@ -1195,3 +1195,6 @@ Dru: black box with white boxes at /explain/fw-arena on his phone. Not phone-spe
 
 ## 2026-09-08 21:16Z — chain 132: how would I learn the weakness?
 Dru only hit Impact, never learned Heat. Spec gap: hide revealed on any hit (§5.3), weakness only on a hit with the weak force; no bridge. Proposed (per §6.3 hint strings): a hint on the hide fact that points at the weakness without naming it ("Bark: dry, layered — kindling"), plus the resistance line landing when a move glances. Awaiting Dru's yes → arena tune unit (hide hints ×5 + card/toast + pacing). Also: PR #268 (diorama 3a) opened — diorama lead reviewing, told to rebase onto the hotfix first. Dru settled chain 131 himself; tell him via a new message when the arena draws again.
+
+## 2026-09-08 21:18Z — briefing re-created on dismiss (chains 117→133); Dru said yes to hide hints
+Chain 133 was a mechanical briefing written by `ensureMechanicalBriefing` (GET /api/chains with kind briefing) 39 ms after Dru dismissed 117: the gate ignores presence/Planner liveness and the read-close leaves lastCatchupEventId at the briefing's toEventId. Briefing-fix lead spawned (/tmp/wyld-leads/briefing-fix/brief.md). Dru "Yes" on chain 132 → arena clue unit (hide hints ×5, resistance line on glance; explainer mockup first) queued behind the hotfix in game/. Dru marked explainers-embed-demos done; settled 129 himself.
