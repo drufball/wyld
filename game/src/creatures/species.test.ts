@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { validateHints } from '@wyld/sprites';
 import { regions } from '../world/regions.js';
 import { isEligible, species, validateSpecies } from './species.js';
 import type { SpeciesData } from './species.js';
@@ -120,19 +121,6 @@ describe('species data', () => {
     }
   });
   it('keeps discovery hints free of answers they are meant to nudge towards', () => {
-    const escaped = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const speciesNames = species().map(({ name }) => new RegExp(`\\b${escaped(name)}\\b`, 'i'));
-    const regionNames = regions().map(({ name }) => new RegExp(`\\b${escaped(name)}\\b`, 'i'));
-    // Lower-case prose such as "the heat of the day" describes time, not the authored Day phase.
-    const phaseNames = phases.map((phase) => new RegExp(`\\b${phase}\\b`));
-    for (const entry of species()) {
-      for (const hint of [entry.hints.tracks, entry.hints.call]) {
-        expect(speciesNames.some((pattern) => pattern.test(hint))).toBe(false);
-        expect(regionNames.some((pattern) => pattern.test(hint))).toBe(false);
-        expect(phaseNames.some((pattern) => pattern.test(hint))).toBe(false);
-      }
-      expect(regionNames.some((pattern) => pattern.test(entry.hints.identified))).toBe(false);
-      expect(phaseNames.some((pattern) => pattern.test(entry.hints.identified))).toBe(false);
-    }
+    expect(validateHints(species(), regions().map(({ name }) => name))).toEqual([]);
   });
 });

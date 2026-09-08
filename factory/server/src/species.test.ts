@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createSpeciesRoutes } from './species.js';
+import { openDatabase, type AppDatabase } from './database.js';
 
 const species = {
   id: 'testling',
@@ -26,10 +27,12 @@ const species = {
 
 describe('species routes', () => {
   let repoDir: string;
+  let database: AppDatabase;
 
   beforeEach(async () => {
     repoDir = await mkdtemp(path.join(os.tmpdir(), 'wyld-species-'));
     await mkdir(path.join(repoDir, 'game/src/data'), { recursive: true });
+    database = openDatabase(path.join(repoDir, 'test.sqlite'), path.resolve('drizzle'));
     await writeFile(
       path.join(repoDir, 'game/src/data/world.json'),
       JSON.stringify({
@@ -42,20 +45,26 @@ describe('species routes', () => {
 
   it('serves the species and the world regions from the checkout', async () => {
     await writeFile(path.join(repoDir, 'game/src/data/species.json'), JSON.stringify([species]));
-    const response = await createSpeciesRoutes({ repoDir, logger: () => undefined }).request(
-      '/species',
-    );
+    const response = await createSpeciesRoutes({
+      repoDir,
+      database,
+      logger: () => undefined,
+    }).request('/species');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       species: [species],
       regions: [{ id: 'grove', name: 'Test Grove', biome: 'woods' }],
+      drafts: [],
+      references: { testling: [] },
     });
   });
 
   it('answers 500 when the species file is missing', async () => {
-    const response = await createSpeciesRoutes({ repoDir, logger: () => undefined }).request(
-      '/species',
-    );
+    const response = await createSpeciesRoutes({
+      repoDir,
+      database,
+      logger: () => undefined,
+    }).request('/species');
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: expect.stringContaining('creature data') });
   });
@@ -65,9 +74,11 @@ describe('species routes', () => {
       path.join(repoDir, 'game/src/data/species.json'),
       JSON.stringify([{ ...species, tier: 9 }]),
     );
-    const response = await createSpeciesRoutes({ repoDir, logger: () => undefined }).request(
-      '/species',
-    );
+    const response = await createSpeciesRoutes({
+      repoDir,
+      database,
+      logger: () => undefined,
+    }).request('/species');
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: expect.stringContaining('creature data') });
   });

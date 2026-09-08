@@ -1,4 +1,4 @@
-import { SpeciesLibrary } from '@wyld/sprites';
+import { SpeciesDraft, SpeciesLibrary, type SpeciesData } from '@wyld/sprites';
 import {
   Achievement,
   Artifact,
@@ -35,14 +35,14 @@ async function request(input: string, init: RequestInit, description: string): P
     const detail = await response.text();
     throw new Error(`${description} failed (${response.status})${detail ? `: ${detail}` : ''}`);
   }
-  return response.json();
+  return response.status === 204 ? undefined : response.json();
 }
 
 export async function listAchievements() {
   return Achievement.array().parse(await request('/api/achievements', {}, 'Loading achievements'));
 }
 
-function json(method: 'POST' | 'PATCH', body: unknown): RequestInit {
+function json(method: 'POST' | 'PATCH' | 'PUT', body: unknown): RequestInit {
   return {
     method,
     headers: { 'content-type': 'application/json' },
@@ -253,4 +253,26 @@ export async function getArtifact(slug: string) {
 
 export async function listSpecies() {
   return SpeciesLibrary.parse(await request('/api/species', {}, 'Loading species'));
+}
+
+export async function putSpeciesDraft(draft: {
+  speciesId: string;
+  state: 'edited' | 'new' | 'deleted';
+  data: SpeciesData | null;
+}) {
+  return SpeciesDraft.parse(
+    await request(
+      `/api/species/drafts/${encodeURIComponent(draft.speciesId)}`,
+      json('PUT', { state: draft.state, data: draft.data }),
+      'Saving species draft',
+    ),
+  );
+}
+
+export async function deleteSpeciesDraft(speciesId: string) {
+  await request(
+    `/api/species/drafts/${encodeURIComponent(speciesId)}`,
+    { method: 'DELETE' },
+    'Discarding species draft',
+  );
 }

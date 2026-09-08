@@ -421,7 +421,15 @@ export function createApp(dependencies: AppDependencies) {
   app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createArtifactRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
-  app.route('/api', createSpeciesRoutes({ repoDir: dependencies.repoDir, logger }));
+  app.route(
+    '/api',
+    createSpeciesRoutes({
+      repoDir: dependencies.repoDir,
+      database: dependencies.database,
+      logger,
+      now,
+    }),
+  );
   const resumePause = createPauseService({
     database: dependencies.database,
     now,

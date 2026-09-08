@@ -22,3 +22,4 @@ const generateSprite = (spec: SpriteSpec, facing: SpriteFacing, frame: SpriteFra
 export { generateSprite };
 export type { PixelSprite, SpriteFacing, SpriteFrame, SpriteSpec } from './types.js';
 export * from './species.js';
+export * from './validate.js';
