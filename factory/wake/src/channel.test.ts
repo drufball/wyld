@@ -1183,6 +1183,7 @@ describe('Pak tools', () => {
         slug: 'branch-pak',
         ref: 'feature/pak',
         quest: 'species',
+        kind: 'live',
         title: 'Dropped',
         summary: 'Dropped too.',
         steps: ['Also dropped.'],
