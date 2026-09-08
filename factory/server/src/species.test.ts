@@ -271,6 +271,40 @@ describe('species routes', () => {
     );
   });
 
+  it("builds the game's workspace dependencies before running its tests", async () => {
+    await writeSpecies();
+    const commands: string[] = [];
+    const app = shippingApp(recordingRunner(commands));
+    await storeEditedDraft(app);
+    await app.request('/species/ship', { method: 'POST' });
+    expect(commands.filter((command) => command.startsWith('pnpm '))).toEqual([
+      'pnpm install --frozen-lockfile --prefer-offline',
+      'pnpm exec prettier --write game/src/data/species.json',
+      'pnpm --filter @wyld/game^... build',
+      'pnpm --filter @wyld/game test',
+    ]);
+  });
+
+  it('says the tests could not run when no test name can be parsed', async () => {
+    await writeSpecies();
+    const rawOutput = 'packageEntryFailure\nresolvePackageEntry\ntryNodeResolve';
+    const app = shippingApp(
+      recordingRunner([], (command, args) => {
+        if (command !== 'pnpm' || !args.includes('test')) return undefined;
+        return Object.assign(new Error('tests failed'), { stderr: rawOutput });
+      }),
+    );
+    await storeEditedDraft(app);
+    const response = await (await app.request('/species/ship', { method: 'POST' })).json();
+    expect(response).toEqual({
+      shipped: false,
+      problems: [
+        "The game's own tests could not run on this change. The details are in the factory log.",
+      ],
+    });
+    expect(JSON.stringify(response)).not.toContain(rawOutput);
+  });
+
   it('reports the failing test names in plain English', async () => {
     await writeSpecies();
     const app = shippingApp(
@@ -309,6 +343,7 @@ describe('species routes', () => {
       `git -C ${worktree} switch -c workshop/20260203-040506`,
       'pnpm install --frozen-lockfile --prefer-offline',
       'pnpm exec prettier --write game/src/data/species.json',
+      'pnpm --filter @wyld/game^... build',
       'pnpm --filter @wyld/game test',
       `git -C ${worktree} add game/src/data/species.json`,
       `git -C ${worktree} -c user.name=WYLD Creature Workshop -c user.email=workshop@wyld.local commit -m Workshop: 1 species changed`,
