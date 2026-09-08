@@ -1,6 +1,7 @@
 import type { TimeState } from '../world/time.js';
 import type { Individual } from '../creatures/individual.js';
 import type { CombatState } from '../combat/encounter.js';
+import { deliveries } from '../combat/resolve.js';
 
 type HudState = TimeState & {
   regionName: string | null;
@@ -140,7 +141,7 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
       for (const move of selected?.individual.repertoire ?? []) {
         const combatant = state.combat?.party.find((c) => c.id === selected?.individual.id);
         const cooldown = combatant?.cooldowns[move.id];
-        const cost = { Strike: 6, Lunge: 10, Bolt: 8, Arc: 12, Sweep: 10 }[move.delivery];
+        const cost = deliveries[move.delivery].focus;
         const button = control(
           `${move.name}${cooldown?.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
         );

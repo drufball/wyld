@@ -1,6 +1,7 @@
 import { speciesById, type HideType, type Temperament } from '../creatures/species.js';
 import type { Individual } from '../creatures/individual.js';
 import type { Move } from './moves.js';
+import { hideMultiplier } from './hides.js';
 import {
   canAfford,
   cooldownFor,
@@ -25,6 +26,7 @@ type Combatant = {
   windup: { moveId: string; progress: number } | null;
   downed: boolean;
   cooldowns: Record<string, { remaining: number; total: number }>;
+  desiredTile: Point | null;
 };
 type Projectile = { id: string; moveId: string; owner: string; position: Point; target: Point };
 type Flash = { id: string; at: Point; remaining: number };
@@ -52,10 +54,13 @@ type EncounterOptions = {
   grid: Grid;
   rng: { next(): number } | (() => number);
   player?: Point;
+  partyTiles?: Record<string, Point>;
+  enemyTile?: Point;
 };
 type Internal = Combatant & {
   individual: Individual;
   pending: { move: Move; target: Point; targetId: string; elapsed: number; total: number } | null;
+  approach: { move: Move; targetId: string } | null;
   hold: number;
   strafe: number;
   strafeDirection: number;
@@ -87,8 +92,10 @@ const make = (individual: Individual, tile: Point): Internal => ({
   cooldowns: Object.fromEntries(
     individual.repertoire.map((m) => [m.id, { remaining: 0, total: cooldownFor(m) }]),
   ),
+  desiredTile: null,
   individual,
   pending: null,
+  approach: null,
   hold: 0,
   strafe: 0,
   strafeDirection: 1,
@@ -102,9 +109,11 @@ const createEncounter = ({
   grid,
   rng,
   player = { x: 0, y: 0 },
+  partyTiles = {},
+  enemyTile = { x: 0, y: -6 },
 }: EncounterOptions) => {
-  const owned = party.map((p, i) => make(p, { x: i - 1, y: 1 }));
-  const foe = make(enemy, { x: 0, y: -6 });
+  const owned = party.map((p, i) => make(p, partyTiles[p.id] ?? { x: i - 1, y: 1 }));
+  const foe = make(enemy, enemyTile);
   let phase: CombatState['phase'] = 'fight',
     elapsed = 0,
     serial = 0;
@@ -132,7 +141,7 @@ const createEncounter = ({
       target: target.id,
       move: move.id,
       base,
-      hideMult: final / base,
+      hideMult: hideMultiplier(hide(target), move.force),
       final,
     });
     if (target.hp === 0) {
@@ -156,7 +165,6 @@ const createEncounter = ({
   const launch = (a: Internal, target: Internal, move: Move): void => {
     events.push({ type: 'executed', attacker: a.id, target: target.id, move: move.id });
     if (move.delivery === 'Lunge') {
-      a.tile = copy(target.tile);
       hit(a, target, move);
       return;
     }
@@ -190,6 +198,20 @@ const createEncounter = ({
     });
     if (d === 0) flights[flights.length - 1]!.position = copy(to);
   };
+  const nearest = (): Internal | undefined =>
+    owned
+      .filter((c) => !c.downed)
+      .sort((a, b) => distance(a.tile, foe.tile) - distance(b.tile, foe.tile))[0];
+  const beginMove = (a: Internal, target: Internal, move: Move): void => {
+    a.desiredTile = null;
+    a.approach = null;
+    a.focus -= deliveries[move.delivery].focus;
+    a.cooldowns[move.id] = { remaining: cooldownFor(move), total: cooldownFor(move) };
+    const total = windup(move, a.individual.stats.speed);
+    a.pending = { move, target: copy(target.tile), targetId: target.id, elapsed: 0, total };
+    a.windup = { moveId: move.id, progress: 0 };
+    face(a, target.tile);
+  };
   const useMove = (attackerId: string, moveId: string, targetId?: string): boolean => {
     if (phase !== 'fight') return false;
     const a = byId(attackerId),
@@ -202,33 +224,28 @@ const createEncounter = ({
       a.downed ||
       target.downed ||
       a.pending ||
+      a.approach ||
       a.cooldowns[move.id]!.remaining > 0 ||
       !canAfford(a.focus, move)
     )
       return false;
     if (distance(a.tile, target.tile) > rangeTilesFor(move)) {
       if (!['Strike', 'Lunge'].includes(move.delivery)) return false;
+      if (a === foe) return false;
       const d = distance(a.tile, target.tile),
-        allowance = a === foe || owned.indexOf(a) === 0 ? Infinity : 1;
-      const travel = Math.min(Math.max(0, d - rangeTilesFor(move)), allowance),
+        travel = Math.max(0, d - rangeTilesFor(move)),
         dx = (target.tile.x - a.tile.x) / (d || 1),
         dy = (target.tile.y - a.tile.y) / (d || 1);
-      a.tile.x += dx * travel;
-      a.tile.y += dy * travel;
-      if (distance(a.tile, target.tile) > rangeTilesFor(move) + 0.01) return false;
+      a.desiredTile =
+        move.delivery === 'Lunge'
+          ? copy(target.tile)
+          : { x: a.tile.x + dx * travel, y: a.tile.y + dy * travel };
+      a.approach = { move, targetId: target.id };
+      return true;
     }
-    a.focus -= deliveries[move.delivery].focus;
-    a.cooldowns[move.id] = { remaining: cooldownFor(move), total: cooldownFor(move) };
-    const total = windup(move, a.individual.stats.speed);
-    a.pending = { move, target: copy(target.tile), targetId: target.id, elapsed: 0, total };
-    a.windup = { moveId, progress: 0 };
-    face(a, target.tile);
+    beginMove(a, target, move);
     return true;
   };
-  const nearest = (): Internal | undefined =>
-    owned
-      .filter((c) => !c.downed)
-      .sort((a, b) => distance(a.tile, foe.tile) - distance(b.tile, foe.tile))[0];
   const chooseEnemyMove = (): Move | undefined => {
     const target = nearest();
     if (!target) return undefined;
@@ -257,28 +274,49 @@ const createEncounter = ({
       if (d < metresToTiles(5)) step = -speed * dt;
       else if (d > metresToTiles(7)) step = speed * dt;
     }
+    let strafeStep = 0;
     if (temperament === 'Erratic') {
       if (foe.strafe <= 0) {
         foe.strafe = 1.5 + random(rng) * 1.5;
         foe.strafeDirection = random(rng) < 0.5 ? -1 : 1;
       }
       foe.strafe -= dt;
-      foe.tile.x += -dy * speed * dt * foe.strafeDirection;
-      foe.tile.y += dx * speed * dt * foe.strafeDirection;
+      strafeStep = speed * dt * foe.strafeDirection;
     }
-    foe.tile.x += dx * step;
-    foe.tile.y += dy * step;
+    const next = {
+      x: foe.tile.x + dx * step - dy * strafeStep,
+      y: foe.tile.y + dy * step + dx * strafeStep,
+    };
+    if (grid.isWalkable(Math.floor(next.x), Math.floor(next.y))) foe.tile = next;
     face(foe, target);
   };
-  const update = (dt: number, positions: Positions = {}): CombatEvent[] => {
+  const update = (
+    dt: number,
+    positions: Positions = {},
+    playerTile: Point = player,
+  ): CombatEvent[] => {
     events.length = 0;
     if (phase !== 'fight') return events;
     elapsed += dt;
     for (const c of all()) {
       const p = pointFrom(positions, c.id);
-      if (p && !c.pending) c.tile = copy(p);
+      if (p && c !== foe && !c.pending) c.tile = copy(p);
       c.focus = Math.min(c.maxFocus, c.focus + 2 * dt);
       for (const cd of Object.values(c.cooldowns)) cd.remaining = Math.max(0, cd.remaining - dt);
+    }
+    for (const c of owned) {
+      if (!c.approach) continue;
+      const target = byId(c.approach.targetId);
+      if (!target || target.downed) {
+        c.approach = null;
+        c.desiredTile = null;
+      } else if (
+        c.approach.move.delivery === 'Lunge'
+          ? distance(c.tile, target.tile) <= 0.5
+          : distance(c.tile, target.tile) <= rangeTilesFor(c.approach.move) + 0.05
+      ) {
+        beginMove(c, target, c.approach.move);
+      }
     }
     for (const f of flashes) f.remaining -= dt;
     for (const c of all())
@@ -326,19 +364,18 @@ const createEncounter = ({
     const target = nearest();
     if (!foe.downed && !foe.pending) {
       if (target) {
-        moveEnemy(dt, target.tile);
         foe.hold = Math.max(0, foe.hold - dt);
         if (foe.hold <= 0) {
+          moveEnemy(dt, target.tile);
           const move = chooseEnemyMove();
           if (move) useMove(foe.id, move.id, target.id);
           else foe.hold = 1;
         }
       } else {
-        moveEnemy(dt, player);
-        if (distance(foe.tile, player) <= metresToTiles(2)) {
+        if (distance(foe.tile, playerTile) <= metresToTiles(2)) {
           phase = 'driven-off';
           events.push({ type: 'driven-off' });
-        }
+        } else moveEnemy(dt, playerTile);
       }
     }
     return events.map((e) => ({ ...e }));
@@ -355,6 +392,7 @@ const createEncounter = ({
     windup: c.windup ? { ...c.windup } : null,
     downed: c.downed,
     cooldowns: structuredClone(c.cooldowns),
+    desiredTile: c.desiredTile ? copy(c.desiredTile) : null,
   });
   const state = (): CombatState => ({
     phase,
@@ -369,6 +407,7 @@ const createEncounter = ({
       facing: foe.facing,
       windup: foe.windup ? { ...foe.windup } : null,
       downed: foe.downed,
+      desiredTile: null,
     },
     party: owned.map(publicCombatant),
     projectiles: flights.map((p) => ({

@@ -495,6 +495,13 @@ const beginArena = (state: PickState): void => {
     grid,
     rng,
     player: { x: centre.tx, y: centre.ty },
+    partyTiles: Object.fromEntries(
+      members.map((member) => [
+        member.individual.id,
+        { x: member.tile.tx + 0.5, y: member.tile.ty + 0.5 },
+      ]),
+    ),
+    enemyTile: { x: enemyTile.tx + 0.5, y: enemyTile.ty + 0.5 },
   });
 };
 let arenaPick: ReturnType<typeof createArenaPick> | null = null;
@@ -590,28 +597,30 @@ const render = (alpha = 1) => {
       ty = tile.y - screen.y * view.rows,
       size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
       origin = spriteOrigin(tx, ty, size, size);
-    if (partyState.selection === member.individual.id) {
+    const combatant = encounter?.state().party.find((c) => c.id === member.individual.id);
+    if (partyState.selection === member.individual.id && !combatant?.downed) {
       flat.context.strokeStyle = definition.palette.accent ?? '#bd7132';
       flat.context.lineWidth = 1;
       flat.context.beginPath();
       flat.context.ellipse(Math.round(tx * 16), Math.round(ty * 16 + 4), 7, 3, 0, 0, Math.PI * 2);
       flat.context.stroke();
     }
+    if (combatant?.downed) flat.context.globalAlpha = 0.3;
     drawCalls += drawCreatureSprite(
       flat.context,
       member.individual.speciesId,
       'down',
       controller.moving ? 'walk0' : 'idle',
       origin.x,
-      origin.y,
+      origin.y + (combatant?.downed ? Math.floor(size / 3) : 0),
       false,
     );
-    const combatant = encounter?.state().party.find((c) => c.id === member.individual.id);
+    flat.context.globalAlpha = 1;
     if (combatant?.windup) {
-      view.context.fillStyle = '#292b25';
-      view.context.fillRect(origin.x, origin.y - 4, size, 3);
-      view.context.fillStyle = '#f4efd9';
-      view.context.fillRect(origin.x, origin.y - 4, size * combatant.windup.progress, 2);
+      flat.context.fillStyle = '#292b25';
+      flat.context.fillRect(origin.x, origin.y - 4, size, 3);
+      flat.context.fillStyle = '#f4efd9';
+      flat.context.fillRect(origin.x, origin.y - 4, size * combatant.windup.progress, 2);
     }
   }
   for (const creature of registry.list()) {
@@ -661,12 +670,12 @@ const render = (alpha = 1) => {
     ) => {
       const bx = Math.round((at.x - screen.x * view.cols) * 16 - 12);
       const by = Math.round((at.y - screen.y * view.rows) * 16 - 22);
-      view.context.fillStyle = '#292b25';
-      view.context.fillRect(bx, by, 24, 5);
-      view.context.fillStyle = '#bd7132';
-      view.context.fillRect(bx + 1, by + 1, (22 * hp) / maxHp, 1);
-      view.context.fillStyle = '#4e8292';
-      view.context.fillRect(bx + 1, by + 3, (22 * focus) / maxFocus, 1);
+      flat.context.fillStyle = '#292b25';
+      flat.context.fillRect(bx, by, 24, 5);
+      flat.context.fillStyle = '#bd7132';
+      flat.context.fillRect(bx + 1, by + 1, (22 * hp) / maxHp, 1);
+      flat.context.fillStyle = '#4e8292';
+      flat.context.fillRect(bx + 1, by + 3, (22 * focus) / maxFocus, 1);
     };
     bar(
       combat.enemy.tile,
@@ -676,8 +685,8 @@ const render = (alpha = 1) => {
       combat.enemy.maxFocus,
     );
     for (const p of combat.projectiles) {
-      view.context.fillStyle = '#f4efd9';
-      view.context.fillRect(
+      flat.context.fillStyle = '#f4efd9';
+      flat.context.fillRect(
         Math.round((p.position.x - screen.x * view.cols) * 16) - 2,
         Math.round((p.position.y - screen.y * view.rows) * 16) - 2,
         4,
@@ -685,8 +694,8 @@ const render = (alpha = 1) => {
       );
     }
     for (const flash of combat.flashes) {
-      view.context.fillStyle = '#ffffff99';
-      view.context.fillRect(
+      flat.context.fillStyle = '#ffffff99';
+      flat.context.fillRect(
         Math.round((flash.at.x - screen.x * view.cols) * 16) - 8,
         Math.round((flash.at.y - screen.y * view.rows) * 16) - 12,
         16,
@@ -712,7 +721,26 @@ const loop = createLoop({
             return [individual.id, { x: t.x, y: t.y }];
           }),
         ),
+        { x: player.tile.x, y: player.tile.y },
       );
+      const combat = encounter.state();
+      const foe = registry.list().find(({ speciesId }) => speciesId === combat.enemy.speciesId);
+      if (foe) {
+        const at = tileToWorld(combat.enemy.tile.x, combat.enemy.tile.y);
+        foe.position.x = at.x;
+        foe.position.z = at.z;
+        foe.facing = combat.enemy.facing;
+        registry.setState(foe.id, combat.enemy.downed ? 'idle' : 'walk');
+      }
+      for (const member of combat.party) {
+        if (!member.desiredTile || member.downed) continue;
+        const controller = partyControllers.get(member.id);
+        if (!controller?.moving)
+          controller?.moveTo({
+            tx: Math.floor(member.desiredTile.x),
+            ty: Math.floor(member.desiredTile.y),
+          });
+      }
       for (const event of combatEvents)
         if (damageLogging && event.type === 'hit')
           eventLog.push({

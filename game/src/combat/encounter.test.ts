@@ -1,0 +1,235 @@
+import { describe, expect, it } from 'vitest';
+import { buildArenaIndividual, enemy, rosterMember } from '../arena/roster.js';
+import type { Individual } from '../creatures/individual.js';
+import type { Move } from './moves.js';
+import { createEncounter, type EncounterOptions, type Point } from './encounter.js';
+import { deliveries } from './resolve.js';
+
+const member = (id: string): Individual => buildArenaIndividual(rosterMember(id)!);
+const antlerback = (): Individual => buildArenaIndividual(enemy('antlerback')!);
+const openGrid = { isWalkable: () => true };
+const fixed = { next: () => 0 };
+const move = (delivery: Move['delivery'], force: Move['force'] = 'Impact'): Move => ({
+  id: delivery.toLowerCase(),
+  name: delivery,
+  delivery,
+  force,
+  power: 2,
+  speed: 1,
+  cooldownMult: 1,
+  rangeMult: 1,
+  modifiers: [],
+  familiarity: 0,
+  upgradeLevel: 0,
+});
+const fighter = (id: string, moves: Move[], overrides: Partial<Individual> = {}): Individual => ({
+  ...member('loamox'),
+  id,
+  repertoire: moves,
+  ...overrides,
+});
+const setup = (options: Partial<EncounterOptions> = {}) =>
+  createEncounter({
+    party: [fighter('owned', [move('Strike')])],
+    enemy: fighter('enemy', [move('Strike')], {
+      stats: { vigor: 70, power: 3, speed: 4, focus: 0 },
+    }),
+    grid: openGrid,
+    rng: fixed,
+    partyTiles: { owned: { x: 0, y: 0 } },
+    enemyTile: { x: 5, y: 0 },
+    player: { x: 0, y: 0 },
+    ...options,
+  });
+const advance = (
+  encounter: ReturnType<typeof setup>,
+  seconds: number,
+  positions = {},
+  player?: Point,
+) => {
+  const events = [];
+  for (let time = 0; time < seconds; time += 0.05)
+    events.push(...encounter.update(0.05, positions, player));
+  return events;
+};
+
+describe('combat encounter', () => {
+  it('picks the move whose range best matches the distance', () => {
+    const subject = setup({
+      enemy: fighter('enemy', [move('Strike'), move('Bolt')]),
+      enemyTile: { x: 8, y: 0 },
+    });
+    expect(subject.chooseEnemyMove()).toBe('bolt');
+  });
+
+  it('misses a Bolt when the target has moved out of the line', () => {
+    const bolt = move('Bolt');
+    const subject = setup({
+      party: [fighter('owned', [bolt])],
+      enemy: fighter('enemy', [move('Strike')], { temperament: 'Erratic' }),
+      enemyTile: { x: 4, y: 0 },
+    });
+    expect(subject.useMove('owned', bolt.id)).toBe(true);
+    const events = advance(subject, 2);
+    expect(events.some((event) => event.type === 'miss' && event.move === bolt.id)).toBe(true);
+  });
+
+  it('hits a Bolt that reaches a target that stayed put', () => {
+    const bolt = move('Bolt');
+    const subject = setup({ party: [fighter('owned', [bolt])], enemyTile: { x: 4, y: 0 } });
+    subject.useMove('owned', bolt.id);
+    expect(
+      advance(subject, 2).some((event) => event.type === 'hit' && event.move === bolt.id),
+    ).toBe(true);
+  });
+
+  it('lands an Arc where the target was at launch', () => {
+    const arc = move('Arc');
+    const subject = setup({ party: [fighter('owned', [arc])], enemyTile: { x: 4, y: 0 } });
+    subject.useMove('owned', arc.id);
+    advance(subject, 0.8);
+    expect(advance(subject, 1).some((event) => event.type === 'hit' && event.move === arc.id)).toBe(
+      true,
+    );
+  });
+
+  it('targets the nearest standing owned creature', () => {
+    const subject = setup({
+      party: [fighter('far', [move('Strike')]), fighter('near', [move('Strike')])],
+      partyTiles: { far: { x: 0, y: 0 }, near: { x: 4, y: 0 } },
+    });
+    expect(subject.nearestTarget()).toBe('near');
+  });
+
+  it('retargets when the nearest is downed', () => {
+    const strike = { ...move('Strike'), power: 20 };
+    const subject = setup({
+      party: [
+        fighter('far', [move('Strike')]),
+        fighter('near', [move('Strike')], { stats: { vigor: 1, power: 3, speed: 4, focus: 40 } }),
+      ],
+      enemy: fighter('enemy', [strike]),
+      partyTiles: { far: { x: 0, y: 0 }, near: { x: 4.5, y: 0 } },
+    });
+    subject.useMove('enemy', strike.id, 'near');
+    advance(subject, 1);
+    expect(subject.nearestTarget()).toBe('far');
+  });
+
+  it('wins when the enemy reaches zero', () => {
+    const strike = { ...move('Strike'), power: 30 };
+    const subject = setup({ party: [fighter('owned', [strike])], enemyTile: { x: 1, y: 0 } });
+    subject.useMove('owned', strike.id);
+    advance(subject, 1);
+    expect(subject.state().phase).toBe('win');
+  });
+
+  it('drives the player off when all three are down and the enemy reaches them', () => {
+    const sweep = { ...move('Sweep'), power: 30 };
+    const party = ['one', 'two', 'three'].map((id) =>
+      fighter(id, [move('Strike')], { stats: { vigor: 1, power: 1, speed: 1, focus: 1 } }),
+    );
+    const subject = setup({
+      party,
+      enemy: fighter('enemy', [sweep]),
+      partyTiles: { one: { x: 4, y: 0 }, two: { x: 4, y: 0 }, three: { x: 4, y: 0 } },
+      player: { x: 0, y: 0 },
+    });
+    subject.useMove('enemy', sweep.id, 'one');
+    advance(subject, 2, {}, { x: 4, y: 0 });
+    expect(subject.state().phase).toBe('driven-off');
+  });
+
+  it('regenerates two focus a second', () => {
+    const subject = setup({
+      party: [fighter('owned', [move('Strike')])],
+      enemyTile: { x: 1, y: 0 },
+    });
+    subject.useMove('owned', 'strike');
+    const before = subject.state().party[0]!.focus;
+    subject.update(1);
+    expect(subject.state().party[0]!.focus).toBe(before + 2);
+  });
+
+  it('holds position for a second when nothing is affordable', () => {
+    const subject = setup({ enemyTile: { x: 1, y: 0 } });
+    subject.update(0.1);
+    const first = subject.state().enemy.tile;
+    subject.update(0.8);
+    expect(subject.state().enemy.tile).toEqual(first);
+  });
+
+  it('does not flee in the arena', () => {
+    const subject = setup({
+      enemy: fighter('enemy', [move('Strike')], { temperament: 'Skittish' }),
+      enemyTile: { x: 1, y: 0 },
+    });
+    advance(subject, 5);
+    expect(subject.state().phase).not.toBe('driven-off');
+  });
+
+  it('reports the enemy at the tile it was given', () => {
+    expect(setup({ enemyTile: { x: 7.25, y: 9.5 } }).state().enemy.tile).toEqual({
+      x: 7.25,
+      y: 9.5,
+    });
+  });
+
+  it('reports the exact hide multiplier on every hit', () => {
+    const heat = { ...move('Strike', 'Heat'), power: 30 };
+    const subject = setup({
+      party: [fighter('owned', [heat])],
+      enemy: antlerback(),
+      enemyTile: { x: 1, y: 0 },
+    });
+    subject.useMove('owned', heat.id);
+    const hits = advance(subject, 1).filter((event) => event.type === 'hit');
+    expect(hits).not.toHaveLength(0);
+    expect(hits.every((event) => event.hideMult === 1.6)).toBe(true);
+  });
+
+  it('does not walk through a rock', () => {
+    const subject = setup({ grid: { isWalkable: (x) => x !== 4 }, enemyTile: { x: 5, y: 0 } });
+    advance(subject, 2);
+    expect(subject.state().enemy.tile.x).toBeGreaterThanOrEqual(5);
+  });
+
+  it('finishes an Antlerback fight in 30–90 s using the best affordable move off cooldown', () => {
+    const party = ['emberjack', 'loamox', 'bramblehog'].map((id) => {
+      const individual = member(id);
+      return { ...individual, stats: { ...individual.stats, vigor: 1000 } };
+    });
+    const positions = Object.fromEntries(
+      party.map((individual, index) => [individual.id, { x: index - 1, y: 5 }]),
+    ) as Record<string, Point>;
+    const subject = createEncounter({
+      party,
+      enemy: antlerback(),
+      grid: openGrid,
+      rng: fixed,
+      partyTiles: positions,
+      enemyTile: { x: 0, y: 0 },
+      player: { x: 0, y: 6 },
+    });
+    for (let elapsed = 0; elapsed < 90 && subject.state().phase === 'fight'; elapsed += 0.05) {
+      const state = subject.state();
+      for (const combatant of state.party.slice(0, 1)) {
+        if (combatant.desiredTile) positions[combatant.id] = { ...combatant.desiredTile };
+        const individual = party.find(({ id }) => id === combatant.id)!;
+        const available = individual.repertoire
+          .filter(
+            (candidate) =>
+              combatant.cooldowns[candidate.id]!.remaining <= 0 &&
+              combatant.focus >= deliveries[candidate.delivery].focus,
+          )
+          .sort((a, b) => b.power - a.power)[0];
+        if (available && Math.abs(elapsed / 5 - Math.round(elapsed / 5)) < 0.001)
+          subject.useMove(combatant.id, available.id);
+      }
+      subject.update(0.05, positions);
+    }
+    expect(subject.state().phase).toBe('win');
+    expect(subject.state().elapsed).toBeGreaterThanOrEqual(30);
+    expect(subject.state().elapsed).toBeLessThanOrEqual(90);
+  });
+});

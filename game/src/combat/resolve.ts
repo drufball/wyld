@@ -35,8 +35,7 @@ const damage = (
     Math.round(
       move.power *
         5 *
-        // The canonical §7.4 checks assign Power 5 a 1.15 factor (rather than 1.10).
-        (0.6 + attackerPower / 10 + (attackerPower === 5 ? 0.05 : 0)) *
+        (0.6 + attackerPower / 10) *
         hideMultiplier(defenderHide, move.force) *
         ambushMultiplier +
         1e-9,

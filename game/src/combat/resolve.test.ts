@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildArenaIndividual, enemy, rosterMember } from '../arena/roster.js';
-import { forces, hides } from '../creatures/species.js';
+import { forces, hides, speciesById } from '../creatures/species.js';
 import { canAfford, damage, deliveries, windup } from './resolve.js';
 import type { Move } from './moves.js';
 import type { HideType } from '../creatures/species.js';
@@ -10,11 +10,12 @@ const member = (id: string) => buildArenaIndividual(rosterMember(id)!);
 describe('combat resolution', () => {
   it('does 14 into Bark from a power-3 Impact Strike at Power 3', () =>
     expect(damage(member('loamox').repertoire[0]!, 3, 'Bark')).toBe(14));
-  it('does 29 back into Vigor 70 from a power-5 Impact at Power 5', () => {
+  it('does 28 back into Vigor 70 from a power-5 Impact at Power 5', () => {
     const move = buildArenaIndividual(enemy('antlerback')!).repertoire.find(
       (m) => m.power === 5 && m.force === 'Impact',
     )!;
-    expect(damage(move, 5, 'Bark')).toBe(29);
+    // The spec's 29 uses 0.6 + 5/10 = 1.15; the arithmetic result is 1.1 and 28 damage.
+    expect(damage(move, 5, speciesById('loamox')!.hide)).toBe(28);
   });
   it('does 48 from a power-6 Heat move at Power 4 into Bark', () =>
     expect(
