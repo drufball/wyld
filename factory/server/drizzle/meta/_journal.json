@@ -141,6 +141,13 @@
       "when": 1788895269257,
       "tag": "0019_rare_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1788897827432,
+      "tag": "0020_ordinary_midnight",
+      "breakpoints": true
     }
   ]
 }

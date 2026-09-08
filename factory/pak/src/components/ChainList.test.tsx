@@ -13,6 +13,7 @@ const question = {
   lastActivityAt: timestamp,
   questId: null,
   snoozedUntil: null,
+  pinnedAt: null,
   tags: [],
   demoId: null,
   payload: null,
@@ -54,6 +55,7 @@ describe('ChainList', () => {
     ...question,
     id: 50,
     kind: 'briefing',
+    pinnedAt: timestamp,
     tags: ['briefing'],
     payload: {
       rumbles: [{ text: 'Choose a trail', deepLink: '/rumble' }],
@@ -66,6 +68,69 @@ describe('ChainList', () => {
     },
     messages: [{ id: 50, chainId: 50, author: 'planner', text: 'Morning briefing', ts: timestamp }],
   } as Chain;
+
+  const rumble = (id: number, title: string, kind: 'outage' | 'taste' = 'taste') =>
+    ({
+      ...question,
+      id,
+      kind: 'rumble',
+      tags: ['rumble'],
+      slug: `rumble-${id}`,
+      rumble: {
+        id: `rumble-${id}`,
+        title,
+        context: title,
+        options: ['A', 'B'],
+        chosen: null,
+        chosenAt: null,
+        blockingQuestIds: [],
+        kind,
+      },
+      messages: [],
+    }) as Chain;
+
+  const demo = (id: number, title: string, lastActivityAt = timestamp) =>
+    ({
+      ...question,
+      id,
+      kind: 'demo',
+      lastActivityAt,
+      tags: ['demo'],
+      demoId: `demo-${id}`,
+      payload: {
+        title,
+        kind: 'live',
+        summary: title,
+        steps: [],
+        seeded: [],
+        deepLink: '/demos',
+        url: '/demos',
+        status: 'ready',
+        builtAt: timestamp,
+        error: null,
+      },
+      messages: [{ id, chainId: id, author: 'planner', text: title, ts: timestamp }],
+    }) as Chain;
+
+  const renderOrdered = (chains: Chain[]) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url.startsWith('/api/chains?') ? chains : [])),
+    );
+    return render(
+      <MemoryRouter>
+        <LiveEventsProvider
+          eventSourceFactory={() => ({
+            addEventListener() {},
+            removeEventListener() {},
+            close() {},
+          })}
+        >
+          <ChainList kind="all" />
+        </LiveEventsProvider>
+      </MemoryRouter>,
+    );
+  };
 
   it('renders the briefing sections with tappable lines and dismisses as read', async () => {
     const fetch = vi.fn((url: string) =>
@@ -158,6 +223,59 @@ describe('ChainList', () => {
 
     await screen.findByText('Morning briefing');
     expect(container.querySelector('.chain-card')?.textContent).toContain('Morning briefing');
+  });
+
+  it('pinned chains sort above every unpinned card', async () => {
+    const pinnedQuestion = {
+      ...question,
+      id: 53,
+      kind: 'question',
+      pinnedAt: timestamp,
+      tags: [],
+      messages: [{ ...question.messages[0], id: 53, chainId: 53, text: 'Pinned question' }],
+    } as Chain;
+    const { container } = renderOrdered([
+      rumble(54, 'Outage rumble', 'outage'),
+      demo(55, 'Demo card'),
+      pinnedQuestion,
+    ]);
+
+    await screen.findByText('Pinned question');
+    expect([...container.querySelectorAll('.chain-card')].map((card) => card.textContent)).toEqual([
+      expect.stringContaining('Pinned question'),
+      expect.stringContaining('Outage rumble'),
+      expect.stringContaining('Demo card'),
+    ]);
+  });
+
+  it('unpinned cards keep their existing order', async () => {
+    const newer = '2026-09-05T14:00:00.000Z';
+    const olderDemo = demo(56, 'Older demo', timestamp);
+    const newerDemo = demo(57, 'Newer demo', newer);
+    const unpinnedQuestion = {
+      ...question,
+      id: 58,
+      kind: 'question',
+      lastActivityAt: '2026-09-05T15:00:00.000Z',
+      tags: [],
+      messages: [{ ...question.messages[0], id: 58, chainId: 58, text: 'Question card' }],
+    } as Chain;
+    const { container } = renderOrdered([
+      unpinnedQuestion,
+      olderDemo,
+      rumble(59, 'Regular rumble'),
+      newerDemo,
+      rumble(60, 'Outage rumble', 'outage'),
+    ]);
+
+    await screen.findByText('Question card');
+    expect([...container.querySelectorAll('.chain-card')].map((card) => card.textContent)).toEqual([
+      expect.stringContaining('Outage rumble'),
+      expect.stringContaining('Regular rumble'),
+      expect.stringContaining('Newer demo'),
+      expect.stringContaining('Older demo'),
+      expect.stringContaining('Question card'),
+    ]);
   });
 
   function unlockFetch(closeResult: 'success' | 'failure' = 'success') {
@@ -619,6 +737,26 @@ describe('ChainList', () => {
       ),
     );
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('offers Pin, updates to Unpin, and shows the pinned glyph', async () => {
+    const pinned = { ...question, pinnedAt: timestamp };
+    const fetch = vi.fn((url: string, init?: RequestInit) =>
+      response(url === '/api/chains' ? [question] : init?.method === 'POST' ? pinned : []),
+    );
+    vi.stubGlobal('fetch', fetch);
+    renderList();
+    await screen.findByText('Why?');
+    fireEvent.click(screen.getByRole('button', { name: 'Reply or settle' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Pin' }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith('/api/chains/1/pin', { method: 'POST' }),
+    );
+
+    expect(await screen.findByText('Pinned')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Unpin' })).not.toBeNull();
   });
 
   it('lets the next card click toggle after an outside click closes the actions menu', async () => {

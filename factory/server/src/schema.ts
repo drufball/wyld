@@ -190,6 +190,7 @@ export const chains = sqliteTable(
     lastActivityAt: text('last_activity_at').notNull(),
     questId: text('quest_id'),
     snoozedUntil: text('snoozed_until'),
+    pinnedAt: text('pinned_at'),
     tags: text('tags', { mode: 'json' }).$type<string[]>().notNull().default([]),
     demoId: text('demo_id'),
     payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>(),
@@ -209,6 +210,7 @@ export const chains = sqliteTable(
     index('chains_status_activity_idx').on(table.status, table.lastActivityAt),
     index('chains_kind_idx').on(table.kind),
     index('chains_demo_id_idx').on(table.demoId),
+    index('chains_pinned_at_idx').on(table.pinnedAt),
     uniqueIndex('chains_slug_unique').on(table.slug),
   ],
 );

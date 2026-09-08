@@ -1,5 +1,5 @@
 import type { Chain, ChainKind } from '@wyld/shared';
-import { Ellipsis } from 'lucide-react';
+import { Ellipsis, Pin } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -19,8 +19,10 @@ import {
   listArtifacts,
   listQuests,
   postChainMessage,
+  pinChain,
   snoozeChain,
   unsnoozeChain,
+  unpinChain,
 } from '../api/client.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
 import { briefingCard, demoCard, unlockCard, type BriefingCard } from '../lib/chain-cards.js';
@@ -46,6 +48,15 @@ function presetDate(preset: 'later' | 'tomorrow' | 'week') {
     date.setHours(8, 0, 0, 0);
   }
   return date.toISOString();
+}
+
+function PinnedIndicator({ chain }: { chain: Chain }) {
+  return chain.pinnedAt === null ? null : (
+    <span className="inline-flex items-center gap-1">
+      <Pin size={14} aria-hidden />
+      <span className="sr-only">Pinned</span>
+    </span>
+  );
 }
 
 export function ChainActionsMenu({
@@ -128,6 +139,21 @@ export function ChainActionsMenu({
           className="absolute right-0 bottom-full z-20 mb-1 grid w-max max-w-[calc(100vw-3rem)] gap-1 rounded-[var(--radius)] border border-border bg-popover p-1 shadow-md"
         >
           {extraItems?.(closeMenu)}
+          <Button
+            role="menuitem"
+            variant="ghost"
+            type="button"
+            className="w-full justify-start"
+            onClick={() => {
+              closeMenu();
+              runAction(
+                () => (chain.pinnedAt === null ? pinChain(chain.id) : unpinChain(chain.id)),
+                onChange,
+              );
+            }}
+          >
+            {chain.pinnedAt === null ? 'Pin' : 'Unpin'}
+          </Button>
           {snoozed ? (
             <Button
               role="menuitem"
@@ -361,7 +387,10 @@ export function ChainCard({
     return (
       <Card className="chain-card demo-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
         <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <h2 className="m-0 wrap-anywhere text-xl leading-snug">{demo.title}</h2>
+          <h2 className="m-0 flex items-center gap-2 wrap-anywhere text-xl leading-snug">
+            <PinnedIndicator chain={chain} />
+            {demo.title}
+          </h2>
           <Badge variant="tone" data-tone={tone}>
             {label}
           </Badge>
@@ -419,7 +448,10 @@ export function ChainCard({
     ];
     return (
       <Card className="briefing-card chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
-        <p className="m-0 wrap-anywhere">{chain.messages[0]?.text}</p>
+        <p className="m-0 flex items-center gap-2 wrap-anywhere">
+          <PinnedIndicator chain={chain} />
+          {chain.messages[0]?.text}
+        </p>
         <p className="m-0 text-muted-foreground">
           Updated{' '}
           {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
@@ -483,7 +515,8 @@ export function ChainCard({
             settleUnlock();
         }}
       >
-        <p className="m-0">
+        <p className="m-0 flex items-center gap-2">
+          <PinnedIndicator chain={chain} />
           <span aria-hidden>{unlock.badge}</span> Achievement unlocked — {unlock.name}
         </p>
         <Button variant="retro" type="button" onClick={settleUnlock}>
@@ -495,6 +528,7 @@ export function ChainCard({
   }
   const messages = (
     <>
+      <PinnedIndicator chain={chain} />
       {chain.anchor !== null && (
         <Link
           to={`/explain/${encodeURIComponent(chain.anchor.artifact)}`}
@@ -827,18 +861,21 @@ export function ChainList({
     <section className="grid gap-3" aria-label="Open cards">
       {[...chains]
         .sort((left, right) => {
+          if (left.pinnedAt !== null || right.pinnedAt !== null) {
+            if (left.pinnedAt === null) return 1;
+            if (right.pinnedAt === null) return -1;
+            return Date.parse(right.pinnedAt) - Date.parse(left.pinnedAt);
+          }
           const rank = (chain: Chain) =>
-            chain.kind === 'briefing'
-              ? -1
-              : chain.kind === 'rumble'
-                ? chain.rumble?.kind === 'outage'
-                  ? 0
-                  : 1
-                : chain.kind === 'demo'
-                  ? 2
-                  : chain.kind === 'question' || chain.kind === 'message'
-                    ? 3
-                    : 4;
+            chain.kind === 'rumble'
+              ? chain.rumble?.kind === 'outage'
+                ? 0
+                : 1
+              : chain.kind === 'demo'
+                ? 2
+                : chain.kind === 'question' || chain.kind === 'message'
+                  ? 3
+                  : 4;
           const difference = rank(left) - rank(right);
           if (difference !== 0) return difference;
           return rank(left) < 2

@@ -26,6 +26,7 @@ describe('Chain', () => {
   it('parses a valid chain', () => {
     expect(Chain.parse(valid)).toEqual({
       ...valid,
+      pinnedAt: null,
       tags: [],
       demoId: null,
       payload: null,

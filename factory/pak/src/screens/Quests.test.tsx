@@ -93,6 +93,7 @@ describe('Quests', () => {
       lastActivityAt: '2026-09-05T12:00:00.000Z',
       questId: quest.id,
       snoozedUntil: null,
+      pinnedAt: null,
       tags: [],
       demoId: 'z-live',
       payload: {

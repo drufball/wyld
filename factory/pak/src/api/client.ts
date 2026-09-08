@@ -141,6 +141,16 @@ export async function unsnoozeChain(id: number): Promise<ChainType> {
   );
 }
 
+export async function pinChain(id: number): Promise<ChainType> {
+  return Chain.parse(await request(`/api/chains/${id}/pin`, { method: 'POST' }, 'Pinning chain'));
+}
+
+export async function unpinChain(id: number): Promise<ChainType> {
+  return Chain.parse(
+    await request(`/api/chains/${id}/unpin`, { method: 'POST' }, 'Unpinning chain'),
+  );
+}
+
 export async function postChain(
   text: string,
   questId?: string,
