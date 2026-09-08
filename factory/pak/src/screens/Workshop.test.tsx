@@ -169,6 +169,27 @@ describe('Workshop', () => {
     await waitFor(() => expect(shipSpecies).toHaveBeenCalled());
   });
 
+  it('keeps the tier, rarity and draft badges inside the card', async () => {
+    listSpecies.mockResolvedValue({
+      species: [first],
+      regions,
+      drafts: [
+        {
+          speciesId: first.id,
+          state: 'edited',
+          data: first,
+          updatedAt: 'now',
+        },
+      ],
+      references: {},
+    });
+    render(<Workshop />);
+    const card = await screen.findByRole('button', { name: /Loamox/ });
+    const badgeRow = screen.getByText('Edited').parentElement;
+    expect(card.contains(badgeRow)).toBe(true);
+    expect(badgeRow?.classList.contains('flex-wrap')).toBe(true);
+  });
+
   it('shows the failing rule in plain English and keeps the draft', async () => {
     listSpecies.mockResolvedValue({
       species: [first],

@@ -57,7 +57,7 @@ function CreatureCard({
           />
         </div>
         <strong>{item.name}</strong>
-        <div className="flex justify-center gap-1">
+        <div className="flex flex-wrap justify-center gap-1">
           <Badge className="whitespace-nowrap">Tier {item.tier}</Badge>
           <Badge variant="outline">{item.rarity}</Badge>
           {draft && (
