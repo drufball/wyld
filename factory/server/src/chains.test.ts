@@ -4,13 +4,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Chain, Event } from '@wyld/shared';
+import { Chain, Event, Presence } from '@wyld/shared';
 import { eq, inArray } from 'drizzle-orm';
 
 import { createApp } from './app.js';
+import { upsertBriefingChain } from './chain-cards.js';
+import { ensureMechanicalBriefing } from './catchup.js';
 import { CHAIN_LIMIT } from './chains.js';
 import { openDatabase, type AppDatabase } from './database.js';
-import { artifacts, chains, demos, quests, worlds } from './schema.js';
+import { artifacts, chains, demos, presence, quests, worlds } from './schema.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 
@@ -69,6 +71,21 @@ describe('chain routes', () => {
   };
 
   const events = async () => Event.array().parse(await (await app.request('/api/events')).json());
+  const postEvent = (index: number) =>
+    post('/api/events', {
+      source: 'human',
+      kind: 'human.intent',
+      payload: { text: String(index) },
+    });
+
+  const emptyDigest = { rumbles: [], demos: [], shipped: [], fyi: [] };
+
+  const writeBriefing = (fromEventId = 0, toEventId = 0, headline?: string) =>
+    upsertBriefingChain(
+      database,
+      { digest: emptyDigest, fromEventId, toEventId, ...(headline ? { headline } : {}) },
+      clock.toISOString(),
+    ).chain;
 
   it('creates a question and records its chain id', async () => {
     const chain = await create('What is going on?');
@@ -308,6 +325,115 @@ describe('chain routes', () => {
     expect(
       await (await app.request('/api/chains?kind=demo&status=settled&includeSnoozed=1')).json(),
     ).toMatchObject([{ id: demo.id }]);
+  });
+
+  it('generates a mechanical briefing while listing briefing chains', async () => {
+    database.db
+      .update(presence)
+      .set({ lastSeenAt: new Date(clock.getTime() - 3 * 60 * 60 * 1000).toISOString() })
+      .where(eq(presence.id, 1))
+      .run();
+
+    const listed = Chain.array().parse(
+      await (await app.request('/api/chains?kind=briefing')).json(),
+    );
+
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({ kind: 'briefing', status: 'open' });
+  });
+
+  it('closing a briefing as read records lastCatchupEventId from its toEventId', async () => {
+    const briefing = writeBriefing(2, 17);
+
+    const response = await post(`/api/chains/${briefing.id}/close`, { reason: 'read' });
+
+    expect(response.status).toBe(200);
+    expect(database.db.select().from(presence).get()?.lastCatchupEventId).toBe(17);
+  });
+
+  it('a briefing written after a dismissal is a fresh chain', async () => {
+    const dismissed = writeBriefing(2, 17);
+    await post(`/api/chains/${dismissed.id}/close`, { reason: 'read' });
+
+    const fresh = writeBriefing(17, 23);
+
+    expect(fresh.id).not.toBe(dismissed.id);
+    expect(fresh.payload).toMatchObject({ fromEventId: 17, toEventId: 23 });
+  });
+
+  it('close rejects reason read on a chain that is not a briefing', async () => {
+    const question = await create('Unread question');
+
+    const response = await post(`/api/chains/${question.id}/close`, { reason: 'read' });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'Invalid request' });
+  });
+
+  it('a briefing does not change needsYou', async () => {
+    const before = Presence.parse(await (await app.request('/api/presence')).json()).needsYou;
+
+    writeBriefing(0, 4);
+
+    expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(before);
+  });
+
+  it('the mechanical generator creates a briefing when none is open', () => {
+    database.db
+      .update(presence)
+      .set({ lastSeenAt: new Date(clock.getTime() - 3 * 60 * 60 * 1000).toISOString() })
+      .where(eq(presence.id, 1))
+      .run();
+
+    ensureMechanicalBriefing(database, clock);
+
+    expect(
+      database.db.select().from(chains).where(eq(chains.kind, 'briefing')).get(),
+    ).toMatchObject({ kind: 'briefing', status: 'open' });
+  });
+
+  it('the mechanical generator respects both away and unseen thresholds', async () => {
+    database.db
+      .update(presence)
+      .set({ lastSeenAt: new Date(clock.getTime() - 60 * 60 * 1000).toISOString() })
+      .where(eq(presence.id, 1))
+      .run();
+    for (let index = 0; index < 20; index += 1) await postEvent(index);
+    ensureMechanicalBriefing(database, clock);
+    expect(
+      database.db.select().from(chains).where(eq(chains.kind, 'briefing')).get(),
+    ).toBeUndefined();
+
+    await postEvent(20);
+    ensureMechanicalBriefing(database, clock);
+    expect(
+      database.db.select().from(chains).where(eq(chains.kind, 'briefing')).get(),
+    ).toBeDefined();
+  });
+
+  it('the mechanical generator never overwrites an open briefing', async () => {
+    const planner = writeBriefing(3, 9, 'Dru wrote this');
+    const before = {
+      chain: database.db.select().from(chains).where(eq(chains.id, planner.id)).get(),
+      messages: database.sqlite
+        .prepare('SELECT * FROM chain_messages WHERE chain_id = ? ORDER BY id')
+        .all(planner.id),
+    };
+    database.db
+      .update(presence)
+      .set({ lastSeenAt: new Date(clock.getTime() - 3 * 60 * 60 * 1000).toISOString() })
+      .where(eq(presence.id, 1))
+      .run();
+
+    await app.request('/api/catchup');
+    await app.request('/api/chains?kind=briefing');
+
+    expect({
+      chain: database.db.select().from(chains).where(eq(chains.id, planner.id)).get(),
+      messages: database.sqlite
+        .prepare('SELECT * FROM chain_messages WHERE chain_id = ? ORDER BY id')
+        .all(planner.id),
+    }).toEqual(before);
   });
 
   it.each(['demo', 'action', 'unlock', 'rumble'])(

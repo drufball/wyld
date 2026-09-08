@@ -66,3 +66,7 @@ pak_set_next_action       text="…" deep_link=/worlds/<worldId>
 ```
 
 Then file the first issue → `file-codex-issue.md`.
+
+## The explainer comes first (Dru's rule, 2026-09-08)
+
+Every quest gets its explainer **at planning**, before the first issue is filed: the pitch in one screen, and a **mockup or clickable prototype** of the thing (HTML, inline only — the same constraints as every artifact). Dru pins on it; the pins shape the brief. When the quest reaches `demo`, the same explainer gets the live demo embedded (see merge-and-ship §3) — the mockup stays above it so the before and after sit together. A quest with no explainer is not planned.

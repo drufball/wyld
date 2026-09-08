@@ -36,22 +36,3 @@ export const CatchupDigest = z.object({
   fyi: z.array(z.string().min(1)),
 });
 export type CatchupDigest = z.infer<typeof CatchupDigest>;
-
-export const Catchup = z.object({
-  id: z.number().int().positive(),
-  fromEventId: z.number().int().min(0),
-  toEventId: z.number().int().min(0),
-  digest: CatchupDigest,
-  generatedBy: z.enum(['planner', 'mechanical']),
-  createdAt: Timestamp,
-});
-export type Catchup = z.infer<typeof Catchup>;
-
-export const CatchupView = z.object({
-  show: z.boolean(),
-  awaySeconds: z.number().int().min(0),
-  unseenCount: z.number().int().min(0),
-  catchup: Catchup,
-  nextAction: NextAction.nullable(),
-});
-export type CatchupView = z.infer<typeof CatchupView>;

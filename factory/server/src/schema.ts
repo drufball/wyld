@@ -112,25 +112,6 @@ export const presence = sqliteTable('presence', {
   nextActionBackAt: text('next_action_back_at'),
 });
 
-export const catchups = sqliteTable(
-  'catchups',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    fromEventId: integer('from_event_id').notNull(),
-    toEventId: integer('to_event_id').notNull(),
-    digest: text('digest', { mode: 'json' }).notNull(),
-    generatedBy: text('generated_by', { enum: ['planner', 'mechanical'] }).notNull(),
-    createdAt: text('created_at').notNull(),
-  },
-  (table) => [
-    uniqueIndex('catchups_range_generated_by_unique').on(
-      table.fromEventId,
-      table.toEventId,
-      table.generatedBy,
-    ),
-  ],
-);
-
 export const worlds = sqliteTable('worlds', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -191,7 +172,9 @@ export const chains = sqliteTable(
   'chains',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    kind: text('kind', { enum: ['question', 'message', 'rumble', 'demo', 'action', 'unlock'] })
+    kind: text('kind', {
+      enum: ['question', 'message', 'rumble', 'demo', 'action', 'unlock', 'briefing'],
+    })
       .notNull()
       .default('question'),
     status: text('status', { enum: ['open', 'settled', 'converted'] }).notNull(),

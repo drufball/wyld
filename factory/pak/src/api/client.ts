@@ -3,7 +3,6 @@ import {
   Achievement,
   Artifact,
   ArtifactWithHtml,
-  CatchupView,
   Chain,
   Demo,
   Event,
@@ -70,10 +69,6 @@ export async function postResume() {
 
 export async function postSeen() {
   return Presence.parse(await request('/api/presence/seen', { method: 'POST' }, 'Recording visit'));
-}
-
-export async function getCatchup() {
-  return CatchupView.parse(await request('/api/catchup', {}, 'Loading catch-up'));
 }
 
 export async function listWorlds() {
@@ -176,7 +171,7 @@ export async function postChainMessage(id: number, text: string): Promise<ChainT
 
 export async function closeChain(
   id: number,
-  reason: 'settled' | 'converted' | 'done',
+  reason: 'settled' | 'converted' | 'done' | 'read',
   source: 'human' | 'planner' = 'human',
 ): Promise<ChainType> {
   return Chain.parse(

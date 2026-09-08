@@ -213,10 +213,13 @@ describe('rumble routes', () => {
     await post(`/api/chains/${snoozedChain.id}/snooze`, {
       until: new Date(clock.getTime() + 60_000).toISOString(),
     });
-    const view = (await (await app.request('/api/catchup')).json()) as {
-      catchup: { digest: { rumbles: unknown[] } };
+    database.sqlite
+      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
+      .run('2000-01-01T00:00:00Z');
+    const briefing = (await (await app.request('/api/catchup')).json()) as {
+      payload: { rumbles: unknown[] };
     };
-    expect(view.catchup.digest.rumbles).toEqual([{ text: outage.title, deepLink: '/rumble' }]);
+    expect(briefing.payload.rumbles).toEqual([{ text: outage.title, deepLink: '/rumble' }]);
   });
 
   it('round-trips a rumble through the chain API', async () => {

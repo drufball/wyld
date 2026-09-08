@@ -1,5 +1,5 @@
-import { and, count, eq, inArray, isNull, lt, or } from 'drizzle-orm';
-import type { Achievement } from '@wyld/shared';
+import { and, count, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
+import type { Achievement, CatchupDigest } from '@wyld/shared';
 
 import type { AppDatabase } from './database.js';
 import { chainMessages, chains, demos } from './schema.js';
@@ -137,6 +137,75 @@ export function replaceActionChain(
     .values({ chainId: chain.id, author: 'planner', text: action.text, ts: now })
     .run();
   return chain;
+}
+
+export function readOpenBriefing(database: AppDatabase): typeof chains.$inferSelect | undefined {
+  return database.db
+    .select()
+    .from(chains)
+    .where(and(eq(chains.kind, 'briefing'), eq(chains.status, 'open')))
+    .orderBy(desc(chains.id))
+    .get();
+}
+
+export function upsertBriefingChain(
+  database: AppDatabase,
+  input: { digest: CatchupDigest; headline?: string; fromEventId: number; toEventId: number },
+  now: string,
+): { chain: typeof chains.$inferSelect; created: boolean } {
+  const existing = readOpenBriefing(database);
+  if (existing === undefined) {
+    const chain = database.db
+      .insert(chains)
+      .values({
+        kind: 'briefing',
+        status: 'open',
+        tags: ['briefing'],
+        questId: null,
+        payload: {
+          ...input.digest,
+          fromEventId: input.fromEventId,
+          toEventId: input.toEventId,
+          updatedAt: now,
+        },
+        createdAt: now,
+        lastActivityAt: now,
+      })
+      .returning()
+      .get();
+    database.db
+      .insert(chainMessages)
+      .values({
+        chainId: chain.id,
+        author: 'planner',
+        text: input.headline ?? "Here's where things stand.",
+        ts: now,
+      })
+      .run();
+    return { chain, created: true };
+  }
+  const fromEventId =
+    existing.payload !== null && typeof existing.payload['fromEventId'] === 'number'
+      ? existing.payload['fromEventId']
+      : input.fromEventId;
+  database.db
+    .update(chains)
+    .set({
+      payload: { ...input.digest, fromEventId, toEventId: input.toEventId, updatedAt: now },
+      lastActivityAt: now,
+    })
+    .where(eq(chains.id, existing.id))
+    .run();
+  if (input.headline !== undefined)
+    database.db
+      .update(chainMessages)
+      .set({ text: input.headline })
+      .where(and(eq(chainMessages.chainId, existing.id), eq(chainMessages.author, 'planner')))
+      .run();
+  return {
+    chain: database.db.select().from(chains).where(eq(chains.id, existing.id)).get()!,
+    created: false,
+  };
 }
 
 export function createUnlockChain(

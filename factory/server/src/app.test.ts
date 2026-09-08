@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Catchup, CatchupView, Event, HealthSnapshot, Presence } from '@wyld/shared';
+import { Chain, Event, HealthSnapshot, Presence } from '@wyld/shared';
 import { z } from 'zod';
 
 import { createApp } from './app.js';
@@ -339,64 +339,28 @@ describe('Pak server', () => {
     expect(frame).not.toContain('already seen');
   });
 
-  it('updates presence and records human.seen', async () => {
+  it('updates presence and records human.seen without advancing catch-up', async () => {
     const before = Presence.parse(await (await app.request('/api/presence')).json());
     const response = await app.request('/api/presence/seen', { method: 'POST' });
     expect(response.status).toBe(200);
     const after = Presence.parse(await response.json());
     expect(Date.parse(after.lastSeenAt)).toBeGreaterThanOrEqual(Date.parse(before.lastSeenAt));
+    expect(after.lastCatchupEventId).toBe(before.lastCatchupEventId);
     const events = z.array(Event).parse(await (await app.request('/api/events')).json());
     expect(events).toMatchObject([{ source: 'human', kind: 'human.seen' }]);
-    expect(after.lastCatchupEventId).toBe(events.at(-1)?.id);
-    expect(CatchupView.parse(await (await app.request('/api/catchup')).json()).unseenCount).toBe(0);
   });
 
-  it('serves and caches an empty mechanical catch-up on a fresh database', async () => {
-    const first = CatchupView.parse(await (await app.request('/api/catchup')).json());
-    const second = CatchupView.parse(await (await app.request('/api/catchup')).json());
-    expect(first).toMatchObject({
-      show: false,
-      unseenCount: 0,
-      catchup: {
-        generatedBy: 'mechanical',
-        digest: { rumbles: [], demos: [], shipped: [], fyi: [] },
-      },
-    });
-    expect(second.catchup.id).toBe(first.catchup.id);
-    await postEvent('human.intent', 'new');
-    const changed = CatchupView.parse(await (await app.request('/api/catchup')).json());
-    expect(changed.catchup.id).not.toBe(first.catchup.id);
-  });
-
-  it('shows catch-up after two hours away or more than twenty unseen events', async () => {
-    database.sqlite
-      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
-      .run('2000-01-01T00:00:00Z');
-    expect(CatchupView.parse(await (await app.request('/api/catchup')).json()).show).toBe(true);
-    database.sqlite
-      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
-      .run(new Date().toISOString());
-    for (let index = 0; index < 21; index += 1) await postEvent('human.intent', String(index));
-    expect(CatchupView.parse(await (await app.request('/api/catchup')).json()).show).toBe(true);
-  });
-
-  it('upserts Planner catch-ups and prefers them for the current range', async () => {
+  it('upserts Planner briefings in place', async () => {
     const post = (text: string) =>
       app.request('/api/catchup', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ digest: { rumbles: [], demos: [], shipped: [{ text }], fyi: [] } }),
       });
-    const first = Catchup.parse(await (await post('First')).json());
-    const secondResponse = await post('Replacement');
-    expect(secondResponse.status).toBe(201);
-    const second = Catchup.parse(await secondResponse.json());
+    const first = Chain.parse(await (await post('First')).json());
+    const second = Chain.parse(await (await post('Replacement')).json());
     expect(second.id).toBe(first.id);
-    const view = CatchupView.parse(await (await app.request('/api/catchup')).json());
-    expect(view.catchup).toMatchObject({
-      generatedBy: 'planner',
-      digest: { shipped: [{ text: 'Replacement' }] },
-    });
+    expect(second.payload?.['shipped']).toEqual([{ text: 'Replacement' }]);
   });
 
   it('starts with no next action', async () => {
@@ -535,6 +499,22 @@ describe('Pak server', () => {
     expect(await response.text()).toBe('branch pak');
   });
 
+  it('serves disc assets with a permissive CORS header', async () => {
+    fs.mkdirSync(path.join(directory, 'demos/disc/assets'), { recursive: true });
+    fs.writeFileSync(path.join(directory, 'demos/disc/index.html'), 'game');
+    fs.writeFileSync(path.join(directory, 'demos/disc/assets/game.js'), 'export {};');
+
+    for (const url of ['/play/disc/', '/play/disc/assets/game.js']) {
+      const response = await app.request(url);
+      expect(response.headers.get('access-control-allow-origin')).toBe('*');
+      expect(response.headers.has('access-control-allow-credentials')).toBe(false);
+    }
+    expect((await app.request('/play/disc')).headers.get('access-control-allow-origin')).toBe('*');
+    expect(
+      (await app.request('/play/missing/nope')).headers.get('access-control-allow-origin'),
+    ).toBe('*');
+  });
+
   it('does not let encoded play paths escape a demo directory', async () => {
     fs.mkdirSync(path.join(directory, 'demos/main'), { recursive: true });
     fs.writeFileSync(path.join(directory, 'demos/main/index.html'), 'game');
@@ -640,6 +620,22 @@ describe('quest API', () => {
     });
   }
 
+  it('upserts and lists worlds with complete quest counts', async () => {
+    expect((await createWorldAndQuest()).status).toBe(200);
+    const worlds = await (await app.request('/api/worlds')).json();
+    expect(worlds).toEqual([
+      {
+        id: 'game',
+        name: 'Game',
+        kind: 'game',
+        order: 1,
+        icon: '🎮',
+        questCounts: { idea: 1, planning: 0, building: 0, demo: 0, done: 0, parked: 0 },
+      },
+    ]);
+    expect((await send('/api/worlds', 'POST', { id: '', name: '', kind: 'bad' })).status).toBe(400);
+  });
+
   it('includes human and Planner completions but excludes quests no longer done', async () => {
     await createWorldAndQuest();
     await send('/api/quests', 'POST', {
@@ -658,28 +654,16 @@ describe('quest API', () => {
     await send('/api/quests/planner-done', 'PATCH', { status: 'done', source: 'planner' });
     await send('/api/quests/reverted', 'PATCH', { status: 'done', source: 'planner' });
     await send('/api/quests/reverted', 'PATCH', { status: 'building', source: 'planner' });
+    database.sqlite
+      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
+      .run('2000-01-01T00:00:00.000Z');
 
-    const view = CatchupView.parse(await (await app.request('/api/catchup')).json());
-    expect(view.catchup.digest.shipped).toEqual([
+    const briefing = Chain.parse(await (await app.request('/api/catchup')).json());
+
+    expect(briefing.payload?.['shipped']).toEqual([
       { text: 'Catch-Up', deepLink: '/worlds/game' },
       { text: 'Planner Done', deepLink: '/worlds/game' },
     ]);
-  });
-
-  it('upserts and lists worlds with complete quest counts', async () => {
-    expect((await createWorldAndQuest()).status).toBe(200);
-    const worlds = await (await app.request('/api/worlds')).json();
-    expect(worlds).toEqual([
-      {
-        id: 'game',
-        name: 'Game',
-        kind: 'game',
-        order: 1,
-        icon: '🎮',
-        questCounts: { idea: 1, planning: 0, building: 0, demo: 0, done: 0, parked: 0 },
-      },
-    ]);
-    expect((await send('/api/worlds', 'POST', { id: '', name: '', kind: 'bad' })).status).toBe(400);
   });
 
   it('creates, filters, patches, and rejects invalid or unknown quests', async () => {

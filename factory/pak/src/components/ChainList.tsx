@@ -23,7 +23,7 @@ import {
   unsnoozeChain,
 } from '../api/client.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
-import { demoCard, unlockCard } from '../lib/chain-cards.js';
+import { briefingCard, demoCard, unlockCard, type BriefingCard } from '../lib/chain-cards.js';
 import { DecisionButtons } from './DecisionButtons.js';
 import { Badge } from './ui/badge.js';
 import { Button } from './ui/button.js';
@@ -295,7 +295,7 @@ export function ChainCard({
       },
     );
   };
-  const close = (reason: 'settled' | 'converted' | 'done') =>
+  const close = (reason: 'settled' | 'converted' | 'done' | 'read') =>
     act(
       () => closeChain(chain.id, reason),
       () => {
@@ -396,6 +396,66 @@ export function ChainCard({
             >
               How to try it
             </Link>
+          </Button>
+          <ChainActionsMenu
+            chain={chain}
+            onChange={onChange}
+            onSnoozed={onSnoozed}
+            runAction={act}
+          />
+        </div>
+        {failure}
+      </Card>
+    );
+  }
+  if (chain.kind === 'briefing') {
+    const briefing = briefingCard(chain);
+    if (briefing === null) return null;
+    const sections: { heading: string; lines: BriefingCard['rumbles']; links: boolean }[] = [
+      { heading: 'Waiting on you', lines: briefing.rumbles, links: true },
+      { heading: 'Ready to try', lines: briefing.demos, links: true },
+      { heading: 'Shipped', lines: briefing.shipped, links: true },
+      { heading: 'Worth knowing', lines: briefing.fyi.map((text) => ({ text })), links: false },
+    ];
+    return (
+      <Card className="briefing-card chain-card grid min-w-0 gap-3 border-l-2 border-l-accent p-5">
+        <p className="m-0 wrap-anywhere">{chain.messages[0]?.text}</p>
+        <p className="m-0 text-muted-foreground">
+          Updated{' '}
+          {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
+            new Date(briefing.updatedAt),
+          )}
+        </p>
+        {sections.map(({ heading, lines, links }) =>
+          lines.length === 0 ? null : (
+            <section className="grid gap-1" key={heading}>
+              <h2 className="mb-2 mt-0 font-display text-[10px] leading-loose text-accent">
+                {heading}
+              </h2>
+              {lines.map((line, index) =>
+                links && line.deepLink ? (
+                  <Link
+                    className="flex min-h-11 items-center rounded-[var(--radius)] px-3 py-2 text-foreground underline hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                    to={line.deepLink}
+                    key={index}
+                  >
+                    {line.text}
+                  </Link>
+                ) : (
+                  <p className="m-0 py-2" key={index}>
+                    {line.text}
+                  </p>
+                ),
+              )}
+            </section>
+          ),
+        )}
+        {sections.every(({ lines }) => lines.length === 0) && (
+          <p className="m-0">All quiet — nothing new to report.</p>
+        )}
+        <div className="relative flex flex-wrap gap-2">
+          <Button variant="retro" type="button" onClick={() => close('read')}>
+            Dismiss
           </Button>
           <ChainActionsMenu
             chain={chain}
@@ -715,7 +775,7 @@ export function ChainList({
       kind === undefined
         ? ['question', 'message']
         : kind === 'all'
-          ? ['question', 'message', 'rumble', 'demo', 'unlock']
+          ? ['question', 'message', 'rumble', 'demo', 'unlock', 'briefing']
           : Array.isArray(kind)
             ? kind.filter((item) => item !== 'action')
             : kind === 'action'
@@ -768,15 +828,17 @@ export function ChainList({
       {[...chains]
         .sort((left, right) => {
           const rank = (chain: Chain) =>
-            chain.kind === 'rumble'
-              ? chain.rumble?.kind === 'outage'
-                ? 0
-                : 1
-              : chain.kind === 'demo'
-                ? 2
-                : chain.kind === 'question' || chain.kind === 'message'
-                  ? 3
-                  : 4;
+            chain.kind === 'briefing'
+              ? -1
+              : chain.kind === 'rumble'
+                ? chain.rumble?.kind === 'outage'
+                  ? 0
+                  : 1
+                : chain.kind === 'demo'
+                  ? 2
+                  : chain.kind === 'question' || chain.kind === 'message'
+                    ? 3
+                    : 4;
           const difference = rank(left) - rank(right);
           if (difference !== 0) return difference;
           return rank(left) < 2

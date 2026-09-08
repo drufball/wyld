@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { App } from './App.js';
 
 const inertEventSource = () => ({ addEventListener() {}, removeEventListener() {}, close() {} });
@@ -9,8 +9,14 @@ function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <App eventSourceFactory={inertEventSource} />
+      <Location />
     </MemoryRouter>,
   );
+}
+
+function Location() {
+  const location = useLocation();
+  return <output aria-label="Current location">{location.pathname}</output>;
 }
 
 const placeholders = [['Rumble', 'Decisions only you can make.']] as const;
@@ -172,5 +178,25 @@ describe('Pak shell', () => {
     renderAt('/lost-save');
 
     await waitFor(() => expect(screen.getByText("What's on your mind?")).not.toBeNull());
+  });
+
+  it('does not redirect a route while a briefing is open', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => response(url.includes('/api/chains') ? [{ kind: 'briefing' }] : [])),
+    );
+
+    renderAt('/quests');
+
+    expect(await screen.findByRole('heading', { name: 'Quests' })).not.toBeNull();
+    expect(screen.getByRole('status', { name: 'Current location' }).textContent).toBe('/quests');
+    vi.unstubAllGlobals();
+  });
+
+  it('/catch-up redirects to Today', async () => {
+    renderAt('/catch-up');
+
+    expect(await screen.findByText("What's on your mind?")).not.toBeNull();
+    expect(screen.getByRole('status', { name: 'Current location' }).textContent).toBe('/');
   });
 });

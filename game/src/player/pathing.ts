@@ -1,11 +1,12 @@
 type Point = { tx: number; ty: number };
 type PathGrid = { isWalkable(tx: number, ty: number): boolean };
 type PathBounds = { minTx: number; maxTx: number; minTy: number; maxTy: number; across?: Point };
+type PathOptions = PathBounds & { diagonals?: boolean };
 const findPath = (
   grid: PathGrid,
   from: Point,
   to: Point,
-  bounds?: PathBounds,
+  bounds?: PathOptions,
 ): readonly Point[] | null => {
   if (!grid.isWalkable(to.tx, to.ty)) return null;
   const key = (p: Point) => `${p.tx},${p.ty}`;
@@ -19,8 +20,12 @@ const findPath = (
     open.sort((a, b) => {
       const ga = g.get(key(a))!,
         gb = g.get(key(b))!;
-      const fa = ga + Math.abs(a.tx - to.tx) + Math.abs(a.ty - to.ty),
-        fb = gb + Math.abs(b.tx - to.tx) + Math.abs(b.ty - to.ty);
+      const heuristic = (p: Point) =>
+          bounds?.diagonals
+            ? Math.hypot(p.tx - to.tx, p.ty - to.ty)
+            : Math.abs(p.tx - to.tx) + Math.abs(p.ty - to.ty),
+        fa = ga + heuristic(a),
+        fb = gb + heuristic(b);
       return fa - fb || a.ty - b.ty || a.tx - b.tx;
     });
     const current = open.shift()!;
@@ -37,12 +42,21 @@ const findPath = (
       }
       return path;
     }
-    for (const [dx, dy] of [
+    const steps = [
       [0, -1],
       [-1, 0],
       [1, 0],
       [0, 1],
-    ] as const) {
+      ...(bounds?.diagonals
+        ? ([
+            [-1, -1],
+            [1, -1],
+            [-1, 1],
+            [1, 1],
+          ] as const)
+        : []),
+    ] as const;
+    for (const [dx, dy] of steps) {
       const n = { tx: current.tx + dx, ty: current.ty + dy },
         nk = key(n);
       const inBounds =
@@ -52,8 +66,17 @@ const findPath = (
           n.ty >= bounds.minTy &&
           n.ty <= bounds.maxTy) ||
         (n.tx === bounds.across?.tx && n.ty === bounds.across.ty);
-      if (!inBounds || !grid.isWalkable(n.tx, n.ty) || closed.has(nk)) continue;
-      const ng = g.get(ck)! + 1;
+      const diagonal = dx !== 0 && dy !== 0;
+      if (
+        !inBounds ||
+        !grid.isWalkable(n.tx, n.ty) ||
+        closed.has(nk) ||
+        (diagonal &&
+          (!grid.isWalkable(current.tx + dx, current.ty) ||
+            !grid.isWalkable(current.tx, current.ty + dy)))
+      )
+        continue;
+      const ng = g.get(ck)! + (diagonal ? Math.SQRT2 : 1);
       if (ng < (g.get(nk) ?? Infinity)) {
         came.set(nk, current);
         g.set(nk, ng);
@@ -64,4 +87,4 @@ const findPath = (
   return null;
 };
 export { findPath };
-export type { PathBounds, PathGrid, Point };
+export type { PathBounds, PathGrid, PathOptions, Point };

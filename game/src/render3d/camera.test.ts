@@ -31,8 +31,7 @@ describe('camera maths', () => {
       [375, 812],
       [2000, 400],
     ]) {
-      const rendererSize = { width: w, height: h };
-      expect(rendererSize.width / rendererSize.height).toBeGreaterThan(0);
+      expect(w! / h!).toBeGreaterThan(0);
       expect(orthoFrustum(20, 15)).toEqual(expected);
       inside(20, 15);
     }

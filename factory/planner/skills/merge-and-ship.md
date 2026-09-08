@@ -52,7 +52,11 @@ Then move the quest, per `PROTOCOL.md` §1:
 - Last unit merged, something runnable exists → `demo`, **and register its try-it card** (below).
 - Last unit merged, nothing to try → `done`.
 
-### Every quest reaching `demo` gets a try-it card (Dru's rule, 2026-09-06)
+### Every quest reaching `demo` updates its explainer and asks for a look (Dru's rule, 2026-09-08 — supersedes the try-it card)
+
+The try-it card is retired (quest `explainers-embed-demos`). When a quest reaches `demo`: (1) update its explainer with the live demo **embedded** (a game build via `?scenario=…`, or the Pak screen itself) and the steps as prose beside it; (2) post one chain on the quest, in the field-notes voice, asking Dru to look, with a link to the explainer; (3) feedback arrives as pins on the embedded demo (screenshot + game state attached) — answer each pin in its chain. Until the embed lands, keep registering the disc so the build exists, but the card is not the thing Dru is sent to. The older rule follows for reference:
+
+### (retired) Every quest reaching `demo` gets a try-it card (Dru's rule, 2026-09-06)
 
 A card is what Dru sees on the Demos screen and behind the quest card's Try it button: what changed at a
 glance, numbered steps to try it, and the test data you put in place. Register it with the same

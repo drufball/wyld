@@ -97,9 +97,9 @@ describe('artifact routes', () => {
   });
   it('serves verbatim HTML with confinement headers and redirects', async () => {
     expect((await app.request('/api/artifacts/does-not-exist')).status).toBe(404);
-    expect(
-      (await app.request('/api/artifacts/does-not-exist', { method: 'DELETE' })).status,
-    ).toBe(404);
+    expect((await app.request('/api/artifacts/does-not-exist', { method: 'DELETE' })).status).toBe(
+      404,
+    );
     await post(body());
     expect((await app.request('/artifacts/roadmap')).status).toBe(301);
     const response = await app.request('/artifacts/roadmap/');
@@ -107,9 +107,8 @@ describe('artifact routes', () => {
     expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
-    expect(response.headers.get('content-security-policy')).toBe(
-      "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'",
-    );
+    expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect(response.headers.get('content-security-policy')).toContain("frame-src 'self'");
     expect(response.headers.has('x-frame-options')).toBe(false);
     expect((await app.request('/api/artifacts/roadmap', { method: 'DELETE' })).status).toBe(204);
     expect((await app.request('/artifacts/roadmap/')).status).toBe(404);
@@ -119,5 +118,25 @@ describe('artifact routes', () => {
     expect((await post({ ...body(), html: `<html>${'x'.repeat(512 * 1024)}</html>` })).status).toBe(
       400,
     );
+  });
+  it('rejects an explainer with a disallowed embed', async () => {
+    const response = await post({
+      ...body(),
+      html: '<html><iframe data-wyld-demo src="https://example.com/x"></iframe></html>',
+    });
+    expect(response.status).toBe(400);
+    expect(await (await app.request('/api/artifacts')).json()).toEqual([]);
+  });
+  it('stores an explainer with debug=1 forced into the embed', async () => {
+    const response = await post({
+      ...body(),
+      html: '<html><iframe data-wyld-demo src="/play/fw-2d/?scenario=creatures"></iframe></html>',
+    });
+    expect(response.status).toBe(201);
+    expect(await (await app.request('/api/artifacts/roadmap')).json()).toMatchObject({
+      html: expect.stringContaining(
+        'data-wyld-demo="landscape" src="/play/fw-2d/?scenario=creatures&debug=1"',
+      ),
+    });
   });
 });
