@@ -64,7 +64,7 @@ const isEligible = (speciesId: string, regionId: string, phase: Phase): boolean 
   );
 };
 
-export { forces, hides, isEligible, species, speciesById, validateSpecies };
+export { forces, hides, isEligible, species, speciesById };
 export type {
   BodyPlanId,
   CallDescriptor,
