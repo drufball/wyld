@@ -61,20 +61,24 @@ describe('placeTracks', () => {
     }
   });
 
-  it('places 4–8 decals for standing species and only rim prints for Pyreclaw', () => {
-    const placements = placeTracks(options(7));
-    for (const entry of species().filter(({ rarity }) => rarity === 'standing')) {
-      const count = placements.filter(({ speciesId }) => speciesId === entry.id).length;
-      expect(count).toBeGreaterThanOrEqual(4);
-      expect(count).toBeLessThanOrEqual(8);
-    }
-    expect(placements.some(({ speciesId }) => speciesId === 'kelpmaw')).toBe(false);
-    expect(placements.some(({ speciesId }) => speciesId === 'glasswing')).toBe(false);
-    const pyreclaw = placements.filter(({ speciesId }) => speciesId === 'pyreclaw');
-    expect(pyreclaw.length).toBeGreaterThanOrEqual(4);
-    expect(pyreclaw.length).toBeLessThanOrEqual(8);
-    expect(pyreclaw.every(({ regionId }) => regionId === 'crater-rim')).toBe(true);
-  });
+  it.each([194, 7, 212])(
+    'places 4–8 decals for standing species and only rim prints for Pyreclaw (seed %i)',
+    (seed) => {
+      const placements = placeTracks(options(seed));
+      for (const entry of species().filter(({ rarity }) => rarity === 'standing')) {
+        const count = placements.filter(({ speciesId }) => speciesId === entry.id).length;
+        expect(count).toBeGreaterThanOrEqual(4);
+        expect(count).toBeLessThanOrEqual(8);
+      }
+      // Kelpmaw and Glasswing are rare; the spec places decals only for standing species, and Kelpmaw's coil belongs to the M5 grotto.
+      expect(placements.some(({ speciesId }) => speciesId === 'kelpmaw')).toBe(false);
+      expect(placements.some(({ speciesId }) => speciesId === 'glasswing')).toBe(false);
+      const pyreclaw = placements.filter(({ speciesId }) => speciesId === 'pyreclaw');
+      expect(pyreclaw.length).toBeGreaterThanOrEqual(4);
+      expect(pyreclaw.length).toBeLessThanOrEqual(8);
+      expect(pyreclaw.every(({ regionId }) => regionId === 'crater-rim')).toBe(true);
+    },
+  );
 
   it('falls back to region chords when no props provide cover', () => {
     const placements = placeTracks({ ...options(194), propPlacements: [] });
