@@ -64,7 +64,7 @@ export const PIN_BRIDGE_SOURCE = `(function () {
   window.addEventListener('resize', scheduleRects);
   window.addEventListener('scroll', scheduleRects, true);
   var style = document.createElement('style');
-  style.textContent = '.wyld-pin-mode [data-pin]{outline:2px dashed #bd93f9;outline-offset:2px;cursor:crosshair}' + '.wyld-pin-mode [data-pin]:hover{outline-style:solid;background:rgba(189,147,249,0.12)}';
+  style.textContent = '.wyld-pin-mode [data-pin]{outline:2px dashed #bd93f9;outline-offset:2px;cursor:crosshair}' + '.wyld-pin-mode [data-pin]:hover{outline-style:solid;background:rgba(189,147,249,0.12)}' + 'iframe[data-wyld-demo]{display:block;width:100%;border:0;background:#000;max-width:100%}' + 'iframe[data-wyld-demo="landscape"]{aspect-ratio:16/9}' + 'iframe[data-wyld-demo="portrait"]{aspect-ratio:9/16;width:auto;height:auto;max-height:70svh;margin-inline:auto}' + '.wyld-pin-mode iframe[data-wyld-demo]{pointer-events:none}';
   document.head.appendChild(style);
   function ready() { send({ type: 'wyld:pin:ready' }); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
