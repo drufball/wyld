@@ -11,10 +11,12 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@wyld/sprites": "workspace:*"
+    "@wyld/sprites": "workspace:*",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@types/node": "26.4.1",
+    "@types/three": "^0.180.0",
     "typescript": "6.0.3",
     "vite": "^7.3.1",
     "vitest": "5.0.0",

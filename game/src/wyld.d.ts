@@ -59,6 +59,8 @@ interface WyldGameApi {
     frameMsP50: number;
     frameMsP95: number;
     samples: number;
+    triangles?: number;
+    frameMs?: number;
   };
   log(): { kind: string; ts: number; payload: unknown }[];
 }

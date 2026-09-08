@@ -38,6 +38,9 @@ import { species, type Temperament } from './creatures/species.js';
 import { createPlayerController } from './player/controller.js';
 import { blit } from './render2d/blit.js';
 import { createCanvas } from './render2d/canvas.js';
+import { pixelScale, screenCols, screenRows } from './render2d/canvas.js';
+import { lookFromQuery } from './render3d/look.js';
+import { createDiorama } from './render3d/renderer.js';
 import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
 import { spriteOrigin } from './render2d/placement.js';
@@ -64,6 +67,7 @@ document.documentElement.style.cssText = 'height:100%;background:#19212d';
 document.body.style.cssText =
   'height:100%;margin:0;overflow:hidden;display:grid;place-items:center;background:#19212d';
 const scenario = scenarioFromQuery(location.search);
+const look = lookFromQuery(location.search);
 const synthetic = scenario?.synthetic === true;
 const seed = resolveSeed(),
   rng = createRng(seed),
@@ -78,10 +82,16 @@ const propPlacements = placeProps({
   densities: worldData.props,
   bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
 });
-const view = createCanvas();
+const initialScale = pixelScale(innerWidth, innerHeight),
+  initialCols = screenCols(innerWidth, initialScale),
+  initialRows = screenRows(innerHeight, initialScale);
 const grid = synthetic
-  ? buildArena(view.cols, view.rows)
+  ? buildArena(initialCols, initialRows)
   : createTileGrid({ ...terrain, depthAt, propPlacements });
+let activeFlatScreen = { sx: 0, sy: 0 };
+const dioramaView = look === 'diorama' ? createDiorama(grid) : null;
+const flatView = look === 'flat' ? createCanvas({ screen: () => activeFlatScreen }) : null;
+const view = dioramaView ?? flatView!;
 const scenarioStart = synthetic
   ? { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) }
   : scenario?.start;
@@ -116,6 +126,7 @@ const player = createPlayerController({
   rows: () => view.rows,
   start: scenarioStart ? tileToWorld(scenarioStart.tx, scenarioStart.ty) : { x: -150, z: 50 },
   screenFlipping: scenario?.id !== 'arena',
+  pick: (x, y) => view.pickTile(x, y),
   diagonals: synthetic,
 });
 const partySpecies = scenario?.party ?? ['loamox'];
@@ -153,6 +164,7 @@ const partyControllers = new Map(
       rows: () => view.rows,
       start: tileToWorld(member.tile.tx, member.tile.ty),
       screenFlipping: scenario?.id !== 'arena',
+      pick: (x, y) => view.pickTile(x, y),
       diagonals: synthetic,
       speedTilesPerSecond: (3 + member.individual.stats.speed * 0.6) / 2,
     }),
@@ -166,6 +178,7 @@ const createPartyController = (member: (typeof partyState.party)[number]) =>
     rows: () => view.rows,
     start: tileToWorld(member.tile.tx, member.tile.ty),
     screenFlipping: !synthetic,
+    pick: (x, y) => view.pickTile(x, y),
     diagonals: synthetic,
     speedTilesPerSecond: (3 + member.individual.stats.speed * 0.6) / 2,
   });
@@ -496,8 +509,27 @@ const render = (alpha = 1) => {
     palette = paletteAt(clock.phase, clock.phaseProgress),
     key = paletteKey(clock.phase, clock.phaseProgress),
     screen = player.screen;
+  activeFlatScreen = { sx: screen.x, sy: screen.y };
+  if (look === 'diorama') {
+    const result = dioramaView!.render({
+      screen,
+      sliding: player.sliding,
+      phase: clock.phase,
+      phaseProgress: clock.phaseProgress,
+      elapsedSeconds,
+      player: {
+        tileX: player.interpolated(alpha).x,
+        tileY: player.interpolated(alpha).y,
+        facing: player.facing,
+        moving: player.moving,
+      },
+    });
+    stats.afterRender(result.frameMs, result.drawCalls);
+    return;
+  }
+  const flat = flatView!;
   const layer = tiles.layer(screen.x, screen.y, view.cols, view.rows, palette, key);
-  view.context.drawImage(layer, 0, 0);
+  flat.context.drawImage(layer, 0, 0);
   const tile = player.interpolated(alpha),
     localTileX = tile.x - screen.x * view.cols,
     localTileY = tile.y - screen.y * view.rows,
@@ -508,7 +540,7 @@ const render = (alpha = 1) => {
   const calls =
     1 +
     blit(
-      view.context,
+      flat.context,
       playerSprite(
         player.facing === 'left' || player.facing === 'right' ? 'side' : player.facing,
         frame,
@@ -529,14 +561,14 @@ const render = (alpha = 1) => {
       size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
       origin = spriteOrigin(tx, ty, size, size);
     if (partyState.selection === member.individual.id) {
-      view.context.strokeStyle = definition.palette.accent ?? '#bd7132';
-      view.context.lineWidth = 1;
-      view.context.beginPath();
-      view.context.ellipse(Math.round(tx * 16), Math.round(ty * 16 + 4), 7, 3, 0, 0, Math.PI * 2);
-      view.context.stroke();
+      flat.context.strokeStyle = definition.palette.accent ?? '#bd7132';
+      flat.context.lineWidth = 1;
+      flat.context.beginPath();
+      flat.context.ellipse(Math.round(tx * 16), Math.round(ty * 16 + 4), 7, 3, 0, 0, Math.PI * 2);
+      flat.context.stroke();
     }
     drawCalls += drawCreatureSprite(
-      view.context,
+      flat.context,
       member.individual.speciesId,
       'down',
       controller.moving ? 'walk0' : 'idle',
@@ -562,7 +594,7 @@ const render = (alpha = 1) => {
           : 'walk0'
         : creature.state;
     drawCalls += drawCreatureSprite(
-      view.context,
+      flat.context,
       creature.speciesId,
       facing,
       frame,
@@ -574,11 +606,11 @@ const render = (alpha = 1) => {
     if (meter > 0) {
       const ex = Math.round(tx * 16 - 3),
         ey = origin.y - 5;
-      view.context.fillStyle = '#292b25';
-      view.context.fillRect(ex, ey + 1, 7, 3);
-      view.context.fillRect(ex + 2, ey, 3, 5);
-      view.context.fillStyle = '#f5f0dc';
-      view.context.fillRect(ex + 2, ey + 2, Math.ceil(meter * 3), 1);
+      flat.context.fillStyle = '#292b25';
+      flat.context.fillRect(ex, ey + 1, 7, 3);
+      flat.context.fillRect(ex + 2, ey, 3, 5);
+      flat.context.fillStyle = '#f5f0dc';
+      flat.context.fillRect(ex + 2, ey + 2, Math.ceil(meter * 3), 1);
     }
   }
   stats.afterRender(tiles.tileMs, drawCalls);
@@ -591,13 +623,8 @@ const loop = createLoop({
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
     for (const tap of input.taps()) {
-      const rect = view.canvas.getBoundingClientRect();
-      const tx =
-        player.screen.x * view.cols +
-        Math.floor(((tap.clientX - rect.left) * view.canvas.width) / rect.width / 16);
-      const ty =
-        player.screen.y * view.rows +
-        Math.floor(((tap.clientY - rect.top) * view.canvas.height) / rect.height / 16);
+      activeFlatScreen = { sx: player.screen.x, sy: player.screen.y };
+      const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
       const partyHit = partyState.party.find(({ individual }) => {
         const tile = partyControllers.get(individual.id)!.tile;
         return Math.floor(tile.x) === tx && Math.floor(tile.y) === ty;
@@ -879,7 +906,7 @@ window.__wyld = {
   },
   screenshot: view.screenshot,
   debug: debugConsole.run,
-  perf: stats.read,
+  perf: () => ({ ...stats.read(), ...(look === 'diorama' ? dioramaView!.perf() : {}) }),
   log: () => eventLog.map((entry) => ({ ...entry })),
 };
 loop.start();

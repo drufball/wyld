@@ -26,7 +26,7 @@ const crossedScreen = (
   if (tx < 0 || ty < 0 || tx >= TILES_PER_SIDE || ty >= TILES_PER_SIDE) return from;
   return screenOf(tx, ty, cols, rows);
 };
-const createCanvas = () => {
+const createCanvas = (options: { screen?: () => { sx: number; sy: number } } = {}) => {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D is unavailable');
@@ -58,6 +58,13 @@ const createCanvas = () => {
       return rows;
     },
     screenshot: () => canvas.toDataURL('image/jpeg', 0.6),
+    pickTile(clientX: number, clientY: number) {
+      const rect = canvas.getBoundingClientRect();
+      const px = ((clientX - rect.left) * canvas.width) / rect.width;
+      const py = ((clientY - rect.top) * canvas.height) / rect.height;
+      const screen = options.screen?.() ?? { sx: 0, sy: 0 };
+      return canvasPixelToTile(px, py, screen.sx, screen.sy, cols, rows);
+    },
   };
 };
 export {
