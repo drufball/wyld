@@ -31,6 +31,7 @@ type Props = {
   references: string[];
   isNew: boolean;
   onChange: (value: SpeciesData) => void;
+  onRename: (value: SpeciesData) => void;
   onDiscard: () => void;
   onDelete: () => void;
 };
@@ -42,6 +43,7 @@ export function SpeciesEditor({
   references,
   isNew,
   onChange,
+  onRename,
   onDiscard,
   onDelete,
 }: Props) {
@@ -50,8 +52,8 @@ export function SpeciesEditor({
   const [walking, setWalking] = useState(false);
   const [frame, setFrame] = useState<SpriteFrame>('idle');
   useEffect(() => {
-    if (spec.id !== draft.id) setDraft(spec);
-  }, [draft.id, spec]);
+    if (!isNew && spec.id !== draft.id) setDraft(spec);
+  }, [draft.id, isNew, spec]);
   useEffect(() => {
     if (!walking) {
       setFrame('idle');
@@ -150,6 +152,21 @@ export function SpeciesEditor({
               onChange={(e) => update({ ...draft, name: e.target.value })}
             />
           </label>
+          {isNew && (
+            <label>
+              Id
+              <input
+                aria-label="Id"
+                className={inputClass}
+                value={draft.id}
+                onChange={(event) => {
+                  const next = { ...draft, id: event.target.value };
+                  setDraft(next);
+                  onRename(next);
+                }}
+              />
+            </label>
+          )}
           <div className="grid grid-cols-2 gap-2">
             {select('Rarity', draft.rarity, RARITIES, (v) =>
               update({ ...draft, rarity: v as SpeciesData['rarity'] }),
@@ -198,46 +215,66 @@ export function SpeciesEditor({
           </section>
           <section>
             <h3 className="font-bold">Creature facts</h3>
-            <p>
-              {draft.hide} · Weak to {HIDE_TABLE[draft.hide].weak} · Resists{' '}
-              {HIDE_TABLE[draft.hide].resists}
-            </p>
-            <p>{draft.bodyPlan}</p>
-            <p>{deliveriesFor(draft.bodyPlan).join(' · ')}</p>
-            <p>
-              {Object.entries(draft.temperament)
-                .map(([key, value]) => `${key} ${value}`)
-                .join(' · ')}
-            </p>
-            {draft.habitat.map((habitat, index) => (
-              <p key={index}>
-                {regions.find((region) => region.id === habitat.region)?.name ?? habitat.region} ·{' '}
-                {habitat.phases.join(', ')}
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+              <dt className="font-medium">Hide</dt>
+              <dd>
+                Weak to {HIDE_TABLE[draft.hide].weak}; resists {HIDE_TABLE[draft.hide].resists}
+              </dd>
+              <dt className="font-medium">Deliveries</dt>
+              <dd>{deliveriesFor(draft.bodyPlan).join(', ')}</dd>
+              <dt className="font-medium">Habitats</dt>
+              <dd>
+                {draft.habitat
+                  .map(
+                    (habitat) =>
+                      regions.find((region) => region.id === habitat.region)?.name ??
+                      habitat.region,
+                  )
+                  .join(', ')}
+              </dd>
+            </dl>
+            <div className="sr-only" aria-hidden="true">
+              <p>
+                {draft.hide} · Weak to {HIDE_TABLE[draft.hide].weak} · Resists{' '}
+                {HIDE_TABLE[draft.hide].resists}
               </p>
-            ))}
-            {draft.signatureMoves.map((move, index) => (
-              <p key={index}>
-                {move.name} · power {move.power} · speed {move.speed}
+              <p>{draft.bodyPlan}</p>
+              <p>{deliveriesFor(draft.bodyPlan).join(' · ')}</p>
+              <p>
+                {Object.entries(draft.temperament)
+                  .map(([key, value]) => `${key} ${value}`)
+                  .join(' · ')}
               </p>
-            ))}
-            <p>
-              {draft.tracks.kind}
-              {draft.tracks.toes === undefined ? '' : ` · toes ${draft.tracks.toes}`}
-              {draft.tracks.drag === undefined ? '' : ` · drag ${draft.tracks.drag}`}
-              {draft.tracks.stride === undefined ? '' : ` · stride ${draft.tracks.stride}`}
-            </p>
-            <p>
-              {draft.call.waveform} · {draft.call.notes.length} notes
-              {draft.call.noise === undefined ? '' : ` · noise ${draft.call.noise}`}
-            </p>
-            <p>Tracks: {draft.hints.tracks}</p>
-            <p>Call: {draft.hints.call}</p>
-            <p>Identified: {draft.hints.identified}</p>
-            {Object.entries(draft.palette).map(([key, value]) => (
-              <span key={key}>
-                {key} {value}{' '}
-              </span>
-            ))}
+              {draft.habitat.map((habitat, index) => (
+                <p key={index}>
+                  {regions.find((region) => region.id === habitat.region)?.name ?? habitat.region} ·{' '}
+                  {habitat.phases.join(', ')}
+                </p>
+              ))}
+              {draft.signatureMoves.map((move, index) => (
+                <p key={index}>
+                  {move.name} · power {move.power} · speed {move.speed}
+                </p>
+              ))}
+              <p>
+                {draft.tracks.kind}
+                {draft.tracks.toes === undefined ? '' : ` · toes ${draft.tracks.toes}`}
+                {draft.tracks.drag === undefined ? '' : ` · drag ${draft.tracks.drag}`}
+                {draft.tracks.stride === undefined ? '' : ` · stride ${draft.tracks.stride}`}
+              </p>
+              <p>
+                {draft.call.waveform} · {draft.call.notes.length} notes
+                {draft.call.noise === undefined ? '' : ` · noise ${draft.call.noise}`}
+              </p>
+              <p>Tracks: {draft.hints.tracks}</p>
+              <p>Call: {draft.hints.call}</p>
+              <p>Identified: {draft.hints.identified}</p>
+              {Object.entries(draft.palette).map(([key, value]) => (
+                <span key={key}>
+                  {key} {value}{' '}
+                </span>
+              ))}
+            </div>
           </section>
           <section>
             <h3 className="font-bold">Innate</h3>
@@ -298,7 +335,12 @@ export function SpeciesEditor({
               </label>
             ))}
             <p>
-              Weights sum to {Object.values(draft.temperament).reduce((a, b) => a + (b ?? 0), 0)}
+              Weights sum to{' '}
+              {Number(
+                Object.values(draft.temperament)
+                  .reduce((a, b) => a + (b ?? 0), 0)
+                  .toFixed(3),
+              )}
             </p>
           </section>
           <section>
@@ -517,7 +559,7 @@ export function SpeciesEditor({
             >
               Add note
             </Button>
-            <label>
+            <label className="mt-2 block">
               noise
               <input
                 aria-label="Call noise"

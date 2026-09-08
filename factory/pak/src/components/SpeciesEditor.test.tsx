@@ -53,6 +53,7 @@ const editor = (overrides: Partial<React.ComponentProps<typeof SpeciesEditor>> =
       references={[]}
       isNew={false}
       onChange={vi.fn()}
+      onRename={vi.fn()}
       onDiscard={vi.fn()}
       onDelete={vi.fn()}
       {...overrides}
@@ -114,6 +115,21 @@ describe('SpeciesEditor', () => {
     vi.useRealTimers();
   });
 
+  it('restores the file values when changes are discarded', async () => {
+    api.listSpecies.mockResolvedValue(library());
+    api.putSpeciesDraft.mockImplementation(async ({ data }: { data: SpeciesData }) => saved(data));
+    api.deleteSpeciesDraft.mockResolvedValue(undefined);
+    render(<Workshop />);
+    const name = await screen.findByLabelText('Name');
+    vi.useFakeTimers();
+    fireEvent.change(name, { target: { value: 'Changed Name' } });
+    await vi.advanceTimersByTimeAsync(500);
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    await vi.runAllTimersAsync();
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Testling');
+    vi.useRealTimers();
+  });
+
   it('redraws the sprite when the palette changes', () => {
     editor();
     fireEvent.change(screen.getByLabelText('primary hex'), { target: { value: '#abcdef' } });
@@ -133,6 +149,30 @@ describe('SpeciesEditor', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'New species' }));
     await waitFor(() => expect(api.putSpeciesDraft).toHaveBeenCalled());
     expect(api.putSpeciesDraft.mock.calls[0]![0].data.id).toBe('testling-copycopy');
+  });
+
+  it('renames a new species and keeps one draft row', async () => {
+    api.listSpecies.mockResolvedValue(library());
+    api.putSpeciesDraft.mockImplementation(async ({ data }: { data: SpeciesData }) =>
+      saved(data, 'new'),
+    );
+    api.deleteSpeciesDraft.mockResolvedValue(undefined);
+    render(<Workshop />);
+    fireEvent.click(await screen.findByRole('button', { name: 'New species' }));
+    fireEvent.change(await screen.findByLabelText('Id'), { target: { value: 'new-creature' } });
+    await waitFor(() => expect(api.deleteSpeciesDraft).toHaveBeenCalledWith('testling-copy'));
+    await waitFor(() =>
+      expect(api.putSpeciesDraft).toHaveBeenCalledWith(
+        expect.objectContaining({ speciesId: 'new-creature', state: 'new' }),
+      ),
+    );
+    expect(screen.getAllByText('New')).toHaveLength(1);
+  });
+
+  it('shows the id verdict while a new species id is being typed', () => {
+    editor({ isNew: true });
+    fireEvent.change(screen.getByLabelText('Id'), { target: { value: 'Not Valid' } });
+    expect(screen.getByText('species[0].id must be lower-kebab text')).not.toBeNull();
   });
 
   it('disables delete for a referenced species and names the files', () => {

@@ -28,7 +28,7 @@ function CreatureCard({
     <li>
       <Button
         variant="outline"
-        className={`h-full w-full min-h-44 flex-col ${draft?.state === 'deleted' ? 'line-through opacity-60' : ''}`}
+        className={`h-full w-full flex-col p-2 ${draft?.state === 'deleted' ? 'line-through opacity-60' : ''}`}
         aria-current={selected ? 'true' : undefined}
         onClick={onSelect}
         onPointerEnter={() => {
@@ -41,13 +41,15 @@ function CreatureCard({
         }}
         onPointerLeave={stop}
       >
-        <SpriteCanvas
-          spec={item}
-          facing="down"
-          frame={frame}
-          scale={4}
-          label={`${item.name} sprite`}
-        />
+        <div className="flex h-32 items-center justify-center">
+          <SpriteCanvas
+            spec={item}
+            facing="down"
+            frame={frame}
+            scale={4}
+            label={`${item.name} sprite`}
+          />
+        </div>
         <strong>{item.name}</strong>
         <div className="flex justify-center gap-1">
           <Badge>Tier {item.tier}</Badge>
@@ -67,6 +69,7 @@ export function Workshop() {
   const [library, setLibrary] = useState<SpeciesLibrary | null>(null);
   const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState('');
+  const [editorRevision, setEditorRevision] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const detailRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -106,9 +109,11 @@ export function Workshop() {
     );
   };
   const discard = async () => {
+    clearTimeout(timer.current);
     await deleteSpeciesDraft(spec.id);
     setLibrary((x) => x && { ...x, drafts: x.drafts.filter((d) => d.speciesId !== spec.id) });
     if (draft?.state === 'new') setSelected(library.species[0]?.id ?? '');
+    else setEditorRevision((value) => value + 1);
   };
   const remove = async () => {
     if (draft?.state === 'new') {
@@ -127,6 +132,25 @@ export function Workshop() {
     const data = { ...structuredClone(spec), id, name: `${spec.name} copy` };
     setDraft(await putSpeciesDraft({ speciesId: id, state: 'new', data }));
     setSelected(id);
+  };
+  const rename = async (value: SpeciesData) => {
+    clearTimeout(timer.current);
+    const previousId = spec.id;
+    await deleteSpeciesDraft(previousId);
+    const saved = await putSpeciesDraft({ speciesId: value.id, state: 'new', data: value });
+    setLibrary(
+      (current) =>
+        current && {
+          ...current,
+          drafts: [
+            ...current.drafts.filter(
+              (item) => item.speciesId !== previousId && item.speciesId !== saved.speciesId,
+            ),
+            saved,
+          ],
+        },
+    );
+    setSelected(value.id);
   };
   return (
     <div className="space-y-4">
@@ -155,13 +179,14 @@ export function Workshop() {
         </ul>
         <div ref={detailRef} className="scroll-mt-4">
           <SpeciesEditor
-            key={spec.id}
+            key={`${spec.id}:${editorRevision}`}
             spec={spec}
             regions={library.regions}
             all={effective}
             references={library.references[spec.id] ?? []}
             isNew={draft?.state === 'new'}
             onChange={save}
+            onRename={(value) => void rename(value)}
             onDiscard={() => void discard()}
             onDelete={() => void remove()}
           />
