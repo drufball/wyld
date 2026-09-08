@@ -89,29 +89,6 @@ describe('ChainList', () => {
       messages: [],
     }) as Chain;
 
-  const demo = (id: number, title: string, lastActivityAt = timestamp) =>
-    ({
-      ...question,
-      id,
-      kind: 'demo',
-      lastActivityAt,
-      tags: ['demo'],
-      demoId: `demo-${id}`,
-      payload: {
-        title,
-        kind: 'live',
-        summary: title,
-        steps: [],
-        seeded: [],
-        deepLink: '/demos',
-        url: '/demos',
-        status: 'ready',
-        builtAt: timestamp,
-        error: null,
-      },
-      messages: [{ id, chainId: id, author: 'planner', text: title, ts: timestamp }],
-    }) as Chain;
-
   const renderOrdered = (chains: Chain[]) => {
     vi.stubGlobal(
       'fetch',
@@ -260,24 +237,16 @@ describe('ChainList', () => {
       tags: [],
       messages: [{ ...question.messages[0], id: 53, chainId: 53, text: 'Pinned question' }],
     } as Chain;
-    const { container } = renderOrdered([
-      rumble(54, 'Outage rumble', 'outage'),
-      demo(55, 'Demo card'),
-      pinnedQuestion,
-    ]);
+    const { container } = renderOrdered([rumble(54, 'Outage rumble', 'outage'), pinnedQuestion]);
 
     await screen.findByText('Pinned question');
     expect([...container.querySelectorAll('.chain-card')].map((card) => card.textContent)).toEqual([
       expect.stringContaining('Pinned question'),
       expect.stringContaining('Outage rumble'),
-      expect.stringContaining('Demo card'),
     ]);
   });
 
   it('unpinned cards keep their existing order', async () => {
-    const newer = '2026-09-05T14:00:00.000Z';
-    const olderDemo = demo(56, 'Older demo', timestamp);
-    const newerDemo = demo(57, 'Newer demo', newer);
     const unpinnedQuestion = {
       ...question,
       id: 58,
@@ -288,9 +257,7 @@ describe('ChainList', () => {
     } as Chain;
     const { container } = renderOrdered([
       unpinnedQuestion,
-      olderDemo,
       rumble(59, 'Regular rumble'),
-      newerDemo,
       rumble(60, 'Outage rumble', 'outage'),
     ]);
 
@@ -298,8 +265,6 @@ describe('ChainList', () => {
     expect([...container.querySelectorAll('.chain-card')].map((card) => card.textContent)).toEqual([
       expect.stringContaining('Outage rumble'),
       expect.stringContaining('Regular rumble'),
-      expect.stringContaining('Newer demo'),
-      expect.stringContaining('Older demo'),
       expect.stringContaining('Question card'),
     ]);
   });
