@@ -59,6 +59,9 @@ import { createPick, chooseEnemy, toggleMember, startFight, type PickState } fro
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter } from './combat/encounter.js';
 import { createToastStack } from './ui/toasts.js';
+import { learnFromCombat, type LearnedFact } from './arena/learning.js';
+import { loadArenaProgress, saveArenaProgress, wipeArenaProgress } from './arena/persistence.js';
+import { createArenaResult } from './ui/arena-result.js';
 import { placeProps } from './world/props.js';
 import { camps, pointToRegion, regions } from './world/regions.js';
 import { createTerrain } from './world/terrain.js';
@@ -116,7 +119,8 @@ const debugConsole = createDebugConsole({ seed }),
   toasts = createToastStack(),
   hudActions: Parameters<typeof createHud>[2] = {},
   hud = createHud(debugConsole.available, toasts.root, hudActions),
-  notebook = createNotebook(),
+  arenaProgress = synthetic ? loadArenaProgress(localStorage) : null,
+  notebook = arenaProgress?.notebook ?? createNotebook(),
   observer = createObserver({ notebook }),
   callAudio = createCallAudio();
 callAudio.resumeOnGesture(window);
@@ -240,6 +244,9 @@ type AiState = { meter: number; behaviour: Behaviour; fleeUntil: number };
 const aiStates = new Map<string, AiState>();
 let arenaState: PickState | null = synthetic ? createPick() : null;
 let encounter: ReturnType<typeof createEncounter> | null = null;
+let fightLearned: LearnedFact[] = [];
+let resultScreen: ReturnType<typeof createArenaResult> | null = null;
+let fightRecorded = false;
 let damageLogging = false;
 const seedCreature = (id: string): void => {
   const c = registry.get(id);
@@ -462,6 +469,10 @@ const beginArena = (state: PickState): void => {
   const foe = state.enemy ? enemy(state.enemy) : null;
   if (!foe || state.party.length !== 3) return;
   arenaState = state;
+  fightLearned = [];
+  fightRecorded = false;
+  resultScreen?.dispose();
+  resultScreen = null;
   const built = buildArena(view.cols, view.rows, foe.biome);
   Object.assign(grid, built);
   tiles = createTileRenderer(grid, []);
@@ -517,6 +528,13 @@ const beginArena = (state: PickState): void => {
 };
 let arenaPick: ReturnType<typeof createArenaPick> | null = null;
 if (synthetic) arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state));
+const showEnemyPicker = (): void => {
+  resultScreen?.dispose();
+  resultScreen = null;
+  encounter = null;
+  arenaState = createPick();
+  arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state));
+};
 debugConsole.registerCommand('fight', {
   help: 'fight <enemyId> <a,b,c>',
   run: ([enemyId = '', partyList = '']) => {
@@ -547,6 +565,14 @@ debugConsole.registerCommand('heal', {
     if (!encounter) return 'no fight';
     encounter.heal();
     return 'combatants healed';
+  },
+});
+debugConsole.registerCommand('wipe', {
+  help: 'clear arena field guide progress',
+  run: () => {
+    if (!synthetic) return 'not in the arena';
+    if (arenaProgress) Object.assign(arenaProgress, wipeArenaProgress(localStorage));
+    return 'arena progress wiped';
   },
 });
 hudActions.useMove = (moveId) => {
@@ -762,6 +788,41 @@ const loop = createLoop({
         { x: player.tile.x, y: player.tile.y },
       );
       const combat = encounter.state();
+      const foeEntry = arenaState?.enemy ? enemy(arenaState.enemy) : null;
+      if (foeEntry) {
+        const partyMoves = partyState.party.flatMap(({ individual }) => individual.repertoire);
+        const foeIndividual = buildArenaIndividual(foeEntry);
+        fightLearned.push(
+          ...learnFromCombat({
+            notebook,
+            events: combatEvents,
+            enemySpeciesId: foeEntry.speciesId,
+            enemyId: foeEntry.id,
+            moves: [...partyMoves, ...foeIndividual.repertoire],
+            ownedIds: partyState.party.map(({ individual }) => individual.id),
+            hide: speciesById(foeEntry.speciesId)!.hide,
+            temperament: foeEntry.temperament,
+            fightEnded: combat.phase !== 'fight',
+            fightsFought: arenaProgress?.fightsFought[foeEntry.speciesId] ?? 0,
+          }),
+        );
+        if (combat.phase !== 'fight' && !fightRecorded && arenaProgress) {
+          fightRecorded = true;
+          arenaProgress.runCount += 1;
+          arenaProgress.fightsFought[foeEntry.speciesId] =
+            (arenaProgress.fightsFought[foeEntry.speciesId] ?? 0) + 1;
+          saveArenaProgress(localStorage, arenaProgress);
+          resultScreen = createArenaResult({
+            phase: combat.phase,
+            enemyName: foeEntry.name,
+            elapsed: combat.elapsed,
+            learned: fightLearned,
+            runCount: arenaProgress.runCount,
+            onPickEnemy: showEnemyPicker,
+            onOpenGuide: () => guide.openSpecies(foeEntry.speciesId),
+          });
+        }
+      }
       const foe = registry.list().find(({ speciesId }) => speciesId === combat.enemy.speciesId);
       if (foe) {
         const at = tileToWorld(combat.enemy.tile.x - 0.5, combat.enemy.tile.y - 0.5);
@@ -998,6 +1059,10 @@ const loop = createLoop({
 });
 guide = createGuideBook({
   notebook,
+  contextualSpecies: () => {
+    const foe = arenaState?.enemy ? enemy(arenaState.enemy) : null;
+    return encounter?.state().phase === 'fight' ? (foe?.speciesId ?? null) : null;
+  },
   debugOpen: () => debugConsole.isOpen,
   map: {
     sampler: {

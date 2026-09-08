@@ -63,3 +63,10 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 - Pick each enemy and confirm its field, player, party and idle enemy placement.
 - Confirm taps select one unit at a time and that the others hold position.
 - Use `reveal guide`, then return to the enemy cards and inspect the known facts.
+
+## Arena — learn, lose, repeat
+
+- **PASS — frame time (headless Chromium):** measured p95 was 8.4 ms at 375 × 812 and 7.1 ms at 1280 × 720 during an Antlerback fight.
+- **PASS — §7.4 damage:** measured neutral ×1.0, Bark/Heat ×1.6, and Bark/Cut ×0.6 in the combat event log.
+- **PASS — duration:** an automated Antlerback run completed in 54.3 s, inside the 30–90 s target.
+- **PASS — walkthrough:** from cleared `fieldwork.arena.v1`, picked Antlerback and Barrow/Quill/Pip, was driven off, and the result recorded Bark, Cut resistance, Bull Rush, and Bold temperament. Returned to the enemy card, selected Cinder, and won; the result added the Heat weakness. The guide paused and resumed the encounter from both G and Escape.
