@@ -57,3 +57,7 @@ Green and correct → `merge-and-ship.md`.
 
 Post a note only when the state actually changed in a way Dru would care about. Refresh the quest's
 since-you-looked line (`PROTOCOL.md` §3) — in plain English, with no PR number in it.
+
+## Workshop PRs (from 2026-09-08)
+
+The Species workshop's **Ship** button opens PRs titled `Workshop: <n> species changed` on branches `workshop/<timestamp>`. They are data-only (`game/src/data/species.json`), authored by Dru through the Pak, and arrive as `github.pr_opened` like any other. Review them as a senior engineer in one pass: the diff is species data — check it against the same rules the workshop enforces (tier bands, body plan → deliveries, hide table, hints naming no region/phase/species), confirm CI is green (the game's tests run on it), squash-merge, then re-register every disc whose scenario shows the changed species so the next build carries it, and tell Dru on the quest card in one line ("Your Loamox is in the game — the next disc has it"). Never treat a Workshop PR as a Codex task; there is no fix round — a bad one is closed with a one-line reason and the draft stays in the Pak for him to correct.
