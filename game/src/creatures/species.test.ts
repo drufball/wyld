@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { validateHints } from '@wyld/sprites';
+import { validateHints, validateSpecies } from '@wyld/sprites';
 import { regions } from '../world/regions.js';
-import { isEligible, species, validateSpecies } from './species.js';
+import { isEligible, species } from './species.js';
 import type { SpeciesData } from './species.js';
 
 const fixture: Record<string, Record<string, string[]>> = {
