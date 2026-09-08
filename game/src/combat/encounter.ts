@@ -232,7 +232,6 @@ const createEncounter = ({
       return false;
     if (distance(a.tile, target.tile) > rangeTilesFor(move)) {
       if (!['Strike', 'Lunge'].includes(move.delivery)) return false;
-      if (a === foe) return false;
       const d = distance(a.tile, target.tile),
         // Controllers stop at tile centres, so aim slightly inside the exact range boundary.
         travel = Math.max(0, d - rangeTilesFor(move) + 0.25),
@@ -249,35 +248,42 @@ const createEncounter = ({
     return true;
   };
   const chooseEnemyMove = (): Move | undefined => {
+    return enemyMoveCandidates()[0];
+  };
+  const enemyMoveCandidates = (): Move[] => {
     const target = nearest();
-    if (!target) return undefined;
+    if (!target) return [];
     const d = distance(foe.tile, target.tile);
     const candidates = foe.individual.repertoire.filter(
-      (m) => foe.cooldowns[m.id]!.remaining <= 0 && canAfford(foe.focus, m),
+      (m) =>
+        foe.cooldowns[m.id]!.remaining <= 0 &&
+        canAfford(foe.focus, m) &&
+        (d <= rangeTilesFor(m) || m.delivery === 'Strike' || m.delivery === 'Lunge'),
     );
-    if (!candidates.length) return undefined;
-    const scores = candidates.map((m) => Math.abs(rangeTilesFor(m) - d)),
-      best = Math.min(...scores);
-    const tied = candidates.filter((_, i) => Math.abs(scores[i]! - best) < 1e-9);
-    return tied[Math.floor(random(rng) * tied.length)] ?? tied[0];
+    return candidates
+      .map((move) => ({ move, score: Math.abs(rangeTilesFor(move) - d), tie: random(rng) }))
+      .sort((a, b) => a.score - b.score || a.tie - b.tie)
+      .map(({ move }) => move);
   };
-  const moveEnemy = (dt: number, target: Point): void => {
+  const moveEnemy = (dt: number, target: Point, requiredRange?: number): void => {
     const temperament: Temperament = foe.individual.temperament,
       d = distance(foe.tile, target),
       dx = (target.x - foe.tile.x) / (d || 1),
       dy = (target.y - foe.tile.y) / (d || 1),
       speed = (3 + foe.individual.stats.speed * 0.6) / 2;
     let step = 0;
-    if (temperament === 'Bold' && d > metresToTiles(2))
-      step = Math.min(speed * dt, d - metresToTiles(2));
-    if (temperament === 'Skittish' && d < metresToTiles(10))
+    if (requiredRange !== undefined && d > requiredRange)
+      step = Math.min(speed * dt, d - requiredRange);
+    else if (temperament === 'Bold' && d > metresToTiles(3))
+      step = Math.min(speed * dt, d - metresToTiles(3));
+    if (requiredRange === undefined && temperament === 'Skittish' && d < metresToTiles(10))
       step = -Math.min(speed * dt, metresToTiles(10) - d);
-    if (temperament === 'Steady') {
+    if (requiredRange === undefined && temperament === 'Steady') {
       if (d < metresToTiles(5)) step = -speed * dt;
       else if (d > metresToTiles(7)) step = speed * dt;
     }
     let strafeStep = 0;
-    if (temperament === 'Erratic') {
+    if (requiredRange === undefined && temperament === 'Erratic') {
       if (foe.strafe <= 0) {
         foe.strafe = 1.5 + random(rng) * 1.5;
         foe.strafeDirection = random(rng) < 0.5 ? -1 : 1;
@@ -322,7 +328,7 @@ const createEncounter = ({
       c.focus = Math.min(c.maxFocus, c.focus + 2 * dt);
       for (const cd of Object.values(c.cooldowns)) cd.remaining = Math.max(0, cd.remaining - dt);
     }
-    for (const c of owned) {
+    for (const c of all()) {
       if (!c.approach) continue;
       const target = byId(c.approach.targetId);
       if (!target || target.downed) {
@@ -384,16 +390,26 @@ const createEncounter = ({
       if (target) {
         foe.hold = Math.max(0, foe.hold - dt);
         if (foe.hold <= 0) {
-          moveEnemy(dt, target.tile);
-          const move = chooseEnemyMove();
-          if (move) useMove(foe.id, move.id, target.id);
-          else foe.hold = 1;
+          if (foe.approach) {
+            const approachTarget = byId(foe.approach.targetId);
+            if (approachTarget && !approachTarget.downed) {
+              const requiredRange =
+                foe.approach.move.delivery === 'Lunge' ? 0.5 : rangeTilesFor(foe.approach.move);
+              moveEnemy(dt, approachTarget.tile, requiredRange);
+              if (distance(foe.tile, approachTarget.tile) <= requiredRange + 0.05)
+                beginMove(foe, approachTarget, foe.approach.move);
+            }
+          } else {
+            moveEnemy(dt, target.tile);
+            const used = enemyMoveCandidates().some((move) => useMove(foe.id, move.id, target.id));
+            if (!used) foe.hold = 1;
+          }
         }
       } else {
         if (distance(foe.tile, playerTile) <= metresToTiles(2)) {
           phase = 'driven-off';
           events.push({ type: 'driven-off' });
-        } else moveEnemy(dt, playerTile);
+        } else moveEnemy(dt, playerTile, metresToTiles(2));
       }
     }
     return events.map((e) => ({ ...e }));
@@ -425,7 +441,7 @@ const createEncounter = ({
       facing: foe.facing,
       windup: foe.windup ? { ...foe.windup } : null,
       downed: foe.downed,
-      desiredTile: null,
+      desiredTile: foe.desiredTile ? copy(foe.desiredTile) : null,
     },
     party: owned.map(publicCombatant),
     projectiles: flights.map((p) => ({

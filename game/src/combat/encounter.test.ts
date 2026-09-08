@@ -67,7 +67,7 @@ describe('combat encounter', () => {
     const subject = setup({
       party: [fighter('owned', [bolt])],
       enemy: fighter('enemy', [move('Strike')], { temperament: 'Erratic' }),
-      enemyTile: { x: 4, y: 0 },
+      enemyTile: { x: 8, y: 0 },
     });
     expect(subject.useMove('owned', bolt.id)).toBe(true);
     const events = advance(subject, 2);
@@ -192,6 +192,49 @@ describe('combat encounter', () => {
     const subject = setup({ grid: { isWalkable: (x) => x !== 4 }, enemyTile: { x: 5, y: 0 } });
     advance(subject, 2);
     expect(subject.state().enemy.tile.x).toBeGreaterThanOrEqual(5);
+  });
+
+  it('closes the last half tile to land a Strike', () => {
+    const subject = setup({
+      enemy: fighter('enemy', [move('Strike')], { temperament: 'Bold' }),
+      enemyTile: { x: 1.5, y: 0 },
+    });
+
+    expect(
+      advance(subject, 2).some(
+        (event) => event.type === 'hit' && event.attacker === 'enemy' && event.move === 'strike',
+      ),
+    ).toBe(true);
+    expect(subject.state().enemy.tile.x).toBeLessThan(1.5);
+  });
+
+  it('falls back to a move that is in range when the closest match is not', () => {
+    const subject = setup({ enemy: antlerback(), enemyTile: { x: 1.5, y: 0 } });
+
+    const executed = advance(subject, 3).find(
+      (event) => event.type === 'executed' && event.attacker === subject.state().enemy.speciesId,
+    );
+    expect(executed?.move).toMatch(/(gore|rake|bull-rush)$/);
+  });
+
+  it('never goes more than four seconds without acting', () => {
+    const target = fighter('owned', [move('Strike')], {
+      stats: { vigor: 100_000, power: 1, speed: 1, focus: 0 },
+    });
+    const subject = setup({
+      party: [target],
+      enemy: antlerback(),
+      enemyTile: { x: 1.5, y: 0 },
+    });
+    const actedAt: number[] = [];
+    for (let elapsed = 0; elapsed < 60; elapsed += 0.05) {
+      const events = subject.update(0.05);
+      if (events.some((event) => event.type === 'executed' && event.attacker === 'antlerback'))
+        actedAt.push(subject.state().elapsed);
+    }
+
+    expect(actedAt.length).toBeGreaterThan(1);
+    expect(Math.max(...actedAt.slice(1).map((at, index) => at - actedAt[index]!))).toBeLessThan(4);
   });
 
   it('finishes an Antlerback fight in 30–90 s using the best affordable move off cooldown', () => {
