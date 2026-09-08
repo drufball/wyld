@@ -3,6 +3,122 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPinBridge, PIN_BRIDGE_SNIPPET, PIN_BRIDGE_SOURCE } from './pin-bridge.js';
 
 describe('pin bridge', () => {
+  const captureHarness = () => {
+    const target = new EventTarget();
+    const contentWindow = { postMessage: vi.fn() } as unknown as Window;
+    const timers = new Map<unknown, () => void>();
+    const setTimer = vi.fn((fn: () => void) => {
+      const id = Symbol('timer');
+      timers.set(id, fn);
+      return id;
+    });
+    const clearTimer = vi.fn((id: unknown) => timers.delete(id));
+    const bridge = createPinBridge({
+      frame: { contentWindow },
+      target: target as unknown as Window,
+      onReady: vi.fn(),
+      onKeyHold: vi.fn(),
+      onPick: vi.fn(),
+      onRects: vi.fn(),
+      setTimer,
+      clearTimer,
+    });
+    const result = (id: number, capture: unknown) =>
+      target.dispatchEvent(
+        new MessageEvent('message', {
+          source: contentWindow,
+          data: { type: 'wyld:pin:capture:result', id, capture },
+        }),
+      );
+    return { bridge, contentWindow, timers, setTimer, clearTimer, result };
+  };
+
+  it('asks the embed for a capture and resolves it', async () => {
+    const harness = captureHarness();
+    const capture = harness.bridge.capture('hero');
+    expect(harness.contentWindow.postMessage).toHaveBeenLastCalledWith(
+      { type: 'wyld:pin:capture', id: 1, element: 'hero' },
+      '*',
+    );
+    harness.result(1, { screenshot: 'data:image/png;base64,YQ==', state: { level: 2 } });
+    await expect(capture).resolves.toEqual({
+      screenshot: 'data:image/png;base64,YQ==',
+      state: { level: 2 },
+    });
+    expect(harness.clearTimer).toHaveBeenCalledOnce();
+  });
+
+  it('resolves null when the explainer reports no embed', async () => {
+    const harness = captureHarness();
+    const capture = harness.bridge.capture('missing');
+    harness.result(1, null);
+    await expect(capture).resolves.toBeNull();
+  });
+
+  it('resolves null when the capture times out', async () => {
+    const harness = captureHarness();
+    const capture = harness.bridge.capture('hero');
+    expect(harness.setTimer).toHaveBeenCalledWith(expect.any(Function), 3000);
+    [...harness.timers.values()][0]!();
+    await expect(capture).resolves.toBeNull();
+  });
+
+  it('rejects a screenshot that is not a data url', async () => {
+    const harness = captureHarness();
+    const capture = harness.bridge.capture('hero');
+    harness.result(1, { screenshot: 'https://example.test/image.png', state: { level: 2 } });
+    await expect(capture).resolves.toEqual({ screenshot: null, state: { level: 2 } });
+  });
+
+  it('ignores a capture result for an unknown id', async () => {
+    const harness = captureHarness();
+    const capture = harness.bridge.capture('hero');
+    harness.result(99, { screenshot: 'data:image/png;base64,YQ==', state: null });
+    expect(harness.clearTimer).not.toHaveBeenCalled();
+    [...harness.timers.values()][0]!();
+    await expect(capture).resolves.toBeNull();
+  });
+
+  it('relays a capture request to the embed and the result back', () => {
+    document.body.innerHTML = '<div data-pin="hero"><iframe data-wyld-demo></iframe></div>';
+    const embed = document.querySelector('iframe')!;
+    const embedWindow = { postMessage: vi.fn() } as unknown as Window;
+    Object.defineProperty(embed, 'contentWindow', { configurable: true, value: embedWindow });
+    const parentWindow = { postMessage: vi.fn() } as unknown as Window;
+    const originalParent = Object.getOwnPropertyDescriptor(window, 'parent');
+    Object.defineProperty(window, 'parent', { configurable: true, value: parentWindow });
+    try {
+      new Function(PIN_BRIDGE_SOURCE)();
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: parentWindow,
+          data: { type: 'wyld:pin:capture', id: 7, element: 'hero' },
+        }),
+      );
+      expect(embedWindow.postMessage).toHaveBeenCalledWith(
+        { type: 'wyld:demo:capture', id: 7 },
+        '*',
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: embedWindow,
+          data: { type: 'wyld:demo:capture:result', id: 7, screenshot: 'shot', state: 'state' },
+        }),
+      );
+      expect(parentWindow.postMessage).toHaveBeenCalledWith(
+        {
+          type: 'wyld:pin:capture:result',
+          id: 7,
+          capture: { screenshot: 'shot', state: 'state' },
+        },
+        '*',
+      );
+    } finally {
+      if (originalParent) Object.defineProperty(window, 'parent', originalParent);
+      document.body.innerHTML = '';
+    }
+  });
+
   it('styles landscape and portrait embeds', () => {
     expect(PIN_BRIDGE_SOURCE).toContain('aspect-ratio:16/9');
     expect(PIN_BRIDGE_SOURCE).toContain('aspect-ratio:9/16');

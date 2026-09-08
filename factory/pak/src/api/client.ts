@@ -145,6 +145,7 @@ export async function postChain(
   text: string,
   questId?: string,
   anchor?: ChainAnchor,
+  capture?: { screenshot: string | null; state: unknown },
 ): Promise<ChainType> {
   return Chain.parse(
     await request(
@@ -153,6 +154,7 @@ export async function postChain(
         text,
         ...(questId === undefined ? {} : { questId }),
         ...(anchor === undefined ? {} : { anchor }),
+        ...(capture === undefined ? {} : { capture }),
       }),
       'Posting chain',
     ),

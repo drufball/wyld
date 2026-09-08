@@ -310,6 +310,13 @@ const SendMessageArgs = z
     kind: z.enum(['question', 'message']).default('message'),
   })
   .strict();
+const RequestLookArgs = z
+  .object({
+    quest: z.string(),
+    explainer: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+    text: z.string().min(1).max(2000),
+  })
+  .strict();
 const AnswerChainArgs = z
   .object({ chain: z.number().int().positive(), text: z.string().min(1) })
   .strict();
@@ -811,6 +818,21 @@ const tools = [
     },
   },
   {
+    name: 'pak_request_look',
+    description:
+      "Ask Dru to look at a quest's explainer now that it embeds the finished thing. Opens one chain on Today, in plain English, pointing at the explainer. Use it instead of registering a try-it card.",
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        quest: { type: 'string' },
+        explainer: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,63}$' },
+        text: { type: 'string', minLength: 1, maxLength: 2000 },
+      },
+      required: ['quest', 'explainer', 'text'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'pak_answer_chain',
     description:
       'Answer an open question chain in plain English, in the same turn the question arrives. Two or three sentences at most; no GitHub numbers, no status enums.',
@@ -1221,6 +1243,17 @@ export function createToolRegistry(options: {
         author: 'planner',
         kind: parsed.data.kind,
         ...(parsed.data.quest === undefined ? {} : { questId: parsed.data.quest }),
+      });
+    }
+    if (params.name === 'pak_request_look') {
+      const parsed = RequestLookArgs.safeParse(params.arguments);
+      if (!parsed.success) return invalidArguments(parsed.error);
+      return postTool(request, `${options.pakUrl}/api/chains`, {
+        text: parsed.data.text,
+        author: 'planner',
+        kind: 'message',
+        questId: parsed.data.quest,
+        explainer: parsed.data.explainer,
       });
     }
     if (params.name === 'pak_answer_chain') {

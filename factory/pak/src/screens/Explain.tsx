@@ -17,7 +17,13 @@ import { Button } from '../components/ui/button.js';
 import { Card } from '../components/ui/card.js';
 import { Textarea } from '../components/ui/textarea.js';
 import { useLiveEvents } from '../live/LiveEvents.js';
-import { createPinBridge, pinModifierHeld, type PinPick, type PinRect } from '../lib/pin-bridge.js';
+import {
+  createPinBridge,
+  pinModifierHeld,
+  type PinCapture,
+  type PinPick,
+  type PinRect,
+} from '../lib/pin-bridge.js';
 import { useViewportPanel } from '../lib/use-viewport-panel.js';
 
 type LoadedArtifact = Artifact | ArtifactWithHtml;
@@ -37,6 +43,7 @@ function ArtifactViewer({
   const [pinMode, setPinMode] = useState(false);
   const [heldMode, setHeldMode] = useState(false);
   const [pick, setPick] = useState<PinPick | null>(null);
+  const [capture, setCapture] = useState<PinCapture | null | undefined>(null);
   const [text, setText] = useState('');
   const [failed, setFailed] = useState(false);
   const [pins, setPins] = useState<Chain[]>([]);
@@ -47,6 +54,7 @@ function ArtifactViewer({
   const bridge = useRef<Bridge | null>(null);
   const canHold = useRef(false);
   const field = useRef<HTMLTextAreaElement>(null);
+  const captureRequest = useRef(0);
   const { subscribe } = useLiveEvents();
 
   const loadPins = useCallback(
@@ -98,6 +106,11 @@ function ArtifactViewer({
       onPick: (value) => {
         setOpenChain(null);
         setPick(value);
+        setCapture(undefined);
+        const request = ++captureRequest.current;
+        const result = bridge.current?.capture(value.element);
+        if (result)
+          void result.then((value) => request === captureRequest.current && setCapture(value));
       },
       onRects: setRects,
     });
@@ -141,6 +154,7 @@ function ArtifactViewer({
   }, [pins, ready]);
   useEffect(() => {
     if (pick) field.current?.focus();
+    else setCapture(null);
   }, [pick]);
   useLayoutEffect(() => {
     if (field.current) {
@@ -164,11 +178,15 @@ function ArtifactViewer({
     const message = text.trim();
     if (!message || !pick) return;
     setFailed(false);
-    void postChain(message, undefined, {
+    const anchor = {
       artifact: slug,
       element: pick.element,
       label: pick.label.slice(0, 80),
-    })
+    };
+    const posting = capture
+      ? postChain(message, undefined, anchor, capture)
+      : postChain(message, undefined, anchor);
+    void posting
       .then((chain) => {
         const next = [...pins, chain].sort(
           (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
@@ -186,7 +204,9 @@ function ArtifactViewer({
   if (artifact === undefined) return null;
   if (artifact === null) return missing;
   const closeOverlay = () => {
+    captureRequest.current += 1;
     setPick(null);
+    setCapture(null);
     setOpenChain(null);
   };
   const selected = pins.find(({ id }) => id === openChain);
@@ -285,6 +305,8 @@ function ArtifactViewer({
               className={panelClass}
             >
               <p className="m-0 wrap-anywhere">Pinned to: {pick.label}</p>
+              {capture === undefined && <p className="m-0">Grabbing what the demo looks like…</p>}
+              {capture?.screenshot && <p className="m-0">Attached: what the demo looked like</p>}
               <form className="grid gap-3" onSubmit={submit}>
                 <Textarea
                   ref={field}
@@ -324,6 +346,37 @@ function ArtifactViewer({
                 aria-label="Pinned comment"
                 className={panelClass}
               >
+                {(() => {
+                  const value = selected.payload?.capture;
+                  if (!value || typeof value !== 'object') return null;
+                  const captured = value as { screenshot?: unknown; state?: unknown };
+                  const state =
+                    captured.state && typeof captured.state === 'object'
+                      ? (captured.state as Record<string, unknown>)
+                      : null;
+                  const parts = state
+                    ? [
+                        state.day === undefined ? null : `Day ${String(state.day)}`,
+                        state.phase,
+                        state.region ?? state.biome ?? '—',
+                      ]
+                        .filter((part) => part !== null && part !== undefined && part !== '')
+                        .map(String)
+                    : [];
+                  return (
+                    <>
+                      {captured.screenshot !== null && typeof captured.screenshot === 'string' && (
+                        <img
+                          src={`/api/chains/${selected.id}/screenshot`}
+                          alt="What the demo looked like"
+                          className="w-full rounded border border-border"
+                          loading="lazy"
+                        />
+                      )}
+                      {parts.length > 0 && <p className="m-0">{parts.join(' · ')}</p>}
+                    </>
+                  );
+                })()}
                 <ChainCard
                   chain={selected}
                   showQuestChip={false}

@@ -10,6 +10,7 @@ export const PIN_BRIDGE_SOURCE = `(function () {
   var wanted = [];
   var pending = false;
   var held = false;
+  var captures = {};
 
   function send(message) { parentWindow.postMessage(message, '*'); }
   function modifierHeld(event) { return navigator.userAgent.includes('Mac') ? event.metaKey : event.ctrlKey; }
@@ -50,15 +51,27 @@ export const PIN_BRIDGE_SOURCE = `(function () {
   window.addEventListener('blur', function () { reportHeld(false); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) reportHeld(false); });
   window.addEventListener('message', function (event) {
-    if (event.source !== parentWindow) return;
     var data = event.data;
     if (!data || typeof data !== 'object') return;
+    if (event.source !== parentWindow) {
+      if (data.type !== 'wyld:demo:capture:result' || !Object.prototype.hasOwnProperty.call(captures, data.id)) return;
+      clearTimeout(captures[data.id]); delete captures[data.id];
+      send({ type: 'wyld:pin:capture:result', id: data.id, capture: { screenshot: data.screenshot, state: data.state } });
+      return;
+    }
     if (data.type === 'wyld:pin:hello') {
       ready();
     } else if (data.type === 'wyld:pin:mode') {
       on = data.on === true; document.documentElement.classList.toggle('wyld-pin-mode', on);
     } else if (data.type === 'wyld:pin:locate') {
       wanted = Array.isArray(data.elements) ? data.elements : []; sendRects();
+    } else if (data.type === 'wyld:pin:capture') {
+      var nodes = document.querySelectorAll('[data-pin]'); var el = null;
+      for (var j = 0; j < nodes.length; j++) if (nodes[j].getAttribute('data-pin') === String(data.element)) { el = nodes[j]; break; }
+      var embed = el && (el.matches('iframe[data-wyld-demo]') ? el : el.querySelector('iframe[data-wyld-demo]'));
+      if (!embed || !embed.contentWindow) { send({ type: 'wyld:pin:capture:result', id: data.id, capture: null }); return; }
+      captures[data.id] = setTimeout(function () { delete captures[data.id]; send({ type: 'wyld:pin:capture:result', id: data.id, capture: null }); }, 2000);
+      embed.contentWindow.postMessage({ type: 'wyld:demo:capture', id: data.id }, '*');
     }
   });
   window.addEventListener('resize', scheduleRects);
@@ -75,6 +88,7 @@ export const PIN_BRIDGE_SNIPPET = `<script>\n${PIN_BRIDGE_SOURCE}\n</script>`;
 
 export type PinRect = { x: number; y: number; w: number; h: number };
 export type PinPick = { element: string; label: string; rect: PinRect };
+export type PinCapture = { screenshot: string | null; state: unknown };
 
 export function pinModifierHeld(event: { metaKey: boolean; ctrlKey: boolean }): boolean {
   return navigator.userAgent.includes('Mac') ? event.metaKey : event.ctrlKey;
@@ -97,14 +111,40 @@ export function createPinBridge(options: {
   onPick: (pick: PinPick) => void;
   onRects: (rects: Record<string, PinRect>) => void;
   target?: Window;
+  setTimer?: (fn: () => void, ms: number) => unknown;
+  clearTimer?: (timer: unknown) => void;
 }) {
   const target = options.target ?? window;
+  const setTimer = options.setTimer ?? setTimeout;
+  const clearTimer =
+    options.clearTimer ??
+    ((timer: unknown) => clearTimeout(timer as ReturnType<typeof setTimeout>));
+  let captureId = 0;
+  const captures = new Map<
+    number,
+    { resolve: (capture: PinCapture | null) => void; timer: unknown }
+  >();
   const receive = (event: MessageEvent) => {
     const source = options.frame.contentWindow;
     if (source === null || event.source !== source || !plain(event.data)) return;
     const data = event.data;
     if (typeof data.type !== 'string' || !data.type.startsWith('wyld:pin:')) return;
-    if (data.type === 'wyld:pin:ready') options.onReady();
+    if (data.type === 'wyld:pin:capture:result' && typeof data.id === 'number') {
+      const pending = captures.get(data.id);
+      if (!pending) return;
+      captures.delete(data.id);
+      clearTimer(pending.timer);
+      if (!plain(data.capture)) pending.resolve(null);
+      else
+        pending.resolve({
+          screenshot:
+            typeof data.capture.screenshot === 'string' &&
+            /^data:image\/(jpeg|png);base64,/.test(data.capture.screenshot)
+              ? data.capture.screenshot
+              : null,
+          state: data.capture.state,
+        });
+    } else if (data.type === 'wyld:pin:ready') options.onReady();
     else if (data.type === 'wyld:pin:key' && typeof data.held === 'boolean')
       options.onKeyHold(data.held);
     else if (
@@ -132,10 +172,25 @@ export function createPinBridge(options: {
   return {
     setMode: (on: boolean) => post({ type: 'wyld:pin:mode', on }),
     locate: (elements: string[]) => post({ type: 'wyld:pin:locate', elements }),
+    capture: (element: string) =>
+      new Promise<PinCapture | null>((resolve) => {
+        const id = ++captureId;
+        const timer = setTimer(() => {
+          captures.delete(id);
+          resolve(null);
+        }, 3000);
+        captures.set(id, { resolve, timer });
+        post({ type: 'wyld:pin:capture', id, element });
+      }),
     stop: () => {
       target.removeEventListener('message', receive);
       if (typeof options.frame.removeEventListener === 'function')
         options.frame.removeEventListener('load', hello);
+      for (const pending of captures.values()) {
+        clearTimer(pending.timer);
+        pending.resolve(null);
+      }
+      captures.clear();
     },
   };
 }

@@ -370,6 +370,7 @@ describe('Pak tools', () => {
       'pak_read_artifacts',
       'pak_read_chains',
       'pak_send_message',
+      'pak_request_look',
       'pak_answer_chain',
       'pak_notify',
       'pak_pause',
@@ -465,6 +466,44 @@ describe('Pak tools', () => {
       },
       required: ['text'],
       additionalProperties: false,
+    });
+  });
+
+  it('exposes pak_request_look', async () => {
+    const [list] = handlers(vi.fn());
+    const result = await list!({});
+    expect(
+      result.tools?.find(({ name }) => name === 'pak_request_look')?.inputSchema,
+    ).toMatchObject({
+      properties: {
+        quest: { type: 'string' },
+        explainer: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,63}$' },
+        text: { type: 'string', minLength: 1, maxLength: 2000 },
+      },
+      required: ['quest', 'explainer', 'text'],
+      additionalProperties: false,
+    });
+  });
+
+  it('posts a look chain', async () => {
+    const fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+    const [, call] = handlers(fetch as typeof globalThis.fetch);
+    await call!({
+      params: {
+        name: 'pak_request_look',
+        arguments: { quest: 'quest', explainer: 'demo', text: 'Please look.' },
+      },
+    });
+    expect(fetch).toHaveBeenCalledWith('http://pak/api/chains', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        text: 'Please look.',
+        author: 'planner',
+        kind: 'message',
+        questId: 'quest',
+        explainer: 'demo',
+      }),
     });
   });
 

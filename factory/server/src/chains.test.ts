@@ -70,6 +70,22 @@ describe('chain routes', () => {
       .run();
   };
 
+  const createArtifact = (slug = 'forest-map') => {
+    database.db
+      .insert(artifacts)
+      .values({
+        slug,
+        questId: null,
+        title: 'Forest map',
+        summary: 'One line',
+        html: '<html></html>',
+        version: 1,
+        createdAt: clock.toISOString(),
+        updatedAt: clock.toISOString(),
+      })
+      .run();
+  };
+
   const events = async () => Event.array().parse(await (await app.request('/api/events')).json());
   const postEvent = (index: number) =>
     post('/api/events', {
@@ -94,6 +110,86 @@ describe('chain routes', () => {
       kind: 'human.question',
       payload: { chainId: chain.id, text: 'What is going on?' },
     });
+  });
+
+  it('stores a pin capture and serves its screenshot', async () => {
+    createArtifact();
+    const bytes = Buffer.from('jpeg bytes');
+    const response = await post('/api/chains', {
+      text: 'Look here',
+      anchor: { artifact: 'forest-map', element: 'demo', label: 'Demo' },
+      capture: {
+        screenshot: `data:image/jpeg;base64,${bytes.toString('base64')}`,
+        state: { day: 3 },
+      },
+    });
+    expect(response.status).toBe(201);
+    const chain = Chain.parse(await response.json());
+    expect(chain.payload).toEqual({
+      capture: {
+        screenshot: `/api/chains/${chain.id}/screenshot`,
+        state: { day: 3 },
+        at: clock.toISOString(),
+      },
+    });
+    const screenshot = await app.request(`/api/chains/${chain.id}/screenshot`);
+    expect(screenshot.status).toBe(200);
+    expect(screenshot.headers.get('content-type')).toBe('image/jpeg');
+    expect(Buffer.from(await screenshot.arrayBuffer())).toEqual(bytes);
+  });
+
+  it('rejects a capture whose screenshot is not a data url', async () => {
+    const response = await post('/api/chains', {
+      text: 'Bad capture',
+      capture: { screenshot: 'https://example.test/shot.png', state: { day: 3 } },
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid screenshot' });
+  });
+
+  it('drops an oversized state dump but keeps the screenshot', async () => {
+    const response = await post('/api/chains', {
+      text: 'Large state',
+      capture: {
+        screenshot: 'data:image/png;base64,YQ==',
+        state: { dump: 'x'.repeat(65_536) },
+      },
+    });
+    expect(response.status).toBe(201);
+    const chain = Chain.parse(await response.json());
+    expect(chain.payload).toMatchObject({
+      capture: { screenshot: `/api/chains/${chain.id}/screenshot`, state: null },
+    });
+    const screenshot = await app.request(`/api/chains/${chain.id}/screenshot`);
+    expect(screenshot.status).toBe(200);
+    expect(screenshot.headers.get('content-type')).toBe('image/png');
+  });
+
+  it('leaves payload null when no capture is sent', async () => {
+    expect((await create('No evidence')).payload).toBeNull();
+  });
+
+  it('tags a look chain and records its explainer', async () => {
+    createArtifact();
+    const response = await post('/api/chains', {
+      text: 'Look at this',
+      kind: 'question',
+      explainer: 'forest-map',
+    });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      tags: ['look'],
+      payload: { explainer: 'forest-map' },
+    });
+  });
+
+  it('rejects a look chain for an explainer that does not exist', async () => {
+    const response = await post('/api/chains', {
+      text: 'Missing explainer',
+      explainer: 'missing',
+    });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: 'Not Found' });
   });
 
   it('round-trips and filters artifact anchors', async () => {
