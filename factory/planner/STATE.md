@@ -1198,3 +1198,4 @@ Dru only hit Impact, never learned Heat. Spec gap: hide revealed on any hit (§5
 
 ## 2026-09-08 21:18Z — briefing re-created on dismiss (chains 117→133); Dru said yes to hide hints
 Chain 133 was a mechanical briefing written by `ensureMechanicalBriefing` (GET /api/chains with kind briefing) 39 ms after Dru dismissed 117: the gate ignores presence/Planner liveness and the read-close leaves lastCatchupEventId at the briefing's toEventId. Briefing-fix lead spawned (/tmp/wyld-leads/briefing-fix/brief.md). Dru "Yes" on chain 132 → arena clue unit (hide hints ×5, resistance line on glance; explainer mockup first) queued behind the hotfix in game/. Dru marked explainers-embed-demos done; settled 129 himself.
+- 21:22Z fw-arena explainer v9: "The clue" mockup (hide hint lands on any hit; "shrugs off" on glance; Heat confirmed next fight; five hide hints listed). Clue unit is tomorrow's first arena piece, behind the hotfix. Dru told on 132.
