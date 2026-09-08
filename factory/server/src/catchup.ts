@@ -1,13 +1,13 @@
 import { Event, type CatchupDigest, type DemoKind, type QuestStatus } from '@wyld/shared';
-import { desc, gt } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray } from 'drizzle-orm';
 
 import type { AppDatabase } from './database.js';
 import { demoUrl, readOpenBriefing, upsertBriefingChain } from './chain-cards.js';
-import { demos, events, presence, quests } from './schema.js';
+import { chains, demos, events, healthReports, presence, quests } from './schema.js';
 import { listOrderedRumbleRows } from './rumbles.js';
 
 export const CATCHUP_AWAY_SECONDS = 7200;
-export const CATCHUP_UNSEEN_EVENTS = 20;
+export const CATCHUP_PLANNER_ALIVE_SECONDS = 900;
 
 export type CatchupQuest = {
   id: string;
@@ -15,6 +15,39 @@ export type CatchupQuest = {
   title: string;
   status: QuestStatus;
 };
+
+export function plannerIsAlive(database: AppDatabase, now: Date): boolean {
+  const cutoff = new Date(now.getTime() - CATCHUP_PLANNER_ALIVE_SECONDS * 1000).toISOString();
+  return (
+    database.db
+      .select({ id: healthReports.id })
+      .from(healthReports)
+      .where(
+        and(
+          gt(healthReports.ts, cutoff),
+          inArray(healthReports.plannerState, ['online', 'working']),
+        ),
+      )
+      .get() !== undefined
+  );
+}
+
+export function briefingDismissedRecently(database: AppDatabase, now: Date): boolean {
+  const cutoff = new Date(now.getTime() - CATCHUP_AWAY_SECONDS * 1000).toISOString();
+  return (
+    database.db
+      .select({ id: chains.id })
+      .from(chains)
+      .where(
+        and(
+          eq(chains.kind, 'briefing'),
+          eq(chains.status, 'settled'),
+          gt(chains.lastActivityAt, cutoff),
+        ),
+      )
+      .get() !== undefined
+  );
+}
 
 export function mechanicalDigest(input: {
   events: Event[];
@@ -114,7 +147,13 @@ export function ensureMechanicalBriefing(database: AppDatabase, now: Date): void
     0,
     Math.floor((now.getTime() - new Date(currentPresence.lastSeenAt).getTime()) / 1000),
   );
-  if (awaySeconds <= CATCHUP_AWAY_SECONDS && unseen.length <= CATCHUP_UNSEEN_EVENTS) return;
+  if (
+    awaySeconds <= CATCHUP_AWAY_SECONDS ||
+    unseen.length === 0 ||
+    briefingDismissedRecently(database, now) ||
+    plannerIsAlive(database, now)
+  )
+    return;
   const digest = mechanicalDigest({
     events: unseen,
     quests: db

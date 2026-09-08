@@ -20,7 +20,7 @@ import { ensureMechanicalBriefing } from './catchup.js';
 import type { Config } from './config.js';
 import { formatIssues } from './quests.js';
 import { compareRumbles } from './rumbles.js';
-import { artifacts, chainMessages, chains, demos, presence, quests } from './schema.js';
+import { artifacts, chainMessages, chains, demos, events, presence, quests } from './schema.js';
 
 export const CHAIN_QUIET_SECONDS = 86_400;
 export const CHAIN_LIMIT = 5;
@@ -400,16 +400,25 @@ export function createChainRoutes({ database, now, storeEvent, config }: Depende
         .set({ hiddenAt: now().toISOString() })
         .where(and(eq(demos.id, current.demoId), isNull(demos.hiddenAt)))
         .run();
-    if (current.kind === 'briefing') {
-      const toEventId = current.payload?.['toEventId'];
-      if (typeof toEventId === 'number')
-        db.update(presence).set({ lastCatchupEventId: toEventId }).where(eq(presence.id, 1)).run();
+    if (parsed.data.reason === 'read' && current.kind === 'briefing') {
+      const latestEventId =
+        db.select({ id: events.id }).from(events).orderBy(desc(events.id)).get()?.id ?? 0;
+      db.update(presence)
+        .set({ lastCatchupEventId: latestEventId })
+        .where(eq(presence.id, 1))
+        .run();
     }
     const status =
       parsed.data.reason === 'done' || parsed.data.reason === 'read'
         ? 'settled'
         : parsed.data.reason;
-    db.update(chains).set({ status }).where(eq(chains.id, id)).run();
+    db.update(chains)
+      .set({
+        status,
+        ...(parsed.data.reason === 'read' ? { lastActivityAt: now().toISOString() } : {}),
+      })
+      .where(eq(chains.id, id))
+      .run();
     const firstText = current.messages[0]?.text ?? '';
     const text =
       `${parsed.data.reason === 'settled' ? 'Settled' : parsed.data.reason === 'done' ? 'Done' : parsed.data.reason === 'read' ? 'Read' : 'Made a quest of'}: ${firstText}`.slice(

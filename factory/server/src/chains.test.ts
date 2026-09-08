@@ -9,10 +9,10 @@ import { eq, inArray } from 'drizzle-orm';
 
 import { createApp } from './app.js';
 import { upsertBriefingChain } from './chain-cards.js';
-import { ensureMechanicalBriefing } from './catchup.js';
+import { CATCHUP_AWAY_SECONDS, ensureMechanicalBriefing } from './catchup.js';
 import { CHAIN_LIMIT } from './chains.js';
 import { openDatabase, type AppDatabase } from './database.js';
-import { artifacts, chains, presence, quests, worlds } from './schema.js';
+import { artifacts, chains, healthReports, presence, quests, worlds } from './schema.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 
@@ -411,6 +411,7 @@ describe('chain routes', () => {
   });
 
   it('generates a mechanical briefing while listing briefing chains', async () => {
+    await postEvent(1);
     database.db
       .update(presence)
       .set({ lastSeenAt: new Date(clock.getTime() - 3 * 60 * 60 * 1000).toISOString() })
@@ -425,13 +426,42 @@ describe('chain routes', () => {
     expect(listed[0]).toMatchObject({ kind: 'briefing', status: 'open' });
   });
 
-  it('closing a briefing as read records lastCatchupEventId from its toEventId', async () => {
-    const briefing = writeBriefing(2, 17);
+  it('dismissing a briefing does not create a new one on the next list', async () => {
+    const briefing = writeBriefing(0, 1);
+    for (let index = 0; index < 25; index += 1) await postEvent(index);
+    database.db
+      .update(presence)
+      .set({ lastSeenAt: clock.toISOString() })
+      .where(eq(presence.id, 1))
+      .run();
+
+    await post(`/api/chains/${briefing.id}/close`, { reason: 'read' });
+    const listed = Chain.array().parse(
+      await (await app.request('/api/chains?kind=question,briefing')).json(),
+    );
+
+    expect(listed.filter(({ kind }) => kind === 'briefing')).toHaveLength(0);
+    expect(database.db.select().from(chains).where(eq(chains.kind, 'briefing')).all()).toHaveLength(
+      1,
+    );
+  });
+
+  it('dismissing a briefing advances lastCatchupEventId to the latest event', async () => {
+    const briefing = writeBriefing(0, 1);
+    await postEvent(1);
+    await postEvent(2);
+    const latestEventId = (await events()).at(-1)!.id;
 
     const response = await post(`/api/chains/${briefing.id}/close`, { reason: 'read' });
 
     expect(response.status).toBe(200);
-    expect(database.db.select().from(presence).get()?.lastCatchupEventId).toBe(17);
+    expect(database.db.select().from(presence).get()?.lastCatchupEventId).toBe(latestEventId);
+    expect(database.db.select().from(chains).where(eq(chains.id, briefing.id)).get()).toMatchObject(
+      {
+        lastActivityAt: clock.toISOString(),
+        status: 'settled',
+      },
+    );
   });
 
   it('a briefing written after a dismissal is a fresh chain', async () => {
@@ -461,7 +491,8 @@ describe('chain routes', () => {
     expect(Presence.parse(await (await app.request('/api/presence')).json()).needsYou).toBe(before);
   });
 
-  it('the mechanical generator creates a briefing when none is open', () => {
+  it('the mechanical generator creates a briefing when none is open', async () => {
+    await postEvent(1);
     database.db
       .update(presence)
       .set({ lastSeenAt: new Date(clock.getTime() - 3 * 60 * 60 * 1000).toISOString() })
@@ -475,23 +506,92 @@ describe('chain routes', () => {
     ).toMatchObject({ kind: 'briefing', status: 'open' });
   });
 
-  it('the mechanical generator respects both away and unseen thresholds', async () => {
+  it('a present Dru with many unseen events gets no mechanical briefing', async () => {
     database.db
       .update(presence)
-      .set({ lastSeenAt: new Date(clock.getTime() - 60 * 60 * 1000).toISOString() })
+      .set({ lastSeenAt: clock.toISOString() })
       .where(eq(presence.id, 1))
       .run();
-    for (let index = 0; index < 20; index += 1) await postEvent(index);
+    for (let index = 0; index < 25; index += 1) await postEvent(index);
     ensureMechanicalBriefing(database, clock);
     expect(
       database.db.select().from(chains).where(eq(chains.kind, 'briefing')).get(),
     ).toBeUndefined();
+  });
 
-    await postEvent(20);
+  it('writes a mechanical briefing when Dru is away and the Planner is down', async () => {
+    await postEvent(1);
+    database.db
+      .update(presence)
+      .set({ lastSeenAt: new Date(clock.getTime() - 3 * 60 * 60 * 1000).toISOString() })
+      .where(eq(presence.id, 1))
+      .run();
+    database.db
+      .insert(healthReports)
+      .values({ ts: new Date(clock.getTime() - 60 * 1000).toISOString(), plannerState: 'down' })
+      .run();
+
     ensureMechanicalBriefing(database, clock);
+
     expect(
       database.db.select().from(chains).where(eq(chains.kind, 'briefing')).get(),
-    ).toBeDefined();
+    ).toMatchObject({ kind: 'briefing', status: 'open' });
+  });
+
+  it('writes no mechanical briefing while the Planner is alive', async () => {
+    await postEvent(1);
+    database.db
+      .update(presence)
+      .set({ lastSeenAt: new Date(clock.getTime() - 3 * 60 * 60 * 1000).toISOString() })
+      .where(eq(presence.id, 1))
+      .run();
+
+    for (const plannerState of ['working', 'online']) {
+      database.db.delete(healthReports).run();
+      database.db
+        .insert(healthReports)
+        .values({ ts: new Date(clock.getTime() - 60 * 1000).toISOString(), plannerState })
+        .run();
+
+      ensureMechanicalBriefing(database, clock);
+
+      expect(
+        database.db.select().from(chains).where(eq(chains.kind, 'briefing')).get(),
+      ).toBeUndefined();
+    }
+  });
+
+  it('writes no mechanical briefing within the away window after a dismissal', async () => {
+    const briefing = writeBriefing(0, 0);
+    await post(`/api/chains/${briefing.id}/close`, { reason: 'read' });
+    database.db
+      .update(presence)
+      .set({ lastSeenAt: new Date(clock.getTime() - 3 * 60 * 60 * 1000).toISOString() })
+      .where(eq(presence.id, 1))
+      .run();
+    database.db
+      .update(chains)
+      .set({ lastActivityAt: new Date(clock.getTime() - 10 * 60 * 1000).toISOString() })
+      .where(eq(chains.id, briefing.id))
+      .run();
+
+    ensureMechanicalBriefing(database, clock);
+    expect(
+      database.db.select().from(chains).where(eq(chains.status, 'open')).get(),
+    ).toBeUndefined();
+
+    database.db
+      .update(chains)
+      .set({
+        lastActivityAt: new Date(clock.getTime() - (CATCHUP_AWAY_SECONDS + 1) * 1000).toISOString(),
+      })
+      .where(eq(chains.id, briefing.id))
+      .run();
+    ensureMechanicalBriefing(database, clock);
+
+    expect(database.db.select().from(chains).where(eq(chains.status, 'open')).get()).toMatchObject({
+      kind: 'briefing',
+    });
   });
 
   it('the mechanical generator never overwrites an open briefing', async () => {
