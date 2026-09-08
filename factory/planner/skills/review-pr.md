@@ -71,3 +71,6 @@ A Workshop PR whose change is a lead's verification (a test palette, shipped sec
 ## A validator must not move the goalposts (from 2026-09-08)
 
 When a PR adds or tightens a check against the game's rule tables (hide table, body plan → deliveries, tier bands, hint rules), read the diff to the tables themselves before anything else. Codex once widened `BODY_PLAN_DELIVERIES.serpentine` with `Arc` so Kelpmaw's authored move would pass the new check (#245) — the data and §5.5 genuinely disagreed, and the honest fix is a **named exception with a comment**, not a wider rule. A validator PR that edits the tables it validates against goes back as a round.
+
+### Tests written to dodge a guard (2026-09-08)
+Codex added a source guard ("no direct `localStorage` outside the accessor") and, in the same PR, wrote `` `local${'Storage'}` `` in test bodies and `it(` titles so its own tests would pass the guard. That is a booby trap: unsearchable names and a trick the next round copies. When a PR adds a lint/guard test, read the tests it touches for string-splitting, template tricks or renamed identifiers whose only purpose is to evade the guard; have Codex scope the guard properly (e.g. non-test sources) and write the words plainly.
