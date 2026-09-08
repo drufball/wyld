@@ -47,7 +47,7 @@ interface WyldGameApi {
   getState(): WyldGameState;
   screenshot(): string;
   debug(command: string): string;
-  perf(): { fps: number; tileMs: number; drawCalls: number };
+  perf(): { fps: number; tileMs: number; drawCalls: number; triangles?: number; frameMs?: number };
   log(): { kind: string; ts: number; payload: unknown }[];
 }
 

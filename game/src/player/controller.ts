@@ -10,6 +10,7 @@ type ControllerOptions = {
   rows(): number;
   start?: { x: number; z: number };
   screenFlipping?: boolean;
+  pick?: (clientX: number, clientY: number) => { tx: number; ty: number };
 };
 type TilePoint = { tx: number; ty: number };
 type Screen = { sx: number; sy: number };
@@ -90,7 +91,9 @@ const createPlayerController = (o: ControllerOptions) => {
     const rect = o.canvas.getBoundingClientRect(),
       px = ((clientX - rect.left) * o.canvas.width) / rect.width,
       py = ((clientY - rect.top) * o.canvas.height) / rect.height,
-      target = canvasPixelToTile(px, py, screen.sx, screen.sy, o.cols(), o.rows());
+      target =
+        o.pick?.(clientX, clientY) ??
+        canvasPixelToTile(px, py, screen.sx, screen.sy, o.cols(), o.rows());
     const found = pathForTap(
       o.grid,
       { tx: Math.floor(tx), ty: Math.floor(ty) },
