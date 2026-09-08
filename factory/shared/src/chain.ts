@@ -26,6 +26,13 @@ export const ChainAnchor = z
   .strict();
 export type ChainAnchor = z.infer<typeof ChainAnchor>;
 
+export const ChainCapture = z
+  .object({
+    screenshot: z.string().nullable().default(null),
+    state: z.unknown().nullable().default(null),
+  })
+  .strict();
+
 export const ChainMessage = z.object({
   id: z.number().int().positive(),
   chainId: z.number().int().positive(),

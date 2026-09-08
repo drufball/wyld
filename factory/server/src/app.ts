@@ -418,7 +418,15 @@ export function createApp(dependencies: AppDependencies) {
     config: sleepConfig,
     setNextAction,
   }).start();
-  app.route('/api', createChainRoutes({ database: dependencies.database, now, storeEvent }));
+  app.route(
+    '/api',
+    createChainRoutes({
+      database: dependencies.database,
+      now,
+      storeEvent,
+      config: { feedbackDir: dependencies.feedbackDir },
+    }),
+  );
   app.route('/api', createArtifactRoutes({ database: dependencies.database, now, storeEvent }));
   app.route('/api', createOpsRoutes({ database: dependencies.database, now }));
   app.route(

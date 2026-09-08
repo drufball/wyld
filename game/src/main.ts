@@ -1,5 +1,6 @@
 import worldData from './data/world.json';
 import { createInput } from './engine/input.js';
+import { installEmbedBridge } from './ui/embed-bridge.js';
 import { createEventBus } from './engine/events.js';
 import { createLoop } from './engine/loop.js';
 import { createRng, resolveSeed } from './engine/rng.js';
@@ -909,4 +910,5 @@ window.__wyld = {
   perf: () => ({ ...stats.read(), ...(look === 'diorama' ? dioramaView!.perf() : {}) }),
   log: () => eventLog.map((entry) => ({ ...entry })),
 };
+installEmbedBridge();
 loop.start();

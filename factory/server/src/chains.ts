@@ -1,10 +1,23 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
-import { Chain, ChainAnchor, ChainKind, ChainStatus, Timestamp, type NewEvent } from '@wyld/shared';
+import {
+  ArtifactSlug,
+  Chain,
+  ChainAnchor,
+  ChainCapture,
+  ChainKind,
+  ChainStatus,
+  Timestamp,
+  type NewEvent,
+} from '@wyld/shared';
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { ensureMechanicalBriefing } from './catchup.js';
+import type { Config } from './config.js';
 import { formatIssues } from './quests.js';
 import { compareRumbles } from './rumbles.js';
 import { artifacts, chainMessages, chains, demos, presence, quests } from './schema.js';
@@ -19,6 +32,8 @@ const ChainCreate = z
     author: z.enum(['human', 'planner']).default('human'),
     kind: ChainKind.exclude(['rumble', 'demo', 'action', 'unlock', 'briefing']).optional(),
     anchor: ChainAnchor.optional(),
+    capture: ChainCapture.optional(),
+    explainer: ArtifactSlug.optional(),
   })
   .strict();
 const ChainQuery = z.object({
@@ -44,9 +59,10 @@ type Dependencies = {
   database: AppDatabase;
   now: () => Date;
   storeEvent: (event: NewEvent) => Promise<unknown>;
+  config: Pick<Config, 'feedbackDir'>;
 };
 
-export function createChainRoutes({ database, now, storeEvent }: Dependencies) {
+export function createChainRoutes({ database, now, storeEvent, config }: Dependencies) {
   const { db } = database;
   const app = new Hono();
   const notFound = (c: Context) => c.json({ error: 'Not Found' }, 404);
@@ -218,6 +234,23 @@ export function createChainRoutes({ database, now, storeEvent }: Dependencies) {
         undefined
     )
       return notFound(c);
+    if (
+      parsed.data.explainer !== undefined &&
+      db.select().from(artifacts).where(eq(artifacts.slug, parsed.data.explainer)).get() ===
+        undefined
+    )
+      return notFound(c);
+    let image: { extension: 'jpg' | 'png'; bytes: Buffer } | undefined;
+    if (parsed.data.capture?.screenshot !== null && parsed.data.capture?.screenshot !== undefined) {
+      const match = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/]*={0,2})$/.exec(
+        parsed.data.capture.screenshot,
+      );
+      if (!match) return c.json({ error: 'Invalid screenshot' }, 400);
+      const bytes = Buffer.from(match[2]!, 'base64');
+      if (bytes.byteLength > 4 * 1024 * 1024)
+        return c.json({ error: 'Screenshot exceeds 4 MB' }, 400);
+      image = { extension: match[1] === 'jpeg' ? 'jpg' : 'png', bytes };
+    }
     const ts = now().toISOString();
     const row = db
       .insert(chains)
@@ -227,11 +260,33 @@ export function createChainRoutes({ database, now, storeEvent }: Dependencies) {
         createdAt: ts,
         lastActivityAt: ts,
         questId: parsed.data.questId ?? null,
-        tags: [parsed.data.kind ?? (parsed.data.author === 'human' ? 'question' : 'message')],
+        tags:
+          parsed.data.explainer === undefined
+            ? [parsed.data.kind ?? (parsed.data.author === 'human' ? 'question' : 'message')]
+            : ['look'],
         anchor: parsed.data.anchor ?? null,
+        payload:
+          parsed.data.capture === undefined && parsed.data.explainer === undefined ? null : {},
       })
       .returning({ id: chains.id })
       .get();
+    if (parsed.data.capture !== undefined || parsed.data.explainer !== undefined) {
+      let state = parsed.data.capture?.state ?? null;
+      if (JSON.stringify(state)?.length > 65_536) state = null;
+      const screenshot = image === undefined ? null : `/api/chains/${row.id}/screenshot`;
+      const payload = {
+        ...(parsed.data.capture === undefined ? {} : { capture: { screenshot, state, at: ts } }),
+        ...(parsed.data.explainer === undefined ? {} : { explainer: parsed.data.explainer }),
+      };
+      if (image) {
+        await fs.mkdir(config.feedbackDir, { recursive: true });
+        await fs.writeFile(
+          path.join(config.feedbackDir, `chain-${row.id}.${image.extension}`),
+          image.bytes,
+        );
+      }
+      db.update(chains).set({ payload }).where(eq(chains.id, row.id)).run();
+    }
     db.insert(chainMessages)
       .values({ chainId: row.id, author: parsed.data.author, text: parsed.data.text, ts })
       .run();
@@ -246,6 +301,33 @@ export function createChainRoutes({ database, now, storeEvent }: Dependencies) {
       },
     });
     return c.json(readChain(row.id)!, 201);
+  });
+
+  app.get('/chains/:id/screenshot', async (c) => {
+    const id = z.coerce.number().int().positive().safeParse(c.req.param('id'));
+    if (!id.success) return c.json(formatIssues(id.error), 400);
+    const row = db.select().from(chains).where(eq(chains.id, id.data)).get();
+    const screenshot =
+      row?.payload?.capture && typeof row.payload.capture === 'object'
+        ? (row.payload.capture as { screenshot?: unknown }).screenshot
+        : null;
+    if (typeof screenshot !== 'string') return notFound(c);
+    const extension =
+      screenshot.endsWith('/screenshot') &&
+      (await fs
+        .access(path.join(config.feedbackDir, `chain-${id.data}.jpg`))
+        .then(() => 'jpg')
+        .catch(() => 'png'));
+    try {
+      const bytes = await fs.readFile(
+        path.join(config.feedbackDir, `chain-${id.data}.${extension}`),
+      );
+      return new Response(bytes, {
+        headers: { 'content-type': extension === 'png' ? 'image/png' : 'image/jpeg' },
+      });
+    } catch {
+      return notFound(c);
+    }
   });
 
   app.post('/chains/:id/messages', async (c) => {
