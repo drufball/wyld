@@ -346,7 +346,7 @@ damage = power × 5 × (0.6 + attacker.Power / 10) × hideMultiplier(defender.hi
 - `ambushMultiplier` = 1.5 on the first hit of an encounter if the wild creature had not detected the player when the move was called; 1.0 otherwise.
 - Round to integer, minimum 1.
 
-Worked check (use these as unit test fixtures): Loamox (Power 3) using Strike/Impact power 3 vs Bramblehog (Bark, Vigor 60): `3×5×0.9×1.0 = 13.5 → 14`. Five hits to down. Same Loamox vs Antlerback (Bark, Vigor 200): 14 per hit → 15 hits, while Antlerback's power-5 Impact vs Loamox Vigor 70 does `5×5×(0.6+0.55)×1.0 = 28.75 → 29` — three hits. Antlerback is a wall for the starter. Emberjack (Power 4) with an upgraded Heat move at power 6 vs Antlerback: `6×5×1.0×1.6 = 48` → five hits. The wall opens once you have the Heat species and have trained it.
+Worked check (use these as unit test fixtures): Loamox (Power 3) using Strike/Impact power 3 vs Bramblehog (Bark, Vigor 60): `3×5×0.9×1.0 = 13.5 → 14`. Five hits to down. Same Loamox vs Antlerback (Bark, Vigor 200): 14 per hit → 15 hits, while Antlerback's power-5 Impact vs Loamox Vigor 70 does `5×5×(0.6+0.5)×1.0 = 27.5 → 28` — three hits. Antlerback is a wall for the starter. Emberjack (Power 4) with an upgraded Heat move at power 6 vs Antlerback: `6×5×1.0×1.6 = 48` → five hits. The wall opens once you have the Heat species and have trained it.
 
 ### 7.5 Downed, bonding, capture
 
@@ -969,7 +969,7 @@ Estimated proportions of total effort are given as a guide, not a schedule.
 - Debug `heal`.
 
 **Checkpoints**
-- [ ] Unit: `damage()` reproduces the three worked examples in §7.4 exactly (14, 29, 48).
+- [ ] Unit: `damage()` reproduces the three worked examples in §7.4 exactly (14, 28, 48).
 - [ ] Unit: `hideMultiplier()` for all 20 hide × force pairs matches §5.3.
 - [ ] Unit: windup formula for (Speed 4, moveSpeed 1, Strike) = `0.6 × 0.96 × 0.9 = 0.518 s`; clamps to 0.25 s minimum.
 - [ ] Unit: capture repertoire — species with 3 signature moves, 2 observed → 2 inherited; 0 observed → first signature only.
