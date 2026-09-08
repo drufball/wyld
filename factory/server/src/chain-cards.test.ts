@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import { createApp } from './app.js';
-import { refreshDemoChainPayloads } from './chain-cards.js';
+import { refreshDemoChainPayloads, upsertBriefingChain } from './chain-cards.js';
 import { openDatabase, type AppDatabase } from './database.js';
 import { chains, demos } from './schema.js';
 
@@ -109,5 +109,32 @@ describe('demo chain payload refresh', () => {
     });
 
     expectRefreshed(chain.id);
+  });
+
+  it('upserting a briefing twice keeps its id, range start, and newest body markers', () => {
+    const empty = { rumbles: [], demos: [], shipped: [], fyi: [] };
+    const first = upsertBriefingChain(
+      database,
+      { digest: { ...empty, fyi: ['First'] }, fromEventId: 4, toEventId: 8 },
+      '2026-09-05T12:00:00.000Z',
+    );
+    const second = upsertBriefingChain(
+      database,
+      { digest: { ...empty, fyi: ['Second'] }, fromEventId: 99, toEventId: 12 },
+      '2026-09-05T13:00:00.000Z',
+    );
+
+    expect(second.chain.id).toBe(first.chain.id);
+    expect(second.created).toBe(false);
+    expect(database.db.select().from(chains).all()).toHaveLength(1);
+    expect(second.chain).toMatchObject({
+      lastActivityAt: '2026-09-05T13:00:00.000Z',
+      payload: {
+        fyi: ['Second'],
+        fromEventId: 4,
+        toEventId: 12,
+        updatedAt: '2026-09-05T13:00:00.000Z',
+      },
+    });
   });
 });

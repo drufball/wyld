@@ -38,6 +38,7 @@ describe('Chain', () => {
       'demo',
       'action',
       'unlock',
+      'briefing',
     ]);
   });
 

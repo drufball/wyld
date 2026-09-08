@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, gte, isNull } from 'drizzle-orm';
+import { asc, count, desc, eq, gt, gte, isNull } from 'drizzle-orm';
 import path from 'node:path';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
@@ -7,9 +7,8 @@ import {
   EventId,
   HealthReport,
   HealthSnapshot,
-  Catchup,
   CatchupDigest,
-  CatchupView,
+  Chain,
   NewEvent,
   NextAction,
   Presence,
@@ -19,14 +18,18 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { log, type LogContext } from './logger.js';
-import { catchups, demos, events, healthReports, pauses, presence, quests } from './schema.js';
-import { mechanicalDigest } from './catchup.js';
+import { chainMessages, events, healthReports, pauses, presence } from './schema.js';
+import {
+  CATCHUP_AWAY_SECONDS,
+  CATCHUP_UNSEEN_EVENTS,
+  ensureMechanicalBriefing,
+} from './catchup.js';
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder, createWakePauseNotifier } from './forwarder.js';
 import { createQuestRoutes, formatIssues } from './quests.js';
 import { createChainRoutes } from './chains.js';
 import { createOpsRoutes, latestOpsReport } from './ops.js';
-import { createRumbleRoutes, listOrderedRumbleRows } from './rumbles.js';
+import { createRumbleRoutes } from './rumbles.js';
 import { createDemoRoutes } from './demos.js';
 import { DEMO_SLUG, type DemoBuilder } from './builder.js';
 import { resolveStaticFile } from './static.js';
@@ -36,7 +39,8 @@ import { createSleepRoutes, createSleepScheduler, type SleepConfig } from './sle
 import { createAchievements } from './achievements.js';
 import {
   countNeedsYou,
-  demoUrl,
+  readOpenBriefing,
+  upsertBriefingChain,
   refreshDemoChainPayloads,
   replaceActionChain,
 } from './chain-cards.js';
@@ -64,6 +68,7 @@ const NotifyPost = z
 const CatchupPost = z
   .object({
     digest: CatchupDigest,
+    headline: z.string().min(1).max(160).optional(),
     fromEventId: z.number().int().min(0).optional(),
     toEventId: z.number().int().min(0).optional(),
   })
@@ -78,8 +83,7 @@ const CatchupPost = z
     },
   );
 
-export const CATCHUP_AWAY_SECONDS = 7200;
-export const CATCHUP_UNSEEN_EVENTS = 20;
+export { CATCHUP_AWAY_SECONDS, CATCHUP_UNSEEN_EVENTS };
 export const PLANNER_STALE_SECONDS = 600;
 export const OPS_STALE_SECONDS = 600;
 
@@ -314,85 +318,28 @@ export function createApp(dependencies: AppDependencies) {
     return { currentPresence, from, to };
   };
 
-  const parseCatchup = (row: typeof catchups.$inferSelect) => Catchup.parse(row);
+  const readBriefingChain = () => {
+    const row = readOpenBriefing(dependencies.database);
+    if (row === undefined) return null;
+    return Chain.parse({
+      ...row,
+      rumble: null,
+      messages: db
+        .select()
+        .from(chainMessages)
+        .where(eq(chainMessages.chainId, row.id))
+        .orderBy(chainMessages.id)
+        .all(),
+    });
+  };
 
   app.get('/api/catchup', (c) => {
-    const { currentPresence, from, to } = eventRange();
-    const matching = (generatedBy: 'planner' | 'mechanical') =>
-      db
-        .select()
-        .from(catchups)
-        .where(
-          and(
-            eq(catchups.fromEventId, from),
-            eq(catchups.toEventId, to),
-            eq(catchups.generatedBy, generatedBy),
-          ),
-        )
-        .get();
-    let row = matching('planner') ?? matching('mechanical');
-    const unseenEvents = listEvents(from);
-    if (row === undefined) {
-      const digest = mechanicalDigest({
-        events: unseenEvents,
-        quests: db
-          .select({
-            id: quests.id,
-            worldId: quests.worldId,
-            title: quests.title,
-            status: quests.status,
-          })
-          .from(quests)
-          .all(),
-        demos: db
-          .select({
-            id: demos.id,
-            questId: demos.questId,
-            summary: demos.summary,
-            kind: demos.kind,
-            deepLink: demos.deepLink,
-          })
-          .from(demos)
-          .all()
-          .map((demo) => ({ ...demo, url: demoUrl(demo) })),
-        openRumbles: listOrderedRumbleRows(dependencies.database, 'open', { now }).map(
-          ({ slug, title }) => ({
-            id: slug!,
-            title: title!,
-          }),
-        ),
-      });
-      [row] = db
-        .insert(catchups)
-        .values({
-          fromEventId: from,
-          toEventId: to,
-          digest,
-          generatedBy: 'mechanical',
-          createdAt: now().toISOString(),
-        })
-        .returning()
-        .all();
-    }
-    if (row === undefined) throw new Error('Catch-up insert did not return a row');
-    const awaySeconds = Math.max(
-      0,
-      Math.floor((now().getTime() - new Date(currentPresence.lastSeenAt).getTime()) / 1000),
-    );
-    return c.json(
-      CatchupView.parse({
-        show: awaySeconds > CATCHUP_AWAY_SECONDS || unseenEvents.length > CATCHUP_UNSEEN_EVENTS,
-        awaySeconds,
-        unseenCount: unseenEvents.length,
-        catchup: parseCatchup(row),
-        nextAction: currentPresence.nextAction,
-      }),
-    );
+    ensureMechanicalBriefing(dependencies.database, now());
+    return c.json(readBriefingChain());
   });
 
   app.post('/api/catchup', async (c) => {
-    const body: unknown = await c.req.json().catch(() => undefined);
-    const parsed = CatchupPost.safeParse(body);
+    const parsed = CatchupPost.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
     const range = eventRange();
     const fromEventId = parsed.data.fromEventId ?? range.from;
@@ -401,24 +348,20 @@ export function createApp(dependencies: AppDependencies) {
       const error = CatchupPost.safeParse({ ...parsed.data, fromEventId, toEventId });
       if (!error.success) return c.json(formatIssues(error.error), 400);
     }
-    const createdAt = now().toISOString();
-    const [row] = db
-      .insert(catchups)
-      .values({
-        fromEventId,
-        toEventId,
-        digest: parsed.data.digest,
-        generatedBy: 'planner',
-        createdAt,
-      })
-      .onConflictDoUpdate({
-        target: [catchups.fromEventId, catchups.toEventId, catchups.generatedBy],
-        set: { digest: parsed.data.digest, createdAt },
-      })
-      .returning()
-      .all();
-    if (row === undefined) throw new Error('Catch-up upsert did not return a row');
-    return c.json(parseCatchup(row), 201);
+    const result = upsertBriefingChain(
+      dependencies.database,
+      { digest: parsed.data.digest, headline: parsed.data.headline, fromEventId, toEventId },
+      now().toISOString(),
+    );
+    await storeEvent({
+      source: 'planner',
+      kind: 'planner.chain_updated',
+      payload: {
+        chainId: result.chain.id,
+        text: parsed.data.headline ?? "Here's where things stand.",
+      },
+    });
+    return c.json(readBriefingChain()!, 201);
   });
 
   app.post('/api/presence/next-action', async (c) => {
@@ -460,9 +403,6 @@ export function createApp(dependencies: AppDependencies) {
     const seenAt = now().toISOString();
     db.update(presence).set({ lastSeenAt: seenAt }).where(eq(presence.id, 1)).run();
     await storeEvent({ source: 'human', kind: 'human.seen', payload: {} });
-    const latestEventId =
-      db.select({ id: events.id }).from(events).orderBy(desc(events.id)).get()?.id ?? null;
-    db.update(presence).set({ lastCatchupEventId: latestEventId }).where(eq(presence.id, 1)).run();
     return c.json(readPresence());
   });
 

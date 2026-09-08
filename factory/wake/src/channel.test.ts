@@ -445,11 +445,11 @@ describe('Pak tools', () => {
     });
     expect(result.tools?.find(({ name }) => name === 'pak_close_chain')).toMatchObject({
       description:
-        'Settle a card once it is genuinely done with, so it folds away on Today. Pass reason done to also mark the quest done — that is only valid on a demo card that belongs to a quest. Dru can settle a card himself, and quiet chains settle on their own after a day. Undo either with pak_reopen_chain.',
+        'Settle a card once it is genuinely done with. Pass read for a briefing card to record how far Dru has caught up; done is only valid on a quest demo. Undo with pak_reopen_chain.',
       inputSchema: {
         properties: {
           chain: { type: 'integer', minimum: 1 },
-          reason: { type: 'string', enum: ['settled', 'done'], default: 'settled' },
+          reason: { type: 'string', enum: ['settled', 'done', 'read'], default: 'settled' },
         },
         required: ['chain'],
         additionalProperties: false,

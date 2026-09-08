@@ -5,7 +5,15 @@ import { ArtifactSlug } from './artifact.js';
 import { Rumble } from './rumble.js';
 
 export const ChainStatus = z.enum(['open', 'settled', 'converted']);
-export const ChainKind = z.enum(['question', 'message', 'rumble', 'demo', 'action', 'unlock']);
+export const ChainKind = z.enum([
+  'question',
+  'message',
+  'rumble',
+  'demo',
+  'action',
+  'unlock',
+  'briefing',
+]);
 export type ChainStatus = z.infer<typeof ChainStatus>;
 export type ChainKind = z.infer<typeof ChainKind>;
 

@@ -2,16 +2,9 @@ import type { Chain } from '@wyld/shared';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  getCatchup,
-  getHealthSnapshot,
-  getPresence,
-  listChains,
-  listQuests,
-} from '../api/client.js';
+import { getHealthSnapshot, getPresence, listChains, listQuests } from '../api/client.js';
 import { Vmu } from './Vmu.js';
 vi.mock('../api/client.js', () => ({
-  getCatchup: vi.fn(),
   getHealthSnapshot: vi.fn(),
   getPresence: vi.fn(),
   listChains: vi.fn(),
@@ -42,20 +35,6 @@ function renderVmu() {
 }
 describe('VMU', () => {
   beforeEach(() => {
-    vi.mocked(getCatchup).mockResolvedValue({
-      show: false,
-      awaySeconds: 0,
-      unseenCount: 0,
-      catchup: {
-        id: 1,
-        fromEventId: 0,
-        toEventId: 0,
-        digest: { rumbles: [], demos: [], shipped: [], fyi: [] },
-        generatedBy: 'mechanical',
-        createdAt: '2026-09-05T12:00:00Z',
-      },
-      nextAction: null,
-    });
     vi.mocked(getHealthSnapshot).mockResolvedValue({
       ts: '2026-09-05T12:00:00Z',
       planner: { state: 'online' },
@@ -86,23 +65,25 @@ describe('VMU', () => {
   });
   it('counts rumbles and ready demos from chains', async () => {
     vi.mocked(listChains).mockImplementation(async (options) =>
-      options?.kind === 'rumble'
-        ? [
-            chain({
-              kind: 'rumble',
-              rumble: {
-                id: 'r',
-                title: 'R',
-                context: 'C',
-                options: ['a'],
-                chosen: null,
-                chosenAt: null,
-                blockingQuestIds: [],
-                kind: 'taste',
-              },
-            }),
-          ]
-        : [chain({ kind: 'demo', demoId: 'd', payload: { title: 'Demo', status: 'ready' } })],
+      options?.kind === 'briefing'
+        ? []
+        : options?.kind === 'rumble'
+          ? [
+              chain({
+                kind: 'rumble',
+                rumble: {
+                  id: 'r',
+                  title: 'R',
+                  context: 'C',
+                  options: ['a'],
+                  chosen: null,
+                  chosenAt: null,
+                  blockingQuestIds: [],
+                  kind: 'taste',
+                },
+              }),
+            ]
+          : [chain({ kind: 'demo', demoId: 'd', payload: { title: 'Demo', status: 'ready' } })],
     );
     renderVmu();
     expect(await screen.findByRole('link', { name: 'one Rumble' })).not.toBeNull();

@@ -1,19 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  getCatchup,
-  getHealthSnapshot,
-  getPresence,
-  listChains,
-  listQuests,
-} from '../api/client.js';
+import { getHealthSnapshot, getPresence, listChains, listQuests } from '../api/client.js';
 import { Card } from '../components/ui/card.js';
 import { SfxToggle } from '../components/SfxToggle.js';
 import { countInWords } from '../words.js';
 import { demoCard } from '../lib/chain-cards.js';
 
 export function Vmu() {
-  const [catchup, setCatchup] = useState<Awaited<ReturnType<typeof getCatchup>> | null>(null);
+  const [nextAction, setNextAction] =
+    useState<Awaited<ReturnType<typeof getPresence>>['nextAction']>(null);
+  const [briefingReady, setBriefingReady] = useState(false);
   const [buildingCount, setBuildingCount] = useState<number | null>(null);
   const [rumbleCount, setRumbleCount] = useState<number | null>(null);
   const [demoCount, setDemoCount] = useState<number | null>(null);
@@ -21,9 +17,6 @@ export function Vmu() {
   const [needsYou, setNeedsYou] = useState(0);
 
   useEffect(() => {
-    void getCatchup()
-      .then(setCatchup)
-      .catch(() => setCatchup(null));
     void getHealthSnapshot()
       .then((snapshot) => setPaused(snapshot.paused !== undefined))
       .catch(() => setPaused(false));
@@ -31,8 +24,14 @@ export function Vmu() {
       .then((quests) => setBuildingCount(quests.length))
       .catch(() => setBuildingCount(0));
     void getPresence()
-      .then((presence) => setNeedsYou(presence.needsYou))
+      .then((presence) => {
+        setNeedsYou(presence.needsYou);
+        setNextAction(presence.nextAction);
+      })
       .catch(() => setNeedsYou(0));
+    void listChains({ kind: 'briefing' })
+      .then((chains) => setBriefingReady(chains.length > 0))
+      .catch(() => setBriefingReady(false));
     void listChains({ kind: 'rumble' })
       .then((rumbles) => setRumbleCount(rumbles.length))
       .catch(() => setRumbleCount(0));
@@ -43,8 +42,7 @@ export function Vmu() {
       .catch(() => setDemoCount(0));
   }, []);
 
-  const nextAction = catchup?.nextAction ?? null;
-  const quiet = catchup !== null && needsYou === 0 && buildingCount === 0 && nextAction === null;
+  const quiet = needsYou === 0 && buildingCount === 0 && nextAction === null;
   return (
     <main className="grid min-h-dvh content-center items-stretch gap-5 bg-muted p-5">
       <h1 className="m-0 font-display text-[10px] text-muted-foreground">VMU</h1>
@@ -64,12 +62,12 @@ export function Vmu() {
           Paused?
         </Link>
       )}
-      {catchup?.show && (
+      {briefingReady && (
         <Link
           className="flex min-h-11 items-center justify-self-start py-2 font-display text-[10px] text-accent underline"
-          to="/catch-up"
+          to="/"
         >
-          Catch-Up ready
+          Briefing ready
         </Link>
       )}
       {rumbleCount !== null && rumbleCount > 0 && (
