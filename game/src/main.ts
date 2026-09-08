@@ -31,7 +31,7 @@ import {
   type Behaviour,
 } from './creatures/ai.js';
 import { drawCreatureSprite } from './render2d/creature-sprite.js';
-import { tileToWorld, worldToTile } from './world/tiles.js';
+import { TILE_METRES, tileToWorld, worldToTile } from './world/tiles.js';
 import { createCallAudio } from './audio/calls.js';
 import { placeTracks } from './world/tracks.js';
 import { species, type Temperament } from './creatures/species.js';
@@ -88,13 +88,6 @@ const initialScale = pixelScale(innerWidth, innerHeight),
 const grid = synthetic
   ? buildArena(initialCols, initialRows)
   : createTileGrid({ ...terrain, depthAt, propPlacements });
-let activeFlatScreen = { sx: 0, sy: 0 };
-const dioramaView = look === 'diorama' ? createDiorama(grid) : null;
-const flatView = look === 'flat' ? createCanvas({ screen: () => activeFlatScreen }) : null;
-const view = dioramaView ?? flatView!;
-const scenarioStart = synthetic
-  ? { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) }
-  : scenario?.start;
 const trackPlacements = placeTracks({
   rng: createRng(seed ^ 0x71ac),
   propPlacements,
@@ -106,6 +99,14 @@ const trackPlacements = placeTracks({
     return grid.isWalkable(tx, ty);
   },
 });
+let activeFlatScreen = { sx: 0, sy: 0 };
+const dioramaView =
+  look === 'diorama' ? createDiorama(grid, synthetic ? [] : trackPlacements) : null;
+const flatView = look === 'flat' ? createCanvas({ screen: () => activeFlatScreen }) : null;
+const view = dioramaView ?? flatView!;
+const scenarioStart = synthetic
+  ? { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) }
+  : scenario?.start;
 let tiles = createTileRenderer(grid, synthetic ? [] : trackPlacements);
 const debugConsole = createDebugConsole({ seed }),
   stats = createStatsPanel(debugConsole.available),
@@ -511,18 +512,47 @@ const render = (alpha = 1) => {
     screen = player.screen;
   activeFlatScreen = { sx: screen.x, sy: screen.y };
   if (look === 'diorama') {
+    const yaw = { down: 0, up: Math.PI, right: -Math.PI / 2, left: Math.PI / 2 } as const;
     const result = dioramaView!.render({
       screen,
       sliding: player.sliding,
       phase: clock.phase,
       phaseProgress: clock.phaseProgress,
       elapsedSeconds,
+      alpha,
       player: {
         tileX: player.interpolated(alpha).x,
         tileY: player.interpolated(alpha).y,
         facing: player.facing,
         moving: player.moving,
       },
+      creatures: registry
+        .list()
+        .filter((creature) => onScreen(creature.position.x, creature.position.z, 1))
+        .map((creature) => ({
+          key: creature.id,
+          speciesId: creature.speciesId,
+          tileX: (creature.position.x + 400) / TILE_METRES,
+          tileY: (creature.position.z + 400) / TILE_METRES,
+          facing: creature.facing,
+          state: creature.state,
+          phaseOffset: creature.frameClock,
+          meter: aiStates.get(creature.id)?.meter ?? 0,
+        })),
+      party: partyState.party.map((member) => {
+        const controller = partyControllers.get(member.individual.id)!;
+        const tile = controller.interpolated(alpha);
+        return {
+          key: member.individual.id,
+          speciesId: member.individual.speciesId,
+          tileX: tile.x,
+          tileY: tile.y,
+          facing: yaw[controller.facing],
+          state: controller.moving ? ('walk' as const) : ('idle' as const),
+          phaseOffset: 0,
+        };
+      }),
+      selection: partyState.selection,
     });
     stats.afterRender(result.frameMs, result.drawCalls);
     return;
