@@ -73,6 +73,8 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
       });
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      mesh.frustumCulled = false;
       mesh.receiveShadow = true;
       mesh.castShadow = false;
       mesh.userData.surface = surface;
@@ -129,6 +131,6 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
 };
 const jitter = (tx: number, ty: number): number => {
   const h = (Math.imul(((tx * 73856093) ^ (ty * 19349663)) >>> 0, 1664525) + 1013904223) >>> 0;
-  return 0.92 + (h / 0x100000000) * 0.16;
+  return 0.96 + (h / 0x100000000) * 0.08;
 };
 export { createSlabs, jitter };

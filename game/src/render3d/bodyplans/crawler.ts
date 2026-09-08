@@ -10,7 +10,7 @@ const build: BodyPlanBuilder = (spec) => {
     const part = mesh(
       new THREE.BoxGeometry(l * 0.42, h * 0.32, l * 0.28),
       i === 0 ? m.primary : m.secondary,
-      i === 3,
+      i === 0,
     );
     part.position.set(0, h * 0.36, l * (0.36 - i * 0.24));
     parts.push(part);
@@ -19,14 +19,18 @@ const build: BodyPlanBuilder = (spec) => {
   const legs: THREE.Mesh[] = [];
   for (const side of [-1, 1])
     for (let i = 0; i < 3; i++) {
-      const leg = mesh(new THREE.CylinderGeometry(l * 0.025, l * 0.035, l * 0.42, 6), m.secondary);
+      const leg = mesh(
+        new THREE.CylinderGeometry(l * 0.025, l * 0.035, l * 0.42, 6),
+        m.secondary,
+        false,
+      );
       leg.rotation.z = Math.PI / 2;
       leg.position.set(side * l * 0.3, h * 0.2, l * (0.27 - i * 0.26));
       legs.push(leg);
       group.add(leg);
     }
   for (const side of [-1, 1]) {
-    const jaw = mesh(new THREE.ConeGeometry(l * 0.055, l * 0.28, 8), m.accent);
+    const jaw = mesh(new THREE.ConeGeometry(l * 0.055, l * 0.28, 8), m.accent, false);
     jaw.rotation.x = Math.PI / 2;
     jaw.rotation.z = side * 0.25;
     jaw.position.set(side * l * 0.1, h * 0.34, l * 0.65);

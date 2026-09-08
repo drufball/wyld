@@ -85,7 +85,8 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
     target = { x: 0, z: 0 },
     frustum = { halfWidth: 1, halfHeight: 1 },
     built = '',
-    coloured = '';
+    coloured = '',
+    canvasRect: DOMRect;
   const times: number[] = [];
   const resize = () => {
     scale = pixelScale(innerWidth, innerHeight);
@@ -94,6 +95,7 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
     renderer.setSize(innerWidth, innerHeight);
     canvas.style.width = `${innerWidth}px`;
     canvas.style.height = `${innerHeight}px`;
+    canvasRect = canvas.getBoundingClientRect();
   };
   resize();
   addEventListener('resize', resize);
@@ -165,7 +167,7 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
         })),
       target,
       frustum,
-      canvas.getBoundingClientRect(),
+      canvasRect,
     );
     selection.sync(frame.party.find(({ key }) => key === frame.selection) ?? null);
     renderer.render(scene, camera);
@@ -198,7 +200,7 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
     perf,
     screenshot: () => canvas.toDataURL('image/jpeg', 0.6),
     pickTile(clientX: number, clientY: number) {
-      const rect = canvas.getBoundingClientRect();
+      const rect = canvasRect;
       return pickTileFromNdc(
         ((clientX - rect.left) / rect.width) * 2 - 1,
         1 - ((clientY - rect.top) / rect.height) * 2,

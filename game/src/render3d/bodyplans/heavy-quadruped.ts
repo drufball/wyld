@@ -6,27 +6,39 @@ const build: BodyPlanBuilder = (spec) => {
   const { length: l, height: h } = spec.visual;
   const m = materials(spec);
   const group = new THREE.Group();
-  const torso = mesh(new THREE.BoxGeometry(l * 0.55, h * 0.48, l), m.primary, true);
+  const torso = mesh(new THREE.BoxGeometry(l * 0.55, h * 0.48, l), m.primary, true, true);
   torso.position.y = h * 0.62;
   group.add(torso);
-  const head = mesh(new THREE.BoxGeometry(l * 0.48, h * 0.42, l * 0.38), m.secondary);
+  const head = mesh(new THREE.BoxGeometry(l * 0.48, h * 0.42, l * 0.38), m.secondary, false);
   head.position.set(0, h * 0.82, l * 0.62);
   group.add(head);
   const legs: THREE.Mesh[] = [];
   for (const x of [-1, 1])
     for (const z of [-1, 1]) {
-      const leg = mesh(new THREE.CylinderGeometry(l * 0.09, l * 0.11, h * 0.45, 8), m.secondary);
+      const leg = mesh(
+        new THREE.CylinderGeometry(l * 0.09, l * 0.11, h * 0.45, 8),
+        m.secondary,
+        false,
+      );
       leg.position.set(x * l * 0.2, h * 0.225, z * l * 0.33);
       legs.push(leg);
       group.add(leg);
     }
   for (const x of [-1, 1]) {
-    const horn = mesh(new THREE.CylinderGeometry(h * 0.035, h * 0.05, h * 0.65, 6), m.accent);
+    const horn = mesh(
+      new THREE.CylinderGeometry(h * 0.035, h * 0.05, h * 0.65, 6),
+      m.accent,
+      false,
+    );
     horn.rotation.z = x * -0.2;
     horn.position.set(x * l * 0.18, h * 0.38, 0);
     head.add(horn);
     for (const branchY of [0.05, 0.22]) {
-      const branch = mesh(new THREE.CylinderGeometry(h * 0.025, h * 0.035, h * 0.32, 6), m.accent);
+      const branch = mesh(
+        new THREE.CylinderGeometry(h * 0.025, h * 0.035, h * 0.32, 6),
+        m.accent,
+        false,
+      );
       branch.rotation.z = x * -0.85;
       branch.position.set(x * h * 0.1, h * branchY, 0);
       horn.add(branch);

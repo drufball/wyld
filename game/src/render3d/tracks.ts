@@ -9,7 +9,7 @@ const createTrackDecals = (scene: THREE.Scene) => {
   const geometry = new THREE.PlaneGeometry(1, 1);
   const material = new THREE.MeshBasicMaterial({
     transparent: true,
-    opacity: 0.45,
+    opacity: 0.55,
     color: '#292b25',
     depthWrite: false,
     polygonOffset: true,
@@ -17,7 +17,10 @@ const createTrackDecals = (scene: THREE.Scene) => {
   });
   let mesh: THREE.InstancedMesh | null = null;
   const clear = () => {
-    if (mesh) scene.remove(mesh);
+    if (mesh) {
+      scene.remove(mesh);
+      mesh.dispose();
+    }
     mesh = null;
   };
   return {
@@ -44,6 +47,7 @@ const createTrackDecals = (scene: THREE.Scene) => {
         const data = speciesById(placement.speciesId);
         return data ? trackDecalRects(data.tracks).map((rect) => ({ rect, tx, ty })) : [];
       });
+      if (visible.length === 0) return;
       mesh = new THREE.InstancedMesh(geometry, material, visible.length);
       const matrix = new THREE.Matrix4(),
         position = new THREE.Vector3(),
@@ -62,6 +66,8 @@ const createTrackDecals = (scene: THREE.Scene) => {
         mesh!.setMatrixAt(index, matrix);
       });
       mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      mesh.frustumCulled = false;
       scene.add(mesh);
     },
     dispose() {

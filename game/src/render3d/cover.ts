@@ -115,6 +115,8 @@ const createCover = (grid: TileGrid, scene: THREE.Scene) => {
       part.mesh = new THREE.InstancedMesh(part.geometry, part.material, matrices.length);
       matrices.forEach((m, i) => part.mesh!.setMatrixAt(i, m));
       part.mesh.instanceMatrix.needsUpdate = true;
+      part.mesh.computeBoundingSphere();
+      part.mesh.frustumCulled = false;
       part.mesh.castShadow = true;
       part.mesh.receiveShadow = false;
       scene.add(part.mesh);

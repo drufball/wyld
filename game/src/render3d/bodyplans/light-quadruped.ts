@@ -5,22 +5,26 @@ const build: BodyPlanBuilder = (spec) => {
   const { length: l, height: h } = spec.visual,
     m = materials(spec),
     group = new THREE.Group();
-  const torso = mesh(new THREE.CapsuleGeometry(l * 0.16, l * 0.5, 3, 8), m.primary, true);
+  const torso = mesh(new THREE.CapsuleGeometry(l * 0.16, l * 0.5, 3, 8), m.primary, true, true);
   torso.rotation.x = Math.PI / 2;
   torso.position.y = h * 0.62;
   group.add(torso);
-  const head = mesh(new THREE.ConeGeometry(l * 0.17, l * 0.4, 8), m.secondary);
+  const head = mesh(new THREE.ConeGeometry(l * 0.17, l * 0.4, 8), m.secondary, false);
   head.rotation.x = Math.PI / 2;
   head.position.set(0, h * 0.78, l * 0.55);
   group.add(head);
-  const tail = mesh(new THREE.ConeGeometry(l * 0.09, l * 0.7, 8), m.accent);
+  const tail = mesh(new THREE.ConeGeometry(l * 0.09, l * 0.7, 8), m.accent, false);
   tail.rotation.x = -Math.PI / 2;
   tail.position.set(0, h * 0.65, -l * 0.62);
   group.add(tail);
   const legs: THREE.Mesh[] = [];
   for (const x of [-1, 1])
     for (const z of [-1, 1]) {
-      const leg = mesh(new THREE.CylinderGeometry(l * 0.035, l * 0.045, h * 0.5, 8), m.secondary);
+      const leg = mesh(
+        new THREE.CylinderGeometry(l * 0.035, l * 0.045, h * 0.5, 8),
+        m.secondary,
+        false,
+      );
       leg.position.set(x * l * 0.14, h * 0.25, z * l * 0.25);
       legs.push(leg);
       group.add(leg);

@@ -21,10 +21,11 @@ const materials = (spec: BodyPlanSpec): Materials => ({
 const mesh = (
   geometry: THREE.BufferGeometry,
   material: THREE.Material,
+  cast = true,
   receive = false,
 ): THREE.Mesh => {
   const result = new THREE.Mesh(geometry, material);
-  result.castShadow = true;
+  result.castShadow = cast;
   result.receiveShadow = receive;
   return result;
 };

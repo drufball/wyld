@@ -49,8 +49,8 @@ describe('slabs', () => {
   });
   it('uses deterministic, bounded brightness jitter that varies between neighbours', () => {
     expect(jitter(7, 11)).toBe(jitter(7, 11));
-    expect(jitter(7, 11)).toBeGreaterThanOrEqual(0.92);
-    expect(jitter(7, 11)).toBeLessThanOrEqual(1.08);
+    expect(jitter(7, 11)).toBeGreaterThanOrEqual(0.96);
+    expect(jitter(7, 11)).toBeLessThanOrEqual(1.04);
     expect(jitter(7, 11)).not.toBe(jitter(8, 11));
   });
 });

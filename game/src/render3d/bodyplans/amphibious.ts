@@ -5,13 +5,17 @@ const build: BodyPlanBuilder = (spec) => {
   const { length: l, height: h } = spec.visual,
     m = materials(spec),
     group = new THREE.Group();
-  const torso = mesh(new THREE.BoxGeometry(l * 0.55, h * 0.3, l), m.primary, true);
+  const torso = mesh(new THREE.BoxGeometry(l * 0.55, h * 0.3, l), m.primary, true, true);
   torso.position.y = h * 0.32;
   group.add(torso);
   const legs: THREE.Mesh[] = [];
   for (const x of [-1, 1])
     for (const z of [-1, 1]) {
-      const leg = mesh(new THREE.CylinderGeometry(l * 0.035, l * 0.05, l * 0.38, 8), m.secondary);
+      const leg = mesh(
+        new THREE.CylinderGeometry(l * 0.035, l * 0.05, l * 0.38, 8),
+        m.secondary,
+        false,
+      );
       leg.rotation.z = Math.PI / 2;
       leg.position.set(x * l * 0.36, h * 0.18, z * l * 0.3);
       legs.push(leg);
@@ -20,7 +24,7 @@ const build: BodyPlanBuilder = (spec) => {
   const fins: THREE.Mesh[] = [];
   m.accent.side = THREE.DoubleSide;
   for (let i = 0; i < 4; i++) {
-    const fin = mesh(new THREE.PlaneGeometry(l * 0.16, h * 0.28), m.accent);
+    const fin = mesh(new THREE.PlaneGeometry(l * 0.16, h * 0.28), m.accent, false);
     fin.position.set(0, h * 0.57, l * (i / 4 - 0.35));
     fin.rotation.y = Math.PI / 2;
     fins.push(fin);

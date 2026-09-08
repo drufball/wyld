@@ -539,18 +539,21 @@ const render = (alpha = 1) => {
           phaseOffset: creature.frameClock,
           meter: aiStates.get(creature.id)?.meter ?? 0,
         })),
-      party: partyState.party.map((member) => {
+      party: partyState.party.flatMap((member, index) => {
         const controller = partyControllers.get(member.individual.id)!;
         const tile = controller.interpolated(alpha);
-        return {
-          key: member.individual.id,
-          speciesId: member.individual.speciesId,
-          tileX: tile.x,
-          tileY: tile.y,
-          facing: yaw[controller.facing],
-          state: controller.moving ? ('walk' as const) : ('idle' as const),
-          phaseOffset: 0,
-        };
+        if (!onScreen(tile.x, tile.y, 1)) return [];
+        return [
+          {
+            key: member.individual.id,
+            speciesId: member.individual.speciesId,
+            tileX: tile.x,
+            tileY: tile.y,
+            facing: yaw[controller.facing],
+            state: controller.moving ? ('walk' as const) : ('idle' as const),
+            phaseOffset: index,
+          },
+        ];
       }),
       selection: partyState.selection,
     });

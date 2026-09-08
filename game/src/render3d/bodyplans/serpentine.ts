@@ -11,17 +11,17 @@ const build: BodyPlanBuilder = (spec) => {
     const part = mesh(
       new THREE.SphereGeometry(radius, 8, 6),
       i < 3 ? m.primary : m.secondary,
-      i === 9,
+      i === 0,
     );
     part.position.set(0, radius, l * (0.42 - i / 10));
     segments.push(part);
     group.add(part);
   }
-  const head = mesh(new THREE.SphereGeometry(h * 0.34, 8, 6), m.primary);
+  const head = mesh(new THREE.SphereGeometry(h * 0.34, 8, 6), m.primary, false);
   head.position.set(0, h * 0.34, l * 0.56);
   group.add(head);
   for (const x of [-1, 1]) {
-    const eye = mesh(new THREE.SphereGeometry(h * 0.045, 6, 4), m.accent);
+    const eye = mesh(new THREE.SphereGeometry(h * 0.045, 6, 4), m.accent, false);
     eye.position.set(x * h * 0.2, h * 0.1, h * 0.28);
     head.add(eye);
   }

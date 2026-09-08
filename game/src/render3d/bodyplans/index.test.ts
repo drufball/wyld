@@ -84,8 +84,10 @@ describe('body plans', () => {
     bird.animate(0.5, 'locomotion');
     const hover = bird.group.children[0]!.children[0]!.position.y;
     expect(hover).toBeGreaterThan(idle);
-    expect(hover).toBeGreaterThanOrEqual(2);
-    expect(hover).toBeLessThanOrEqual(4);
+    expect(hover).toBeCloseTo(
+      birdData.visual.height! *
+        (0.6 + Math.sin((0.5 + birdData.visual.length! * 0.73) * Math.PI) * 0.15),
+    );
     const swimmerData = speciesById('mirefin')!;
     const swimmer = buildBodyPlan(swimmerData, swimmerData.tier);
     swimmer.animate(1, 'idle', 0);

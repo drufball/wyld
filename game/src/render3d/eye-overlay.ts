@@ -4,10 +4,10 @@ type EyeEntry = { key: string; tileX: number; tileY: number; headHeight: number;
 const createEye = (): { root: HTMLDivElement; fill: HTMLDivElement } => {
   const root = document.createElement('div');
   root.style.cssText =
-    'position:fixed;width:14px;height:10px;transform:translateX(-50%);pointer-events:none;z-index:4;background:#292b25;border-radius:70% 20%;rotate:45deg;overflow:hidden';
+    'position:fixed;width:22px;height:16px;transform:translateX(-50%);pointer-events:none;z-index:4;background:#292b25;border-radius:70% 20%;rotate:45deg;overflow:hidden;box-shadow:0 0 0 1px #f5f0dc99';
   const fill = document.createElement('div');
   fill.style.cssText =
-    'height:4px;position:absolute;left:2px;top:3px;background:#d8d1ae;rotate:-45deg;transform-origin:left center';
+    'height:6px;position:absolute;left:3px;top:5px;background:#d8d1ae;rotate:-45deg;transform-origin:left center';
   root.append(fill);
   document.body.append(root);
   return { root, fill };
@@ -34,7 +34,7 @@ const createEyeOverlay = () => {
         const anchor = anchorFor(entry.tileX, entry.tileY, entry.headHeight, target, frustum, rect);
         eye.root.style.left = `${anchor.left}px`;
         eye.root.style.top = `${anchor.top - 10}px`;
-        eye.fill.style.width = `${Math.max(0, Math.min(1, entry.meter)) * 10}px`;
+        eye.fill.style.width = `${Math.max(0, Math.min(1, entry.meter)) * 16}px`;
       }
     },
     dispose() {

@@ -35,6 +35,15 @@ describe('createTrackDecals', () => {
         0,
       ),
     );
+    expect(meshes[0]!.boundingSphere).not.toBeNull();
+    expect(meshes[0]!.frustumCulled).toBe(false);
+    decals.dispose();
+  });
+  it('does not add an empty mesh', () => {
+    const scene = new THREE.Scene(),
+      decals = createTrackDecals(scene);
+    decals.build([], [{ x: 0, y: 0 }], 8, 8);
+    expect(instanced(scene)).toHaveLength(0);
     decals.dispose();
   });
   it('lays every decal flat on the slab top', () => {

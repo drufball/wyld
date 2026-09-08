@@ -5,7 +5,7 @@ const build: BodyPlanBuilder = (spec) => {
   const { length: l, height: h } = spec.visual,
     m = materials(spec),
     group = new THREE.Group();
-  const body = mesh(new THREE.BoxGeometry(l * 0.55, h * 0.25, l * 0.75), m.secondary, true);
+  const body = mesh(new THREE.BoxGeometry(l * 0.55, h * 0.25, l * 0.75), m.secondary, true, true);
   body.position.y = h * 0.28;
   group.add(body);
   const shell = mesh(
@@ -18,13 +18,17 @@ const build: BodyPlanBuilder = (spec) => {
   const neck = new THREE.Group();
   neck.position.set(0, h * 0.27, l * 0.43);
   group.add(neck);
-  const head = mesh(new THREE.SphereGeometry(h * 0.18, 8, 6), m.secondary);
+  const head = mesh(new THREE.SphereGeometry(h * 0.18, 8, 6), m.secondary, false);
   head.position.z = l * 0.22;
   neck.add(head);
   const legs: THREE.Mesh[] = [];
   for (const x of [-1, 1])
     for (const z of [-1, 1]) {
-      const leg = mesh(new THREE.CylinderGeometry(l * 0.06, l * 0.07, h * 0.25, 8), m.secondary);
+      const leg = mesh(
+        new THREE.CylinderGeometry(l * 0.06, l * 0.07, h * 0.25, 8),
+        m.secondary,
+        false,
+      );
       leg.position.set(x * l * 0.25, h * 0.125, z * l * 0.25);
       legs.push(leg);
       group.add(leg);
