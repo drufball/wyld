@@ -348,7 +348,7 @@ describe('species routes', () => {
       `git -C ${worktree} add game/src/data/species.json`,
       `git -C ${worktree} -c user.name=WYLD Creature Workshop -c user.email=workshop@wyld.local commit -m Workshop: 1 species changed`,
       `git -C ${worktree} push -u origin workshop/20260203-040506`,
-      'gh pr create --base main --title Workshop: 1 species changed --body - **Shipped Testling** (`testling`) — name\n\nShipped from the creature workshop.',
+      "gh pr create --base main --title Workshop: 1 species changed --body Shipped by Dru from the Pak's creature workshop.\n\n- **Shipped Testling** (`testling`) — name",
       `git -C ${repoDir} worktree remove --force ${worktree}`,
     ]);
   });

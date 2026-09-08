@@ -179,7 +179,8 @@ export function createSpeciesRoutes({
       .orderBy(asc(speciesDrafts.speciesId))
       .all();
     if (drafts.length === 0) return c.json({ error: 'Nothing has been changed yet.' }, 409);
-    const file = await readSpecies();
+    const speciesText = await readFile(path.join(repoDir, 'game/src/data/species.json'), 'utf8');
+    const file = Species.array().parse(JSON.parse(speciesText));
     const shippedSpecies = applyDrafts(
       file,
       drafts.map((draft) => SpeciesDraft.parse(draft)),
@@ -224,7 +225,7 @@ export function createSpeciesRoutes({
       await run(git, ['-C', worktree, 'switch', '-c', branch]);
       await writeFile(
         path.join(worktree, 'game/src/data/species.json'),
-        serialiseSpecies(shippedSpecies),
+        serialiseSpecies(speciesText, shippedSpecies),
       );
       await run(pnpm, ['install', '--frozen-lockfile', '--prefer-offline'], worktree);
       await run(pnpm, ['exec', 'prettier', '--write', 'game/src/data/species.json'], worktree);
