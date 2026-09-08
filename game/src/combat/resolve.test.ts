@@ -3,7 +3,6 @@ import { buildArenaIndividual, enemy, rosterMember } from '../arena/roster.js';
 import { forces, hides, speciesById } from '../creatures/species.js';
 import { canAfford, damage, deliveries, windup } from './resolve.js';
 import type { Move } from './moves.js';
-import type { HideType } from '../creatures/species.js';
 
 const member = (id: string) => buildArenaIndividual(rosterMember(id)!);
 
@@ -47,7 +46,7 @@ describe('combat resolution', () => {
                 )[hide]
               ? 0.6
               : 1;
-        expect(damage(move, 4, hide as HideType)).toBe(Math.round(10 * expected));
+        expect(damage(move, 4, hide)).toBe(Math.round(10 * expected));
       }
   });
   it('winds up the Shove in 0.5184 s', () =>

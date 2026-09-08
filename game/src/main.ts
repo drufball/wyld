@@ -726,7 +726,7 @@ const loop = createLoop({
       const combat = encounter.state();
       const foe = registry.list().find(({ speciesId }) => speciesId === combat.enemy.speciesId);
       if (foe) {
-        const at = tileToWorld(combat.enemy.tile.x, combat.enemy.tile.y);
+        const at = tileToWorld(combat.enemy.tile.x - 0.5, combat.enemy.tile.y - 0.5);
         foe.position.x = at.x;
         foe.position.z = at.z;
         foe.facing = combat.enemy.facing;

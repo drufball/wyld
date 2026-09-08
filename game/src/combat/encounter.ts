@@ -1,5 +1,6 @@
 import { speciesById, type HideType, type Temperament } from '../creatures/species.js';
 import type { Individual } from '../creatures/individual.js';
+import { findPath } from '../player/pathing.js';
 import type { Move } from './moves.js';
 import { hideMultiplier } from './hides.js';
 import {
@@ -233,7 +234,8 @@ const createEncounter = ({
       if (!['Strike', 'Lunge'].includes(move.delivery)) return false;
       if (a === foe) return false;
       const d = distance(a.tile, target.tile),
-        travel = Math.max(0, d - rangeTilesFor(move)),
+        // Controllers stop at tile centres, so aim slightly inside the exact range boundary.
+        travel = Math.max(0, d - rangeTilesFor(move) + 0.25),
         dx = (target.tile.x - a.tile.x) / (d || 1),
         dy = (target.tile.y - a.tile.y) / (d || 1);
       a.desiredTile =
@@ -266,8 +268,8 @@ const createEncounter = ({
       dy = (target.y - foe.tile.y) / (d || 1),
       speed = (3 + foe.individual.stats.speed * 0.6) / 2;
     let step = 0;
-    if (temperament === 'Bold' && d > metresToTiles(3))
-      step = Math.min(speed * dt, d - metresToTiles(3));
+    if (temperament === 'Bold' && d > metresToTiles(2))
+      step = Math.min(speed * dt, d - metresToTiles(2));
     if (temperament === 'Skittish' && d < metresToTiles(10))
       step = -Math.min(speed * dt, metresToTiles(10) - d);
     if (temperament === 'Steady') {
@@ -288,6 +290,22 @@ const createEncounter = ({
       y: foe.tile.y + dy * step + dx * strafeStep,
     };
     if (grid.isWalkable(Math.floor(next.x), Math.floor(next.y))) foe.tile = next;
+    else {
+      const path = findPath(
+        grid,
+        { tx: Math.floor(foe.tile.x), ty: Math.floor(foe.tile.y) },
+        { tx: Math.floor(target.x), ty: Math.floor(target.y) },
+        { minTx: 0, maxTx: 999, minTy: 0, maxTy: 999, diagonals: true },
+      );
+      const waypoint = path?.[0];
+      if (waypoint) {
+        const toward = { x: waypoint.tx + 0.5, y: waypoint.ty + 0.5 },
+          waypointDistance = distance(foe.tile, toward),
+          waypointStep = Math.min(speed * dt, waypointDistance);
+        foe.tile.x += ((toward.x - foe.tile.x) / (waypointDistance || 1)) * waypointStep;
+        foe.tile.y += ((toward.y - foe.tile.y) / (waypointDistance || 1)) * waypointStep;
+      }
+    }
     face(foe, target);
   };
   const update = (
