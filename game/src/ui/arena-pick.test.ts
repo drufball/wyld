@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createNotebook } from '../guide/notebook.js';
+import { createEmptyNotebook, createNotebook } from '../guide/notebook.js';
 import { createPick, type PickState } from '../arena/pick.js';
 import { createArenaPick } from './arena-pick.js';
 
@@ -40,5 +40,30 @@ describe('arena pick UI', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect(fight).toHaveBeenCalledTimes(1);
     expect(picker.state().phase).toBe('fight');
+  });
+
+  it('shows the hide name with no hint sentence on the enemy card', () => {
+    const notebook = createEmptyNotebook();
+    notebook.identify('antlerback', {
+      region: null,
+      phase: 'Day',
+      position: { x: 0, y: 0, z: 0 },
+      day: 0,
+    });
+    notebook.recordHide('antlerback', 'Bark');
+    createArenaPick(notebook, vi.fn());
+    const card = [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Antlerback'),
+    );
+    expect(card?.textContent).toBe('AntlerbackHide: Bark');
+  });
+
+  it('shows nothing about the hide until it is known', () => {
+    createArenaPick(createEmptyNotebook(), vi.fn());
+    const card = [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Antlerback'),
+    );
+    expect(card?.textContent).toBe('AntlerbackYou have not met this one.');
+    expect(card?.textContent).not.toContain('Bark');
   });
 });

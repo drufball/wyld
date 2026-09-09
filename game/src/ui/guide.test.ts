@@ -116,6 +116,19 @@ describe('field guide view model', () => {
     });
   });
 
+  it('shows the hide name with no hint sentence on the guide species page', () => {
+    const notebook = createEmptyNotebook();
+    identify(notebook, 'antlerback');
+    notebook.recordHide('antlerback', 'Bark');
+    expect(buildSpeciesPage(notebook, 'antlerback').hide).toBe('Bark');
+  });
+
+  it('shows nothing about the hide until it is known', () => {
+    const notebook = createEmptyNotebook();
+    identify(notebook, 'antlerback');
+    expect(buildSpeciesPage(notebook, 'antlerback').hide).toBe(BLANK);
+  });
+
   it('builds the empty fragments view', () =>
     expect(buildFragments()).toEqual({ rows: [], empty: 'Nothing yet.' }));
 

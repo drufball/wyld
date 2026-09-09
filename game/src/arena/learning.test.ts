@@ -53,6 +53,15 @@ describe('arena learning', () => {
         { type: 'hit', attacker: 'thornwren', target: 'antlerback', move: cut.id, hideMult: 0.6 },
       ]).notebook.page('antlerback')?.resistance,
     ).toBe('Cut'));
+  it('records the shrugged-off force on the tick the resisted hit lands', () => {
+    const result = run(
+      [{ type: 'hit', attacker: 'thornwren', target: 'antlerback', move: cut.id, hideMult: 0.6 }],
+      createEmptyNotebook(),
+      { fightEnded: false },
+    );
+    expect(result.facts).toContainEqual({ kind: 'resistance', value: 'Cut' });
+    expect(result.notebook.page('antlerback')?.resistance).toBe('Cut');
+  });
   it('records nothing extra on a neutral hit', () =>
     expect(
       run([

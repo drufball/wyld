@@ -21,3 +21,21 @@ it('renders the outcome line, learned lines and run count without damage numbers
   expect(document.body.textContent).toContain('Run 4');
   expect(document.body.textContent).not.toMatch(/damage:|\d+ damage/i);
 });
+it('lists the hide first on the learning page', () => {
+  createArenaResult({
+    phase: 'driven-off',
+    enemyName: 'Antlerback',
+    elapsed: 20,
+    learned: [
+      { kind: 'move', value: 'Bull Rush' },
+      { kind: 'resistance', value: 'Cut' },
+      { kind: 'hide', value: 'Bark' },
+    ],
+    runCount: 1,
+    onPickEnemy: vi.fn(),
+    onOpenGuide: vi.fn(),
+  });
+  const text = document.body.textContent ?? '';
+  expect(text.indexOf('Hide: Bark')).toBeLessThan(text.indexOf('Shrugs off Cut'));
+  expect(text.indexOf('Shrugs off Cut')).toBeLessThan(text.indexOf('Uses Bull Rush'));
+});
