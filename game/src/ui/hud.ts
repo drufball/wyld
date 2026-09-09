@@ -33,7 +33,12 @@ const updateDetectionTarget = (
   elements.fill.setAttribute('data-detection-fill', detection.toFixed(3));
   elements.outline.setAttribute('stroke', detection >= 1 ? '#292b25' : '#777566');
 };
-const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActions = {}) => {
+const createHud = (
+  showRegion: boolean,
+  toastRoot: HTMLElement,
+  actions: HudActions = {},
+  { showMap = true }: { showMap?: boolean } = {},
+) => {
   const root = document.createElement('aside');
   root.setAttribute('aria-live', 'polite');
   root.setAttribute('aria-label', 'Time and place');
@@ -116,10 +121,8 @@ const createHud = (showRegion: boolean, toastRoot: HTMLElement, actions: HudActi
     button.title = label;
     return button;
   };
-  tools.append(
-    tool('\u25a4', 'Book', () => actions.openBook?.()),
-    tool('\u2316', 'Map', () => actions.openMap?.()),
-  );
+  tools.append(tool('\u25a4', 'Book', () => actions.openBook?.()));
+  if (showMap) tools.append(tool('\u2316', 'Map', () => actions.openMap?.()));
   if (showRegion) tools.append(tool('>_', 'Console', () => actions.openConsole?.()));
   partyAndTools.append(partyCards, tools);
   tray.append(moves, partyAndTools);
