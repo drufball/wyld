@@ -368,6 +368,17 @@ describe('Pak server', () => {
   });
 
   it('updates presence and records human.seen without advancing catch-up', async () => {
+    const clock = new Date('2026-09-06T12:00:00.000Z');
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      now: () => clock,
+      logger: silentLogger,
+    });
+    database.sqlite
+      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
+      .run('2026-09-06T11:00:00.000Z');
     const before = Presence.parse(await (await app.request('/api/presence')).json());
     const response = await app.request('/api/presence/seen', { method: 'POST' });
     expect(response.status).toBe(200);
@@ -376,6 +387,40 @@ describe('Pak server', () => {
     expect(after.lastCatchupEventId).toBe(before.lastCatchupEventId);
     const events = z.array(Event).parse(await (await app.request('/api/events')).json());
     expect(events).toMatchObject([{ source: 'human', kind: 'human.seen' }]);
+  });
+
+  it('unlocks Early Bird when the human is seen before 7am', async () => {
+    const clock = new Date('2026-09-09T06:19:00.000Z');
+    app = createApp({
+      database,
+      demosDir: path.join(directory, 'demos'),
+      feedbackDir: path.join(directory, 'feedback'),
+      now: () => clock,
+      logger: silentLogger,
+    });
+    database.sqlite
+      .prepare('UPDATE presence SET last_seen_at = ? WHERE id = 1')
+      .run('2026-09-09T05:00:00.000Z');
+
+    const response = await app.request('/api/presence/seen', { method: 'POST' });
+    expect(response.status).toBe(200);
+    const events = z.array(Event).parse(await (await app.request('/api/events')).json());
+    expect(events).toMatchObject([
+      { source: 'human', kind: 'human.seen' },
+      {
+        source: 'pak',
+        kind: 'pak.achievement_unlocked',
+        payload: { id: 'early-bird', name: 'Early Bird' },
+      },
+      { source: 'planner', kind: 'planner.chain_updated' },
+    ]);
+    const achievements = (await (await app.request('/api/achievements')).json()) as Array<{
+      id: string;
+      unlockedAt: string | null;
+    }>;
+    expect(achievements.find(({ id }) => id === 'early-bird')).toMatchObject({
+      unlockedAt: '2026-09-09T06:19:00.000Z',
+    });
   });
 
   it('upserts Planner briefings in place', async () => {
