@@ -415,7 +415,7 @@ const createEncounter = ({
     if (!foe.downed && !target) {
       partyWipedElapsed = (partyWipedElapsed ?? 0) + dt;
       const drivenOffRange = metresToTiles(2);
-      moveEnemy(dt, playerTile, drivenOffRange);
+      if (!foe.pending) moveEnemy(dt, playerTile, drivenOffRange);
       // Movement can settle one floating-point ulp outside the exact range boundary.
       if (distance(foe.tile, playerTile) <= drivenOffRange + 1e-6 || partyWipedElapsed >= 3) {
         phase = 'driven-off';

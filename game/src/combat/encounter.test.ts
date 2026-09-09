@@ -201,6 +201,55 @@ describe('combat encounter', () => {
     expect(events.filter((event) => event.type === 'driven-off')).toHaveLength(1);
   });
 
+  it('does not walk the enemy in while a windup is still showing after a party wipe', () => {
+    const bolt = { ...move('Bolt'), power: 30 };
+    const subject = setup({
+      party: [
+        fighter('owned', [move('Strike')], { stats: { vigor: 1, power: 1, speed: 1, focus: 1 } }),
+      ],
+      enemy: fighter('enemy', [bolt, move('Arc')], {
+        stats: { vigor: 70, power: 3, speed: 4, focus: 40 },
+      }),
+      partyTiles: { owned: { x: 4, y: 0 } },
+      enemyTile: { x: 0, y: 0 },
+      player: { x: 20, y: 0 },
+    });
+    subject.useMove('enemy', bolt.id, 'owned');
+    advance(subject, 1.2);
+    expect(subject.state().party[0]!.downed).toBe(true);
+    expect(subject.state().enemy.windup).not.toBeNull();
+
+    const tileAtWipe = subject.state().enemy.tile;
+    for (let elapsed = 0; elapsed < 0.25; elapsed += 0.05) {
+      subject.update(0.05);
+      expect(subject.state().enemy.windup).not.toBeNull();
+      expect(subject.state().enemy.tile).toEqual(tileAtWipe);
+    }
+  });
+
+  it('still ends the fight three seconds after a wipe that interrupted a windup', () => {
+    const bolt = { ...move('Bolt'), power: 30 };
+    const subject = setup({
+      party: [
+        fighter('owned', [move('Strike')], { stats: { vigor: 1, power: 1, speed: 1, focus: 1 } }),
+      ],
+      enemy: fighter('enemy', [bolt, move('Arc')], {
+        stats: { vigor: 70, power: 3, speed: 4, focus: 40 },
+      }),
+      partyTiles: { owned: { x: 4, y: 0 } },
+      enemyTile: { x: 0, y: 0 },
+      player: { x: 20, y: 0 },
+    });
+    subject.useMove('enemy', bolt.id, 'owned');
+    advance(subject, 1.2);
+    expect(subject.state().party[0]!.downed).toBe(true);
+    expect(subject.state().enemy.windup).not.toBeNull();
+
+    const events = advance(subject, 3.05);
+    expect(subject.state().phase).toBe('driven-off');
+    expect(events.some((event) => event.type === 'driven-off')).toBe(true);
+  });
+
   it('keeps fighting while one owned creature is still standing', () => {
     const sweep = { ...move('Sweep'), power: 30 };
     const party = ['one', 'two', 'three'].map((id) =>
