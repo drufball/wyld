@@ -119,6 +119,32 @@ describe('demo and feedback routes', () => {
     expect(build).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps the quest title when a disc is re-registered without its quest', async () => {
+    database.db
+      .insert(worlds)
+      .values({ id: 'factory', name: 'Factory', kind: 'factory', order: 0, icon: 'gear' })
+      .run();
+    database.db
+      .insert(quests)
+      .values({
+        id: 'quest-one',
+        worldId: 'factory',
+        title: 'Quest title',
+        pitch: 'Ship it',
+        status: 'building',
+        sinceYouLooked: '',
+        lastNote: '',
+      })
+      .run();
+    await post('/api/demos', { id: 'preview', ref: 'one', questId: 'quest-one' });
+    await post('/api/demos', { id: 'preview', ref: 'newer' });
+
+    expect(database.db.select().from(demos).where(eq(demos.id, 'preview')).get()).toMatchObject({
+      questId: 'quest-one',
+      title: 'Quest title',
+    });
+  });
+
   it('keeps a stored deep link when a disc is re-registered without one', async () => {
     await post('/api/demos', { id: 'arena', ref: 'first', deepLink: '?scenario=arena' });
     const response = await post('/api/demos', { id: 'arena', ref: 'newer' });
