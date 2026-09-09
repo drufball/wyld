@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import type { CreatureModel, CreatureState } from './bodyplans/types.js';
 import { createCreatureModels, stateFor, type CreatureEntry } from './creatures.js';
+import { FACING_YAW } from '../creatures/facing.js';
 
 const entry = (overrides: Partial<CreatureEntry> = {}): CreatureEntry => ({
   key: 'one',
@@ -24,6 +25,18 @@ const fakeBuilder = (records: CreatureModel[]) => () => {
 };
 
 describe('createCreatureModels', () => {
+  it('turns a creature walking right to face +x', () => {
+    const scene = new THREE.Scene(),
+      records: CreatureModel[] = [];
+    createCreatureModels(scene, fakeBuilder(records)).sync(
+      [entry({ facing: FACING_YAW.right })],
+      0,
+    );
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(records[0]!.group.quaternion);
+    expect(forward.x).toBeCloseTo(1);
+    expect(forward.z).toBeCloseTo(0);
+  });
+
   it('turns a model to the creature facing', () => {
     const scene = new THREE.Scene(),
       records: CreatureModel[] = [];

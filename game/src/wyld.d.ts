@@ -27,8 +27,16 @@ type WyldGameState = {
     region: string | null;
     detection: number;
     behaviour: 'wander' | 'flee' | 'aggro' | 'hold';
+    facing: number;
   }[];
-  party: { id: string; speciesId: string; name: string; tile: { x: number; y: number } }[];
+  party: {
+    id: string;
+    speciesId: string;
+    name: string;
+    tile: { x: number; y: number };
+    facing: 'down' | 'up' | 'left' | 'right';
+    yaw: number;
+  }[];
   selection: string;
   target: { id: string; speciesId: string } | null;
   guide: {

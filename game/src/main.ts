@@ -9,6 +9,7 @@ import { createObserver } from './guide/observe.js';
 import { createCreatureRegistry } from './creatures/registry2d.js';
 import { createSpawnSystem } from './creatures/spawn.js';
 import { createWander } from './creatures/wander.js';
+import { FACING_YAW, spriteFacingFromCardinal, spriteFacingFromYaw } from './creatures/facing.js';
 import { roll } from './creatures/individual.js';
 import {
   addPartyMember,
@@ -379,7 +380,7 @@ debugConsole.registerCommand('spawn', {
   run: ([id = '', requested]) => {
     const definition = speciesById(id);
     if (!definition) return `unknown species: ${id}`;
-    const angle = { up: Math.PI, left: -Math.PI / 2, right: Math.PI / 2, down: 0 }[player.facing],
+    const angle = FACING_YAW[player.facing],
       world = player.world,
       x = world.x + Math.sin(angle) * 15,
       z = world.z + Math.cos(angle) * 15,
@@ -601,7 +602,6 @@ const render = (alpha = 1) => {
     screen = player.screen;
   activeFlatScreen = { sx: screen.x, sy: screen.y };
   if (look === 'diorama') {
-    const yaw = { down: 0, up: Math.PI, right: -Math.PI / 2, left: Math.PI / 2 } as const;
     const combat = encounter?.state() ?? null;
     const enemyCreature = combat
       ? registry.list().find(({ speciesId }) => speciesId === combat.enemy.speciesId)
@@ -652,7 +652,7 @@ const render = (alpha = 1) => {
             speciesId: member.individual.speciesId,
             tileX: tile.x,
             tileY: tile.y,
-            facing: yaw[controller.facing],
+            facing: FACING_YAW[controller.facing],
             state: controller.moving ? ('walk' as const) : ('idle' as const),
             phaseOffset: index,
             downed: combatant?.downed,
@@ -696,17 +696,15 @@ const render = (alpha = 1) => {
     x = playerOrigin.x,
     y = playerOrigin.y + (player.moving ? 0 : Math.round(Math.sin(elapsedSeconds * 2) * 0.5 + 0.5)),
     frame = player.moving ? ((Math.floor(elapsedSeconds * 8) % 2) as 0 | 1) : 'idle';
+  const playerSpriteFacing = spriteFacingFromCardinal(player.facing);
   const calls =
     1 +
     blit(
       flat.context,
-      playerSprite(
-        player.facing === 'left' || player.facing === 'right' ? 'side' : player.facing,
-        frame,
-      ),
+      playerSprite(playerSpriteFacing.facing, frame),
       x,
       y,
-      player.facing === 'left',
+      playerSpriteFacing.flip,
     );
   let drawCalls = calls;
   for (const member of partyState.party) {
@@ -728,14 +726,15 @@ const render = (alpha = 1) => {
       flat.context.stroke();
     }
     if (combatant?.downed) flat.context.globalAlpha = 0.3;
+    const memberSpriteFacing = spriteFacingFromCardinal(controller.facing);
     drawCalls += drawCreatureSprite(
       flat.context,
       member.individual.speciesId,
-      'down',
+      memberSpriteFacing.facing,
       controller.moving ? 'walk0' : 'idle',
       origin.x,
       origin.y + (combatant?.downed ? Math.floor(size / 3) : 0),
-      false,
+      memberSpriteFacing.flip,
     );
     flat.context.globalAlpha = 1;
     if (combatant?.windup) {
@@ -752,9 +751,7 @@ const render = (alpha = 1) => {
       ty = (creature.position.z + 400) / 2 - screen.y * view.rows,
       size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
       origin = spriteOrigin(tx, ty, size, size);
-    const side = Math.abs(Math.sin(creature.facing)) > 0.5,
-      facing = side ? 'side' : Math.cos(creature.facing) < 0 ? 'up' : 'down',
-      flip = side && Math.sin(creature.facing) < 0;
+    const spriteFacing = spriteFacingFromYaw(creature.facing);
     const frame =
       creature.state === 'walk'
         ? Math.floor(creature.frameClock * 8) % 2
@@ -764,11 +761,11 @@ const render = (alpha = 1) => {
     drawCalls += drawCreatureSprite(
       flat.context,
       creature.speciesId,
-      facing,
+      spriteFacing.facing,
       frame,
       origin.x,
       origin.y,
-      flip,
+      spriteFacing.flip,
     );
     const meter = aiStates.get(creature.id)?.meter ?? 0;
     if (meter > 0) {
@@ -1181,15 +1178,19 @@ window.__wyld = {
           region: pointToRegion(c.position.x, c.position.z)?.id ?? null,
           detection: ai?.meter ?? 0,
           behaviour: ai?.behaviour ?? 'wander',
+          facing: c.facing,
         };
       }),
       party: partyState.party.map(({ individual, name }) => {
-        const tile = partyControllers.get(individual.id)!.tile;
+        const controller = partyControllers.get(individual.id)!,
+          tile = controller.tile;
         return {
           id: individual.id,
           speciesId: individual.speciesId,
           name,
           tile: { x: tile.x, y: tile.y },
+          facing: controller.facing,
+          yaw: FACING_YAW[controller.facing],
         };
       }),
       selection: partyState.selection,

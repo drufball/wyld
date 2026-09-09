@@ -1,4 +1,5 @@
 import { speciesById, type HideType, type Temperament } from '../creatures/species.js';
+import { yawFromDelta } from '../creatures/facing.js';
 import type { Individual } from '../creatures/individual.js';
 import { findPath } from '../player/pathing.js';
 import type { Move } from './moves.js';
@@ -126,7 +127,7 @@ const createEncounter = ({
   const byId = (id: string): Internal | undefined => all().find((c) => c.id === id);
   const hide = (c: Internal): HideType => speciesById(c.speciesId)?.hide ?? 'Hide';
   const face = (a: Internal, p: Point): void => {
-    a.facing = Math.atan2(p.y - a.tile.y, p.x - a.tile.x);
+    a.facing = yawFromDelta(p.x - a.tile.x, p.y - a.tile.y);
   };
   const hit = (attacker: Internal, target: Internal, move: Move): void => {
     if (target.downed) return;
@@ -178,7 +179,7 @@ const createEncounter = ({
     if (move.delivery === 'Sweep') {
       for (const c of all())
         if (c !== a && !c.downed && distance(a.tile, c.tile) <= rangeTilesFor(move)) {
-          const angle = Math.atan2(c.tile.y - a.tile.y, c.tile.x - a.tile.x),
+          const angle = yawFromDelta(c.tile.x - a.tile.x, c.tile.y - a.tile.y),
             delta = Math.atan2(Math.sin(angle - a.facing), Math.cos(angle - a.facing));
           if (Math.abs(delta) <= Math.PI / 3) hit(a, c, move);
         }

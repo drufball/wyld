@@ -1,6 +1,7 @@
 import type { Rng } from '../engine/rng.js';
 import type { TileGrid } from '../world/tiles.js';
 import type { Temperament } from './species.js';
+import { yawFromDelta } from './facing.js';
 type Reaction = 'flee' | 'aggro' | 'hold';
 type Behaviour = 'wander' | Reaction;
 type DetectionInput = { distance: number; visionRange: number; visible: boolean; heard?: boolean };
@@ -51,7 +52,7 @@ const canSeePlayer = (
 const canHearPlayer = (distanceTiles: number, moving: boolean): boolean =>
   moving && distanceTiles <= 4;
 const facingToward = (from: TilePoint, to: TilePoint): number =>
-  Math.atan2(to.x - from.x, to.y - from.y);
+  yawFromDelta(to.x - from.x, to.y - from.y);
 const detectionRate = (input: DetectionInput): number => {
   if (!input.visible && !input.heard) return -0.3;
   const proximity = 0.4 + 0.6 * (1 - Math.max(0, input.distance) / input.visionRange);

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Facing } from '../player/controller.js';
+import { FACING_YAW } from '../creatures/facing.js';
 
 const createPlayerModel = () => {
   const group = new THREE.Group();
@@ -36,7 +37,7 @@ const createPlayerModel = () => {
       }
     },
     face(facing: Facing) {
-      group.rotation.y = { down: 0, up: Math.PI, right: -Math.PI / 2, left: Math.PI / 2 }[facing];
+      group.rotation.y = FACING_YAW[facing];
     },
     dispose() {
       group.traverse((object) => {
