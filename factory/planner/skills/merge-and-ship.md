@@ -117,3 +117,6 @@ a message rather than spawning a fresh one, so its context survives.
 
 Pick up the next unit of work without being asked (`POLICIES.md`: file issues, merge green PRs,
 spend at any hour). Going quiet is for when there is nothing to do, not for when a PR just merged.
+
+### Leave no loops behind (2026-09-09)
+The always-on Mac ran at load 35 for a day and a half: six `for j in 1..6; do (while …` background loops from a lead's bootstrap script and twelve orphaned `zsh -c` tool shells, ~1200% CPU on 12 cores. Every build and headless check ran on a starved machine. Before a lead reports: `pgrep -fl "while|playwright|node -e"` and kill anything you started; never use `&` loops in a tool shell without a bounded exit; the Planner checks `uptime` load at Drain and kills orphans (`ppid 1`, `shell-snapshots/snapshot-zsh`) on sight.
