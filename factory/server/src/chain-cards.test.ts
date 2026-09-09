@@ -5,11 +5,34 @@ import { fileURLToPath } from 'node:url';
 
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { upsertBriefingChain } from './chain-cards.js';
+import { demoUrl, upsertBriefingChain } from './chain-cards.js';
 import { openDatabase, type AppDatabase } from './database.js';
 import { chains } from './schema.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
+
+describe('demoUrl', () => {
+  it('composes a disc query deep link', () => {
+    expect(demoUrl({ id: 'fw-arena', kind: 'disc', deepLink: '?scenario=arena' })).toBe(
+      '/play/fw-arena/?scenario=arena',
+    );
+  });
+
+  it('composes a disc path deep link', () => {
+    expect(demoUrl({ id: 'fw-arena', kind: 'disc', deepLink: '/sleep' })).toBe(
+      '/play/fw-arena/sleep',
+    );
+  });
+
+  it('composes a disc URL without a deep link', () => {
+    expect(demoUrl({ id: 'fw-arena', kind: 'disc', deepLink: null })).toBe('/play/fw-arena/');
+  });
+
+  it('returns live demo deep links as-is and defaults null to the root', () => {
+    expect(demoUrl({ id: 'live', kind: 'live', deepLink: '/sleep' })).toBe('/sleep');
+    expect(demoUrl({ id: 'live', kind: 'live', deepLink: null })).toBe('/');
+  });
+});
 
 describe('chain cards', () => {
   let directory: string;
