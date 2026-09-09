@@ -1223,3 +1223,4 @@ Sweep (afb9f2c1f005e4c72) finished 22:32Z: #280 (decals — premise wrong: coil/
 
 ## 2026-09-09 07:00Z — lights on; Sleep run 3 ends
 CI-fix lead done: #282 (9dff7c4), test-only; nit: `as Array<…>` cast instead of z.parse in the new test. Morning order in game/: diorama lead lands 3a (#268) and stops → arena lead (4a all-down, then hide-only clue; brief /tmp/wyld-leads/arena-clue/brief.md) → diorama 3b. Mine: Tags & hides mockup in the creature-workshop explainer. Follow-ups: server demos.ts nulls deepLink on re-register (needs a fix); Glasswing tracks design question in the briefing; wake channel process restart for the deep_link schema (quiet moment).
+- 07:01Z run 3 recorded `timed_out` by the server at lights_on (all phases were done; outcome should read clean) — PROTOCOL now: end the run between last_call and lights_on. Mention in tomorrow's retro.
