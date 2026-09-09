@@ -111,6 +111,7 @@ type GuideOptions = {
   onOpenChange?(open: boolean): void;
   debugOpen?(): boolean;
   contextualSpecies?(): string | null;
+  mapAvailable?: boolean;
   map: Omit<MapViewOptions, 'notebook' | 'selectedSpecies'>;
 };
 const createGuideBook = ({
@@ -118,6 +119,7 @@ const createGuideBook = ({
   onOpenChange,
   debugOpen = () => false,
   contextualSpecies = () => null,
+  mapAvailable = true,
   map,
 }: GuideOptions) => {
   let opened = false;
@@ -130,7 +132,7 @@ const createGuideBook = ({
   root.hidden = true;
   root.setAttribute('aria-label', 'Field guide');
   root.style.cssText =
-    'position:fixed;inset:0;z-index:8;box-sizing:border-box;padding:clamp(8px,3vw,28px);overflow:hidden;color:#292b25;background:#252820cc;font:14px/1.55 ui-monospace,"Segoe UI",monospace';
+    'position:fixed;inset:0;z-index:11;box-sizing:border-box;padding:clamp(8px,3vw,28px);overflow:hidden;color:#292b25;background:#252820cc;font:14px/1.55 ui-monospace,"Segoe UI",monospace';
   document.body.append(root);
   const button = (text: string, action: () => void): HTMLButtonElement => {
     const element = document.createElement('button');
@@ -169,21 +171,32 @@ const createGuideBook = ({
     const book = document.createElement('div');
     book.style.cssText =
       'box-sizing:border-box;height:100%;max-width:1100px;margin:auto;padding:clamp(12px,3vw,32px);overflow:auto;border:1px solid #777566;border-radius:3px 7px 4px 9px;background:repeating-linear-gradient(0deg,transparent 0,transparent 27px,#b9b39b55 28px),repeating-linear-gradient(93deg,#f5f0dc 0,#f5f0dc 5px,#f0ead2 6px);box-shadow:1px 2px 2px #0006';
+    const header = document.createElement('header');
+    header.style.cssText =
+      'position:sticky;z-index:1;top:0;display:flex;align-items:flex-start;gap:4px;border-bottom:1px solid #777566;background:#f5f0dc';
     const tabs = document.createElement('nav');
-    tabs.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid #777566';
-    for (const [tab, label] of [
+    tabs.style.cssText = 'display:flex;flex:1;flex-wrap:wrap;gap:4px';
+    const availableTabs = [
       ['index', 'Index'],
       ['species', 'Species'],
       ['fragments', 'Fragments'],
       ['map', 'Map'],
-    ] as const)
-      tabs.append(
-        button(label, () => {
-          currentTab = tab;
-          if (tab !== 'species') final = false;
-          renderPage();
-        }),
-      );
+    ] as const;
+    for (const [tab, label] of availableTabs)
+      if (tab !== 'map' || mapAvailable)
+        tabs.append(
+          button(label, () => {
+            currentTab = tab;
+            if (tab !== 'species') final = false;
+            renderPage();
+          }),
+        );
+    const close = button('✕', () => setOpen(false));
+    close.setAttribute('aria-label', 'Close field guide');
+    close.style.marginLeft = 'auto';
+    close.style.minWidth = '44px';
+    close.style.minHeight = '44px';
+    header.append(tabs, close);
     const content = document.createElement('main');
     content.style.cssText = 'min-width:0;padding:16px 4px';
     if (currentTab === 'index') {
@@ -298,8 +311,17 @@ const createGuideBook = ({
         pending = null;
       }
     } else content.textContent = 'Choose a species from the Index.';
-    book.append(tabs, content);
+    book.append(header, content);
     root.append(book);
+  };
+  const selectTab = (tab: GuideTab): void => {
+    if (tab === 'map' && !mapAvailable) {
+      const contextual = contextualSpecies();
+      if (contextual) {
+        speciesId = contextual;
+        currentTab = 'species';
+      } else currentTab = 'index';
+    } else currentTab = tab;
   };
   const setOpen = (value: boolean): void => {
     if (opened === value) return;
@@ -320,7 +342,7 @@ const createGuideBook = ({
       return;
     if (event.key.toLowerCase() === 'g' || event.key.toLowerCase() === 'm') {
       event.preventDefault();
-      if (event.key.toLowerCase() === 'm') currentTab = 'map';
+      if (event.key.toLowerCase() === 'm') selectTab('map');
       else if (!opened && contextualSpecies()) {
         speciesId = contextualSpecies();
         currentTab = 'species';
@@ -338,7 +360,9 @@ const createGuideBook = ({
   document.head.append(style);
   return {
     open(tab?: GuideTab) {
-      if (tab) currentTab = tab;
+      const previousTab = currentTab;
+      if (tab) selectTab(tab);
+      if (opened && previousTab !== currentTab) renderPage();
       setOpen(true);
     },
     close() {
@@ -348,12 +372,14 @@ const createGuideBook = ({
       setOpen(!opened);
     },
     setTab(tab: GuideTab) {
-      currentTab = tab;
+      selectTab(tab);
       if (opened) renderPage();
     },
     openSpecies(id: string) {
+      const changed = currentTab !== 'species' || speciesId !== id;
       speciesId = id;
       currentTab = 'species';
+      if (opened && changed) renderPage();
       setOpen(true);
     },
     refresh() {

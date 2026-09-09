@@ -129,7 +129,7 @@ const debugConsole = createDebugConsole({ seed }),
   tellOverlay = createCombatTellOverlay(),
   arenaStorage = safeStorage(),
   hudActions: Parameters<typeof createHud>[2] = {},
-  hud = createHud(debugConsole.available, toasts.root, hudActions),
+  hud = createHud(debugConsole.available, toasts.root, hudActions, { showMap: !synthetic }),
   arenaProgress = synthetic ? loadArenaProgress(arenaStorage) : null,
   notebook = arenaProgress?.notebook ?? createNotebook(),
   observer = createObserver({ notebook }),
@@ -538,13 +538,18 @@ const beginArena = (state: PickState): void => {
   });
 };
 let arenaPick: ReturnType<typeof createArenaPick> | null = null;
-if (synthetic) arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state));
+if (synthetic)
+  arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state), {
+    close: () => guide?.close(),
+  });
 const showEnemyPicker = (): void => {
   resultScreen?.dispose();
   resultScreen = null;
   encounter = null;
   arenaState = createPick();
-  arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state));
+  arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state), {
+    close: () => guide?.close(),
+  });
 };
 debugConsole.registerCommand('fight', {
   help: 'fight <enemyId> <a,b,c>',
@@ -1124,9 +1129,10 @@ const loop = createLoop({
 });
 guide = createGuideBook({
   notebook,
+  mapAvailable: !synthetic,
   contextualSpecies: () => {
     const foe = arenaState?.enemy ? enemy(arenaState.enemy) : null;
-    return encounter?.state().phase === 'fight' ? (foe?.speciesId ?? null) : null;
+    return foe?.speciesId ?? null;
   },
   debugOpen: () => debugConsole.isOpen,
   map: {

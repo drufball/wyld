@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildArenaIndividual, enemy, rosterMember } from '../arena/roster.js';
 import { createEncounter } from '../combat/encounter.js';
 import { speciesById } from '../creatures/species.js';
 import { createEmptyNotebook, type Notebook } from '../guide/notebook.js';
 import { BLANK, buildFragments, buildIndex, buildSpeciesPage, createGuideBook } from './guide.js';
+import { createArenaPick } from './arena-pick.js';
+import { createArenaResult } from './arena-result.js';
 
 const observation = (day = 1) => ({
   region: 'hollow',
@@ -36,6 +38,35 @@ const complete = (notebook: Notebook, id: string): void => {
 };
 
 describe('field guide view model', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      fillStyle: '',
+      fillRect: vi.fn(),
+      createImageData: (width: number, height: number) => ({
+        data: new Uint8ClampedArray(width * height * 4),
+      }),
+      putImageData: vi.fn(),
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      scale: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      arc: vi.fn(),
+      ellipse: vi.fn(),
+      strokeRect: vi.fn(),
+      setLineDash: vi.fn(),
+      fillText: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+  });
   afterEach(() => document.body.replaceChildren());
 
   it('orders incomplete pages, stubs, then complete pages', () => {
@@ -190,6 +221,105 @@ describe('field guide view model', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     frame();
     expect(encounter.state().elapsed).toBeGreaterThan(pausedAgain);
+    book.dispose();
+  });
+
+  it('closes the field guide when its header close button is tapped', () => {
+    const book = createGuideBook({ notebook: createEmptyNotebook(), map });
+    book.open();
+    (document.querySelector('[aria-label="Close field guide"]') as HTMLButtonElement).click();
+    expect(book.isOpen).toBe(false);
+    book.dispose();
+  });
+
+  it('resumes the game when the guide is closed from its header', () => {
+    let running = true;
+    const book = createGuideBook({
+      notebook: createEmptyNotebook(),
+      map,
+      onOpenChange: (open) => (running = !open),
+    });
+    book.open();
+    (document.querySelector('[aria-label="Close field guide"]') as HTMLButtonElement).click();
+    expect(running).toBe(true);
+    book.dispose();
+  });
+
+  it('shows a 44 px close button on every guide tab', () => {
+    const book = createGuideBook({ notebook: createEmptyNotebook(), map });
+    book.open();
+    for (const tab of ['index', 'species', 'fragments', 'map'] as const) {
+      book.setTab(tab);
+      const close = document.querySelector('[aria-label="Close field guide"]') as HTMLElement;
+      expect(getComputedStyle(close).minWidth).toBe('44px');
+      expect(getComputedStyle(close).minHeight).toBe('44px');
+    }
+    book.dispose();
+  });
+
+  it('re-renders when open() switches tab on an already-open guide', () => {
+    const book = createGuideBook({ notebook: createEmptyNotebook(), map });
+    book.open('fragments');
+    expect(document.body.textContent).toContain('Nothing yet.');
+    book.open('index');
+    expect(document.body.textContent).toContain('Field guide');
+    expect(book.tab).toBe('index');
+    book.dispose();
+  });
+
+  it('stacks the field guide above the arena result screen', () => {
+    const result = createArenaResult({
+      phase: 'win',
+      enemyName: 'Antlerback',
+      elapsed: 1,
+      learned: [],
+      runCount: 1,
+      onPickEnemy: () => undefined,
+      onOpenGuide: () => undefined,
+    });
+    const book = createGuideBook({ notebook: createEmptyNotebook(), map });
+    book.open();
+    const guide = document.querySelector('[aria-label="Field guide"]') as HTMLElement;
+    expect(Number(getComputedStyle(guide).zIndex)).toBeGreaterThan(
+      Number(getComputedStyle(result.root).zIndex),
+    );
+    book.dispose();
+    result.dispose();
+  });
+
+  it('stacks the field guide above the arena pick screen', () => {
+    const pick = createArenaPick(createEmptyNotebook(), () => undefined);
+    const book = createGuideBook({ notebook: createEmptyNotebook(), map });
+    book.open();
+    const guide = document.querySelector('[aria-label="Field guide"]') as HTMLElement;
+    expect(Number(getComputedStyle(guide).zIndex)).toBeGreaterThan(
+      Number(getComputedStyle(pick.root).zIndex),
+    );
+    book.dispose();
+    pick.dispose();
+  });
+
+  it('omits the Map tab when no map is available', () => {
+    const book = createGuideBook({ notebook: createEmptyNotebook(), map, mapAvailable: false });
+    book.open();
+    expect(
+      [...document.querySelectorAll('button')].some((button) => button.textContent === 'Map'),
+    ).toBe(false);
+    book.dispose();
+  });
+
+  it('opens the arena guide on the species page instead of the map', () => {
+    const notebook = createEmptyNotebook();
+    identify(notebook, 'antlerback');
+    const book = createGuideBook({
+      notebook,
+      map,
+      mapAvailable: false,
+      contextualSpecies: () => 'antlerback',
+    });
+    book.open('map');
+    expect(book.tab).toBe('species');
+    expect(document.body.textContent).toContain('Antlerback');
     book.dispose();
   });
 });

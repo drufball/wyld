@@ -16,7 +16,9 @@ const createArenaPick = (
   notebook: Notebook,
   onFight: (state: PickState) => void,
   onChange: (state: PickState) => void = () => undefined,
+  guide: { close(): void } = { close: () => undefined },
 ) => {
+  guide.close();
   const root = document.createElement('main');
   let state = createPick();
   root.setAttribute('aria-label', 'Arena selection');
@@ -148,6 +150,7 @@ const createArenaPick = (
     state = startFight(state);
     if (state.phase === 'fight') {
       onChange(state);
+      guide.close();
       onFight(state);
       dispose();
     }
@@ -184,6 +187,7 @@ const createArenaPick = (
       state = next;
       onChange(state);
       if (next.phase === 'fight') {
+        guide.close();
         onFight(next);
         dispose();
       } else render();

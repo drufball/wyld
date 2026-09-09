@@ -66,4 +66,23 @@ describe('arena pick UI', () => {
     expect(card?.textContent).toBe('AntlerbackYou have not met this one.');
     expect(card?.textContent).not.toContain('Bark');
   });
+
+  it('closes the field guide when a new fight starts', () => {
+    const close = vi.fn();
+    const picker = createArenaPick(createNotebook(), vi.fn(), () => undefined, { close });
+    close.mockClear();
+    picker.setState({
+      phase: 'fight',
+      enemy: 'antlerback',
+      party: ['loamox', 'bramblehog', 'thornwren'],
+    });
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('closes the field guide when the enemy picker is shown', () => {
+    const close = vi.fn();
+    const picker = createArenaPick(createNotebook(), vi.fn(), () => undefined, { close });
+    expect(close).toHaveBeenCalledOnce();
+    picker.dispose();
+  });
 });
