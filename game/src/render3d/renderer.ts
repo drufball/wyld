@@ -8,8 +8,10 @@ import type { Phase } from '../world/time.js';
 import { cameraOffset, cameraTarget, orthoFrustum, pickTileFromNdc } from './camera.js';
 import { createCover } from './cover.js';
 import { TIER_LENGTH_TILES } from './bodyplans/index.js';
+import { createCombatOverlay, type BarValue } from './combat-overlay.js';
 import { createCreatureModels } from './creatures.js';
 import { createEyeOverlay } from './eye-overlay.js';
+import { createProjectiles, type FlashEntry, type ProjectileEntry } from './projectiles.js';
 import {
   ambientColourAt,
   ambientIntensityAt,
@@ -37,6 +39,10 @@ type DioramaBody = {
   state: 'idle' | 'walk' | 'execute';
   phaseOffset: number;
   meter?: number;
+  downed?: boolean;
+  hp?: BarValue;
+  focus?: BarValue;
+  windup?: number;
 };
 type DioramaFrame = {
   screen: { x: number; y: number };
@@ -49,6 +55,7 @@ type DioramaFrame = {
   creatures: readonly DioramaBody[];
   party: readonly DioramaBody[];
   selection: string;
+  combat: { projectiles: readonly ProjectileEntry[]; flashes: readonly FlashEntry[] } | null;
 };
 const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement[]) => {
   const canvas = document.createElement('canvas');
@@ -77,6 +84,8 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
     creatures = createCreatureModels(scene),
     player = createPlayerModel(),
     eyes = createEyeOverlay(),
+    combatOverlay = createCombatOverlay(),
+    projectileModels = createProjectiles(scene),
     selection = createSelection(scene);
   scene.add(player.group);
   let scale = 2,
@@ -169,7 +178,30 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
       frustum,
       canvasRect,
     );
-    selection.sync(frame.party.find(({ key }) => key === frame.selection) ?? null);
+    combatOverlay.sync(
+      bodies
+        .filter(({ hp, focus, windup }) => hp || focus || windup !== undefined)
+        .map((entry) => ({
+          key: entry.key,
+          tileX: entry.tileX,
+          tileY: entry.tileY,
+          headHeight: TIER_LENGTH_TILES[speciesById(entry.speciesId)!.tier] * 0.6,
+          hp: entry.hp,
+          focus: entry.focus,
+          windup: entry.windup,
+        })),
+      target,
+      frustum,
+      canvasRect,
+    );
+    projectileModels.sync(
+      frame.combat?.projectiles ?? [],
+      frame.combat?.flashes ?? [],
+      frame.elapsedSeconds,
+    );
+    selection.sync(
+      frame.party.find(({ key, downed }) => key === frame.selection && !downed) ?? null,
+    );
     renderer.render(scene, camera);
     const elapsed = performance.now() - started;
     times.push(elapsed);
@@ -216,6 +248,8 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
       creatures.dispose();
       player.dispose();
       eyes.dispose();
+      combatOverlay.dispose();
+      projectileModels.dispose();
       selection.dispose();
       renderer.dispose();
       canvas.remove();

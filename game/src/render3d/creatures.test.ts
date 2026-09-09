@@ -14,7 +14,7 @@ const entry = (overrides: Partial<CreatureEntry> = {}): CreatureEntry => ({
   ...overrides,
 });
 const fakeBuilder = (records: CreatureModel[]) => () => {
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2));
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial());
   head.position.z = 0.5;
   const group = new THREE.Group();
   group.add(head);
@@ -62,6 +62,22 @@ describe('createCreatureModels', () => {
     const models = createCreatureModels(scene, fakeBuilder(records));
     models.sync([entry({ tileX: 125.5, tileY: 225.5 })], 0);
     expect(records[0]!.group.position.toArray()).toEqual([125.5, 0, 225.5]);
+    models.dispose();
+  });
+  it('lays a downed creature on its side and dims it', () => {
+    const scene = new THREE.Scene(),
+      records: CreatureModel[] = [];
+    const models = createCreatureModels(scene, fakeBuilder(records));
+    models.sync([entry({ downed: true })], 0);
+    const model = records[0]!;
+    const material = (model.group.children[0] as THREE.Mesh).material as THREE.Material;
+    expect(model.group.rotation.z).toBe(Math.PI / 2);
+    expect(material.transparent).toBe(true);
+    expect(material.opacity).toBe(0.35);
+    models.sync([entry({ downed: false })], 0);
+    expect(model.group.rotation.z).toBe(0);
+    expect(material.transparent).toBe(false);
+    expect(material.opacity).toBe(1);
     models.dispose();
   });
 });
