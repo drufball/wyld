@@ -70,3 +70,6 @@ Then file the first issue → `file-codex-issue.md`.
 ## The explainer comes first (Dru's rule, 2026-09-08)
 
 Every quest gets its explainer **at planning**, before the first issue is filed: the pitch in one screen, and a **mockup or clickable prototype** of the thing (HTML, inline only — the same constraints as every artifact). Dru pins on it; the pins shape the brief. When the quest reaches `demo`, the same explainer gets the live demo embedded (see merge-and-ship §3) — the mockup stays above it so the before and after sit together. A quest with no explainer is not planned.
+
+### A mockup must be live the moment it scrolls into view (Dru, 2026-09-09)
+Dru opened the arena explainer straight to "The fight" and found no Swap button and nothing tappable — the card only came alive after picking an enemy and three creatures in sections above it. Every mockup section starts in a ready state (a sensible default already chosen) and every drawn thing that looks tappable is tappable; a section may never depend on taps made in another section. Check it on a 375-wide viewport by scrolling to the section cold and tapping.

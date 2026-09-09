@@ -1245,3 +1245,4 @@ Capture: guide.open true, tab 'map', combat frozen at elapsed 0, phase fight. Gu
 - 20:11Z chain 147: tells on Dru's own creatures (roster cards show hide/shrugs/fears; party-side "Glances off"/"Heavy damage") → arena-pace brief unit 4. Briefing 139 dismissed once — the fix holds.
 - 20:14Z fw-arena explainer v15: roster cards and the reserve button show hide / shrugs off / fears (unit-4 mockup, chain 147).
 - 20:16Z chain 148: a question in the briefing's FYI couldn't be answered → PROTOCOL: briefings carry no questions; Glasswing tracks asked as its own question chain (quest fw-2d). Hotfix lead filed #291.
+- 20:20Z chain 150: Dru couldn't find Swap / tap creatures in the mockup — flow needed enemy+three picked first, figures not tappable. v16: card starts ready (Antlerback; Barrow+Cinder out, Grit reserve), figures tappable. Rule for me: a mockup section must be live the moment it scrolls into view — no prerequisite taps in another section.
