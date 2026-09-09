@@ -1240,3 +1240,4 @@ CI-fix lead done: #282 (9dff7c4), test-only; nit: `as Array<…>` cast instead o
 
 ## 2026-09-09 20:04Z — chain 145: guide traps Dru in the arena (phone)
 Capture: guide.open true, tab 'map', combat frozen at elapsed 0, phase fight. Guide opened on the result screen (invisible), persisted into the next fight, no touch close. Hotfix lead spawned (/tmp/wyld-leads/arena-guide-stuck/brief.md): close button in the guide header, result-screen open visible-or-no-op, new fight starts closed, arena default tab = species. Told Dru to reload meanwhile.
+- 20:07Z chain 146 — Dru's pacing verdict: too fast (walking speed), bunching, needs rudimentary attack animations, **party = 2 out + 1 reserve with swap**. Answered; brief /tmp/wyld-leads/arena-pace/brief.md (3 units); mockup in the arena explainer tonight (mine); build tomorrow morning after the guide hotfix. Roadmap/pitch copy "pick three" → "two out, one in reserve" when built.
