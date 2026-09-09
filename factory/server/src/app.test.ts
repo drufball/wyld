@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Chain, Event, HealthSnapshot, Presence } from '@wyld/shared';
+import { Achievement, Chain, Event, HealthSnapshot, Presence } from '@wyld/shared';
 import { z } from 'zod';
 
 import { createApp } from './app.js';
@@ -87,10 +87,9 @@ describe('Pak server', () => {
   });
 
   it('lists the catalogue and reflects unlock events', async () => {
-    const initial = (await (await app.request('/api/achievements')).json()) as Array<{
-      id: string;
-      unlockedAt: string | null;
-    }>;
+    const initial = z
+      .array(Achievement)
+      .parse(await (await app.request('/api/achievements')).json());
     expect(initial).toHaveLength(7);
     expect(initial.every(({ unlockedAt }) => unlockedAt === null)).toBe(true);
     database.sqlite.prepare("INSERT INTO worlds VALUES ('w', 'World', 'game', 1, 'x')").run();
@@ -100,7 +99,9 @@ describe('Pak server', () => {
       )
       .run();
     await postEvent('human.intent', 'check achievements');
-    const updated = (await (await app.request('/api/achievements')).json()) as typeof initial;
+    const updated = z
+      .array(Achievement)
+      .parse(await (await app.request('/api/achievements')).json());
     expect(updated.find(({ id }) => id === 'first-quest-done')?.unlockedAt).toEqual(
       expect.any(String),
     );
@@ -414,10 +415,9 @@ describe('Pak server', () => {
       },
       { source: 'planner', kind: 'planner.chain_updated' },
     ]);
-    const achievements = (await (await app.request('/api/achievements')).json()) as Array<{
-      id: string;
-      unlockedAt: string | null;
-    }>;
+    const achievements = z
+      .array(Achievement)
+      .parse(await (await app.request('/api/achievements')).json());
     expect(achievements.find(({ id }) => id === 'early-bird')).toMatchObject({
       unlockedAt: '2026-09-09T06:19:00.000Z',
     });
