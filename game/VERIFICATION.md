@@ -72,3 +72,38 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 - **PASS — §7.4 damage:** measured neutral ×1.0, Bark/Heat ×1.6, and Bark/Cut ×0.6 in the combat event log.
 - **NOTE — duration:** a player-driven Antlerback fight currently ends in 12–13 s (measured headless at 375 × 812, one standing creature driven at a time: 13 s driven off with Barrow/Quill/Pip, 12 s win with Cinder/Grit/Barrow). The 30–90 s target is not met; `encounter.test.ts` reaches the band only with padded vigor and a slow policy. Pacing is the open tuning question.
 - **PASS — walkthrough:** from cleared `fieldwork.arena.v1`, picked Antlerback and Barrow/Quill/Pip, was driven off, and the result recorded Bark, Cut resistance, Bull Rush, and Bold temperament. Returned to the enemy card, selected Cinder, and won; the result added the Heat weakness. The guide paused and resumed the encounter from both G and Escape.
+
+## Diorama
+
+Measured in headless Chromium 151 with SwiftShader, seed 194. The party row was sampled with all
+three party members on screen; the arena row was sampled during an Antlerback fight. Counts include
+the shadow pass.
+
+| Scene | Viewport | Draw calls | Triangles | frameMsP50 | frameMsP95 |
+|---|---:|---:|---:|---:|---:|
+| World alone | 1280 × 720 | 29 | 25,432 | 512.0 | 683.8 |
+| `?scenario=creatures` | 1280 × 720 | 40 | 27,892 | 1,084.4 | 1,170.5 |
+| `?scenario=party` | 1280 × 720 | 45 | 25,954 | 375.7 | 717.3 |
+| `?scenario=arena` fight | 1280 × 720 | 46 | 14,716 | 270.3 | 469.6 |
+| World alone | 375 × 812 | 29 | 22,910 | 203.1 | 749.1 |
+| `?scenario=creatures` | 375 × 812 | 29 | 23,348 | 208.9 | 501.0 |
+| `?scenario=party` | 375 × 812 | 45 | 22,824 | 190.1 | 525.2 |
+| `?scenario=arena` fight | 375 × 812 | 46 | 13,076 | 206.5 | 494.2 |
+
+These `frameMsP50` / `frameMsP95` values are the values returned by `__wyld.perf()` in that run.
+**SwiftShader frame times are not the 60 fps budget**; the frame-rate checkpoint still needs Dru's
+laptop, as M0's PARTIAL did.
+
+### Renderer invariants
+
+- The camera tilt is 50° from vertical; its frustum is anisotropic and deliberately does **not** fit
+  the canvas aspect.
+- Tile centres are at `i + 0.5`.
+- Creature length comes from `TIER_LENGTH_TILES` (0.8 / 1.2 / 1.8 tiles), not from metres.
+- Ambient light carries its own colour, separate from the sky.
+- `groundSurfaceFor` sends `tree`, `rock`, and `fern` to the biome ground surface.
+- Ground jitter is ±4% from the tile hash **after one LCG advance**.
+- The build margin is 2 tiles.
+- An `InstancedMesh` whose matrices are written after construction must have
+  `computeBoundingSphere()` called or be marked `frustumCulled = false`; track decals were invisible
+  for a whole review round while every unit test passed.

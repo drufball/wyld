@@ -25,6 +25,7 @@ const orthoFrustum = (cols: number, rows: number): Frustum => ({
   halfWidth: cols / 2,
   halfHeight: (rows * Math.sin(ELEVATION) + TALL_TILES * Math.cos(ELEVATION)) / 2,
 });
+const shadowCameraHalfExtent = (cols: number, rows: number) => Math.hypot(cols, rows) / 2 + 2;
 const projectTile = (
   tileX: number,
   tileZ: number,
@@ -46,4 +47,12 @@ const pickTileFromNdc = (
   tx: Math.floor(target.x + ndcX * frustum.halfWidth),
   ty: Math.floor(target.z - (ndcY * frustum.halfHeight) / Math.sin(ELEVATION)),
 });
-export { cameraOffset, cameraTarget, orthoFrustum, pickTileFromNdc, projectTile, screenCentre };
+export {
+  cameraOffset,
+  cameraTarget,
+  orthoFrustum,
+  pickTileFromNdc,
+  projectTile,
+  screenCentre,
+  shadowCameraHalfExtent,
+};
