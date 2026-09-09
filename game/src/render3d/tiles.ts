@@ -11,6 +11,8 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
   >();
   let water: THREE.Mesh | null = null;
   let currentPalette: Palette | null = null;
+  const shimmerBase = new THREE.Color(),
+    shimmerDetail = new THREE.Color();
   const clear = () => {
     for (const { mesh } of meshes.values()) {
       scene.remove(mesh);
@@ -121,10 +123,9 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
   const shimmer = (palette: Palette, elapsedSeconds: number) => {
     if (!water) return;
     const colourMix = (Math.sin((elapsedSeconds * Math.PI * 2) / 4) + 1) / 2;
-    const colour = new THREE.Color();
     (water.material as THREE.MeshLambertMaterial).color
-      .copy(toColor(palette.water.base, colour))
-      .lerp(toColor(palette.water.detail, new THREE.Color()), colourMix);
+      .copy(toColor(palette.water.base, shimmerBase))
+      .lerp(toColor(palette.water.detail, shimmerDetail), colourMix);
     water.position.y = -0.01 + Math.sin((elapsedSeconds * Math.PI * 2) / 7) * 0.01;
   };
   return {

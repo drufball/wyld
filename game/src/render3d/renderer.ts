@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { speciesById } from '../creatures/species.js';
 import { pixelScale, screenCols, screenRows } from '../render2d/canvas.js';
+import type { Palette } from '../render2d/palette.js';
 import type { Facing } from '../player/controller.js';
 import type { TileGrid } from '../world/tiles.js';
 import type { TracksPlacement } from '../world/tracks.js';
@@ -101,6 +102,7 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
     frustum = { halfWidth: 1, halfHeight: 1 },
     built = '',
     coloured = '',
+    palette: Palette | null = null,
     canvasRect: DOMRect;
   const times: number[] = [];
   const resize = () => {
@@ -150,9 +152,9 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
       shadow.far = 200;
       shadow.updateProjectionMatrix();
     }
-    const key = surfacePaletteKey(frame.phase, frame.phaseProgress),
+    const key = surfacePaletteKey(frame.phase, frame.phaseProgress);
+    if (key !== coloured || !palette) {
       palette = surfacePaletteAt(frame.phase, frame.phaseProgress);
-    if (key !== coloured) {
       slabs.recolour(palette);
       cover.recolour(palette);
       coloured = key;

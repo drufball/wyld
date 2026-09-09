@@ -76,8 +76,8 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 ## Diorama
 
 Measured in headless Chromium 151 with SwiftShader, seed 194. The party row was sampled with all
-three party members on screen; the arena row was sampled during an Antlerback fight with projectile
-attacks in flight. Counts include the shadow pass.
+three party members on screen; the arena row was sampled during an Antlerback fight. Counts include
+the shadow pass.
 
 | Scene | Viewport | Draw calls | Triangles | frameMsP50 | frameMsP95 |
 |---|---:|---:|---:|---:|---:|
