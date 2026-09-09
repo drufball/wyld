@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildArenaIndividual, enemy, rosterMember } from '../arena/roster.js';
 import type { Individual } from '../creatures/individual.js';
+import { FACING_YAW } from '../creatures/facing.js';
 import type { Move } from './moves.js';
 import { createEncounter, type EncounterOptions, type Point } from './encounter.js';
 import { deliveries } from './resolve.js';
@@ -54,6 +55,15 @@ const advance = (
 };
 
 describe('combat encounter', () => {
+  it('faces a combatant toward a target to the east with the shared yaw convention', () => {
+    const subject = setup({
+      partyTiles: { owned: { x: 5, y: 0 } },
+      enemyTile: { x: 0, y: 0 },
+    });
+    subject.update(0.05);
+    expect(subject.state().enemy.facing).toBeCloseTo(FACING_YAW.right);
+  });
+
   it('picks the move whose range best matches the distance', () => {
     const subject = setup({
       enemy: fighter('enemy', [move('Strike'), move('Bolt')]),

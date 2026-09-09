@@ -1,4 +1,5 @@
 import type { Rng } from '../engine/rng.js';
+import { yawFromDelta } from './facing.js';
 
 type Point = { x: number; z: number };
 type WanderState = {
@@ -66,7 +67,7 @@ const createWander = (rng: Rng) => {
     const dx = state.target.x - position.x;
     const dz = state.target.z - position.z;
     const distance = Math.hypot(dx, dz);
-    const facing = Math.atan2(dx, dz);
+    const facing = yawFromDelta(dx, dz);
     state.facing = facing;
     // Wandering is an amble at 35% of the full §5.2 movement speed.
     const travel = Math.min(distance, (3 + options.speedStat * 0.6) * 0.35 * dt);
