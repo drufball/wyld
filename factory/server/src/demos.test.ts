@@ -119,6 +119,125 @@ describe('demo and feedback routes', () => {
     expect(build).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps the quest title when a disc is re-registered without its quest', async () => {
+    database.db
+      .insert(worlds)
+      .values({ id: 'factory', name: 'Factory', kind: 'factory', order: 0, icon: 'gear' })
+      .run();
+    database.db
+      .insert(quests)
+      .values({
+        id: 'quest-one',
+        worldId: 'factory',
+        title: 'Quest title',
+        pitch: 'Ship it',
+        status: 'building',
+        sinceYouLooked: '',
+        lastNote: '',
+      })
+      .run();
+    await post('/api/demos', { id: 'preview', ref: 'one', questId: 'quest-one' });
+    await post('/api/demos', { id: 'preview', ref: 'newer' });
+
+    expect(database.db.select().from(demos).where(eq(demos.id, 'preview')).get()).toMatchObject({
+      questId: 'quest-one',
+      title: 'Quest title',
+    });
+  });
+
+  it('keeps a stored deep link when a disc is re-registered without one', async () => {
+    await post('/api/demos', { id: 'arena', ref: 'first', deepLink: '?scenario=arena' });
+    const response = await post('/api/demos', { id: 'arena', ref: 'newer' });
+
+    expect(database.db.select().from(demos).where(eq(demos.id, 'arena')).get()).toMatchObject({
+      deepLink: '?scenario=arena',
+    });
+    expect(Demo.parse(await response.json())).toMatchObject({
+      deepLink: '?scenario=arena',
+      url: '/play/arena/?scenario=arena',
+    });
+  });
+
+  it('clears a stored deep link when a disc is re-registered with an explicit null', async () => {
+    await post('/api/demos', { id: 'arena', ref: 'first', deepLink: '?scenario=arena' });
+    const response = await post('/api/demos', { id: 'arena', ref: 'newer', deepLink: null });
+
+    expect(database.db.select().from(demos).where(eq(demos.id, 'arena')).get()).toMatchObject({
+      deepLink: null,
+    });
+    expect(Demo.parse(await response.json())).toMatchObject({
+      deepLink: null,
+      url: '/play/arena/',
+    });
+  });
+
+  it('replaces a stored deep link when a disc is re-registered with a new one', async () => {
+    await post('/api/demos', { id: 'arena', ref: 'first', deepLink: '?scenario=arena' });
+    const response = await post('/api/demos', { id: 'arena', ref: 'newer', deepLink: '/sleep' });
+
+    expect(Demo.parse(await response.json())).toMatchObject({
+      deepLink: '/sleep',
+      url: '/play/arena/sleep',
+    });
+  });
+
+  it('keeps a stored quest, summary, steps and seeded when a re-registration omits them', async () => {
+    await post('/api/demos', {
+      id: 'merge-fields',
+      ref: 'first',
+      questId: 'quest-one',
+      summary: 'A summary',
+      steps: ['First step'],
+      seeded: ['Seed data'],
+    });
+    await post('/api/demos', { id: 'merge-fields', ref: 'newer' });
+
+    expect(
+      database.db.select().from(demos).where(eq(demos.id, 'merge-fields')).get(),
+    ).toMatchObject({
+      questId: 'quest-one',
+      summary: 'A summary',
+      steps: ['First step'],
+      seeded: ['Seed data'],
+    });
+  });
+
+  it('clears a summary with an explicit null and clears steps and seeded with empty arrays', async () => {
+    await post('/api/demos', {
+      id: 'clear-fields',
+      ref: 'first',
+      questId: 'quest-one',
+      summary: 'A summary',
+      steps: ['First step'],
+      seeded: ['Seed data'],
+    });
+    await post('/api/demos', {
+      id: 'clear-fields',
+      ref: 'newer',
+      questId: null,
+      summary: null,
+      steps: [],
+      seeded: [],
+    });
+
+    expect(
+      database.db.select().from(demos).where(eq(demos.id, 'clear-fields')).get(),
+    ).toMatchObject({ questId: null, summary: null, steps: [], seeded: [] });
+  });
+
+  it('keeps the deep link when an existing disc is rebuilt', async () => {
+    await post('/api/demos', { id: 'arena', ref: 'first', deepLink: '?scenario=arena' });
+    const response = await post('/api/demos/build', { id: 'arena' });
+
+    expect(database.db.select().from(demos).where(eq(demos.id, 'arena')).get()).toMatchObject({
+      deepLink: '?scenario=arena',
+    });
+    expect(Demo.parse(await response.json())).toMatchObject({
+      deepLink: '?scenario=arena',
+      url: '/play/arena/?scenario=arena',
+    });
+  });
+
   it('registers and replaces live demo cards without building them', async () => {
     const first = await post('/api/demos', {
       id: 'try-card',
@@ -151,11 +270,11 @@ describe('demo and feedback routes', () => {
     expect(Demo.parse(await second.json())).toMatchObject({
       ref: 'main',
       title: 'Updated title',
-      summary: null,
-      steps: [],
-      seeded: [],
-      deepLink: null,
-      url: '/',
+      summary: 'A useful screen.',
+      steps: ['Open it', 'Try it'],
+      seeded: ['Example quest'],
+      deepLink: '/sleep',
+      url: '/sleep',
       builtAt: clock.toISOString(),
     });
     expect(database.db.select().from(demos).all()).toHaveLength(1);

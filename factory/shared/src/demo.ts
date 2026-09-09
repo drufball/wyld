@@ -34,13 +34,13 @@ export const NewDemo = z.object({
     .refine((ref) => !ref.startsWith('-'), {
       message: 'ref must not start with -',
     }),
-  questId: Id.optional(),
+  questId: Id.nullable().optional(),
   title: z.string().min(1).optional(),
   kind: DemoKind.optional(),
-  summary: z.string().optional(),
+  summary: z.string().nullable().optional(),
   steps: z.array(z.string()).optional(),
   seeded: z.array(z.string()).optional(),
-  deepLink: z.string().optional(),
+  deepLink: z.string().nullable().optional(),
 });
 export type NewDemo = z.infer<typeof NewDemo>;
 

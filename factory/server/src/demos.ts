@@ -83,25 +83,34 @@ export function createDemoRoutes({
     const parsed = NewDemo.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
     if (!validSlug(parsed.data.id)) return c.json({ error: 'Invalid demo slug' }, 400);
-    const quest = parsed.data.questId
-      ? db.select().from(quests).where(eq(quests.id, parsed.data.questId)).get()
+    const existing = db.select().from(demos).where(eq(demos.id, parsed.data.id)).get();
+    const questId =
+      parsed.data.questId === undefined ? (existing?.questId ?? null) : parsed.data.questId;
+    const quest = questId
+      ? db.select().from(quests).where(eq(quests.id, questId)).get()
       : undefined;
     const title =
       parsed.data.title ?? quest?.title ?? (parsed.data.id === 'main' ? 'Main' : parsed.data.id);
     const kind = parsed.data.kind ?? 'disc';
     const live = kind === 'live';
     const builtAt = live ? now().toISOString() : null;
+    const summary =
+      parsed.data.summary === undefined ? (existing?.summary ?? null) : parsed.data.summary;
+    const steps = parsed.data.steps === undefined ? (existing?.steps ?? []) : parsed.data.steps;
+    const seeded = parsed.data.seeded === undefined ? (existing?.seeded ?? []) : parsed.data.seeded;
+    const deepLink =
+      parsed.data.deepLink === undefined ? (existing?.deepLink ?? null) : parsed.data.deepLink;
     db.insert(demos)
       .values({
         id: parsed.data.id,
         ref: parsed.data.ref,
-        questId: parsed.data.questId ?? null,
+        questId,
         title,
         kind,
-        summary: parsed.data.summary ?? null,
-        steps: parsed.data.steps ?? [],
-        seeded: parsed.data.seeded ?? [],
-        deepLink: parsed.data.deepLink ?? null,
+        summary,
+        steps,
+        seeded,
+        deepLink,
         status: live ? 'ready' : 'building',
         builtAt,
         error: null,
@@ -111,13 +120,13 @@ export function createDemoRoutes({
         target: demos.id,
         set: {
           ref: parsed.data.ref,
-          questId: parsed.data.questId ?? null,
+          questId,
           title,
           kind,
-          summary: parsed.data.summary ?? null,
-          steps: parsed.data.steps ?? [],
-          seeded: parsed.data.seeded ?? [],
-          deepLink: parsed.data.deepLink ?? null,
+          summary,
+          steps,
+          seeded,
+          deepLink,
           status: live ? 'ready' : 'building',
           builtAt,
           error: null,
