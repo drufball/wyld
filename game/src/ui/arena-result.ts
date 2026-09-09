@@ -27,7 +27,14 @@ const createArenaResult = (options: ArenaResultOptions) => {
     const heading = document.createElement('h2');
     heading.textContent = 'You learned:';
     learned.append(heading);
-    for (const fact of options.learned) {
+    const order: Record<LearnedFact['kind'], number> = {
+      hide: 0,
+      weakness: 1,
+      resistance: 2,
+      move: 3,
+      temperament: 4,
+    };
+    for (const fact of options.learned.toSorted((a, b) => order[a.kind] - order[b.kind])) {
       const line = document.createElement('p');
       line.textContent = learnedFactText(fact);
       learned.append(line);

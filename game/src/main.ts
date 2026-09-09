@@ -46,6 +46,9 @@ import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
 import { spriteOrigin } from './render2d/placement.js';
 import { combatBarOrigin } from './render2d/combat-bar.js';
+import { anchorFor } from './render3d/anchors.js';
+import { cameraTarget, orthoFrustum } from './render3d/camera.js';
+import { TIER_LENGTH_TILES } from './render3d/bodyplans/index.js';
 import { createTileRenderer } from './render2d/tiles.js';
 import { buildState } from './state.js';
 import { createControlsCard } from './ui/controls.js';
@@ -59,7 +62,9 @@ import { createPick, chooseEnemy, toggleMember, startFight, type PickState } fro
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter } from './combat/encounter.js';
 import { createToastStack } from './ui/toasts.js';
-import { learnFromCombat, type LearnedFact } from './arena/learning.js';
+import { learnedFactText, learnFromCombat, type LearnedFact } from './arena/learning.js';
+import { createTellStack, tellsFromEvents } from './combat/tells.js';
+import { createCombatTellOverlay } from './ui/combat-tell.js';
 import { loadArenaProgress, saveArenaProgress, wipeArenaProgress } from './arena/persistence.js';
 import { safeStorage } from './persist/storage.js';
 import { createArenaResult } from './ui/arena-result.js';
@@ -118,6 +123,8 @@ let tiles = createTileRenderer(grid, synthetic ? [] : trackPlacements);
 const debugConsole = createDebugConsole({ seed }),
   stats = createStatsPanel(debugConsole.available),
   toasts = createToastStack(),
+  tellStack = createTellStack(),
+  tellOverlay = createCombatTellOverlay(),
   arenaStorage = safeStorage(),
   hudActions: Parameters<typeof createHud>[2] = {},
   hud = createHud(debugConsole.available, toasts.root, hudActions),
@@ -649,6 +656,25 @@ const render = (alpha = 1) => {
       selection: partyState.selection,
       combat: combat ? { projectiles: combat.projectiles, flashes: combat.flashes } : null,
     });
+    if (combat) {
+      const definition = speciesById(combat.enemy.speciesId)!;
+      const rect = dioramaView!.canvas.getBoundingClientRect();
+      const anchor = anchorFor(
+        combat.enemy.tile.x,
+        combat.enemy.tile.y,
+        TIER_LENGTH_TILES[definition.tier] * 0.6,
+        cameraTarget(screen, player.sliding, view.cols, view.rows),
+        orthoFrustum(view.cols, view.rows),
+        rect,
+      );
+      tellOverlay.sync(
+        tellStack.list().map((tell, index) => ({
+          ...tell,
+          left: anchor.left,
+          top: anchor.top - 20 - index * 24,
+        })),
+      );
+    } else tellOverlay.sync([]);
     stats.afterRender(result.frameMs, result.drawCalls);
     return;
   }
@@ -785,7 +811,18 @@ const render = (alpha = 1) => {
         16,
       );
     }
-  }
+    const origin = combatBarOrigin(combat.enemy.tile, screen, view.cols, view.rows, size);
+    const rect = flat.canvas.getBoundingClientRect();
+    const scaleX = rect.width / flat.canvas.width;
+    const scaleY = rect.height / flat.canvas.height;
+    tellOverlay.sync(
+      tellStack.list().map((tell, index) => ({
+        ...tell,
+        left: rect.left + (origin.x + size / 2) * scaleX,
+        top: rect.top + (origin.y - 8) * scaleY - index * 24,
+      })),
+    );
+  } else tellOverlay.sync([]);
   stats.afterRender(tiles.tileMs, drawCalls);
   if (key !== renderedPaletteKey) {
     document.body.style.background = `rgb(${palette.ash.shade.join(',')})`;
@@ -795,6 +832,7 @@ const render = (alpha = 1) => {
 const loop = createLoop({
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
+    tellStack.update(dt);
     if (encounter) {
       const combatEvents = encounter.update(
         dt,
@@ -811,20 +849,25 @@ const loop = createLoop({
       if (foeEntry) {
         const partyMoves = partyState.party.flatMap(({ individual }) => individual.repertoire);
         const foeIndividual = buildArenaIndividual(foeEntry);
-        fightLearned.push(
-          ...learnFromCombat({
-            notebook,
-            events: combatEvents,
-            enemySpeciesId: foeEntry.speciesId,
-            enemyId: foeEntry.id,
-            moves: [...partyMoves, ...foeIndividual.repertoire],
-            ownedIds: partyState.party.map(({ individual }) => individual.id),
-            hide: speciesById(foeEntry.speciesId)!.hide,
-            temperament: foeEntry.temperament,
-            fightEnded: combat.phase !== 'fight',
-            fightsFought: arenaProgress?.fightsFought[foeEntry.speciesId] ?? 0,
-          }),
-        );
+        const newlyLearned = learnFromCombat({
+          notebook,
+          events: combatEvents,
+          enemySpeciesId: foeEntry.speciesId,
+          enemyId: foeEntry.id,
+          moves: [...partyMoves, ...foeIndividual.repertoire],
+          ownedIds: partyState.party.map(({ individual }) => individual.id),
+          hide: speciesById(foeEntry.speciesId)!.hide,
+          temperament: foeEntry.temperament,
+          fightEnded: combat.phase !== 'fight',
+          fightsFought: arenaProgress?.fightsFought[foeEntry.speciesId] ?? 0,
+        });
+        fightLearned.push(...newlyLearned);
+        for (const fact of newlyLearned) toasts.note(learnedFactText(fact));
+        for (const tell of tellsFromEvents(combatEvents, {
+          enemyId: foeEntry.id,
+          ownedIds: partyState.party.map(({ individual }) => individual.id),
+        }))
+          tellStack.push(tell);
         if (combat.phase !== 'fight' && !fightRecorded && arenaProgress) {
           fightRecorded = true;
           arenaProgress.runCount += 1;
