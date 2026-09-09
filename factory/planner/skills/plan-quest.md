@@ -73,3 +73,9 @@ Every quest gets its explainer **at planning**, before the first issue is filed:
 
 ### A mockup must be live the moment it scrolls into view (Dru, 2026-09-09)
 Dru opened the arena explainer straight to "The fight" and found no Swap button and nothing tappable — the card only came alive after picking an enemy and three creatures in sections above it. Every mockup section starts in a ready state (a sensible default already chosen) and every drawn thing that looks tappable is tappable; a section may never depend on taps made in another section. Check it on a 375-wide viewport by scrolling to the section cold and tapping.
+
+### Quests are contained and closable; missions live on the roadmap (Dru, 2026-09-09)
+Dru: "a fight you can learn from is the roadmap / top level mission now, and it should have many quests that we make progress through. Right now it feels like it's just one mega quest I keep commenting on and never closing out bits."
+- A **quest** is one outcome Dru can mark done within days, with a one-line "done when…" in its pitch. If a quest keeps receiving new units after it reached `demo`, it has become a mission: leave it as shipped and split the new work into new quests.
+- A **mission** is a block on the roadmap, not a quest: what will be true, the quests under it (with their state), the live playthrough embedded (`data-wyld-demo` iframe), and the mockups for what's next. Dru's feedback on a mission lands on the roadmap or on a quest's explainer, never on a bucket quest.
+- Each new quest still gets its own explainer (mockup first), but it may be short and may embed the same disc with a different scenario/section.
