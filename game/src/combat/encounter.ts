@@ -117,7 +117,8 @@ const createEncounter = ({
   const foe = make(enemy, enemyTile);
   let phase: CombatState['phase'] = 'fight',
     elapsed = 0,
-    serial = 0;
+    serial = 0,
+    partyWipedElapsed: number | null = null;
   const flights: Flight[] = [],
     flashes: Flash[] = [];
   const events: CombatEvent[] = [];
@@ -152,6 +153,7 @@ const createEncounter = ({
       events.push({ type: 'downed', target: target.id });
       if (target === foe) {
         phase = 'win';
+        flashes.length = 0;
         events.push({ type: 'win' });
       }
     }
@@ -342,7 +344,11 @@ const createEncounter = ({
         beginMove(c, target, c.approach.move);
       }
     }
-    for (const f of flashes) f.remaining -= dt;
+    for (let i = flashes.length - 1; i >= 0; i--) {
+      const flash = flashes[i]!;
+      flash.remaining -= dt;
+      if (flash.remaining <= 0) flashes.splice(i, 1);
+    }
     for (const c of all())
       if (c.pending) {
         c.pending.elapsed += dt;
@@ -386,30 +392,35 @@ const createEncounter = ({
       }
     }
     const target = nearest();
-    if (!foe.downed && !foe.pending) {
-      if (target) {
-        foe.hold = Math.max(0, foe.hold - dt);
-        if (foe.hold <= 0) {
-          if (foe.approach) {
-            const approachTarget = byId(foe.approach.targetId);
-            if (approachTarget && !approachTarget.downed) {
-              const requiredRange =
-                foe.approach.move.delivery === 'Lunge' ? 0.5 : rangeTilesFor(foe.approach.move);
-              moveEnemy(dt, approachTarget.tile, requiredRange);
-              if (distance(foe.tile, approachTarget.tile) <= requiredRange + 0.05)
-                beginMove(foe, approachTarget, foe.approach.move);
-            }
-          } else {
-            moveEnemy(dt, target.tile);
-            const used = enemyMoveCandidates().some((move) => useMove(foe.id, move.id, target.id));
-            if (!used) foe.hold = 1;
+    if (target) partyWipedElapsed = null;
+    if (!foe.downed && !foe.pending && target) {
+      foe.hold = Math.max(0, foe.hold - dt);
+      if (foe.hold <= 0) {
+        if (foe.approach) {
+          const approachTarget = byId(foe.approach.targetId);
+          if (approachTarget && !approachTarget.downed) {
+            const requiredRange =
+              foe.approach.move.delivery === 'Lunge' ? 0.5 : rangeTilesFor(foe.approach.move);
+            moveEnemy(dt, approachTarget.tile, requiredRange);
+            if (distance(foe.tile, approachTarget.tile) <= requiredRange + 0.05)
+              beginMove(foe, approachTarget, foe.approach.move);
           }
+        } else {
+          moveEnemy(dt, target.tile);
+          const used = enemyMoveCandidates().some((move) => useMove(foe.id, move.id, target.id));
+          if (!used) foe.hold = 1;
         }
-      } else {
-        if (distance(foe.tile, playerTile) <= metresToTiles(2)) {
-          phase = 'driven-off';
-          events.push({ type: 'driven-off' });
-        } else moveEnemy(dt, playerTile, metresToTiles(2));
+      }
+    }
+    if (!foe.downed && !target) {
+      partyWipedElapsed = (partyWipedElapsed ?? 0) + dt;
+      const drivenOffRange = metresToTiles(2);
+      moveEnemy(dt, playerTile, drivenOffRange);
+      // Movement can settle one floating-point ulp outside the exact range boundary.
+      if (distance(foe.tile, playerTile) <= drivenOffRange + 1e-6 || partyWipedElapsed >= 3) {
+        phase = 'driven-off';
+        flashes.length = 0;
+        events.push({ type: 'driven-off' });
       }
     }
     return events.map((e) => ({ ...e }));
@@ -451,7 +462,7 @@ const createEncounter = ({
       position: copy(p.position),
       target: copy(p.target),
     })),
-    flashes: flashes.filter((f) => f.remaining > 0).map((f) => structuredClone(f)),
+    flashes: flashes.map((f) => structuredClone(f)),
   });
   const heal = (): void => {
     for (const c of all()) {

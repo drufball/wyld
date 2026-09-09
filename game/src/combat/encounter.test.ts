@@ -140,6 +140,100 @@ describe('combat encounter', () => {
     expect(subject.state().phase).toBe('driven-off');
   });
 
+  it('ends the fight when every owned creature is down and the player is across the arena', () => {
+    const party = ['loamox', 'mirefin', 'thornwren'].map((id) => {
+      const individual = member(id);
+      return { ...individual, stats: { ...individual.stats, vigor: 3 } };
+    });
+    const positions = Object.fromEntries(
+      party.map((individual, index) => [individual.id, { x: 8.5 + index * 0.5, y: 2.5 }]),
+    );
+    const player = { x: 2.5, y: 11.5 };
+    const subject = createEncounter({
+      party,
+      enemy: antlerback(),
+      grid: openGrid,
+      rng: () => 0,
+      partyTiles: positions,
+      enemyTile: { x: 9.5, y: 1.5 },
+      player,
+    });
+
+    for (let time = 0; time < 30 && subject.state().phase === 'fight'; time += 1 / 60)
+      subject.update(1 / 60, positions, player);
+
+    expect(subject.state().phase).toBe('driven-off');
+    expect(subject.state().elapsed).toBeLessThan(30);
+  });
+
+  it('ends the fight when every owned creature is down and the enemy cannot reach the player', () => {
+    const sweep = { ...move('Sweep'), power: 30 };
+    const party = ['one', 'two', 'three'].map((id) =>
+      fighter(id, [move('Strike')], { stats: { vigor: 1, power: 1, speed: 1, focus: 1 } }),
+    );
+    const subject = setup({
+      party,
+      enemy: fighter('enemy', [sweep]),
+      grid: { isWalkable: () => false },
+      partyTiles: { one: { x: 4, y: 0 }, two: { x: 4, y: 0 }, three: { x: 4, y: 0 } },
+      enemyTile: { x: 4, y: 0 },
+      player: { x: 0, y: 10 },
+    });
+    subject.useMove('enemy', sweep.id, 'one');
+    advance(subject, 10, {}, { x: 0, y: 10 });
+
+    expect(subject.state().phase).toBe('driven-off');
+    expect(subject.state().elapsed).toBeLessThan(10);
+  });
+
+  it('emits the driven-off event exactly once when the party is wiped', () => {
+    const strike = { ...move('Strike'), power: 30 };
+    const subject = setup({
+      party: [
+        fighter('owned', [move('Strike')], { stats: { vigor: 1, power: 1, speed: 1, focus: 1 } }),
+      ],
+      enemy: fighter('enemy', [strike]),
+      enemyTile: { x: 1, y: 0 },
+    });
+    subject.useMove('enemy', strike.id, 'owned');
+
+    const events = [...advance(subject, 2), ...advance(subject, 2)];
+    expect(events.filter((event) => event.type === 'driven-off')).toHaveLength(1);
+  });
+
+  it('keeps fighting while one owned creature is still standing', () => {
+    const sweep = { ...move('Sweep'), power: 30 };
+    const party = ['one', 'two', 'three'].map((id) =>
+      fighter(id, [move('Strike')], { stats: { vigor: 1, power: 1, speed: 1, focus: 1 } }),
+    );
+    const subject = setup({
+      party,
+      enemy: fighter('enemy', [sweep]),
+      grid: { isWalkable: () => false },
+      partyTiles: { one: { x: 4, y: 0 }, two: { x: 4, y: 0 }, three: { x: 0, y: 0 } },
+      enemyTile: { x: 4, y: 0 },
+    });
+    subject.useMove('enemy', sweep.id, 'one');
+    advance(subject, 10);
+
+    expect(subject.state().party.filter(({ downed }) => downed)).toHaveLength(2);
+    expect(subject.state().phase).toBe('fight');
+  });
+
+  it('drops flashes once they have expired', () => {
+    const strike = move('Strike');
+    const subject = setup({ enemyTile: { x: 1, y: 0 } });
+    subject.useMove('owned', strike.id);
+    for (let time = 0; time < 1; time += 0.05) {
+      const events = subject.update(0.05);
+      if (events.some((event) => event.type === 'hit')) break;
+    }
+    expect(subject.state().flashes).not.toHaveLength(0);
+
+    subject.update(0.2);
+    expect(subject.state().flashes).toHaveLength(0);
+  });
+
   it('regenerates two focus a second', () => {
     const subject = setup({
       party: [fighter('owned', [move('Strike')])],
