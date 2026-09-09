@@ -42,6 +42,7 @@ import { createCanvas } from './render2d/canvas.js';
 import { pixelScale, screenCols, screenRows } from './render2d/canvas.js';
 import { lookFromQuery } from './render3d/look.js';
 import { createDiorama } from './render3d/renderer.js';
+import { createVignette } from './render3d/vignette.js';
 import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
 import { spriteOrigin } from './render2d/placement.js';
@@ -114,6 +115,7 @@ const trackPlacements = placeTracks({
 let activeFlatScreen = { sx: 0, sy: 0 };
 const dioramaView =
   look === 'diorama' ? createDiorama(grid, synthetic ? [] : trackPlacements) : null;
+const vignette = look === 'diorama' ? createVignette() : null;
 const flatView = look === 'flat' ? createCanvas({ screen: () => activeFlatScreen }) : null;
 const view = dioramaView ?? flatView!;
 const scenarioStart = synthetic
@@ -676,6 +678,7 @@ const render = (alpha = 1) => {
       );
     } else tellOverlay.sync([]);
     stats.afterRender(result.frameMs, result.drawCalls);
+    vignette!.refresh(stats.read());
     return;
   }
   const flat = flatView!;

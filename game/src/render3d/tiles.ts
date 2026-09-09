@@ -116,13 +116,21 @@ const createSlabs = (grid: TileGrid, scene: THREE.Scene) => {
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
     if (water)
-      (water.material as THREE.MeshLambertMaterial).color.copy(
-        toColor(palette.water.detail, colour),
-      );
+      (water.material as THREE.MeshLambertMaterial).color.copy(toColor(palette.water.base, colour));
+  };
+  const shimmer = (palette: Palette, elapsedSeconds: number) => {
+    if (!water) return;
+    const colourMix = (Math.sin((elapsedSeconds * Math.PI * 2) / 4) + 1) / 2;
+    const colour = new THREE.Color();
+    (water.material as THREE.MeshLambertMaterial).color
+      .copy(toColor(palette.water.base, colour))
+      .lerp(toColor(palette.water.detail, new THREE.Color()), colourMix);
+    water.position.y = -0.01 + Math.sin((elapsedSeconds * Math.PI * 2) / 7) * 0.01;
   };
   return {
     build,
     recolour,
+    shimmer,
     dispose() {
       clear();
       geometry.dispose();

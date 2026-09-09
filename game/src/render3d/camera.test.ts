@@ -8,6 +8,7 @@ import {
   pickTileFromNdc,
   projectTile,
   screenCentre,
+  shadowCameraHalfExtent,
 } from './camera.js';
 const inside = (cols: number, rows: number, screen = { x: 0, y: 0 }) => {
   const f = orthoFrustum(cols, rows),
@@ -94,5 +95,14 @@ describe('camera maths', () => {
       expect(actual.x).toBeCloseTo(expected.ndcX, 6);
       expect(actual.y).toBeCloseTo(expected.ndcY, 6);
     }
+  });
+  it('sizes the shadow camera from the screen diagonal', () => {
+    for (const [cols, rows] of [
+      [20, 15],
+      [11, 22],
+    ])
+      expect(shadowCameraHalfExtent(cols!, rows!)).toBeGreaterThanOrEqual(
+        Math.hypot(cols!, rows!) / 2,
+      );
   });
 });

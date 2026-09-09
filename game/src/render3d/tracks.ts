@@ -9,7 +9,7 @@ const createTrackDecals = (scene: THREE.Scene) => {
   const geometry = new THREE.PlaneGeometry(1, 1);
   const material = new THREE.MeshBasicMaterial({
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.7,
     color: '#292b25',
     depthWrite: false,
     polygonOffset: true,
@@ -56,12 +56,12 @@ const createTrackDecals = (scene: THREE.Scene) => {
       visible.forEach(({ rect, tx, ty }, index) => {
         matrix.compose(
           position.set(
-            tx + 0.5 + (rect.x + rect.w / 2) / 16,
+            tx + 0.5 + ((rect.x + rect.w / 2) / 16) * 1.4,
             0.01,
-            ty + 0.5 + (rect.y + rect.h / 2) / 16,
+            ty + 0.5 + ((rect.y + rect.h / 2) / 16) * 1.4,
           ),
           quaternion,
-          scale.set(rect.w / 16, rect.h / 16, 1),
+          scale.set((rect.w / 16) * 1.4, (rect.h / 16) * 1.4, 1),
         );
         mesh!.setMatrixAt(index, matrix);
       });

@@ -5,7 +5,13 @@ import type { Facing } from '../player/controller.js';
 import type { TileGrid } from '../world/tiles.js';
 import type { TracksPlacement } from '../world/tracks.js';
 import type { Phase } from '../world/time.js';
-import { cameraOffset, cameraTarget, orthoFrustum, pickTileFromNdc } from './camera.js';
+import {
+  cameraOffset,
+  cameraTarget,
+  orthoFrustum,
+  pickTileFromNdc,
+  shadowCameraHalfExtent,
+} from './camera.js';
 import { createCover } from './cover.js';
 import { TIER_LENGTH_TILES } from './bodyplans/index.js';
 import { createCombatOverlay, type BarValue } from './combat-overlay.js';
@@ -134,7 +140,7 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
       tracks.build(trackPlacements, screens, cols, rows);
       built = buildKey;
       coloured = '';
-      const size = Math.max(cols, rows) / 2 + 2,
+      const size = shadowCameraHalfExtent(cols, rows),
         shadow = sun.shadow.camera as THREE.OrthographicCamera;
       shadow.left = -size;
       shadow.right = size;
@@ -144,13 +150,14 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
       shadow.far = 200;
       shadow.updateProjectionMatrix();
     }
-    const key = surfacePaletteKey(frame.phase, frame.phaseProgress);
+    const key = surfacePaletteKey(frame.phase, frame.phaseProgress),
+      palette = surfacePaletteAt(frame.phase, frame.phaseProgress);
     if (key !== coloured) {
-      const palette = surfacePaletteAt(frame.phase, frame.phaseProgress);
       slabs.recolour(palette);
       cover.recolour(palette);
       coloured = key;
     }
+    slabs.shimmer(palette, frame.elapsedSeconds);
     scene.background = skyAt(frame.phase, frame.phaseProgress);
     sun.color.copy(sunColourAt(frame.phase, frame.phaseProgress));
     sun.intensity = sunIntensityAt(frame.phase, frame.phaseProgress);

@@ -53,4 +53,47 @@ describe('slabs', () => {
     expect(jitter(7, 11)).toBeLessThanOrEqual(1.04);
     expect(jitter(7, 11)).not.toBe(jitter(8, 11));
   });
+  it('shimmers the water without adding a mesh', () => {
+    const scene = new THREE.Scene(),
+      s = createSlabs(grid, scene),
+      palette = paletteAt('Day', 0);
+    s.build({ x: 0, y: 0 }, 2, 2);
+    s.recolour(palette);
+    const childCount = scene.children.length,
+      water = scene.children.find(
+        (child) => child instanceof THREE.Mesh && !(child instanceof THREE.InstancedMesh),
+      ) as THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>;
+    s.shimmer(palette, 0);
+    const first = water.material.color.getHex();
+    s.shimmer(palette, 1);
+    expect(water.material.color.getHex()).not.toBe(first);
+    expect(scene.children).toHaveLength(childCount);
+    s.dispose();
+  });
+  it('keeps the phase colour under the shimmer', () => {
+    const scene = new THREE.Scene(),
+      s = createSlabs(grid, scene),
+      day = paletteAt('Day', 0),
+      night = paletteAt('Night', 0);
+    s.build({ x: 0, y: 0 }, 2, 2);
+    s.recolour(night);
+    s.shimmer(night, 0.7);
+    const water = scene.children.find(
+        (child) => child instanceof THREE.Mesh && !(child instanceof THREE.InstancedMesh),
+      ) as THREE.Mesh<THREE.BufferGeometry, THREE.MeshLambertMaterial>,
+      colour = water.material.color;
+    const rgb = (value: readonly [number, number, number]) =>
+        new THREE.Color().setRGB(
+          value[0] / 255,
+          value[1] / 255,
+          value[2] / 255,
+          THREE.SRGBColorSpace,
+        ),
+      distance = (a: THREE.Color, b: THREE.Color) => Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
+    expect(distance(colour, rgb(night.water.base))).toBeLessThanOrEqual(
+      distance(rgb(night.water.base), rgb(night.water.detail)),
+    );
+    expect(distance(colour, rgb(day.water.base))).toBeGreaterThan(0.05);
+    s.dispose();
+  });
 });
