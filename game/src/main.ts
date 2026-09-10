@@ -54,7 +54,7 @@ import { cameraTarget, orthoFrustum } from './render3d/camera.js';
 import { TIER_LENGTH_TILES } from './render3d/bodyplans/index.js';
 import { createTileRenderer } from './render2d/tiles.js';
 import { buildState } from './state.js';
-import { createControlsCard } from './ui/controls.js';
+import { createControlsCard, shouldIgnoreArenaKey } from './ui/controls.js';
 import { createDebugConsole } from './ui/debug.js';
 import { createGuideBook } from './ui/guide.js';
 import { createHud } from './ui/hud.js';
@@ -63,7 +63,7 @@ import { createArenaPick } from './ui/arena-pick.js';
 import { buildArenaIndividual, enemy, rosterMember } from './arena/roster.js';
 import { createPick, chooseEnemy, toggleMember, startFight, type PickState } from './arena/pick.js';
 import { resistance, weakness } from './combat/hides.js';
-import { createEncounter } from './combat/encounter.js';
+import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
 import { LUNGE_SECONDS, createAnimations } from './combat/anim.js';
 import { createToastStack } from './ui/toasts.js';
 import { learnedFactText, learnFromCombat, type LearnedFact } from './arena/learning.js';
@@ -267,6 +267,7 @@ const animations = createAnimations();
 let fightLearned: LearnedFact[] = [];
 let resultScreen: ReturnType<typeof createArenaResult> | null = null;
 let fightRecorded = false;
+let reservePrompted = false;
 let damageLogging = false;
 const seedCreature = (id: string): void => {
   const c = registry.get(id);
@@ -492,6 +493,7 @@ const beginArena = (state: PickState): void => {
   arenaState = state;
   fightLearned = [];
   fightRecorded = false;
+  reservePrompted = false;
   resultScreen?.dispose();
   resultScreen = null;
   const built = buildArena(view.cols, view.rows, foe.biome);
@@ -605,6 +607,26 @@ debugConsole.registerCommand('wipe', {
 hudActions.useMove = (moveId) => {
   if (partyState.selection !== 'player') encounter?.useMove(partyState.selection, moveId);
 };
+const swapSelected = (): boolean => {
+  if (!encounter) return false;
+  const combat = encounter.state();
+  const outgoing =
+    combat.party.find((member) => member.id === partyState.selection && !member.benched) ??
+    combat.party.find((member) => !member.benched);
+  if (!outgoing || !encounter.swap(outgoing.id)) return false;
+  const incoming = combat.party.find((member) => member.id === combat.reserveId);
+  if (!incoming) return false;
+  const destination = tileToWorld(outgoing.tile.x - 0.5, outgoing.tile.y - 0.5);
+  partyControllers.get(incoming.id)?.teleport(destination.x, destination.z);
+  partyControllers.get(outgoing.id)?.clearPath();
+  partyState = selectCreature(partyState, incoming.id);
+  return true;
+};
+hudActions.swap = () => void swapSelected();
+window.addEventListener('keydown', (event) => {
+  if (shouldIgnoreArenaKey(event, debugConsole.isOpen, guide?.isOpen ?? false)) return;
+  if (event.key.toLowerCase() === 's' && encounter?.state().phase === 'fight') swapSelected();
+});
 const render = (alpha = 1) => {
   const clock = timeAt(elapsedSeconds),
     palette = paletteAt(clock.phase, clock.phaseProgress),
@@ -657,6 +679,7 @@ const render = (alpha = 1) => {
         const tile = controller.interpolated(alpha);
         const offset = animations.offsetFor(member.individual.id);
         const combatant = combat?.party.find(({ id }) => id === member.individual.id);
+        if (combatant?.benched) return [];
         if (!tileOnScreen(tile.x, tile.y, 1)) return [];
         return [
           {
@@ -736,6 +759,7 @@ const render = (alpha = 1) => {
       offset = animations.offsetFor(member.individual.id),
       bodyOrigin = { x: origin.x + offset.x * 16, y: origin.y + offset.y * 16 };
     const combatant = encounter?.state().party.find((c) => c.id === member.individual.id);
+    if (combatant?.benched) continue;
     if (partyState.selection === member.individual.id && !combatant?.downed) {
       flat.context.strokeStyle = definition.palette.accent ?? '#bd7132';
       flat.context.lineWidth = 1;
@@ -858,25 +882,41 @@ const loop = createLoop({
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
     tellStack.update(dt);
-    if (encounter) {
+    let combat = encounter?.state() ?? null;
+    if (encounter && combat) {
+      const preUpdateCombat = combat;
       const combatEvents = encounter.update(
         dt,
         Object.fromEntries(
-          partyState.party.map(({ individual }) => {
+          partyState.party.flatMap(({ individual }) => {
+            const combatant = preUpdateCombat.party.find((member) => member.id === individual.id);
+            if (combatant?.benched) return [];
             const t = partyControllers.get(individual.id)!.tile;
-            return [individual.id, { x: t.x, y: t.y }];
+            return [[individual.id, { x: t.x, y: t.y }] as const];
           }),
         ),
         { x: player.tile.x, y: player.tile.y },
       );
-      const combat = encounter.state();
+      combat = encounter.state();
+      const postUpdateCombat = combat;
+      if (shouldAskForReserve(combat, reservePrompted)) {
+        const reserve = partyState.party.find(
+          ({ individual }) => individual.id === postUpdateCombat.reserveId,
+        );
+        const reserveName = reserve ? rosterMember(reserve.individual.id)?.name : null;
+        if (reserveName) {
+          reservePrompted = true;
+          toasts.note(`Both are down — swap ${reserveName} in.`);
+        }
+      }
       for (const member of combat.party)
-        if (!member.downed) partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
+        if (!member.downed && !member.benched)
+          partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
       const foeEntry = arenaState?.enemy ? enemy(arenaState.enemy) : null;
       animations.push(combatEvents, (id) => {
-        const partyCombatant = combat.party.find((candidate) => candidate.id === id);
+        const partyCombatant = postUpdateCombat.party.find((candidate) => candidate.id === id);
         if (partyCombatant) return partyCombatant.tile;
-        return id === foeEntry?.id ? combat.enemy.tile : undefined;
+        return id === foeEntry?.id ? postUpdateCombat.enemy.tile : undefined;
       });
       animations.update(dt);
       if (combat.phase !== 'fight') animations.clear();
@@ -919,7 +959,9 @@ const loop = createLoop({
           });
         }
       }
-      const foe = registry.list().find(({ speciesId }) => speciesId === combat.enemy.speciesId);
+      const foe = registry
+        .list()
+        .find(({ speciesId }) => speciesId === postUpdateCombat.enemy.speciesId);
       if (foe) {
         const at = tileToWorld(combat.enemy.tile.x - 0.5, combat.enemy.tile.y - 0.5);
         foe.position.x = at.x;
@@ -928,7 +970,7 @@ const loop = createLoop({
         registry.setState(foe.id, combat.enemy.downed ? 'idle' : 'walk');
       }
       for (const member of combat.party) {
-        if (!member.desiredTile || member.downed) continue;
+        if (!member.desiredTile || member.downed || member.benched) continue;
         const controller = partyControllers.get(member.id);
         if (!controller?.moving)
           controller?.moveTo({
@@ -954,6 +996,7 @@ const loop = createLoop({
       activeFlatScreen = { sx: player.screen.x, sy: player.screen.y };
       const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
       const partyHit = partyState.party.find(({ individual }) => {
+        if (combat?.party.find((member) => member.id === individual.id)?.benched) return false;
         const tile = partyControllers.get(individual.id)!.tile;
         return Math.floor(tile.x) === tx && Math.floor(tile.y) === ty;
       });
@@ -995,7 +1038,8 @@ const loop = createLoop({
           follower.moveTo(wanted);
       });
     }
-    for (const controller of partyControllers.values()) controller.update(dt);
+    for (const [id, controller] of partyControllers)
+      if (!combat?.party.find((member) => member.id === id)?.benched) controller.update(dt);
     if (partyState.selection !== 'player') {
       const leader = partyControllers.get(partyState.selection);
       if (leader && (leader.screen.x !== player.screen.x || leader.screen.y !== player.screen.y)) {

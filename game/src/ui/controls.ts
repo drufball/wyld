@@ -1,5 +1,18 @@
 type ControlRow = readonly [key: string, description: string];
 
+const shouldIgnoreArenaKey = (
+  event: KeyboardEvent,
+  debugOpen: boolean,
+  guideOpen: boolean,
+): boolean =>
+  debugOpen ||
+  guideOpen ||
+  event.target instanceof HTMLInputElement ||
+  event.target instanceof HTMLTextAreaElement ||
+  event.metaKey ||
+  event.ctrlKey ||
+  event.altKey;
+
 const buildControlRows = (debugAvailable: boolean, arena = false): ControlRow[] => {
   const rows: ControlRow[] = [
     ['Tap the ground', 'walk'],
@@ -58,5 +71,5 @@ const createControlsCard = (debugAvailable: boolean, debugOpen: () => boolean, a
   };
 };
 
-export { buildControlRows, createControlsCard };
+export { buildControlRows, createControlsCard, shouldIgnoreArenaKey };
 export type { ControlRow };

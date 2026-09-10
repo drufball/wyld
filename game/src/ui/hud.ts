@@ -14,6 +14,7 @@ type HudState = TimeState & {
 type HudActions = {
   selectCreature?(id: string): void;
   useMove?(moveId: string): void;
+  swap?(): void;
   openBook?(): void;
   openMap?(): void;
   openConsole?(): void;
@@ -139,15 +140,17 @@ const createHud = (
       updateDetectionTarget({ bar: targetBar, fill: eyeFill, outline: eyeOutline }, state.target);
       partyCards.replaceChildren(
         ...(state.party ?? []).map(({ individual, name }) => {
-          const button = control(`${name}\n${individual.speciesId}`, () =>
-            actions.selectCreature?.(individual.id),
+          const combatant = state.combat?.party.find((c) => c.id === individual.id);
+          const button = control(
+            `${name}\n${combatant?.benched ? 'Reserve' : individual.speciesId}`,
+            combatant?.benched ? undefined : () => actions.selectCreature?.(individual.id),
           );
           button.style.flex = '1 1 0';
           button.style.minWidth = '0';
           button.setAttribute('aria-pressed', String(state.selection === individual.id));
           button.dataset.partyId = individual.id;
           if (state.selection === individual.id) button.style.outline = '2px solid #bd7132';
-          const combatant = state.combat?.party.find((c) => c.id === individual.id);
+          if (combatant?.benched) button.style.opacity = '0.45';
           if (combatant) {
             const bars = document.createElement('span');
             bars.style.cssText = 'display:block;width:52px;height:5px;background:#292b25';
@@ -177,6 +180,23 @@ const createHud = (
           ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
           : '#f4efd9ee';
         button.addEventListener('click', () => actions.useMove?.(move.id));
+        moves.append(button);
+      }
+      const reserve = state.party?.find(
+        ({ individual }) => individual.id === state.combat?.reserveId,
+      );
+      if (reserve && state.combat) {
+        const cooldown = state.combat.swapCooldown;
+        const button = control(
+          `Swap · ${reserve.name}${cooldown.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
+          () => actions.swap?.(),
+        );
+        button.dataset.swap = '';
+        button.disabled = cooldown.remaining > 0;
+        button.style.opacity = button.disabled ? '0.45' : '1';
+        button.style.background = cooldown.remaining
+          ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
+          : '#f4efd9ee';
         moves.append(button);
       }
     },

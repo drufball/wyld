@@ -126,6 +126,7 @@ describe('thumb HUD', () => {
       facing: 0,
       windup: null,
       downed: false,
+      benched: false,
       cooldowns: {},
       desiredTile: null,
     });
@@ -134,6 +135,8 @@ describe('thumb HUD', () => {
       elapsed: 1,
       enemy: combatant(creature('enemy')),
       party: party.map(combatant),
+      reserveId: null,
+      swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
       flashes: [],
     };
@@ -162,6 +165,80 @@ describe('thumb HUD', () => {
     expect([...moves, ...cards, ...tools].map((button) => button.style.height)).toEqual(
       Array.from({ length: moves.length + cards.length + tools.length }, () => '44px'),
     );
+  });
+  it('offers a forty-four pixel swap button naming the reserve', () => {
+    const party = [creature('Barrow'), creature('Quill'), creature('Pip')];
+    const combatant = (member: (typeof party)[number], benched = false) => ({
+      id: member.individual.id,
+      speciesId: member.individual.speciesId,
+      hp: 70,
+      maxHp: 70,
+      focus: 40,
+      maxFocus: 40,
+      tile: { x: 1, y: 1 },
+      facing: 0,
+      windup: null,
+      downed: false,
+      benched,
+      cooldowns: {},
+      desiredTile: null,
+    });
+    const combat: CombatState = {
+      phase: 'fight',
+      elapsed: 0,
+      enemy: combatant(creature('enemy')),
+      party: [combatant(party[0]!), combatant(party[1]!), combatant(party[2]!, true)],
+      reserveId: 'Pip',
+      swapCooldown: { remaining: 0, total: 6 },
+      projectiles: [],
+      flashes: [],
+    };
+    const swapped: string[] = [];
+    const hud = createHud(false, document.body, { swap: () => swapped.push('swap') });
+    hud.update({ ...state(party), combat });
+    const button = document.querySelector('[data-swap]') as HTMLButtonElement;
+    expect(button.textContent).toBe('Swap · Pip');
+    expect(button.style.minWidth).toBe('44px');
+    expect(button.style.height).toBe('44px');
+    button.click();
+    expect(swapped).toEqual(['swap']);
+  });
+
+  it('disables the swap button while its cooldown runs', () => {
+    const party = [creature('a'), creature('b'), creature('reserve')];
+    const hud = createHud(false, document.body);
+    const member = (entry: (typeof party)[number], benched = false) => ({
+      id: entry.individual.id,
+      speciesId: entry.individual.speciesId,
+      hp: 70,
+      maxHp: 70,
+      focus: 40,
+      maxFocus: 40,
+      tile: { x: 1, y: 1 },
+      facing: 0,
+      windup: null,
+      downed: false,
+      benched,
+      cooldowns: {},
+      desiredTile: null,
+    });
+    hud.update({
+      ...state(party),
+      combat: {
+        phase: 'fight',
+        elapsed: 0,
+        enemy: member(creature('enemy')),
+        party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
+        reserveId: 'reserve',
+        swapCooldown: { remaining: 4.2, total: 6 },
+        projectiles: [],
+        flashes: [],
+      },
+    });
+    const button = document.querySelector('[data-swap]') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain('◷5');
+    expect(button.style.background).toContain('linear-gradient');
   });
   it('suppresses location for a synthetic scenario', () => {
     const hud = createHud(true, document.body);
