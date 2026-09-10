@@ -1,9 +1,11 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 import {
   ARTIFACT_SLUG,
   Artifact,
+  ArtifactKind,
   ArtifactWithHtml,
+  defaultArtifactKind,
   NewArtifact,
   type NewEvent,
 } from '@wyld/shared';
@@ -19,7 +21,10 @@ type Dependencies = {
   now: () => Date;
   storeEvent: (event: NewEvent) => Promise<unknown>;
 };
-const ArtifactQuery = z.object({ quest: z.string().min(1).optional() });
+const ArtifactQuery = z.object({
+  quest: z.string().min(1).optional(),
+  kind: ArtifactKind.optional(),
+});
 const metadata = (row: typeof artifacts.$inferSelect) => Artifact.parse(row);
 const notFound = (c: Context) => c.json({ error: 'Not Found' }, 404);
 
@@ -36,7 +41,12 @@ export function createArtifactRoutes({ database: { db }, now, storeEvent }: Depe
     const rows = db
       .select()
       .from(artifacts)
-      .where(parsed.data.quest === undefined ? undefined : eq(artifacts.questId, parsed.data.quest))
+      .where(
+        and(
+          parsed.data.quest === undefined ? undefined : eq(artifacts.questId, parsed.data.quest),
+          parsed.data.kind === undefined ? undefined : eq(artifacts.kind, parsed.data.kind),
+        ),
+      )
       .orderBy(desc(artifacts.updatedAt), asc(artifacts.slug))
       .all();
     return c.json(rows.map(metadata));
@@ -53,6 +63,7 @@ export function createArtifactRoutes({ database: { db }, now, storeEvent }: Depe
     const rewritten = rewriteEmbeds(parsed.data.html);
     if (!rewritten.ok) return c.json({ error: rewritten.error }, 400);
     const questId = parsed.data.questId ?? null;
+    const kind = parsed.data.kind ?? defaultArtifactKind(parsed.data.slug, questId);
     if (
       questId !== null &&
       db.select().from(quests).where(eq(quests.id, questId)).get() === undefined
@@ -66,6 +77,7 @@ export function createArtifactRoutes({ database: { db }, now, storeEvent }: Depe
         ...parsed.data,
         html: rewritten.html,
         questId,
+        kind,
         version,
         createdAt: ts,
         updatedAt: ts,
@@ -77,6 +89,7 @@ export function createArtifactRoutes({ database: { db }, now, storeEvent }: Depe
           summary: parsed.data.summary,
           html: rewritten.html,
           questId,
+          kind,
           version,
           updatedAt: ts,
         },

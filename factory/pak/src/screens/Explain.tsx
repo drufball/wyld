@@ -427,7 +427,11 @@ export function Explain() {
         <Button variant="retro" asChild>
           <Link
             to={
-              artifact.questId ? `/quests?quest=${encodeURIComponent(artifact.questId)}` : '/quests'
+              artifact.questId
+                ? `/quests?quest=${encodeURIComponent(artifact.questId)}`
+                : artifact.kind === 'concept'
+                  ? '/concepts'
+                  : '/quests'
             }
           >
             Back
@@ -448,9 +452,14 @@ export function Roadmap() {
         </Card>
       }
       back={() => (
-        <Button variant="retro" asChild>
-          <Link to="/">Back</Link>
-        </Button>
+        <span className="flex shrink-0 gap-2">
+          <Button variant="retro" asChild>
+            <Link to="/">Back</Link>
+          </Button>
+          <Button variant="retro" asChild>
+            <Link to="/concepts">Concepts</Link>
+          </Button>
+        </span>
       )}
     />
   );

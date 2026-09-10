@@ -5,6 +5,7 @@ import { PausedBanner } from './components/PausedBanner.js';
 import { postSeen } from './api/client.js';
 import { Debug } from './screens/Debug.js';
 import { Explain, Roadmap } from './screens/Explain.js';
+import { Concepts } from './screens/Concepts.js';
 import { Memory } from './screens/Memory.js';
 import { Sleep } from './screens/Sleep.js';
 import { Rumble } from './screens/Rumble.js';
@@ -52,6 +53,7 @@ export function App({ eventSourceFactory }: { eventSourceFactory?: EventSourceFa
           <Route path="quests" element={<Quests />} />
           <Route path="explain/:slug" element={<Explain />} />
           <Route path="roadmap" element={<Roadmap />} />
+          <Route path="concepts" element={<Concepts />} />
           <Route path="worlds" element={<LegacyWorldRedirect />} />
           <Route path="worlds/:id" element={<LegacyWorldRedirect />} />
           <Route path="workshop" element={<Workshop />} />

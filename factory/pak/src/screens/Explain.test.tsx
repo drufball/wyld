@@ -22,6 +22,7 @@ const source = () => ({
 const artifact = {
   slug: 'forest-map',
   questId: 'demo-quest',
+  kind: 'quest',
   title: 'Forest map',
   summary: 'How paths join.',
   version: 3,
@@ -82,6 +83,25 @@ afterEach(() => {
 mocks.listChains.mockResolvedValue([]);
 
 describe('Explain', () => {
+  it('links from the roadmap header to the concepts shelf', async () => {
+    mocks.getArtifact.mockResolvedValue({
+      ...artifact,
+      slug: 'roadmap',
+      kind: 'roadmap',
+      questId: null,
+    });
+    renderRoute('/roadmap', true);
+    expect((await screen.findByRole('link', { name: 'Concepts' })).getAttribute('href')).toBe(
+      '/concepts',
+    );
+  });
+  it('sends a concept explainer back to the concepts shelf', async () => {
+    mocks.getArtifact.mockResolvedValue({ ...artifact, kind: 'concept', questId: null });
+    renderRoute('/explain/forest-map');
+    expect((await screen.findByRole('link', { name: 'Back' })).getAttribute('href')).toBe(
+      '/concepts',
+    );
+  });
   it('loads metadata into a safe iframe without inserting artifact HTML', async () => {
     mocks.getArtifact.mockResolvedValue(artifact);
     renderRoute('/explain/forest-map');

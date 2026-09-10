@@ -1,6 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { PIN_BRIDGE_SNIPPET } from '../src/lib/pin-bridge.js';
 
+test('lists a concept explainer on the concepts shelf and opens it', async ({ page, request }) => {
+  const slug = `concept-e2e-${Date.now()}`;
+  const title = `Concept ${slug}`;
+  await request.post('/api/artifacts', {
+    data: {
+      slug,
+      title,
+      summary: 'A concept',
+      kind: 'concept',
+      html: '<!doctype html><html><body><h1>Concept body</h1></body></html>',
+    },
+  });
+  await page.goto('/concepts');
+  await page.getByRole('link', { name: new RegExp(title) }).click();
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+});
+
 test('runs an interactive explainer in its sandboxed frame', async ({ page, request }) => {
   const slug = `explain-e2e-${Date.now()}`;
   const title = `Explainer ${slug}`;

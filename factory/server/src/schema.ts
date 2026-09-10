@@ -1,5 +1,10 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { ChainAnchor, SleepAlarm, SleepPhaseEntry } from '@wyld/shared';
+import {
+  ARTIFACT_KINDS,
+  type ChainAnchor,
+  type SleepAlarm,
+  type SleepPhaseEntry,
+} from '@wyld/shared';
 import type { SpeciesData } from '@wyld/sprites';
 
 export const speciesDrafts = sqliteTable('species_drafts', {
@@ -220,6 +225,7 @@ export const artifacts = sqliteTable(
   {
     slug: text('slug').primaryKey(),
     questId: text('quest_id'),
+    kind: text('kind', { enum: ARTIFACT_KINDS }).notNull().default('concept'),
     title: text('title').notNull(),
     summary: text('summary').notNull(),
     html: text('html').notNull(),
@@ -227,7 +233,10 @@ export const artifacts = sqliteTable(
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [index('artifacts_quest_id_idx').on(table.questId)],
+  (table) => [
+    index('artifacts_quest_id_idx').on(table.questId),
+    index('artifacts_kind_idx').on(table.kind),
+  ],
 );
 
 export const chainMessages = sqliteTable(

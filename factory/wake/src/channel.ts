@@ -288,6 +288,7 @@ const PublishArtifactArgs = z
     summary: z.string().min(1).max(200),
     html: z.string().min(1),
     quest: z.string().optional(),
+    kind: z.enum(['quest', 'roadmap', 'concept']).optional(),
   })
   .strict();
 const ReadArtifactsArgs = z.object({ quest: z.string().optional() }).strict();
@@ -787,7 +788,7 @@ const tools = [
   {
     name: 'pak_publish_artifact',
     description:
-      'Publish a self-contained interactive explainer (a complete HTML document, inline styles and scripts only) for a quest, or top-level when quest is omitted; re-publishing the same slug replaces it.',
+      "Publish a self-contained interactive explainer (a complete HTML document, inline styles and scripts only) for a quest, roadmap, or concept; a concept belongs to no quest and appears on the Pak's Concepts shelf. Re-publishing the same slug replaces it.",
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -796,6 +797,11 @@ const tools = [
         summary: { type: 'string', minLength: 1, maxLength: 200 },
         html: { type: 'string', minLength: 1 },
         quest: { type: 'string' },
+        kind: {
+          type: 'string',
+          enum: ['quest', 'roadmap', 'concept'],
+          description: 'Optional explainer kind; inferred from the slug and quest when omitted.',
+        },
       },
       required: ['slug', 'title', 'summary', 'html'],
       additionalProperties: false,

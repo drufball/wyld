@@ -1279,6 +1279,24 @@ describe('Pak tools', () => {
     expect(JSON.parse(result.content![0]!.text)).toEqual(demos);
   });
 
+  it('passes an explainer kind through to the Pak', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response('{}', { status: 200 }));
+    const [, call] = handlers(fetch);
+    await call!({
+      params: {
+        name: 'pak_publish_artifact',
+        arguments: {
+          slug: 'creature-dynamics',
+          title: 'Creature dynamics',
+          summary: 'How creatures work.',
+          html: '<html><body>Concept</body></html>',
+          kind: 'concept',
+        },
+      },
+    });
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({ kind: 'concept' });
+  });
+
   it.each([
     ['pak_read_demos', {}, 'http://pak/api/demos'],
     ['pak_read_feedback', {}, 'http://pak/api/feedback'],
