@@ -49,7 +49,7 @@ export const BODY_PLAN_DELIVERIES: Record<BodyPlanId, readonly Delivery[]> = {
   'large-biped': ['Strike', 'Lunge', 'Sweep', 'Arc', 'Bolt'],
 };
 const Range = z.tuple([z.number(), z.number()]);
-// Shape only; game rule validation remains in game/src/creatures/species.ts until unit 2.
+// This schema supplies the shared data shape; validateSpecies applies the game's cross-field rules.
 export const Species = z.object({
   id: z.string(),
   name: z.string(),

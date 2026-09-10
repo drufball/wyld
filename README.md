@@ -9,9 +9,10 @@ Prepare a fresh checkout, generate the local factory secrets, and install depend
 ```
 
 Start the factory with `pnpm factory:up`. It creates a `wyld` tmux session containing windows for
-the Pak API server (`server`), Wake daemon (`wake`), Pak UI (`pak`, when available), GitHub webhook
-forwarder (`webhook`), Claude Code Planner (`planner`), and macOS sleep prevention (`caffeinate`).
-Attach with `tmux attach -t wyld`.
+the Pak API server (`server`), Wake daemon (`wake`), Pak UI (`pak`), operations watchdog (`ops`),
+GitHub webhook forwarder (`webhook`), Planner (`planner`), and macOS sleep prevention
+(`caffeinate`). The Planner uses the SDK host by default; set `PLANNER_MODE=cli` in `.factory/env`
+to run it directly in Claude Code instead. Attach with `tmux attach -t wyld`.
 
 Run `pnpm factory:doctor` to diagnose dependencies, credentials, services, ports, and tmux windows.
 Stop every factory window with `pnpm factory:down`.
