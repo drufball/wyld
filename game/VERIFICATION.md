@@ -72,8 +72,7 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 - **PASS — field guide escape:** the sticky guide header has a tap-to-close control, and every new fight starts with the guide closed.
 - **PASS — frame time (headless Chromium):** measured p95 was 8.4 ms at 375 × 812 and 7.1 ms at 1280 × 720 during an Antlerback fight.
 - **PASS — §7.4 damage:** measured neutral ×1.0, Bark/Heat ×1.6, and Bark/Cut ×0.6 in the combat event log.
-- **PASS — duration (60 Hz simulation):** Barrow/Quill/Pip vs Antlerback, driven headless at a fixed 1/60 s step in `encounter.test.ts`, measured 32.48 s to a win (was ~12 s before the pace change).
-- **PASS — duration (played, headless Chromium 375 × 812):** the same fight driven by tapping a move on each creature about twice a second ended in a win at 20.1–22.2 s across three runs, against 12–13 s before the pace change.
+- **NOTE — duration:** with the enemy attacking, Barrow/Quill/Pip vs Antlerback ends in `driven-off` at 9.63 s in the 60 Hz simulation and at 11.48 s played headless at 375 × 812 (three runs). §7's 30–90 s band is **not** met: halving arena movement did not lengthen the fight, because its length is set by time-to-kill rather than by walking. The earlier 32.48 s and 20–22 s figures were measured while a stalled Lunge approach stopped the enemy attacking at all, and are withdrawn. Re-measure once the reserve and autopilot units land, since both change the arithmetic.
 - **PASS — walkthrough:** from cleared `fieldwork.arena.v1`, picked Antlerback and Barrow/Quill/Pip, was driven off, and the result recorded Bark, Cut resistance, Bull Rush, and Bold temperament. Returned to the enemy card, selected Cinder, and won; the result added the Heat weakness. The guide paused and resumed the encounter from both G and Escape.
 
 ## Diorama

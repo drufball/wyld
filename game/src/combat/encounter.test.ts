@@ -155,7 +155,7 @@ describe('combat encounter', () => {
     expect(subject.state().party[0]!.desiredTile).toBeNull();
   });
 
-  it('resolves when Barrow, Quill and Pip fight the Antlerback', () => {
+  it('ends in driven off when Barrow, Quill and Pip fight the Antlerback', () => {
     const party = ['loamox', 'bramblehog', 'thornwren'].map(member),
       foe = antlerback(),
       positions = Object.fromEntries(
@@ -200,6 +200,7 @@ describe('combat encounter', () => {
     }
 
     // Measured at a fixed 60 Hz: 9.63 seconds.
+    // The §7 30–90 s band is not met yet; see VERIFICATION.md "duration".
     expect(subject.state().elapsed).toBeLessThanOrEqual(30);
     expect(subject.state().phase).toBe('driven-off');
   });
