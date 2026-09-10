@@ -71,7 +71,8 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 - **PASS — field guide escape:** the sticky guide header has a tap-to-close control, and every new fight starts with the guide closed.
 - **PASS — frame time (headless Chromium):** measured p95 was 8.4 ms at 375 × 812 and 7.1 ms at 1280 × 720 during an Antlerback fight.
 - **PASS — §7.4 damage:** measured neutral ×1.0, Bark/Heat ×1.6, and Bark/Cut ×0.6 in the combat event log.
-- **PASS — duration:** Barrow/Quill/Pip vs Antlerback at a fixed 60 Hz step rate measured 32.48 s.
+- **PASS — duration (60 Hz simulation):** Barrow/Quill/Pip vs Antlerback, driven headless at a fixed 1/60 s step in `encounter.test.ts`, measured 32.48 s to a win (was ~12 s before the pace change).
+- **PASS — duration (played, headless Chromium 375 × 812):** the same fight driven by tapping a move on each creature about twice a second ended in a win at 20.1–22.2 s across three runs, against 12–13 s before the pace change.
 - **PASS — walkthrough:** from cleared `fieldwork.arena.v1`, picked Antlerback and Barrow/Quill/Pip, was driven off, and the result recorded Bark, Cut resistance, Bull Rush, and Bold temperament. Returned to the enemy card, selected Cinder, and won; the result added the Heat weakness. The guide paused and resumed the encounter from both G and Escape.
 
 ## Diorama

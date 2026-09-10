@@ -857,7 +857,7 @@ const loop = createLoop({
       );
       const combat = encounter.state();
       for (const member of combat.party)
-        if (!member.downed) partyControllers.get(member.id)!.nudge(member.tile.x, member.tile.y);
+        if (!member.downed) partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
       const foeEntry = arenaState?.enemy ? enemy(arenaState.enemy) : null;
       if (foeEntry) {
         const partyMoves = partyState.party.flatMap(({ individual }) => individual.repertoire);
