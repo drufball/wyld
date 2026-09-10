@@ -1,6 +1,6 @@
 import { TILES_PER_SIDE } from '../world/tiles.js';
+import { clamp } from './clamp.js';
 
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 const pixelScale = (vw: number, vh: number) => clamp(Math.floor(Math.min(vw, vh) / 200), 2, 4);
 const screenCols = (vw: number, scale: number) => clamp(Math.floor(vw / (16 * scale)), 8, 20);
 const screenRows = (vh: number, scale: number) => clamp(Math.floor(vh / (16 * scale)), 8, 22);
