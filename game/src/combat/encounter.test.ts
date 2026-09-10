@@ -89,6 +89,34 @@ describe('combat encounter', () => {
     return subject;
   };
 
+  it('fires an armed move again each time its cooldown ends', () => {
+    const strike = move('Strike');
+    const subject = setup({
+      party: [
+        fighter('owned', [strike], {
+          stats: { vigor: 1_000, power: 1, speed: 4, focus: 100 },
+        }),
+      ],
+      enemy: fighter('enemy', [strike], {
+        stats: { vigor: 1_000, power: 1, speed: 4, focus: 0 },
+      }),
+      partyTiles: { owned: { x: 0, y: 0 } },
+      enemyTile: { x: 1, y: 0 },
+    });
+    const executionTimes: number[] = [];
+    for (let tick = 0; tick < 60 * 7; tick += 1) {
+      subject.useMove('owned', strike.id);
+      const events = subject.update(1 / 60);
+      if (events.some((event) => event.type === 'executed' && event.attacker === 'owned'))
+        executionTimes.push(subject.state().elapsed);
+    }
+    // Four executions, each 2.017 s apart: the two-second cooldown plus one 60 Hz driver step.
+    expect(executionTimes).toHaveLength(4);
+    expect(executionTimes.slice(1).map((time, index) => time - executionTimes[index]!)).toEqual(
+      executionTimes.slice(1).map(() => expect.closeTo(deliveries.Strike.cooldown, 1)),
+    );
+  });
+
   it('starts with the third pick benched', () => {
     const state = setup({ party: reserveParty() }).state();
     expect(state.party.map(({ benched }) => benched)).toEqual([false, false, true]);

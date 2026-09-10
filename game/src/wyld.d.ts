@@ -17,6 +17,7 @@ type WyldGameState = {
     party: readonly string[];
   } | null;
   combat: import('./combat/encounter.js').CombatState | null;
+  autopilot: { creatureId: string; moveId: string }[];
   creatures: {
     id: string;
     species: string;

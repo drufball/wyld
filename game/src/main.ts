@@ -64,6 +64,7 @@ import { buildArenaIndividual, enemy, rosterMember } from './arena/roster.js';
 import { createPick, chooseEnemy, toggleMember, startFight, type PickState } from './arena/pick.js';
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
+import { createAutopilot } from './combat/autopilot.js';
 import { LUNGE_SECONDS, createAnimations } from './combat/anim.js';
 import { createToastStack } from './ui/toasts.js';
 import { learnedFactText, learnFromCombat, type LearnedFact } from './arena/learning.js';
@@ -263,6 +264,7 @@ type AiState = { meter: number; behaviour: Behaviour; fleeUntil: number };
 const aiStates = new Map<string, AiState>();
 let arenaState: PickState | null = synthetic ? createPick() : null;
 let encounter: ReturnType<typeof createEncounter> | null = null;
+const autopilot = createAutopilot();
 const animations = createAnimations();
 let fightLearned: LearnedFact[] = [];
 let resultScreen: ReturnType<typeof createArenaResult> | null = null;
@@ -490,6 +492,7 @@ const beginArena = (state: PickState): void => {
   const foe = state.enemy ? enemy(state.enemy) : null;
   if (!foe || state.party.length !== 3) return;
   animations.clear();
+  autopilot.clearAll();
   arenaState = state;
   fightLearned = [];
   fightRecorded = false;
@@ -558,6 +561,7 @@ const showEnemyPicker = (): void => {
   resultScreen?.dispose();
   resultScreen = null;
   encounter = null;
+  autopilot.clearAll();
   animations.clear();
   arenaState = createPick();
   arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state), {
@@ -605,7 +609,8 @@ debugConsole.registerCommand('wipe', {
   },
 });
 hudActions.useMove = (moveId) => {
-  if (partyState.selection !== 'player') encounter?.useMove(partyState.selection, moveId);
+  if (partyState.selection !== 'player' && encounter?.state().phase === 'fight')
+    autopilot.tap(partyState.selection, moveId, encounter.state().elapsed);
 };
 const swapSelected = (): boolean => {
   if (!encounter) return false;
@@ -614,6 +619,7 @@ const swapSelected = (): boolean => {
     combat.party.find((member) => member.id === partyState.selection && !member.benched) ??
     combat.party.find((member) => !member.benched);
   if (!outgoing || !encounter.swap(outgoing.id)) return false;
+  autopilot.clear(outgoing.id);
   const incoming = combat.party.find((member) => member.id === combat.reserveId);
   if (!incoming) return false;
   const destination = tileToWorld(outgoing.tile.x - 0.5, outgoing.tile.y - 0.5);
@@ -901,6 +907,11 @@ const loop = createLoop({
     let combat = encounter?.state() ?? null;
     if (encounter && combat) {
       const preUpdateCombat = combat;
+      if (preUpdateCombat.phase === 'fight')
+        for (const member of preUpdateCombat.party) {
+          const moveId = autopilot.armed(member.id);
+          if (moveId && !member.downed && !member.benched) encounter.useMove(member.id, moveId);
+        }
       const combatEvents = encounter.update(
         dt,
         Object.fromEntries(
@@ -915,6 +926,9 @@ const loop = createLoop({
       );
       combat = encounter.state();
       const postUpdateCombat = combat;
+      for (const event of combatEvents)
+        if (event.type === 'downed' && event.target) autopilot.clear(event.target);
+      if (combat.phase !== 'fight') autopilot.clearAll();
       if (shouldAskForReserve(combat, reservePrompted)) {
         const reserve = partyState.party.find(
           ({ individual }) => individual.id === postUpdateCombat.reserveId,
@@ -1208,6 +1222,8 @@ const loop = createLoop({
       party: partyState.party,
       selection: partyState.selection,
       combat: encounter?.state() ?? null,
+      autopilotMoveId:
+        encounter?.state().phase === 'fight' ? autopilot.armed(partyState.selection) : null,
     });
     input.endFrame();
   },
@@ -1261,6 +1277,7 @@ window.__wyld = {
       waterDepth: depthAt(world.x, world.z),
       arena: arenaState,
       combat: encounter?.state() ?? null,
+      autopilot: encounter?.state().phase === 'fight' ? [...autopilot.list()] : [],
       creatures: registry.list().map((c) => {
         const t = worldToTile(c.position.x, c.position.z),
           ai = aiStates.get(c.id);
