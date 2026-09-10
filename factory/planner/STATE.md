@@ -1266,3 +1266,6 @@ Drain dry: load 1.18, no orphans, discs ready at e900ed8 (fw-2d at 0b31eac), no 
 
 ## 2026-09-10 06:16Z — Sleep run 4 ended clean (in the last-call window, as the rule says)
 Load 1.13, no orphans, no PRs, no leads. Crons 07:20/07:47 now no-ops. At lights_on 07:00Z: spawn the arena sprint lead (/tmp/wyld-leads/arena-pace/brief.md; quests arena-pace → arena-animations → arena-reserve → arena-party-tells, report per unit and keep going) and the concepts-shelf lead (/tmp/wyld-leads/concepts-shelf/brief.md) in parallel; schedule a wake after each spawn.
+
+## 2026-09-10 20:55Z — LOST DAY #2: ended run 4 at 06:15Z → lights_on never fired → no turns until Dru's chain 157 at 20:52Z
+No sprint today. Health pulse (422 rows) kept the menu green. PROTOCOL corrected (never end before lights_on; 08:03 cron always). Server fix brief /tmp/wyld-leads/lights-on-fix/brief.md (lights_on fires without an open run; finished run = clean). Dru chain 157: "Getting better" + autopilot moves (tap = repeat on cooldown, double tap = once) → quest `arena-autopilot`, unit 5 of the sprint brief; mockup in the fight card (fw-arena v17 + the five arena explainers). Tonight: arena sprint lead + concepts-shelf lead + lights-on-fix lead started 21:55 local, running through Sleep's Drain.
