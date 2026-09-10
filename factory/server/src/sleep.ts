@@ -36,6 +36,7 @@ const PhasePost = z.object({ phase: SleepPhase, note: z.string().min(1).optional
 const EndPost = z
   .object({ outcome: SleepOutcome, leftoversParked: z.array(z.string()).optional() })
   .strict();
+const LIGHTS_ON_CATCHUP_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 const parts = (date: Date, timeZone: string) =>
   Object.fromEntries(
@@ -107,6 +108,7 @@ export function createSleepService(dependencies: Dependencies) {
         alarm: alarmName,
         trigger: row.trigger,
         lightsOnAt: nextAt(new Date(row.started), config.lightsOn, config.timeZone),
+        openRun: true,
         summary:
           alarmName === 'goodnight'
             ? 'The factory started its night shift.'
@@ -293,7 +295,10 @@ export function createSleepScheduler(dependencies: SchedulerDependencies) {
       .where(eq(sleepRuns.id, row.id))
       .get();
     if (!current || current.ended) return;
-    await service.end(current, 'timed_out');
+    await service.end(
+      current,
+      current.phases.some(({ phase }) => phase === 'reset') ? 'clean' : 'timed_out',
+    );
     const date = localDate(new Date(current.started), dependencies.config.timeZone);
     if (!dependencies.database.db.select().from(retros).where(eq(retros.date, date)).get()) {
       const start = wallInstant(date, '00:00', dependencies.config.timeZone).toISOString();
@@ -302,7 +307,8 @@ export function createSleepScheduler(dependencies: SchedulerDependencies) {
         .select()
         .from(events)
         .where(and(gte(events.ts, start), lt(events.ts, finish)))
-        .all();
+        .all()
+        .filter((event) => event.kind !== 'planner.tick');
       const shipped = new Set(
         rows
           .filter(
@@ -398,6 +404,43 @@ export function createSleepScheduler(dependencies: SchedulerDependencies) {
           )
       ) {
         await service.alarm(afterLastCall, 'lights_on');
+      }
+    }
+    if (service.open() === undefined) {
+      const date = localDate(currentNow, dependencies.config.timeZone);
+      const lightsOn = wallInstant(
+        date,
+        dependencies.config.lightsOn,
+        dependencies.config.timeZone,
+      );
+      const elapsed = currentNow.getTime() - lightsOn.getTime();
+      if (elapsed >= 0 && elapsed < LIGHTS_ON_CATCHUP_WINDOW_MS) {
+        const startOfDay = wallInstant(date, '00:00', dependencies.config.timeZone).toISOString();
+        const alreadyFired = dependencies.database.db
+          .select()
+          .from(events)
+          .where(and(eq(events.kind, 'sleep.alarm'), gte(events.ts, startOfDay)))
+          .all()
+          .some((event) => (event.payload as Record<string, unknown>)['alarm'] === 'lights_on');
+        if (!alreadyFired) {
+          const latestRun = dependencies.database.db
+            .select()
+            .from(sleepRuns)
+            .orderBy(desc(sleepRuns.started))
+            .get();
+          await dependencies.storeEvent({
+            source: 'sleep',
+            kind: 'sleep.alarm',
+            payload: {
+              runId: latestRun?.id ?? null,
+              alarm: 'lights_on',
+              trigger: 'schedule',
+              lightsOnAt: lightsOn.toISOString(),
+              openRun: false,
+              summary: 'The lights came on for the morning.',
+            },
+          });
+        }
       }
     }
   };

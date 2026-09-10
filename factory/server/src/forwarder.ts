@@ -18,7 +18,8 @@ export function createWakeForwarder(dependencies: WakeForwarderDependencies) {
   return (event: Event): void => {
     const forward =
       (event.source === 'human' && event.kind !== 'human.seen') ||
-      (event.source === 'sleep' && event.kind === 'sleep.alarm');
+      (event.source === 'sleep' && event.kind === 'sleep.alarm') ||
+      (event.source === 'planner' && event.kind === 'planner.tick');
     if (!forward) return;
     if (dependencies.wakeUrl === undefined || dependencies.wakeSecret === undefined) return;
     const url = new URL('/event', dependencies.wakeUrl).toString();

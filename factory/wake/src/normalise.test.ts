@@ -348,9 +348,49 @@ describe('sleep alarms', () => {
     expect(normaliseEvent(event('bad'))).toBeUndefined();
     expect(normaliseEvent({ ...event('goodnight'), kind: 'sleep.phase' })).toBeUndefined();
   });
+
+  it('normalises a lights-on alarm with no open run', () => {
+    expect(normaliseEvent(event('lights_on', 'schedule', { runId: null, openRun: false }))).toEqual(
+      {
+        source: 'sleep',
+        kind: 'sleep.alarm',
+        summary: 'Lights on — the run already ended; reset Today',
+        ts: timestamp,
+      },
+    );
+  });
 });
 
 describe('normaliseEvent', () => {
+  it('normalises an hourly planner tick', () => {
+    expect(
+      normaliseEvent({
+        id: 1,
+        ts: timestamp,
+        source: 'planner',
+        kind: 'planner.tick',
+        payload: { at: timestamp },
+      }),
+    ).toEqual({
+      source: 'planner',
+      kind: 'planner.tick',
+      summary: 'Hourly tick — check open work and keep the Pak fresh',
+      ts: timestamp,
+    });
+  });
+
+  it('ignores planner events other than the hourly tick', () => {
+    expect(
+      normaliseEvent({
+        id: 1,
+        ts: timestamp,
+        source: 'planner',
+        kind: 'planner.note',
+        payload: { summary: 'Do not wake' },
+      }),
+    ).toBeUndefined();
+  });
+
   it.each([
     [
       'human.question',

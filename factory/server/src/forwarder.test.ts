@@ -21,6 +21,25 @@ describe('createWakeForwarder sleep events', () => {
 });
 
 describe('createWakeForwarder Pak events', () => {
+  it('forwards planner ticks', async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => new Response(null, { status: 200 }));
+    const forward = createWakeForwarder({
+      wakeUrl: 'http://wake.test',
+      wakeSecret: 'secret',
+      fetch: fetcher,
+    });
+    forward(
+      Event.parse({
+        id: 1,
+        ts: '2026-09-07T06:03:00.000Z',
+        source: 'planner',
+        kind: 'planner.tick',
+        payload: { at: '2026-09-07T06:03:00.000Z' },
+      }),
+    );
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+  });
+
   it('does not forward artifact publication', async () => {
     const fetcher = vi.fn<typeof fetch>(async () => new Response(null, { status: 200 }));
     const forward = createWakeForwarder({ wakeUrl: 'http://wake.test', fetch: fetcher });
