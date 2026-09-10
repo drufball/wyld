@@ -9,7 +9,8 @@
   "scripts": {
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "test": "pnpm -r --if-present test",
+    "test": "pnpm -r --if-present test && ./scripts/factory-windows.test.sh",
+    "test:scripts": "./scripts/factory-windows.test.sh",
     "build": "pnpm -r --if-present build",
     "smoke": "pnpm --filter @wyld/pak smoke",
     "factory:up": "./scripts/factory-up.sh",
