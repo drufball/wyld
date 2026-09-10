@@ -83,6 +83,26 @@ afterEach(() => {
 mocks.listChains.mockResolvedValue([]);
 
 describe('Explain', () => {
+  it('keeps the roadmap title out of the phone header', async () => {
+    mocks.getArtifact.mockResolvedValue({
+      ...artifact,
+      slug: 'roadmap',
+      kind: 'roadmap',
+      questId: null,
+    });
+    const view = renderRoute('/roadmap', true);
+    expect(
+      (await screen.findByRole('heading', { name: artifact.title })).classList.contains('sr-only'),
+    ).toBe(true);
+
+    view.unmount();
+    mocks.getArtifact.mockResolvedValue(artifact);
+    renderRoute('/explain/forest-map');
+    expect(
+      (await screen.findByRole('heading', { name: artifact.title })).classList.contains('sr-only'),
+    ).toBe(false);
+  });
+
   it('links from the roadmap header to the concepts shelf', async () => {
     mocks.getArtifact.mockResolvedValue({
       ...artifact,
