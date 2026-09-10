@@ -44,7 +44,7 @@ npx -y @openai/codex@latest cloud exec \
 work': push branch codex/<slug> and open a PR whose body contains 'Closes #N'."
 ```
 
-`CODEX_MODEL` is the implementer model Dru chose (2026-09-10: the new Astra model — exact id recorded in factory/planner/STATE.md under "Codex model"; until it is recorded, omit the `-c model` line and the environment default runs). `--env` takes the environment **ID**; the label `drufball/wyld` resolves to a different, token-less
+`CODEX_MODEL` is the implementer model Dru chose (2026-09-10: the new Astra model — `CODEX_MODEL=gpt-6-astra`, set by Dru on 2026-09-10 — always pass it). `--env` takes the environment **ID**; the label `drufball/wyld` resolves to a different, token-less
 environment and silently produces a task that cannot push. One task per issue, ever — a wrong or
 stuck task is fixed with a review round on the branch it opened, never a second task.
 
