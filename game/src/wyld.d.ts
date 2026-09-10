@@ -58,6 +58,12 @@ type WyldGameState = {
 };
 
 interface WyldGameApi {
+  anim(): {
+    attacker: string;
+    moveId: string;
+    progress: number;
+    offset: { x: number; y: number };
+  }[];
   getState(): WyldGameState;
   screenshot(): string;
   debug(command: string): string;

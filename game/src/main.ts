@@ -64,6 +64,7 @@ import { buildArenaIndividual, enemy, rosterMember } from './arena/roster.js';
 import { createPick, chooseEnemy, toggleMember, startFight, type PickState } from './arena/pick.js';
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter } from './combat/encounter.js';
+import { LUNGE_SECONDS, createAnimations } from './combat/anim.js';
 import { createToastStack } from './ui/toasts.js';
 import { learnedFactText, learnFromCombat, type LearnedFact } from './arena/learning.js';
 import { createTellStack, tellsFromEvents } from './combat/tells.js';
@@ -262,6 +263,7 @@ type AiState = { meter: number; behaviour: Behaviour; fleeUntil: number };
 const aiStates = new Map<string, AiState>();
 let arenaState: PickState | null = synthetic ? createPick() : null;
 let encounter: ReturnType<typeof createEncounter> | null = null;
+const animations = createAnimations();
 let fightLearned: LearnedFact[] = [];
 let resultScreen: ReturnType<typeof createArenaResult> | null = null;
 let fightRecorded = false;
@@ -486,6 +488,7 @@ debugConsole.registerCommand('tracks', {
 const beginArena = (state: PickState): void => {
   const foe = state.enemy ? enemy(state.enemy) : null;
   if (!foe || state.party.length !== 3) return;
+  animations.clear();
   arenaState = state;
   fightLearned = [];
   fightRecorded = false;
@@ -553,6 +556,7 @@ const showEnemyPicker = (): void => {
   resultScreen?.dispose();
   resultScreen = null;
   encounter = null;
+  animations.clear();
   arenaState = createPick();
   arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state), {
     close: () => guide?.close(),
@@ -627,8 +631,9 @@ const render = (alpha = 1) => {
       },
       creatures: registry.list().flatMap((creature) => {
         const enemy = creature.id === enemyCreature?.id ? combat?.enemy : undefined;
-        const tileX = enemy ? enemy.tile.x : (creature.position.x + 400) / TILE_METRES;
-        const tileY = enemy ? enemy.tile.y : (creature.position.z + 400) / TILE_METRES;
+        const offset = animations.offsetFor(creature.id);
+        const tileX = (enemy ? enemy.tile.x : (creature.position.x + 400) / TILE_METRES) + offset.x;
+        const tileY = (enemy ? enemy.tile.y : (creature.position.z + 400) / TILE_METRES) + offset.y;
         if (!tileOnScreen(tileX, tileY, 1)) return [];
         return [
           {
@@ -637,7 +642,7 @@ const render = (alpha = 1) => {
             tileX,
             tileY,
             facing: enemy?.facing ?? creature.facing,
-            state: creature.state,
+            state: animations.lunging(creature.id) ? ('execute' as const) : creature.state,
             phaseOffset: creature.frameClock,
             meter: aiStates.get(creature.id)?.meter ?? 0,
             downed: enemy?.downed,
@@ -650,16 +655,21 @@ const render = (alpha = 1) => {
       party: partyState.party.flatMap((member, index) => {
         const controller = partyControllers.get(member.individual.id)!;
         const tile = controller.interpolated(alpha);
+        const offset = animations.offsetFor(member.individual.id);
         const combatant = combat?.party.find(({ id }) => id === member.individual.id);
         if (!tileOnScreen(tile.x, tile.y, 1)) return [];
         return [
           {
             key: member.individual.id,
             speciesId: member.individual.speciesId,
-            tileX: tile.x,
-            tileY: tile.y,
+            tileX: tile.x + offset.x,
+            tileY: tile.y + offset.y,
             facing: FACING_YAW[controller.facing],
-            state: controller.moving ? ('walk' as const) : ('idle' as const),
+            state: animations.lunging(member.individual.id)
+              ? ('execute' as const)
+              : controller.moving
+                ? ('walk' as const)
+                : ('idle' as const),
             phaseOffset: index,
             downed: combatant?.downed,
             windup: combatant?.windup?.progress,
@@ -722,7 +732,9 @@ const render = (alpha = 1) => {
     const tx = tile.x - screen.x * view.cols,
       ty = tile.y - screen.y * view.rows,
       size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
-      origin = spriteOrigin(tx, ty, size, size);
+      origin = spriteOrigin(tx, ty, size, size),
+      offset = animations.offsetFor(member.individual.id),
+      bodyOrigin = { x: origin.x + offset.x * 16, y: origin.y + offset.y * 16 };
     const combatant = encounter?.state().party.find((c) => c.id === member.individual.id);
     if (partyState.selection === member.individual.id && !combatant?.downed) {
       flat.context.strokeStyle = definition.palette.accent ?? '#bd7132';
@@ -738,8 +750,8 @@ const render = (alpha = 1) => {
       member.individual.speciesId,
       memberSpriteFacing.facing,
       controller.moving ? 'walk0' : 'idle',
-      origin.x,
-      origin.y + (combatant?.downed ? Math.floor(size / 3) : 0),
+      bodyOrigin.x,
+      bodyOrigin.y + (combatant?.downed ? Math.floor(size / 3) : 0),
       memberSpriteFacing.flip,
     );
     flat.context.globalAlpha = 1;
@@ -756,7 +768,9 @@ const render = (alpha = 1) => {
     const tx = (creature.position.x + 400) / 2 - screen.x * view.cols,
       ty = (creature.position.z + 400) / 2 - screen.y * view.rows,
       size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
-      origin = spriteOrigin(tx, ty, size, size);
+      origin = spriteOrigin(tx, ty, size, size),
+      offset = animations.offsetFor(creature.id),
+      bodyOrigin = { x: origin.x + offset.x * 16, y: origin.y + offset.y * 16 };
     const spriteFacing = spriteFacingFromYaw(creature.facing);
     const frame =
       creature.state === 'walk'
@@ -769,8 +783,8 @@ const render = (alpha = 1) => {
       creature.speciesId,
       spriteFacing.facing,
       frame,
-      origin.x,
-      origin.y,
+      bodyOrigin.x,
+      bodyOrigin.y,
       spriteFacing.flip,
     );
     const meter = aiStates.get(creature.id)?.meter ?? 0;
@@ -859,6 +873,13 @@ const loop = createLoop({
       for (const member of combat.party)
         if (!member.downed) partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
       const foeEntry = arenaState?.enemy ? enemy(arenaState.enemy) : null;
+      animations.push(combatEvents, (id) => {
+        const partyCombatant = combat.party.find((candidate) => candidate.id === id);
+        if (partyCombatant) return partyCombatant.tile;
+        return id === foeEntry?.id ? combat.enemy.tile : undefined;
+      });
+      animations.update(dt);
+      if (combat.phase !== 'fight') animations.clear();
       if (foeEntry) {
         const partyMoves = partyState.party.flatMap(({ individual }) => individual.repertoire);
         const foeIndividual = buildArenaIndividual(foeEntry);
@@ -1157,6 +1178,13 @@ hudActions.openBook = () => guide.open('index');
 hudActions.openMap = () => guide.open('map');
 hudActions.openConsole = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: '`' }));
 window.__wyld = {
+  anim: () =>
+    animations.list().map((lunge) => ({
+      attacker: lunge.attacker,
+      moveId: lunge.moveId,
+      progress: lunge.elapsed / LUNGE_SECONDS,
+      offset: animations.offsetFor(lunge.attacker),
+    })),
   getState: () => {
     const world = player.world,
       clock = timeAt(elapsedSeconds);
