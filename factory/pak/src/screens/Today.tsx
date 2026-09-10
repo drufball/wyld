@@ -20,17 +20,13 @@ import { playSound } from '../lib/feedback.js';
 
 export type TodaySignals = { rumbles: number; memory: string | null };
 
-function compactCount(count: number) {
-  return count > 9 ? '9+' : String(count);
-}
-
 export function Signals({ rumbles, memory }: TodaySignals) {
   if (rumbles <= 0 && memory === null) return null;
   return (
     <section className="grid gap-2 text-muted-foreground" aria-label="Signals">
       {rumbles > 0 && (
         <Link className="min-h-11 py-2 text-accent underline" to="/rumble">
-          {compactCount(rumbles)} Rumbles
+          {countInWords(rumbles)} {rumbles === 1 ? 'Rumble' : 'Rumbles'}
         </Link>
       )}
       {memory !== null && <p className="m-0">{memory}</p>}
