@@ -39,6 +39,16 @@ describe('arena pick UI', () => {
     picker.dispose();
   });
 
+  it('reads a roster card hide line with what it shrugs off and fears', () => {
+    const picker = createArenaPick(createNotebook(), vi.fn());
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
+    const card = [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Barrow'),
+    );
+    expect(card?.textContent).toContain('Hide — shrugs off Surge, fears Cut');
+    picker.dispose();
+  });
+
   it('removes its keyboard listener after the fight starts', () => {
     const fight = vi.fn();
     const picker = createArenaPick(createNotebook(), fight);

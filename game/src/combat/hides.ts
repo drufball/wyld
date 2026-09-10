@@ -10,6 +10,11 @@ const table: Record<HideType, readonly [Force, Force]> = {
 };
 const weakness = (hide: HideType): Force => table[hide][0];
 const resistance = (hide: HideType): Force => table[hide][1];
+const shrugsOffLine = (hide: HideType): string => `shrugs off ${resistance(hide)}`;
+
+// One of the hide types is itself called "Hide", so it does not take the word twice.
+const hideLine = (hide: HideType): string =>
+  `${hide === 'Hide' ? 'Hide' : `${hide} hide`} — ${shrugsOffLine(hide)}, fears ${weakness(hide)}`;
 const hideMultiplier = (hide: HideType, force: Force): number =>
   force === weakness(hide) ? 1.6 : force === resistance(hide) ? 0.6 : 1;
-export { hideMultiplier, resistance, weakness };
+export { hideLine, hideMultiplier, resistance, shrugsOffLine, weakness };

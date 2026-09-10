@@ -11,6 +11,7 @@ import {
   type PickState,
 } from '../arena/pick.js';
 import { speciesById } from '../creatures/species.js';
+import { hideLine } from '../combat/hides.js';
 
 const createArenaPick = (
   notebook: Notebook,
@@ -105,7 +106,7 @@ const createArenaPick = (
           card(
             entry.id,
             entry.name,
-            `${reserve ? '<b data-reserve-badge>Reserve</b><br>' : ''}Hide: ${definition.hide}<br>${moves}`,
+            `${reserve ? '<b data-reserve-badge>Reserve</b><br>' : ''}${hideLine(definition.hide)}<br>${moves}`,
             state.party.includes(entry.id),
             () => {
               state = toggleMember(state, entry.id);

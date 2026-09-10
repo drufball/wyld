@@ -1,6 +1,10 @@
 import type { CombatEvent } from './encounter.js';
 
-type CombatTell = { kind: 'glance' | 'heavy'; text: 'Glances off' | 'Heavy damage' };
+type CombatTell = {
+  kind: 'glance' | 'heavy';
+  text: 'Glances off' | 'Heavy damage';
+  targetId: string;
+};
 type ActiveTell = CombatTell & { id: number };
 
 const tellsFromEvents = (
@@ -8,15 +12,17 @@ const tellsFromEvents = (
   options: { enemyId: string; ownedIds: readonly string[] },
 ): CombatTell[] =>
   events.flatMap<CombatTell>((event) => {
-    if (
-      event.type !== 'hit' ||
-      event.target !== options.enemyId ||
-      event.attacker === undefined ||
-      !options.ownedIds.includes(event.attacker)
-    )
+    if (event.type !== 'hit' || event.attacker === undefined || event.target === undefined)
       return [];
-    if (event.hideMult === 0.6) return [{ kind: 'glance', text: 'Glances off' }];
-    if (event.hideMult === 1.6) return [{ kind: 'heavy', text: 'Heavy damage' }];
+    const partyHitEnemy =
+      event.target === options.enemyId && options.ownedIds.includes(event.attacker);
+    const enemyHitParty =
+      event.attacker === options.enemyId && options.ownedIds.includes(event.target);
+    if (!partyHitEnemy && !enemyHitParty) return [];
+    if (event.hideMult === 0.6)
+      return [{ kind: 'glance', text: 'Glances off', targetId: event.target }];
+    if (event.hideMult === 1.6)
+      return [{ kind: 'heavy', text: 'Heavy damage', targetId: event.target }];
     return [];
   });
 
@@ -33,7 +39,7 @@ const createTellStack = () => {
         .filter(({ remaining }) => remaining > 0);
     },
     list(): ActiveTell[] {
-      return active.map(({ id, kind, text }) => ({ id, kind, text }));
+      return active.map(({ id, kind, text, targetId }) => ({ id, kind, text, targetId }));
     },
   };
 };
