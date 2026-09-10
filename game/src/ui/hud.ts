@@ -2,6 +2,8 @@ import type { TimeState } from '../world/time.js';
 import type { Individual } from '../creatures/individual.js';
 import type { CombatState } from '../combat/encounter.js';
 import { deliveries } from '../combat/resolve.js';
+import { hideLine } from '../combat/hides.js';
+import { speciesById } from '../creatures/species.js';
 
 type HudState = TimeState & {
   regionName: string | null;
@@ -191,6 +193,11 @@ const createHud = (
           `Swap · ${reserve.name}${cooldown.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
           () => actions.swap?.(),
         );
+        const detail = document.createElement('small');
+        const line = hideLine(speciesById(reserve.individual.speciesId)!.hide);
+        detail.textContent = line.split(' — ')[1]!.split(',')[0]!;
+        detail.style.cssText = 'display:block;font-size:9px;line-height:10px';
+        button.append(detail);
         button.dataset.swap = '';
         button.disabled = cooldown.remaining > 0;
         button.style.opacity = button.disabled ? '0.45' : '1';

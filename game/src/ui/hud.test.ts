@@ -197,11 +197,45 @@ describe('thumb HUD', () => {
     const hud = createHud(false, document.body, { swap: () => swapped.push('swap') });
     hud.update({ ...state(party), combat });
     const button = document.querySelector('[data-swap]') as HTMLButtonElement;
-    expect(button.textContent).toBe('Swap · Pip');
+    expect(button.textContent).toBe('Swap · Pipshrugs off Surge');
     expect(button.style.minWidth).toBe('44px');
     expect(button.style.height).toBe('44px');
     button.click();
     expect(swapped).toEqual(['swap']);
+  });
+
+  it('shows what the reserve shrugs off on the swap button', () => {
+    const party = [creature('Barrow'), creature('Quill'), creature('Pip')];
+    const member = (entry: (typeof party)[number], benched = false) => ({
+      id: entry.individual.id,
+      speciesId: entry.individual.speciesId,
+      hp: 70,
+      maxHp: 70,
+      focus: 40,
+      maxFocus: 40,
+      tile: { x: 1, y: 1 },
+      facing: 0,
+      windup: null,
+      downed: false,
+      benched,
+      cooldowns: {},
+      desiredTile: null,
+    });
+    const hud = createHud(false, document.body);
+    hud.update({
+      ...state(party),
+      combat: {
+        phase: 'fight',
+        elapsed: 0,
+        enemy: member(creature('enemy')),
+        party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
+        reserveId: 'Pip',
+        swapCooldown: { remaining: 0, total: 6 },
+        projectiles: [],
+        flashes: [],
+      },
+    });
+    expect(document.querySelector('[data-swap] small')?.textContent).toBe('shrugs off Surge');
   });
 
   it('disables the swap button while its cooldown runs', () => {

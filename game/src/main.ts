@@ -703,22 +703,27 @@ const render = (alpha = 1) => {
       combat: combat ? { projectiles: combat.projectiles, flashes: combat.flashes } : null,
     });
     if (combat) {
-      const definition = speciesById(combat.enemy.speciesId)!;
       const rect = dioramaView!.canvas.getBoundingClientRect();
-      const anchor = anchorFor(
-        combat.enemy.tile.x,
-        combat.enemy.tile.y,
-        TIER_LENGTH_TILES[definition.tier] * 0.6,
-        cameraTarget(screen, player.sliding, view.cols, view.rows),
-        orthoFrustum(view.cols, view.rows),
-        rect,
-      );
+      const target = cameraTarget(screen, player.sliding, view.cols, view.rows);
+      const frustum = orthoFrustum(view.cols, view.rows);
+      const stackIndexes = new Map<string, number>();
       tellOverlay.sync(
-        tellStack.list().map((tell, index) => ({
-          ...tell,
-          left: anchor.left,
-          top: anchor.top - 20 - index * 24,
-        })),
+        tellStack.list().flatMap((tell) => {
+          const combatant = combat.party.find(({ id }) => id === tell.targetId) ?? combat.enemy;
+          if (!combatant) return [];
+          const definition = speciesById(combatant.speciesId)!;
+          const anchor = anchorFor(
+            combatant.tile.x,
+            combatant.tile.y,
+            TIER_LENGTH_TILES[definition.tier] * 0.6,
+            target,
+            frustum,
+            rect,
+          );
+          const index = stackIndexes.get(tell.targetId) ?? 0;
+          stackIndexes.set(tell.targetId, index + 1);
+          return [{ ...tell, left: anchor.left, top: anchor.top - 20 - index * 24 }];
+        }),
       );
     } else tellOverlay.sync([]);
     stats.afterRender(result.frameMs, result.drawCalls);
@@ -860,16 +865,27 @@ const render = (alpha = 1) => {
         16,
       );
     }
-    const origin = combatBarOrigin(combat.enemy.tile, screen, view.cols, view.rows, size);
     const rect = flat.canvas.getBoundingClientRect();
     const scaleX = rect.width / flat.canvas.width;
     const scaleY = rect.height / flat.canvas.height;
+    const stackIndexes = new Map<string, number>();
     tellOverlay.sync(
-      tellStack.list().map((tell, index) => ({
-        ...tell,
-        left: rect.left + (origin.x + size / 2) * scaleX,
-        top: rect.top + (origin.y - 8) * scaleY - index * 24,
-      })),
+      tellStack.list().flatMap((tell) => {
+        const combatant = combat.party.find(({ id }) => id === tell.targetId) ?? combat.enemy;
+        if (!combatant) return [];
+        const targetDefinition = speciesById(combatant.speciesId)!;
+        const targetSize = targetDefinition.tier === 1 ? 16 : targetDefinition.tier === 2 ? 24 : 32;
+        const origin = combatBarOrigin(combatant.tile, screen, view.cols, view.rows, targetSize);
+        const index = stackIndexes.get(tell.targetId) ?? 0;
+        stackIndexes.set(tell.targetId, index + 1);
+        return [
+          {
+            ...tell,
+            left: rect.left + (origin.x + targetSize / 2) * scaleX,
+            top: rect.top + (origin.y - 8) * scaleY - index * 24,
+          },
+        ];
+      }),
     );
   } else tellOverlay.sync([]);
   stats.afterRender(tiles.tileMs, drawCalls);
