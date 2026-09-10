@@ -1274,3 +1274,4 @@ No sprint today. Health pulse (422 rows) kept the menu green. PROTOCOL corrected
 - 21:18Z Dru (159): leads = **Fable** from now (CLAUDE.md updated; running leads finish as Opus); implementation = **Astra** via `-c model=` per run — **Codex model: `gpt-6-astra`** (Dru, 21:19Z); fresh-eyes cleanup brief ready (/tmp/wyld-leads/fresh-eyes/brief.md) — spawn on Fable the moment the id arrives.
 
 - 21:20Z Codex model = gpt-6-astra (all runs pass `-c model="gpt-6-astra"`). Fresh-eyes lead spawned on Fable.
+- 21:28Z #302 merged and live: first `planner.tick` received 21:27Z. PROTOCOL event table has the row. #304 green after a fix round; #303 reviewed; Astra's #305 running.
