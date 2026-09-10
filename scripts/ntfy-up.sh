@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Render the local ntfy server configuration and start its Docker container.
+# Pass --render-only to render the configuration without touching Docker.
+
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FACTORY_DIR="${FACTORY_DIR:-$PWD/.factory}"
 case "$FACTORY_DIR" in

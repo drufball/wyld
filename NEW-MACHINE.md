@@ -114,6 +114,7 @@ After confirmation:
 - Set `PAK_PUBLIC_URL=https://<name>` in `.factory/env`.
 - Leave `NTFY_URL=http://localhost:8790` unless it names the old host; if it does, set it to the appropriate new-machine value.
 - ntfy derives its public address from this machine's tailnet name at `pnpm factory:up`; setting `NTFY_BASE_URL=https://<name>:8443` in `.factory/env` overrides it.
+- `./scripts/ntfy-up.sh --render-only` renders `.factory/ntfy/server.yml` without starting the container — useful to check the address before Docker is up.
 - Do not change or display any other `.factory/env` value.
 
 ## 6. Start and check
