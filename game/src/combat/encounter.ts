@@ -4,6 +4,8 @@ import type { Individual } from '../creatures/individual.js';
 import { findPath } from '../player/pathing.js';
 import type { Move } from './moves.js';
 import { hideMultiplier } from './hides.js';
+import { arenaSpeedTilesPerSecond } from './pace.js';
+import { separate } from './spacing.js';
 import {
   canAfford,
   cooldownFor,
@@ -273,7 +275,7 @@ const createEncounter = ({
       d = distance(foe.tile, target),
       dx = (target.x - foe.tile.x) / (d || 1),
       dy = (target.y - foe.tile.y) / (d || 1),
-      speed = (3 + foe.individual.stats.speed * 0.6) / 2;
+      speed = arenaSpeedTilesPerSecond(foe.individual.stats.speed);
     let step = 0;
     if (requiredRange !== undefined && d > requiredRange)
       step = Math.min(speed * dt, d - requiredRange);
@@ -328,6 +330,18 @@ const createEncounter = ({
     for (const c of all()) {
       const p = pointFrom(positions, c.id);
       if (p && c !== foe && !c.pending) c.tile = copy(p);
+    }
+    const standing = all().filter((c) => !c.downed),
+      separated = separate(
+        standing.map((c) => ({
+          id: c.id,
+          tile: c.tile,
+          maxStep: arenaSpeedTilesPerSecond(c.individual.stats.speed) * dt,
+        })),
+        (tx, ty) => grid.isWalkable(tx, ty),
+      );
+    for (const c of standing) c.tile = separated[c.id]!;
+    for (const c of all()) {
       c.focus = Math.min(c.maxFocus, c.focus + 2 * dt);
       for (const cd of Object.values(c.cooldowns)) cd.remaining = Math.max(0, cd.remaining - dt);
     }
