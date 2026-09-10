@@ -54,7 +54,7 @@ import { cameraTarget, orthoFrustum } from './render3d/camera.js';
 import { TIER_LENGTH_TILES } from './render3d/bodyplans/index.js';
 import { createTileRenderer } from './render2d/tiles.js';
 import { buildState } from './state.js';
-import { createControlsCard } from './ui/controls.js';
+import { createControlsCard, shouldIgnoreArenaKey } from './ui/controls.js';
 import { createDebugConsole } from './ui/debug.js';
 import { createGuideBook } from './ui/guide.js';
 import { createHud } from './ui/hud.js';
@@ -607,16 +607,14 @@ hudActions.useMove = (moveId) => {
 };
 const swapSelected = (): boolean => {
   if (!encounter) return false;
-  const before = encounter.state();
+  const combat = encounter.state();
   const outgoing =
-    before.party.find((member) => member.id === partyState.selection && !member.benched) ??
-    before.party.find((member) => !member.benched);
+    combat.party.find((member) => member.id === partyState.selection && !member.benched) ??
+    combat.party.find((member) => !member.benched);
   if (!outgoing || !encounter.swap(outgoing.id)) return false;
-  const after = encounter.state();
-  const previousReserveId = before.reserveId;
-  const incoming = after.party.find((member) => member.id === previousReserveId && !member.benched);
+  const incoming = combat.party.find((member) => member.id === combat.reserveId);
   if (!incoming) return false;
-  const destination = tileToWorld(incoming.tile.x - 0.5, incoming.tile.y - 0.5);
+  const destination = tileToWorld(outgoing.tile.x - 0.5, outgoing.tile.y - 0.5);
   partyControllers.get(incoming.id)?.teleport(destination.x, destination.z);
   partyControllers.get(outgoing.id)?.clearPath();
   partyState = selectCreature(partyState, incoming.id);
@@ -624,6 +622,7 @@ const swapSelected = (): boolean => {
 };
 hudActions.swap = () => void swapSelected();
 window.addEventListener('keydown', (event) => {
+  if (shouldIgnoreArenaKey(event, debugConsole.isOpen, guide?.isOpen ?? false)) return;
   if (event.key.toLowerCase() === 's' && encounter?.state().phase === 'fight') swapSelected();
 });
 const render = (alpha = 1) => {
@@ -881,14 +880,13 @@ const loop = createLoop({
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
     tellStack.update(dt);
-    if (encounter) {
+    const combat = encounter?.state() ?? null;
+    if (encounter && combat) {
       const combatEvents = encounter.update(
         dt,
         Object.fromEntries(
           partyState.party.flatMap(({ individual }) => {
-            const combatant = encounter
-              ?.state()
-              .party.find((member) => member.id === individual.id);
+            const combatant = combat.party.find((member) => member.id === individual.id);
             if (combatant?.benched) return [];
             const t = partyControllers.get(individual.id)!.tile;
             return [[individual.id, { x: t.x, y: t.y }] as const];
@@ -896,7 +894,6 @@ const loop = createLoop({
         ),
         { x: player.tile.x, y: player.tile.y },
       );
-      const combat = encounter.state();
       for (const member of combat.party)
         if (!member.downed && !member.benched)
           partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
@@ -982,8 +979,7 @@ const loop = createLoop({
       activeFlatScreen = { sx: player.screen.x, sy: player.screen.y };
       const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
       const partyHit = partyState.party.find(({ individual }) => {
-        if (encounter?.state().party.find((member) => member.id === individual.id)?.benched)
-          return false;
+        if (combat?.party.find((member) => member.id === individual.id)?.benched) return false;
         const tile = partyControllers.get(individual.id)!.tile;
         return Math.floor(tile.x) === tx && Math.floor(tile.y) === ty;
       });
@@ -1026,8 +1022,7 @@ const loop = createLoop({
       });
     }
     for (const [id, controller] of partyControllers)
-      if (!encounter?.state().party.find((member) => member.id === id)?.benched)
-        controller.update(dt);
+      if (!combat?.party.find((member) => member.id === id)?.benched) controller.update(dt);
     if (partyState.selection !== 'player') {
       const leader = partyControllers.get(partyState.selection);
       if (leader && (leader.screen.x !== player.screen.x || leader.screen.y !== player.screen.y)) {
