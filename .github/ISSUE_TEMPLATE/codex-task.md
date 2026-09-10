@@ -41,3 +41,5 @@ pnpm build
 
 - `factory/planner/` — never edit it
 - Anything not listed under Task; open a follow-up instead of expanding this PR
+
+<!-- Standing rule (2026-09-11): every line you write in VERIFICATION.md or the PR body under "How verified" must be a measurement or check you actually made in this run. Label each number as `simulated` (a headless/unit run) or `played` (the built game driven in a browser), never call one the other, and never claim a look, device or scenario you did not run. A claim that can't be reproduced is a fix round. -->
