@@ -32,9 +32,13 @@ Commentable elements use `data-pin="<id>"` and may supply a human-readable
 `factory/pak/src/lib/pin-bridge.ts` immediately before `</body>`. Without it, the Pin button remains
 disabled.
 
-| Message                              | Direction         | Purpose                                             |
-| ------------------------------------ | ----------------- | --------------------------------------------------- |
-| `wyld:pin:ready`                     | artifact → viewer | Announces that the bridge is ready.                 |
-| `wyld:pin:mode`                      | viewer → artifact | Enables or disables picking.                        |
-| `wyld:pin:pick`                      | artifact → viewer | Reports the selected element, label, and rectangle. |
-| `wyld:pin:locate` / `wyld:pin:rects` | viewer ↔ artifact | Requests and returns marker rectangles.             |
+| Message                              | Direction         | Purpose                                                                                                                                              |
+| ------------------------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wyld:pin:hello`                     | viewer → artifact | Asks the bridge to announce itself; sent when the viewer attaches and on every frame load.                                                           |
+| `wyld:pin:ready`                     | artifact → viewer | Announces that the bridge is ready.                                                                                                                  |
+| `wyld:pin:key`                       | artifact → viewer | Reports whether the pin modifier (⌘ on Mac, Ctrl elsewhere) is held.                                                                                 |
+| `wyld:pin:mode`                      | viewer → artifact | Enables or disables picking.                                                                                                                         |
+| `wyld:pin:pick`                      | artifact → viewer | Reports the selected element, label, and rectangle.                                                                                                  |
+| `wyld:pin:locate` / `wyld:pin:rects` | viewer ↔ artifact | Requests and returns marker rectangles.                                                                                                              |
+| `wyld:pin:capture`                   | viewer → artifact | Asks for a capture of the embedded demo (`iframe[data-wyld-demo]`) inside the named element; the artifact forwards `wyld:demo:capture` to the embed. |
+| `wyld:pin:capture:result`            | artifact → viewer | Returns `{ screenshot, state }` for the capture id, or `null` when there is no embed or it does not answer in time.                                  |

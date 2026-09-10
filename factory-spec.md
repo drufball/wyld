@@ -305,7 +305,7 @@ Triggered by the quota watchdog or by the Planner calling `pak.pause` when it se
 1. Planner finishes the current atomic step (or abandons if it can't within 2 min), parks in-flight work with a plain-English note on each quest, stops issuing Codex tasks.
 2. Wake stops delivering events and buffers them.
 3. Pak enters Paused: a single calm banner ("Paused — Codex quota hit at 02:14. Nothing lost; 4 events queued.") and an outage Rumble with the fix.
-4. You get one push notification (channel TBD — see §11).
+4. You get one push notification (ntfy, per §10).
 5. Resume button (or the watchdog detecting headroom again) → Wake replays the queue, Planner picks up parked notes, banner clears. Retro records it.
 
 Partial outages pause only the affected lane where possible (e.g. Codex out → Planner still reviews/merges what exists and keeps the Pak fresh, but files no new issues).
@@ -314,7 +314,7 @@ Partial outages pause only the affected lane where possible (e.g. Codex out → 
 
 Trigger: GOODNIGHT, or launchd at 23:00. Hard stop: `sleep.last_call` at 07:15, `sleep.lights_on` at 08:00; the Planner is idle and Today is reset at 08:00 regardless of state. `factory-up.sh` runs `caffeinate -s` so the laptop stays awake on AC; Doctor warns if not on power.
 
-Phases (`factory/sleep/RUNBOOK.md`):
+Phases (`factory/planner/skills/sleep-mode.md`):
 
 1. Drain — finish or park every in-flight thing: merge green PRs, request final changes on near-done ones, close stale issues. Anything that can't land becomes a draft PR + a "parked" note on the quest. No open non-draft PRs at 08:00.
 2. Sweep — architecture and code health: dependency updates that pass CI, dead code, lint debt, duplicate logic, bundle size. Filed as Codex issues tagged `night`, merged only if green. No cap; Paused handles exhaustion.

@@ -8,7 +8,7 @@ Expansion Pak (`factory/`). One founder, one game. Bespoke and opinionated is fi
 - **Node 22** (pinned in `.node-version`), **pnpm** workspaces (pinned via `packageManager` in root `package.json`).
 - **TypeScript, strict, ESM everywhere.** No CommonJS, no `require`.
 - Server: **Hono** on `@hono/node-server`, **SQLite** via **Drizzle** + `better-sqlite3`.
-- Pak (later): **Vite + React**. Game (later): **Vite + TypeScript + Three.js**.
+- Pak: **Vite + React**. Game: **Vite + TypeScript + Three.js**.
 - Tests: **Vitest**. Lint: **ESLint** flat config + typescript-eslint. Format: **Prettier**.
 
 ## Setup
@@ -24,12 +24,12 @@ globally installed tool. All tool config lives in the repo.
 
 | Command | What it does |
 |---|---|
-| `pnpm typecheck` | `tsc --noEmit` across all workspaces |
+| `pnpm typecheck` | `tsc -b` across all workspaces (project references in the root `tsconfig.json`) |
 | `pnpm lint` | ESLint across all workspaces |
 | `pnpm test` | Vitest across all workspaces |
 | `pnpm build` | Build all workspaces |
 | `pnpm --filter @wyld/server dev` | Run the Pak server with watch |
-| `pnpm --filter game build` | Build the game (once `game/` exists) |
+| `pnpm --filter @wyld/game build` | Build the game |
 
 All four of `typecheck`, `lint`, `test`, `build` must pass before a PR is ready.
 
