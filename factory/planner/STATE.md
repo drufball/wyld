@@ -1275,3 +1275,4 @@ No sprint today. Health pulse (422 rows) kept the menu green. PROTOCOL corrected
 
 - 21:20Z Codex model = gpt-6-astra (all runs pass `-c model="gpt-6-astra"`). Fresh-eyes lead spawned on Fable.
 - 21:28Z #302 merged and live: first `planner.tick` received 21:27Z. PROTOCOL event table has the row. #304 green after a fix round; #303 reviewed; Astra's #305 running.
+- 21:35Z sprint unit 1 landed: #304 (63641af) arena-pace → demo. combat/pace.ts (ARENA_PACE 0.5; speed formula in one place), combat/spacing.ts (push-apart ≥1 tile, rock-aware, encounter source of truth, nudge write-back). Fight: 20 s tapped / 32 s sim (was 12–13); min separation 0.893 tiles. Diorama at phone size still overlaps bodies a tile apart (bodies > tile; Strike range 1.25 → can't widen) → units 2/3 are the cure. Discs at 63641af; embeds 100%. Unit 2 (#306, arena-animations) running on gpt-6-astra.
