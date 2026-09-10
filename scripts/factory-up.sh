@@ -17,6 +17,9 @@ PAK_PORT="${PAK_PORT:-8787}"
 WAKE_PORT="${WAKE_PORT:-8788}"
 PLANNER_MODE="${PLANNER_MODE:-host}"
 
+# shellcheck disable=SC1091
+source ./scripts/factory-windows.sh
+
 if [[ "$PLANNER_MODE" != host && "$PLANNER_MODE" != cli ]]; then
   echo "error: PLANNER_MODE must be either 'host' or 'cli'" >&2
   exit 1
@@ -46,30 +49,23 @@ if tmux has-session -t wyld 2>/dev/null; then
   exit 0
 fi
 
-tmux new-session -d -s wyld -n server -c "$PWD" 'pnpm --filter @wyld/server dev'
+tmux new-session -d -s wyld -n server -c "$PWD" "$(factory_window_command server)"
 started+=(server)
-tmux new-window -d -t wyld -n wake -c "$PWD" 'pnpm --filter @wyld/wake dev'
+tmux new-window -d -t wyld -n wake -c "$PWD" "$(factory_window_command wake)"
 started+=(wake)
 
-if [[ -d factory/pak ]]; then
-  tmux new-window -d -t wyld -n pak -c "$PWD" 'pnpm --filter @wyld/pak dev'
-  started+=(pak)
-else
-  echo 'Skipping pak: factory/pak does not exist yet.'
-  skipped+=('pak (factory/pak does not exist)')
-fi
+tmux new-window -d -t wyld -n pak -c "$PWD" "$(factory_window_command pak)"
+started+=(pak)
 
-tmux new-window -d -t wyld -n ops -c "$PWD" 'pnpm --filter @wyld/ops dev'
+tmux new-window -d -t wyld -n ops -c "$PWD" "$(factory_window_command ops)"
 started+=(ops)
 
-tmux new-window -d -t wyld -n webhook -c "$PWD" \
-  "until gh webhook forward --repo drufball/wyld --events '*' --url 'http://localhost:${WAKE_PORT}/gh' --secret \"\$GH_WEBHOOK_SECRET\"; do echo 'webhook forward exited; restarting in 5s'; sleep 5; done"
+tmux new-window -d -t wyld -n webhook -c "$PWD" "$(factory_window_command webhook)"
 started+=(webhook)
 
 if [[ "$PLANNER_MODE" == host ]]; then
   if pnpm --filter @wyld/wake... --filter @wyld/planner-host... build; then
-    tmux new-window -d -t wyld -n planner -c "$PWD" \
-      "set -a; . .factory/env; set +a; until node factory/planner-host/dist/main.js; do echo 'planner host exited; restarting in 5s'; sleep 5; done"
+    tmux new-window -d -t wyld -n planner -c "$PWD" "$(factory_window_command planner)"
     started+=(planner)
   else
     echo 'Skipping planner: @wyld/wake or @wyld/planner-host failed to build.' >&2
@@ -77,8 +73,7 @@ if [[ "$PLANNER_MODE" == host ]]; then
   fi
 else
   if pnpm --filter @wyld/wake... build; then
-    tmux new-window -d -t wyld -n planner -c "$PWD" \
-      'claude --dangerously-load-development-channels server:wake'
+    tmux new-window -d -t wyld -n planner -c "$PWD" "$(factory_window_command planner)"
     started+=(planner)
   else
     echo 'Skipping planner: @wyld/wake failed to build, so its channel cannot register.' >&2
@@ -87,7 +82,7 @@ else
 fi
 
 if [[ "$(uname -s)" == Darwin ]]; then
-  tmux new-window -d -t wyld -n caffeinate -c "$PWD" 'caffeinate -s'
+  tmux new-window -d -t wyld -n caffeinate -c "$PWD" "$(factory_window_command caffeinate)"
   started+=(caffeinate)
 else
   echo 'Skipping caffeinate: it is only used on macOS.'

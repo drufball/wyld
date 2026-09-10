@@ -24,6 +24,9 @@ PLANNER_HOST_PORT="${PLANNER_HOST_PORT:-8789}"
 NTFY_PORT="${NTFY_PORT:-8790}"
 PLANNER_MODE="${PLANNER_MODE:-host}"
 
+# shellcheck disable=SC1091
+source ./scripts/factory-windows.sh
+
 for tool in tmux gh claude node pnpm; do
   if command -v "$tool" >/dev/null 2>&1; then
     ok "$tool is installed"
@@ -250,34 +253,15 @@ else
 fi
 
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t wyld 2>/dev/null; then
-  expected_windows=(
-    "server|'pnpm --filter @wyld/server dev'"
-    "wake|'pnpm --filter @wyld/wake dev'"
-    "ops|'pnpm --filter @wyld/ops dev'"
-    "webhook|\"until gh webhook forward --repo drufball/wyld --events '*' --url 'http://localhost:${WAKE_PORT}/gh' --secret \\\"\\\$GH_WEBHOOK_SECRET\\\"; do echo 'webhook forward exited; restarting in 5s'; sleep 5; done\""
-  )
-  if [[ "$PLANNER_MODE" == host ]]; then
-    expected_windows+=("planner|\"set -a; . .factory/env; set +a; until node factory/planner-host/dist/main.js; do echo 'planner host exited; restarting in 5s'; sleep 5; done\"")
-  else
-    expected_windows+=("planner|'claude --dangerously-load-development-channels server:wake'")
-  fi
-  if [[ -d factory/pak ]]; then
-    expected_windows+=("pak|'pnpm --filter @wyld/pak dev'")
-  fi
-  if [[ "$(uname -s)" == Darwin ]]; then
-    expected_windows+=("caffeinate|'caffeinate -s'")
-  fi
-
   windows="$(tmux list-windows -t wyld -F '#{window_name}' | paste -sd, -)"
   dead="$(tmux list-panes -t wyld -a -F '#{session_name}:#{window_name} #{pane_dead}' | awk '$1 ~ /^wyld:/ && $2 == 1 {sub(/^wyld:/, "", $1); print $1}' | paste -sd, -)"
   ok "tmux session wyld is running with windows: $windows"
   if [[ -n "$dead" ]]; then
     fail "tmux session wyld has exited windows ($dead); run pnpm factory:down && pnpm factory:up"
   fi
-  for window_spec in "${expected_windows[@]}"; do
-    window_name="${window_spec%%|*}"
-    window_command="${window_spec#*|}"
+  while IFS= read -r window_name; do
     if ! tmux list-windows -t wyld -F '#{window_name}' | grep -Fxq "$window_name"; then
+      window_command="$(printf '%q' "$(factory_window_command "$window_name")")"
       fail "tmux window $window_name is missing; run \`set -a; . .factory/env; set +a; tmux new-window -d -t wyld -n $window_name -c \"\$PWD\" $window_command\`"
       continue
     fi
@@ -285,7 +269,7 @@ if command -v tmux >/dev/null 2>&1 && tmux has-session -t wyld 2>/dev/null; then
     if [[ ",$dead," != *",$window_name,"* ]]; then
       ok "tmux window $window_name is alive"
     fi
-  done
+  done < <(factory_window_names)
 else
   fail 'tmux session wyld is not running; run pnpm factory:up'
 fi
