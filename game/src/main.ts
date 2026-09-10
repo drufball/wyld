@@ -63,7 +63,7 @@ import { createArenaPick } from './ui/arena-pick.js';
 import { buildArenaIndividual, enemy, rosterMember } from './arena/roster.js';
 import { createPick, chooseEnemy, toggleMember, startFight, type PickState } from './arena/pick.js';
 import { resistance, weakness } from './combat/hides.js';
-import { createEncounter } from './combat/encounter.js';
+import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
 import { LUNGE_SECONDS, createAnimations } from './combat/anim.js';
 import { createToastStack } from './ui/toasts.js';
 import { learnedFactText, learnFromCombat, type LearnedFact } from './arena/learning.js';
@@ -267,6 +267,7 @@ const animations = createAnimations();
 let fightLearned: LearnedFact[] = [];
 let resultScreen: ReturnType<typeof createArenaResult> | null = null;
 let fightRecorded = false;
+let reservePrompted = false;
 let damageLogging = false;
 const seedCreature = (id: string): void => {
   const c = registry.get(id);
@@ -492,6 +493,7 @@ const beginArena = (state: PickState): void => {
   arenaState = state;
   fightLearned = [];
   fightRecorded = false;
+  reservePrompted = false;
   resultScreen?.dispose();
   resultScreen = null;
   const built = buildArena(view.cols, view.rows, foe.biome);
@@ -880,13 +882,14 @@ const loop = createLoop({
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
     tellStack.update(dt);
-    const combat = encounter?.state() ?? null;
+    let combat = encounter?.state() ?? null;
     if (encounter && combat) {
+      const preUpdateCombat = combat;
       const combatEvents = encounter.update(
         dt,
         Object.fromEntries(
           partyState.party.flatMap(({ individual }) => {
-            const combatant = combat.party.find((member) => member.id === individual.id);
+            const combatant = preUpdateCombat.party.find((member) => member.id === individual.id);
             if (combatant?.benched) return [];
             const t = partyControllers.get(individual.id)!.tile;
             return [[individual.id, { x: t.x, y: t.y }] as const];
@@ -894,14 +897,26 @@ const loop = createLoop({
         ),
         { x: player.tile.x, y: player.tile.y },
       );
+      combat = encounter.state();
+      const postUpdateCombat = combat;
+      if (shouldAskForReserve(combat, reservePrompted)) {
+        const reserve = partyState.party.find(
+          ({ individual }) => individual.id === postUpdateCombat.reserveId,
+        );
+        const reserveName = reserve ? rosterMember(reserve.individual.id)?.name : null;
+        if (reserveName) {
+          reservePrompted = true;
+          toasts.note(`Both are down — swap ${reserveName} in.`);
+        }
+      }
       for (const member of combat.party)
         if (!member.downed && !member.benched)
           partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
       const foeEntry = arenaState?.enemy ? enemy(arenaState.enemy) : null;
       animations.push(combatEvents, (id) => {
-        const partyCombatant = combat.party.find((candidate) => candidate.id === id);
+        const partyCombatant = postUpdateCombat.party.find((candidate) => candidate.id === id);
         if (partyCombatant) return partyCombatant.tile;
-        return id === foeEntry?.id ? combat.enemy.tile : undefined;
+        return id === foeEntry?.id ? postUpdateCombat.enemy.tile : undefined;
       });
       animations.update(dt);
       if (combat.phase !== 'fight') animations.clear();
@@ -944,7 +959,9 @@ const loop = createLoop({
           });
         }
       }
-      const foe = registry.list().find(({ speciesId }) => speciesId === combat.enemy.speciesId);
+      const foe = registry
+        .list()
+        .find(({ speciesId }) => speciesId === postUpdateCombat.enemy.speciesId);
       if (foe) {
         const at = tileToWorld(combat.enemy.tile.x - 0.5, combat.enemy.tile.y - 0.5);
         foe.position.x = at.x;

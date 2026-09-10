@@ -3,7 +3,12 @@ import { buildArenaIndividual, enemy, rosterMember } from '../arena/roster.js';
 import type { Individual } from '../creatures/individual.js';
 import { FACING_YAW } from '../creatures/facing.js';
 import type { Move } from './moves.js';
-import { createEncounter, type EncounterOptions, type Point } from './encounter.js';
+import {
+  createEncounter,
+  shouldAskForReserve,
+  type EncounterOptions,
+  type Point,
+} from './encounter.js';
 import { canAfford, damage, deliveries } from './resolve.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES } from './spacing.js';
@@ -175,6 +180,12 @@ describe('combat encounter', () => {
       before = subject.state().enemy.tile;
     advance(subject, 2, {}, { x: 20, y: 20 });
     expect(subject.state().enemy.tile).toEqual(before);
+  });
+
+  it('asks for the reserve once when both active creatures are down', () => {
+    const state = downActiveParty().state();
+    expect(shouldAskForReserve(state, false)).toBe(true);
+    expect(shouldAskForReserve(state, true)).toBe(false);
   });
 
   it('drives the player off only when all three are down', () => {

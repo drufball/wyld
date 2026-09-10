@@ -82,6 +82,17 @@ type Flight = Projectile & {
   arc: boolean;
 };
 
+const shouldAskForReserve = (state: CombatState, alreadyAsked: boolean): boolean => {
+  if (alreadyAsked || state.phase !== 'fight' || !state.reserveId) return false;
+  const reserve = state.party.find(({ id }) => id === state.reserveId);
+  return Boolean(
+    reserve &&
+    !reserve.downed &&
+    reserve.benched &&
+    state.party.filter(({ benched }) => !benched).every(({ downed }) => downed),
+  );
+};
+
 const copy = (p: Point): Point => ({ x: p.x, y: p.y });
 const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
 const LUNGE_CONTACT_TILES = Math.max(0.5, MIN_SEPARATION_TILES);
@@ -550,5 +561,5 @@ const createEncounter = ({
   };
 };
 
-export { createEncounter };
+export { createEncounter, shouldAskForReserve };
 export type { CombatEvent, CombatState, EncounterOptions, Point, Positions };
