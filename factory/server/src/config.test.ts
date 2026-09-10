@@ -32,6 +32,7 @@ describe('readConfig', () => {
       wakeSecret: 'shared-secret',
       ntfyUrl: 'https://ntfy.example',
       ntfyTopic: 'custom-topic',
+      plannerTick: true,
       sleep: {
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         goodnight: '23:00',
@@ -98,5 +99,9 @@ describe('readConfig', () => {
 
   it('can disable the sleep schedule', () => {
     expect(readConfig({ SLEEP_SCHEDULE: 'off' }).sleep.enabled).toBe(false);
+  });
+
+  it('can disable the planner heartbeat', () => {
+    expect(readConfig({ PLANNER_TICK: 'off' }).plannerTick).toBe(false);
   });
 });

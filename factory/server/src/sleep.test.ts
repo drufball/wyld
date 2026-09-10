@@ -158,8 +158,46 @@ describe('sleep scheduler', () => {
     expect(storedEvents().filter((event) => event.kind === 'sleep.alarm')).toHaveLength(3);
   });
 
-  it('does not fire last call or lights on without an open run', async () => {
+  it('does not fire last call without an open run', async () => {
+    now = new Date('2026-09-06T07:16:00.000Z');
+    await scheduler().tick();
+    expect(storedEvents()).toEqual([]);
+  });
+
+  it('fires lights on at its scheduled time when no run is open', async () => {
+    now = new Date('2026-09-05T23:00:00.000Z');
+    const ended = await createSleepService({ database, now: () => now, storeEvent, config }).start(
+      'human',
+    );
+    await createSleepService({ database, now: () => now, storeEvent, config }).end(ended!, 'clean');
+    const alarmsBefore = runs()[0]?.alarmsFired;
+
+    now = new Date('2026-09-06T08:00:00.000Z');
+    await scheduler().tick();
+
+    expect(storedEvents().at(-1)).toMatchObject({
+      source: 'sleep',
+      kind: 'sleep.alarm',
+      payload: {
+        runId: 1,
+        alarm: 'lights_on',
+        trigger: 'schedule',
+        lightsOnAt: '2026-09-06T08:00:00.000Z',
+        openRun: false,
+      },
+    });
+    expect(runs()[0]?.alarmsFired).toEqual(alarmsBefore);
+  });
+
+  it('fires the run-less lights on only once per local day', async () => {
     now = new Date('2026-09-06T08:01:00.000Z');
+    await scheduler().tick();
+    await scheduler().tick();
+    expect(storedEvents().filter(({ kind }) => kind === 'sleep.alarm')).toHaveLength(1);
+  });
+
+  it('does not fire a run-less lights on hours after the scheduled time', async () => {
+    now = new Date('2026-09-06T10:00:00.000Z');
     await scheduler().tick();
     expect(storedEvents()).toEqual([]);
   });
@@ -239,6 +277,28 @@ describe('sleep scheduler', () => {
       nextActionLink: '/',
     });
     expect(storedEvents().filter((event) => event.kind === 'sleep.phase')).toHaveLength(1);
+  });
+
+  it('ends a run that never reached reset as timed out', async () => {
+    now = new Date('2026-09-06T01:00:00.000Z');
+    await createSleepService({ database, now: () => now, storeEvent, config }).start('human');
+    const subject = scheduler();
+    now = new Date('2026-09-06T08:01:00.000Z');
+    await subject.tick();
+    await subject.tick();
+    expect(runs()[0]?.outcome).toBe('timed_out');
+  });
+
+  it('ends a run that reached reset as clean', async () => {
+    now = new Date('2026-09-06T01:00:00.000Z');
+    const service = createSleepService({ database, now: () => now, storeEvent, config });
+    const run = await service.start('human');
+    await service.phase(run!, { phase: 'reset' });
+    const subject = scheduler();
+    now = new Date('2026-09-06T08:01:00.000Z');
+    await subject.tick();
+    await subject.tick();
+    expect(runs()[0]?.outcome).toBe('clean');
   });
 
   it('leaves an existing retro untouched when the lights-on guard runs', async () => {

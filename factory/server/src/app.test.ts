@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 import { createApp } from './app.js';
 import { openDatabase, type AppDatabase } from './database.js';
+import { chains, events, healthReports, questNotes } from './schema.js';
 
 const migrationsFolder = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 const silentLogger = () => undefined;
@@ -315,6 +316,29 @@ describe('Pak server', () => {
 
     const events = z.array(Event).parse(await (await app.request('/api/events')).json());
     expect(events).toEqual([stored]);
+  });
+
+  it('stores a planner tick without creating chains, notes or health reports', async () => {
+    const response = await app.request('/api/events', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        source: 'planner',
+        kind: 'planner.tick',
+        payload: { at: '2026-09-06T14:03:00.000Z' },
+      }),
+    });
+    expect(response.status).toBe(201);
+    expect(database.db.select().from(chains).all()).toEqual([]);
+    expect(database.db.select().from(questNotes).all()).toEqual([]);
+    expect(database.db.select().from(healthReports).all()).toEqual([]);
+    expect(
+      database.db
+        .select()
+        .from(events)
+        .all()
+        .some(({ kind }) => kind === 'planner.chain_updated'),
+    ).toBe(false);
   });
 
   it('pages events after since in ascending order and respects limit', async () => {

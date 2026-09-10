@@ -31,6 +31,7 @@ const Environment = z.object({
   SLEEP_LAST_CALL: WallTime.default('07:15'),
   SLEEP_LIGHTS_ON: WallTime.default('08:00'),
   SLEEP_SCHEDULE: z.enum(['on', 'off']).default('on'),
+  PLANNER_TICK: z.enum(['on', 'off']).default('on'),
 });
 
 export type Config = {
@@ -47,6 +48,7 @@ export type Config = {
   wakeSecret?: string;
   ntfyUrl?: string;
   ntfyTopic: string;
+  plannerTick: boolean;
   sleep: {
     timeZone: string;
     goodnight: string;
@@ -77,6 +79,7 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     ...(result.data.WAKE_SECRET === undefined ? {} : { wakeSecret: result.data.WAKE_SECRET }),
     ...(result.data.NTFY_URL === undefined ? {} : { ntfyUrl: result.data.NTFY_URL }),
     ntfyTopic: result.data.NTFY_TOPIC,
+    plannerTick: result.data.PLANNER_TICK === 'on',
     sleep: {
       timeZone: result.data.SLEEP_TZ,
       goodnight: result.data.SLEEP_GOODNIGHT,

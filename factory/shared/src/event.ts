@@ -27,6 +27,7 @@ export const EVENT_KINDS = [
   'github.pr_review',
   'github.push',
   'planner.note',
+  'planner.tick',
   'planner.quest_updated',
   'planner.world_updated',
   'planner.next_action',

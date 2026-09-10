@@ -37,6 +37,7 @@ import { createNotifier } from './notify.js';
 import { createPauseRoutes, createPauseService } from './pause.js';
 import { createSleepRoutes, createSleepScheduler, type SleepConfig } from './sleep.js';
 import { createAchievements } from './achievements.js';
+import { createPlannerHeartbeat } from './heartbeat.js';
 import {
   countNeedsYou,
   readOpenBriefing,
@@ -114,6 +115,7 @@ export type AppDependencies = {
   feedbackDir: string;
   builder?: DemoBuilder;
   sleepConfig?: SleepConfig;
+  plannerTick?: boolean;
   repoDir?: string;
   worktreesDir?: string;
 };
@@ -228,7 +230,7 @@ export function createApp(dependencies: AppDependencies) {
         });
     }
     forwardToWake(event);
-    if (newEvent.kind !== 'pak.achievement_unlocked') {
+    if (newEvent.kind !== 'pak.achievement_unlocked' && newEvent.kind !== 'planner.tick') {
       try {
         await achievementService.evaluate();
       } catch (error: unknown) {
@@ -428,6 +430,12 @@ export function createApp(dependencies: AppDependencies) {
     storeEvent,
     config: sleepConfig,
     setNextAction,
+  }).start();
+  createPlannerHeartbeat({
+    database: dependencies.database,
+    now,
+    storeEvent,
+    enabled: dependencies.plannerTick ?? false,
   }).start();
   app.route(
     '/api',

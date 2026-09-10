@@ -35,6 +35,7 @@ const app = createApp({
   ...(config.ntfyUrl === undefined ? {} : { ntfyUrl: config.ntfyUrl }),
   ntfyTopic: config.ntfyTopic,
   sleepConfig: config.sleep,
+  plannerTick: config.plannerTick,
 });
 
 log(
