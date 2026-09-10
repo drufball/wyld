@@ -50,12 +50,14 @@ describe('combat animation', () => {
   });
 
   it('peaks at four hundredths of a second in and snaps back to zero', () => {
+    expect(LUNGE_SECONDS).toBe(0.25);
+    expect(LUNGE_PEAK_TILES).toBe(0.45);
     const subject = createAnimations();
     subject.push([executed()], tileOf);
     expect(subject.offsetFor('a')).toEqual({ x: 0, y: 0 });
     subject.update(LUNGE_SECONDS * LUNGE_OUT_FRACTION);
-    expect(subject.offsetFor('a').x).toBeCloseTo(LUNGE_PEAK_TILES * 0.6);
-    expect(subject.offsetFor('a').y).toBeCloseTo(LUNGE_PEAK_TILES * 0.8);
+    expect(subject.offsetFor('a').x).toBeCloseTo(0.27);
+    expect(subject.offsetFor('a').y).toBeCloseTo(0.36);
     subject.update(LUNGE_SECONDS * (1 - LUNGE_OUT_FRACTION));
     expect(subject.offsetFor('a')).toEqual({ x: 0, y: 0 });
   });
@@ -145,8 +147,8 @@ describe('combat animation', () => {
       subject.update(dt);
       executedCount += events.filter(({ type }) => type === 'executed').length;
     }
-    // This deterministic 60 Hz fight executes 16 moves.
-    expect(executedCount).toBe(16);
+    // This deterministic 60 Hz fight executes 13 moves.
+    expect(executedCount).toBe(13);
     expect(subject.startedCount()).toBe(executedCount);
   });
 });

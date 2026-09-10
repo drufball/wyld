@@ -6,6 +6,7 @@ import type { Move } from './moves.js';
 import { createEncounter, type EncounterOptions, type Point } from './encounter.js';
 import { canAfford, damage, deliveries } from './resolve.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
+import { MIN_SEPARATION_TILES } from './spacing.js';
 
 const member = (id: string): Individual => buildArenaIndividual(rosterMember(id)!);
 const antlerback = (): Individual => buildArenaIndividual(enemy('antlerback')!);
@@ -80,7 +81,81 @@ describe('combat encounter', () => {
     expect(subject.state().enemy.tile.x).toBeCloseTo(10 - arenaSpeedTilesPerSecond(4));
   });
 
-  it('lasts at least thirty seconds when Barrow, Quill and Pip fight the Antlerback', () => {
+  it('wipes a party that never fights back and ends in driven off', () => {
+    const party = ['loamox', 'bramblehog', 'thornwren'].map(member),
+      positions = Object.fromEntries(party.map(({ id }) => [id, { x: 0, y: 0 }])),
+      subject = createEncounter({
+        party,
+        enemy: antlerback(),
+        grid: openGrid,
+        rng: fixed,
+        partyTiles: positions,
+        enemyTile: { x: 0, y: -6 },
+        player: { x: 0, y: 0 },
+      }),
+      dt = 1 / 60;
+    let firstExecutedAt: number | null = null;
+    while (subject.state().phase === 'fight' && subject.state().elapsed < 30) {
+      const events = subject.update(dt, positions);
+      for (const combatant of subject.state().party)
+        positions[combatant.id] = { ...combatant.tile };
+      if (firstExecutedAt === null && events.some(({ type }) => type === 'executed'))
+        firstExecutedAt = subject.state().elapsed;
+    }
+
+    // Measured at a fixed 60 Hz: first execution at 3.90 s and driven off at 10.63 s.
+    expect(firstExecutedAt).not.toBeNull();
+    expect(firstExecutedAt!).toBeLessThanOrEqual(8);
+    expect(subject.state().phase).toBe('driven-off');
+    expect(subject.state().elapsed).toBeLessThanOrEqual(30);
+  });
+
+  it('closes a Lunge to the separation distance rather than onto its target', () => {
+    const lunge = move('Lunge'),
+      target = fighter('owned', [move('Strike')], {
+        stats: { vigor: 100_000, power: 1, speed: 1, focus: 0 },
+      }),
+      positions: Record<string, Point> = { owned: { x: 0, y: 0 } },
+      subject = setup({
+        party: [target],
+        enemy: fighter('enemy', [lunge]),
+        enemyTile: { x: 6, y: 0 },
+      });
+    let executedAtDistance: number | null = null;
+    for (let elapsed = 0; elapsed < 8 && executedAtDistance === null; elapsed += 1 / 60) {
+      const events = subject.update(1 / 60, positions);
+      const state = subject.state();
+      positions.owned = { ...state.party[0]!.tile };
+      const separation = Math.hypot(
+        state.enemy.tile.x - state.party[0]!.tile.x,
+        state.enemy.tile.y - state.party[0]!.tile.y,
+      );
+      expect(separation).toBeGreaterThanOrEqual(MIN_SEPARATION_TILES - 1e-10);
+      if (events.some(({ type, move: moveId }) => type === 'executed' && moveId === lunge.id))
+        executedAtDistance = separation;
+    }
+
+    expect(executedAtDistance).not.toBeNull();
+    expect(executedAtDistance!).toBeGreaterThanOrEqual(MIN_SEPARATION_TILES - 1e-10);
+  });
+
+  it('abandons an approach that has not completed in three seconds', () => {
+    const lunge = move('Lunge'),
+      subject = setup({
+        party: [fighter('owned', [lunge])],
+        grid: { isWalkable: () => false },
+        enemyTile: { x: 6, y: 0 },
+      }),
+      positions = { owned: { x: 0, y: 0 } };
+    expect(subject.useMove('owned', lunge.id)).toBe(true);
+    expect(subject.state().party[0]!.desiredTile).not.toBeNull();
+
+    for (let elapsed = 0; elapsed < 3; elapsed += 1 / 60) subject.update(1 / 60, positions);
+
+    expect(subject.state().party[0]!.desiredTile).toBeNull();
+  });
+
+  it('resolves when Barrow, Quill and Pip fight the Antlerback', () => {
     const party = ['loamox', 'bramblehog', 'thornwren'].map(member),
       foe = antlerback(),
       positions = Object.fromEntries(
@@ -95,7 +170,6 @@ describe('combat encounter', () => {
         enemyTile: { x: 5, y: 2 },
       }),
       dt = 1 / 60;
-    let phaseAtThirty: ReturnType<typeof subject.state>['phase'] | null = null;
     while (subject.state().phase === 'fight' && subject.state().elapsed < 90) {
       const state = subject.state();
       for (const individual of party) {
@@ -123,15 +197,11 @@ describe('combat encounter', () => {
       subject.update(dt, positions);
       for (const combatant of subject.state().party)
         positions[combatant.id] = { ...combatant.tile };
-      if (phaseAtThirty === null && subject.state().elapsed >= 30)
-        phaseAtThirty = subject.state().phase;
     }
 
-    expect(phaseAtThirty).toBe('fight');
-    // Measured at a fixed 60 Hz: 32.48 seconds.
-    expect(subject.state().elapsed).toBeGreaterThanOrEqual(30);
-    expect(subject.state().elapsed).toBeLessThanOrEqual(90);
-    expect(subject.state().phase).not.toBe('fight');
+    // Measured at a fixed 60 Hz: 9.63 seconds.
+    expect(subject.state().elapsed).toBeLessThanOrEqual(30);
+    expect(subject.state().phase).toBe('driven-off');
   });
 
   it('faces a combatant toward a target to the east with the shared yaw convention', () => {

@@ -5,7 +5,7 @@ import { findPath } from '../player/pathing.js';
 import type { Move } from './moves.js';
 import { hideMultiplier } from './hides.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
-import { separate } from './spacing.js';
+import { MIN_SEPARATION_TILES, separate } from './spacing.js';
 import {
   canAfford,
   cooldownFor,
@@ -64,7 +64,7 @@ type EncounterOptions = {
 type Internal = Combatant & {
   individual: Individual;
   pending: { move: Move; target: Point; targetId: string; elapsed: number; total: number } | null;
-  approach: { move: Move; targetId: string } | null;
+  approach: { move: Move; targetId: string; elapsed: number } | null;
   hold: number;
   strafe: number;
   strafeDirection: number;
@@ -80,6 +80,8 @@ type Flight = Projectile & {
 
 const copy = (p: Point): Point => ({ x: p.x, y: p.y });
 const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
+const LUNGE_CONTACT_TILES = Math.max(0.5, MIN_SEPARATION_TILES);
+const APPROACH_TIMEOUT_SECONDS = 3;
 const pointFrom = (positions: Positions, id: string): Point | undefined =>
   positions instanceof Map ? positions.get(id) : positions[id];
 const make = (individual: Individual, tile: Point): Internal => ({
@@ -246,7 +248,7 @@ const createEncounter = ({
         move.delivery === 'Lunge'
           ? copy(target.tile)
           : { x: a.tile.x + dx * travel, y: a.tile.y + dy * travel };
-      a.approach = { move, targetId: target.id };
+      a.approach = { move, targetId: target.id, elapsed: 0 };
       return true;
     }
     beginMove(a, target, move);
@@ -353,10 +355,16 @@ const createEncounter = ({
         c.desiredTile = null;
       } else if (
         c.approach.move.delivery === 'Lunge'
-          ? distance(c.tile, target.tile) <= 0.5
+          ? distance(c.tile, target.tile) <= LUNGE_CONTACT_TILES
           : distance(c.tile, target.tile) <= rangeTilesFor(c.approach.move) + 0.05
       ) {
         beginMove(c, target, c.approach.move);
+      } else {
+        c.approach.elapsed += dt;
+        if (c.approach.elapsed >= APPROACH_TIMEOUT_SECONDS) {
+          c.approach = null;
+          c.desiredTile = null;
+        }
       }
     }
     for (let i = flashes.length - 1; i >= 0; i--) {
@@ -415,7 +423,9 @@ const createEncounter = ({
           const approachTarget = byId(foe.approach.targetId);
           if (approachTarget && !approachTarget.downed) {
             const requiredRange =
-              foe.approach.move.delivery === 'Lunge' ? 0.5 : rangeTilesFor(foe.approach.move);
+              foe.approach.move.delivery === 'Lunge'
+                ? LUNGE_CONTACT_TILES
+                : rangeTilesFor(foe.approach.move);
             moveEnemy(dt, approachTarget.tile, requiredRange);
             if (distance(foe.tile, approachTarget.tile) <= requiredRange + 0.05)
               beginMove(foe, approachTarget, foe.approach.move);

@@ -68,7 +68,7 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 
 ## Arena — learn, lose, repeat
 
-- **PASS — attack lunges:** checked both flat and diorama looks; each execution lunges for 250 ms with a 0.45-tile peak offset.
+- **PASS — attack lunges:** every executed move lunges the attacker toward its target and back over 250 ms, peaking 0.45 tiles out, in both the flat and diorama looks; measured headless at 375 × 812 by sampling `__wyld.anim()` through a full Antlerback fight.
 - **PASS — field guide escape:** the sticky guide header has a tap-to-close control, and every new fight starts with the guide closed.
 - **PASS — frame time (headless Chromium):** measured p95 was 8.4 ms at 375 × 812 and 7.1 ms at 1280 × 720 during an Antlerback fight.
 - **PASS — §7.4 damage:** measured neutral ×1.0, Bark/Heat ×1.6, and Bark/Cut ×0.6 in the combat event log.
