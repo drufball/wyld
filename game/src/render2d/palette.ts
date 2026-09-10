@@ -1,5 +1,6 @@
 import type { Surface } from '../world/tiles.js';
 import type { Phase } from '../world/time.js';
+import { clamp } from './clamp.js';
 type Colour = readonly [number, number, number];
 type SurfaceColours = { base: Colour; detail: Colour; shade: Colour };
 type Palette = Record<Surface, SurfaceColours>;
@@ -63,15 +64,15 @@ const authored: Record<Phase, Palette> = {
   },
 };
 const phases: readonly Phase[] = ['Dawn', 'Day', 'Dusk', 'Night'];
-const clamp = (n: number) => Math.round(Math.max(0, Math.min(255, n)));
+const channel = (n: number) => Math.round(clamp(n, 0, 255));
 const mix = (a: Colour, b: Colour, t: number): Colour => [
-  clamp(a[0] + (b[0] - a[0]) * t),
-  clamp(a[1] + (b[1] - a[1]) * t),
-  clamp(a[2] + (b[2] - a[2]) * t),
+  channel(a[0] + (b[0] - a[0]) * t),
+  channel(a[1] + (b[1] - a[1]) * t),
+  channel(a[2] + (b[2] - a[2]) * t),
 ];
 const moon: Colour = [70, 92, 140];
 const paletteAt = (phase: Phase, progress: number): Palette => {
-  const t = Math.max(0, Math.min(1, progress)),
+  const t = clamp(progress, 0, 1),
     next = phases[(phases.indexOf(phase) + 1) % 4]!,
     tint = phase === 'Dusk' ? t * 0.25 : phase === 'Night' ? (1 - t) * 0.25 : 0;
   return Object.fromEntries(

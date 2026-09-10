@@ -1,8 +1,8 @@
-import type { PixelSprite } from './player-sprite.js';
+import type { PlayerSprite } from './player-sprite.js';
 const cache = new Map<string, HTMLCanvasElement>();
 const blit = (
   ctx: CanvasRenderingContext2D,
-  sprite: PixelSprite,
+  sprite: PlayerSprite,
   x: number,
   y: number,
   flipX = false,

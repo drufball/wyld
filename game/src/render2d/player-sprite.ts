@@ -1,13 +1,9 @@
+import type { PixelSprite } from '@wyld/sprites';
+
 type Facing = 'down' | 'up' | 'side';
 type Frame = 0 | 1 | 'idle';
-type PixelSprite = {
-  key: string;
-  width: number;
-  height: number;
-  palette: readonly string[];
-  grid: Uint8Array;
-};
-const playerSprite = (facing: Facing, frame: Frame): PixelSprite => {
+type PlayerSprite = PixelSprite & { key: string };
+const playerSprite = (facing: Facing, frame: Frame): PlayerSprite => {
   const width = 16,
     height = 24,
     grid = new Uint8Array(width * height);
@@ -36,4 +32,4 @@ const playerSprite = (facing: Facing, frame: Frame): PixelSprite => {
   };
 };
 export { playerSprite };
-export type { Facing, Frame, PixelSprite };
+export type { Facing, Frame, PlayerSprite };
