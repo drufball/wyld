@@ -45,7 +45,7 @@ describe('arena pick UI', () => {
     const card = [...document.querySelectorAll('button')].find((button) =>
       button.textContent?.includes('Barrow'),
     );
-    expect(card?.textContent).toContain('Hide hide — shrugs off Surge, fears Cut');
+    expect(card?.textContent).toContain('Hide — shrugs off Surge, fears Cut');
     picker.dispose();
   });
 
