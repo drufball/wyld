@@ -95,6 +95,41 @@ describe('artifact routes', () => {
     expect((await app.request('/api/artifacts?quest=missing')).status).toBe(404);
     expect((await post({ ...body('missing'), questId: 'missing' })).status).toBe(404);
   });
+  it('filters artifacts by kind', async () => {
+    database.db
+      .insert(worlds)
+      .values({ id: 'w', name: 'W', kind: 'factory', order: 1, icon: 'w' })
+      .run();
+    database.db
+      .insert(quests)
+      .values({
+        id: 'q',
+        worldId: 'w',
+        title: 'Q',
+        pitch: 'P',
+        status: 'building',
+        sinceYouLooked: '',
+        lastNote: '',
+      })
+      .run();
+    await post({ ...body('quest-explainer'), questId: 'q' });
+    await post(body('roadmap'));
+    await post(body('a-concept'));
+    expect(await (await app.request('/api/artifacts?kind=concept')).json()).toEqual([
+      expect.objectContaining({ slug: 'a-concept' }),
+    ]);
+    expect(await (await app.request('/api/artifacts?kind=quest&quest=q')).json()).toEqual([
+      expect.objectContaining({ slug: 'quest-explainer' }),
+    ]);
+    expect((await app.request('/api/artifacts?kind=nonsense')).status).toBe(400);
+  });
+  it('derives kind on publish and accepts an explicit kind', async () => {
+    expect(await (await post(body('roadmap'))).json()).toMatchObject({ kind: 'roadmap' });
+    expect(await (await post(body('derived-concept'))).json()).toMatchObject({ kind: 'concept' });
+    expect(await (await post({ ...body('explicit'), kind: 'quest' })).json()).toMatchObject({
+      kind: 'quest',
+    });
+  });
   it('serves verbatim HTML with confinement headers and redirects', async () => {
     expect((await app.request('/api/artifacts/does-not-exist')).status).toBe(404);
     expect((await app.request('/api/artifacts/does-not-exist', { method: 'DELETE' })).status).toBe(

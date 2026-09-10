@@ -33,10 +33,12 @@ function ArtifactViewer({
   slug,
   missing,
   back,
+  titleOnPhone = true,
 }: {
   slug: string;
   missing: ReactNode;
   back: (artifact: LoadedArtifact) => ReactNode;
+  titleOnPhone?: boolean;
 }) {
   const [artifact, setArtifact] = useState<LoadedArtifact | null | undefined>(undefined);
   const [ready, setReady] = useState(false);
@@ -219,7 +221,11 @@ function ArtifactViewer({
     >
       <header className="flex items-center gap-2 border-b border-border px-3 py-2">
         <span className="shrink-0">{back(artifact)}</span>
-        <h1 className="m-0 min-w-0 flex-1 truncate text-base sm:flex-none">{artifact.title}</h1>
+        <h1
+          className={`m-0 min-w-0 flex-1 truncate text-base sm:flex-none ${titleOnPhone ? '' : 'sr-only sm:not-sr-only'}`}
+        >
+          {artifact.title}
+        </h1>
         <p className="m-0 hidden min-w-0 flex-1 truncate text-muted-foreground sm:block">
           {artifact.summary}
         </p>
@@ -427,7 +433,11 @@ export function Explain() {
         <Button variant="retro" asChild>
           <Link
             to={
-              artifact.questId ? `/quests?quest=${encodeURIComponent(artifact.questId)}` : '/quests'
+              artifact.questId
+                ? `/quests?quest=${encodeURIComponent(artifact.questId)}`
+                : artifact.kind === 'concept'
+                  ? '/concepts'
+                  : '/quests'
             }
           >
             Back
@@ -441,6 +451,7 @@ export function Roadmap() {
   return (
     <ArtifactViewer
       slug="roadmap"
+      titleOnPhone={false}
       missing={
         <Card variant="bevel" className="p-5">
           <h1>Roadmap</h1>
@@ -448,9 +459,14 @@ export function Roadmap() {
         </Card>
       }
       back={() => (
-        <Button variant="retro" asChild>
-          <Link to="/">Back</Link>
-        </Button>
+        <span className="flex shrink-0 gap-2">
+          <Button variant="retro" asChild>
+            <Link to="/">Back</Link>
+          </Button>
+          <Button variant="retro" asChild>
+            <Link to="/concepts">Concepts</Link>
+          </Button>
+        </span>
       )}
     />
   );

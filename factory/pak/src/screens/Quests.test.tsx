@@ -84,6 +84,7 @@ describe('Quests', () => {
     const emptyQuest = { ...quest, id: 'empty-quest', title: 'Empty quest' };
     const artifactFields = {
       questId: quest.id,
+      kind: 'quest',
       title: 'Explainer',
       summary: 'A useful explanation.',
       version: 1,

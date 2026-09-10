@@ -1,5 +1,6 @@
 import { ShipResult, SpeciesDraft, SpeciesLibrary, type SpeciesData } from '@wyld/sprites';
 import {
+  type ArtifactKind,
   Achievement,
   Artifact,
   ArtifactWithHtml,
@@ -237,8 +238,11 @@ export async function listRetros(limit = 20) {
   return Retro.array().parse(await request(`/api/retros?limit=${limit}`, {}, 'Loading memories'));
 }
 
-export async function listArtifacts(options: { quest?: string } = {}) {
-  const query = options.quest ? `?quest=${encodeURIComponent(options.quest)}` : '';
+export async function listArtifacts(options: { quest?: string; kind?: ArtifactKind } = {}) {
+  const params = new URLSearchParams();
+  if (options.quest) params.set('quest', options.quest);
+  if (options.kind) params.set('kind', options.kind);
+  const query = params.size === 0 ? '' : `?${params.toString()}`;
   return Artifact.array().parse(await request(`/api/artifacts${query}`, {}, 'Loading explainers'));
 }
 

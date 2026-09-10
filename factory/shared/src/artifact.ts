@@ -8,9 +8,17 @@ const EXTERNAL_REFERENCE = /(?:\b(?:src|href)\s*=\s*|url\(\s*)['"]?\s*(?:https?:
 
 export const ArtifactSlug = z.string().regex(ARTIFACT_SLUG);
 export type ArtifactSlug = z.infer<typeof ArtifactSlug>;
+export const ARTIFACT_KINDS = ['quest', 'roadmap', 'concept'] as const;
+export const ArtifactKind = z.enum(ARTIFACT_KINDS);
+export type ArtifactKind = z.infer<typeof ArtifactKind>;
+export function defaultArtifactKind(slug: string, questId: string | null): ArtifactKind {
+  if (slug === 'roadmap') return 'roadmap';
+  return questId === null ? 'concept' : 'quest';
+}
 export const Artifact = z.object({
   slug: ArtifactSlug,
   questId: Id.nullable(),
+  kind: ArtifactKind,
   title: z.string().min(1).max(120),
   summary: z.string().min(1).max(200),
   version: z.number().int().positive(),
@@ -42,6 +50,7 @@ export const NewArtifact = z
     summary: z.string().min(1).max(200),
     html: z.string().min(1),
     questId: Id.optional(),
+    kind: ArtifactKind.optional(),
   })
   .strict()
   .superRefine(({ html }, context) => {
