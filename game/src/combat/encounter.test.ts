@@ -4,7 +4,8 @@ import type { Individual } from '../creatures/individual.js';
 import { FACING_YAW } from '../creatures/facing.js';
 import type { Move } from './moves.js';
 import { createEncounter, type EncounterOptions, type Point } from './encounter.js';
-import { deliveries } from './resolve.js';
+import { canAfford, damage, deliveries } from './resolve.js';
+import { arenaSpeedTilesPerSecond } from './pace.js';
 
 const member = (id: string): Individual => buildArenaIndividual(rosterMember(id)!);
 const antlerback = (): Individual => buildArenaIndividual(enemy('antlerback')!);
@@ -55,6 +56,84 @@ const advance = (
 };
 
 describe('combat encounter', () => {
+  it('keeps every standing combatant at least a tile from the others', () => {
+    const subject = setup({
+      party: [fighter('one', [move('Strike')]), fighter('two', [move('Strike')])],
+      partyTiles: { one: { x: 4, y: 4 }, two: { x: 4, y: 4 } },
+      enemyTile: { x: 4, y: 4 },
+    });
+    for (let frame = 0; frame < 120; frame++) subject.update(1 / 60);
+    const standing = [...subject.state().party, subject.state().enemy].filter((c) => !c.downed);
+    for (let i = 0; i < standing.length; i++)
+      for (let j = i + 1; j < standing.length; j++)
+        expect(
+          Math.hypot(
+            standing[i]!.tile.x - standing[j]!.tile.x,
+            standing[i]!.tile.y - standing[j]!.tile.y,
+          ),
+        ).toBeGreaterThanOrEqual(1 - 1e-10);
+  });
+
+  it('moves the enemy at the arena pace', () => {
+    const subject = setup({ enemyTile: { x: 10, y: 0 } });
+    subject.update(1);
+    expect(subject.state().enemy.tile.x).toBeCloseTo(10 - arenaSpeedTilesPerSecond(4));
+  });
+
+  it('lasts at least thirty seconds when Barrow, Quill and Pip fight the Antlerback', () => {
+    const party = ['loamox', 'bramblehog', 'thornwren'].map(member),
+      foe = antlerback(),
+      positions = Object.fromEntries(
+        party.map((individual, index) => [individual.id, { x: index + 4, y: 8 }]),
+      ),
+      subject = createEncounter({
+        party,
+        enemy: foe,
+        grid: openGrid,
+        rng: fixed,
+        partyTiles: positions,
+        enemyTile: { x: 5, y: 2 },
+      }),
+      dt = 1 / 60;
+    let phaseAtThirty: ReturnType<typeof subject.state>['phase'] | null = null;
+    while (subject.state().phase === 'fight' && subject.state().elapsed < 90) {
+      const state = subject.state();
+      for (const individual of party) {
+        const combatant = state.party.find((candidate) => candidate.id === individual.id)!;
+        if (combatant.downed) continue;
+        const best = individual.repertoire
+          .filter(
+            (candidate) =>
+              combatant.cooldowns[candidate.id]!.remaining <= 0 &&
+              canAfford(combatant.focus, candidate),
+          )
+          .sort(
+            (a, b) =>
+              damage(b, individual.stats.power, 'Bark') - damage(a, individual.stats.power, 'Bark'),
+          )[0];
+        if (best) subject.useMove(individual.id, best.id, foe.id);
+        const current = positions[individual.id]!,
+          dx = state.enemy.tile.x - current.x,
+          dy = state.enemy.tile.y - current.y,
+          distanceToEnemy = Math.hypot(dx, dy),
+          step = Math.min(arenaSpeedTilesPerSecond(individual.stats.speed) * dt, distanceToEnemy);
+        current.x += (dx / (distanceToEnemy || 1)) * step;
+        current.y += (dy / (distanceToEnemy || 1)) * step;
+      }
+      subject.update(dt, positions);
+      for (const combatant of subject.state().party)
+        positions[combatant.id] = { ...combatant.tile };
+      if (phaseAtThirty === null && subject.state().elapsed >= 30)
+        phaseAtThirty = subject.state().phase;
+    }
+
+    expect(phaseAtThirty).toBe('fight');
+    // Measured at a fixed 60 Hz: 32.48 seconds.
+    expect(subject.state().elapsed).toBeGreaterThanOrEqual(30);
+    expect(subject.state().elapsed).toBeLessThanOrEqual(90);
+    expect(subject.state().phase).not.toBe('fight');
+  });
+
   it('faces a combatant toward a target to the east with the shared yaw convention', () => {
     const subject = setup({
       partyTiles: { owned: { x: 5, y: 0 } },
@@ -142,7 +221,7 @@ describe('combat encounter', () => {
     const subject = setup({
       party,
       enemy: fighter('enemy', [sweep]),
-      partyTiles: { one: { x: 4, y: 0 }, two: { x: 4, y: 0 }, three: { x: 4, y: 0 } },
+      partyTiles: { one: { x: 4, y: 0 }, two: { x: 4, y: -1 }, three: { x: 4, y: 1 } },
       player: { x: 0, y: 0 },
     });
     subject.useMove('enemy', sweep.id, 'one');

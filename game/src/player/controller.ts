@@ -159,6 +159,10 @@ const createPlayerController = (o: ControllerOptions) => {
     tap,
     moveTo,
     update,
+    nudge(x: number, y: number) {
+      tx = x;
+      ty = y;
+    },
     teleport(x: number, z: number) {
       const requested = worldToTile(x, z);
       let p = requested;

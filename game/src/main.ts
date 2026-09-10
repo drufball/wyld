@@ -38,6 +38,7 @@ import { createCallAudio } from './audio/calls.js';
 import { placeTracks } from './world/tracks.js';
 import { species, type Temperament } from './creatures/species.js';
 import { createPlayerController } from './player/controller.js';
+import { ARENA_PACE, arenaSpeedTilesPerSecond, worldSpeedTilesPerSecond } from './combat/pace.js';
 import { blit } from './render2d/blit.js';
 import { createCanvas } from './render2d/canvas.js';
 import { pixelScale, screenCols, screenRows } from './render2d/canvas.js';
@@ -148,6 +149,7 @@ const player = createPlayerController({
   screenFlipping: scenario?.id !== 'arena',
   pick: (x, y) => view.pickTile(x, y),
   diagonals: synthetic,
+  ...(synthetic ? { speedTilesPerSecond: 2 * ARENA_PACE } : {}),
 });
 const partySpecies = scenario?.party ?? ['loamox'];
 const owned = partySpecies.map((speciesId, index) => {
@@ -186,7 +188,9 @@ const partyControllers = new Map(
       screenFlipping: scenario?.id !== 'arena',
       pick: (x, y) => view.pickTile(x, y),
       diagonals: synthetic,
-      speedTilesPerSecond: (3 + member.individual.stats.speed * 0.6) / 2,
+      speedTilesPerSecond: synthetic
+        ? arenaSpeedTilesPerSecond(member.individual.stats.speed)
+        : worldSpeedTilesPerSecond(member.individual.stats.speed),
     }),
   ]),
 );
@@ -200,7 +204,9 @@ const createPartyController = (member: (typeof partyState.party)[number]) =>
     screenFlipping: !synthetic,
     pick: (x, y) => view.pickTile(x, y),
     diagonals: synthetic,
-    speedTilesPerSecond: (3 + member.individual.stats.speed * 0.6) / 2,
+    speedTilesPerSecond: synthetic
+      ? arenaSpeedTilesPerSecond(member.individual.stats.speed)
+      : worldSpeedTilesPerSecond(member.individual.stats.speed),
   });
 hudActions.selectCreature = (id) => {
   partyState = selectCreature(partyState, id);
@@ -850,6 +856,8 @@ const loop = createLoop({
         { x: player.tile.x, y: player.tile.y },
       );
       const combat = encounter.state();
+      for (const member of combat.party)
+        if (!member.downed) partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
       const foeEntry = arenaState?.enemy ? enemy(arenaState.enemy) : null;
       if (foeEntry) {
         const partyMoves = partyState.party.flatMap(({ individual }) => individual.repertoire);
