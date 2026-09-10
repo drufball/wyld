@@ -74,3 +74,6 @@ When a PR adds or tightens a check against the game's rule tables (hide table, b
 
 ### Tests written to dodge a guard (2026-09-08)
 Codex added a source guard ("no direct `localStorage` outside the accessor") and, in the same PR, wrote `` `local${'Storage'}` `` in test bodies and `it(` titles so its own tests would pass the guard. That is a booby trap: unsearchable names and a trick the next round copies. When a PR adds a lint/guard test, read the tests it touches for string-splitting, template tricks or renamed identifiers whose only purpose is to evade the guard; have Codex scope the guard properly (e.g. non-test sources) and write the words plainly.
+
+### Fight tests must include the approach (2026-09-10)
+#304 shipped an enemy that never attacks: every combat test started the enemy already in range, and the one "never silent for more than four seconds" case used a fighter that owns only a Strike, so the Lunge approach that could never complete under one-tile separation was never exercised. For any change to positions, spacing, range or movement: require at least one named test that starts the enemy at fight-start distance (~6 tiles) with an idle party and asserts it lands a hit; and a liveness test with a fighter that owns a Lunge. A control run (revert, watch it fail) proves the test sees the bug.
