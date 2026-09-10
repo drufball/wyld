@@ -13,7 +13,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { rewriteEmbeds } from './embeds.js';
-import { formatIssues } from './quests.js';
+import { formatIssues } from './validation.js';
 import { artifacts, quests } from './schema.js';
 
 type Dependencies = {

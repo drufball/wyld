@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { readConfig } from './config.js';
 
 describe('readConfig', () => {
-  it('validates and maps Wake configuration', () => {
+  it('validates and maps wake configuration', () => {
     expect(
       readConfig({
         FACTORY_DIR: '/tmp/factory',
@@ -23,7 +23,7 @@ describe('readConfig', () => {
   });
   it('requires sufficiently long secrets', () => {
     expect(() => readConfig({ WAKE_SECRET: 'short', GH_WEBHOOK_SECRET: 'also-short' })).toThrow(
-      'Invalid Wake configuration',
+      'Invalid wake configuration',
     );
   });
 });

@@ -26,7 +26,8 @@ import {
 } from './catchup.js';
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder, createWakePauseNotifier } from './forwarder.js';
-import { createQuestRoutes, formatIssues } from './quests.js';
+import { createQuestRoutes } from './quests.js';
+import { formatIssues } from './validation.js';
 import { createChainRoutes } from './chains.js';
 import { createOpsRoutes, latestOpsReport } from './ops.js';
 import { createRumbleRoutes } from './rumbles.js';

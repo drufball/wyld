@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import { emptyStringAsUndefined } from '@wyld/shared';
 import { z } from 'zod';
 
 const defaultFactoryDir = path.resolve(
@@ -9,9 +10,6 @@ const defaultFactoryDir = path.resolve(
 );
 const defaultRepoDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const defaultPakDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../pak/dist');
-
-const emptyStringAsUndefined = (value: unknown): unknown =>
-  typeof value === 'string' && value.trim() === '' ? undefined : value;
 
 const WallTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'must be HH:MM (24-hour time)');
 const machineTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;

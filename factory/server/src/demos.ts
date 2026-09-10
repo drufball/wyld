@@ -10,7 +10,7 @@ import { DEMO_SLUG, type DemoBuilder } from './builder.js';
 import type { Config } from './config.js';
 import type { AppDatabase } from './database.js';
 import type { LogContext } from './logger.js';
-import { formatIssues } from './quests.js';
+import { formatIssues } from './validation.js';
 import { demos, feedback, quests } from './schema.js';
 import { demoUrl } from './chain-cards.js';
 

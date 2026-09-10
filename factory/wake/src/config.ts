@@ -25,7 +25,7 @@ export type Config = {
 export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config {
   const result = Environment.safeParse(environment);
   if (!result.success)
-    throw new Error(`Invalid Wake configuration: ${z.prettifyError(result.error)}`);
+    throw new Error(`Invalid wake configuration: ${z.prettifyError(result.error)}`);
   return {
     factoryDir: result.data.FACTORY_DIR,
     databasePath: path.join(result.data.FACTORY_DIR, 'wake.sqlite'),

@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { OpsReport } from '@wyld/shared';
 
 import type { AppDatabase } from './database.js';
-import { formatIssues } from './quests.js';
+import { formatIssues } from './validation.js';
 import { opsReports } from './schema.js';
 
 type Dependencies = {
