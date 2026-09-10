@@ -39,11 +39,12 @@ gh issue create --repo drufball/wyld --title "…" --body-file <path>
 BODY=$(cat <path>)
 npx -y @openai/codex@latest cloud exec \
   --env 6a9be268ad288191b44bbdefcbe977ee --branch main \
+  -c model="$CODEX_MODEL" \
   "Implement GitHub issue #N of drufball/wyld. $BODY. Follow AGENTS.md including 'Publishing your \
 work': push branch codex/<slug> and open a PR whose body contains 'Closes #N'."
 ```
 
-`--env` takes the environment **ID**; the label `drufball/wyld` resolves to a different, token-less
+`CODEX_MODEL` is the implementer model Dru chose (2026-09-10: the new Astra model — exact id recorded in factory/planner/STATE.md under "Codex model"; until it is recorded, omit the `-c model` line and the environment default runs). `--env` takes the environment **ID**; the label `drufball/wyld` resolves to a different, token-less
 environment and silently produces a task that cannot push. One task per issue, ever — a wrong or
 stuck task is fixed with a review round on the branch it opened, never a second task.
 
