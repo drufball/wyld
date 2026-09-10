@@ -25,11 +25,33 @@ import {
 import type { Chain as ChainType } from '@wyld/shared';
 import type { Feedback as FeedbackType, NewFeedback as NewFeedbackType } from '@wyld/shared';
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly body: unknown;
+
+  constructor(message: string, status: number, body: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 async function request(input: string, init: RequestInit, description: string): Promise<unknown> {
   const response = await fetch(input, init);
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`${description} failed (${response.status})${detail ? `: ${detail}` : ''}`);
+    let body: unknown = detail;
+    try {
+      body = JSON.parse(detail);
+    } catch {
+      // Keep the raw response text when it is not JSON.
+    }
+    throw new ApiError(
+      `${description} failed (${response.status})${detail ? `: ${detail}` : ''}`,
+      response.status,
+      body,
+    );
   }
   return response.status === 204 ? undefined : response.json();
 }
@@ -279,13 +301,20 @@ export async function deleteSpeciesDraft(speciesId: string) {
 }
 
 export async function shipSpecies() {
-  const response = await fetch('/api/species/ship', { method: 'POST' });
-  const body: unknown = await response.json();
-  if (!response.ok) {
-    const parsed = body as { error?: unknown };
-    throw new Error(
-      typeof parsed.error === 'string' ? parsed.error : 'The workshop could not ship.',
+  try {
+    return ShipResult.parse(
+      await request('/api/species/ship', { method: 'POST' }, 'Shipping species'),
     );
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error;
+    if (
+      typeof error.body === 'object' &&
+      error.body !== null &&
+      'error' in error.body &&
+      typeof error.body.error === 'string'
+    ) {
+      throw new Error(error.body.error, { cause: error });
+    }
+    throw new Error('The workshop could not ship.', { cause: error });
   }
-  return ShipResult.parse(body);
 }

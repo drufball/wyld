@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { events, retros, sleepRuns } from './schema.js';
-import { formatIssues } from './quests.js';
+import { formatIssues } from './validation.js';
 
 export type SleepConfig = {
   timeZone: string;

@@ -10,7 +10,7 @@ import {
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
-import { formatIssues } from './quests.js';
+import { formatIssues } from './validation.js';
 import { chains } from './schema.js';
 
 type Dependencies = {

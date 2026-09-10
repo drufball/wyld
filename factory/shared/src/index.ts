@@ -1,6 +1,7 @@
 export * from './achievement.js';
 export * from './artifact.js';
 export * from './demo.js';
+export * from './env.js';
 export * from './chain.js';
 export * from './event.js';
 export * from './health.js';

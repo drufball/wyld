@@ -2,12 +2,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { emptyStringAsUndefined } from '@wyld/shared';
 import { z } from 'zod';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const emptyStringAsUndefined = (value: unknown): unknown =>
-  typeof value === 'string' && value.trim() === '' ? undefined : value;
-
 const Environment = z.object({
   PAK_URL: z.preprocess(emptyStringAsUndefined, z.url().default('http://localhost:8787')),
   OPS_INTERVAL_SECONDS: z.preprocess(

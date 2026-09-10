@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import { deriveProgress } from './progress.js';
 import { questLinks, questNotes, quests, worlds } from './schema.js';
+import { formatIssues } from './validation.js';
 
 const QuestStatus = Quest.shape.status;
 const QuestCreate = Quest.omit({ progress: true }).partial({
@@ -56,10 +57,6 @@ type Dependencies = {
   now: () => Date;
   storeEvent: (event: NewEvent) => Promise<unknown>;
 };
-
-export function formatIssues(error: z.ZodError) {
-  return { error: 'Invalid request', issues: error.issues };
-}
 
 export function createQuestRoutes({ database: { db }, now, storeEvent }: Dependencies) {
   const app = new Hono();

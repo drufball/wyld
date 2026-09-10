@@ -1,11 +1,10 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { emptyStringAsUndefined } from '@wyld/shared';
 import { z } from 'zod';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const emptyStringAsUndefined = (value: unknown): unknown =>
-  typeof value === 'string' && value.trim() === '' ? undefined : value;
 const optionalNumber = z.preprocess(
   emptyStringAsUndefined,
   z.coerce.number().int().positive().optional(),
