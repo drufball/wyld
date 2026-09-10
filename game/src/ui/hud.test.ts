@@ -103,6 +103,49 @@ describe('thumb HUD', () => {
     button.click();
     expect(used).toBe('loamox:move');
   });
+  it('lights the armed move button and marks it pressed', () => {
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(undefined, 'a'), autopilotMoveId: 'loamox:move' });
+    const button = document.querySelector('[data-move-id]') as HTMLButtonElement;
+    expect(button.textContent).toContain('Move ↻');
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.style.outline).toBe('2px solid #bd7132');
+  });
+  it('leaves every move button tappable during a fight', () => {
+    const selected = creature('a');
+    const combatant = {
+      id: 'a',
+      speciesId: 'loamox',
+      hp: 70,
+      maxHp: 70,
+      focus: 0,
+      maxFocus: 40,
+      tile: { x: 1, y: 1 },
+      facing: 0,
+      windup: null,
+      downed: false,
+      benched: false,
+      cooldowns: { 'loamox:move': { remaining: 1, total: 2 } },
+      desiredTile: null,
+    };
+    const combat: CombatState = {
+      phase: 'fight',
+      elapsed: 1,
+      enemy: combatant,
+      party: [combatant],
+      reserveId: null,
+      swapCooldown: { remaining: 0, total: 6 },
+      projectiles: [],
+      flashes: [],
+    };
+    const hud = createHud(false, document.body);
+    hud.update({ ...state([selected], 'a'), combat });
+    expect(
+      [...document.querySelectorAll<HTMLButtonElement>('[data-move-id]')].every(
+        (button) => !button.disabled,
+      ),
+    ).toBe(true);
+  });
   it('hides the console button when the console is unavailable', () => {
     createHud(false, document.body);
     expect(document.querySelector('[aria-label="Console"]')).toBeNull();

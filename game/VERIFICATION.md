@@ -68,6 +68,7 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 
 ## Arena — learn, lose, repeat
 
+- **PASS — move autopilot (built game):** one tap armed Strike and produced four executions over seven simulated seconds; consecutive executions were measured 2.017 s apart (its 2.00 s cooldown plus one 60 Hz driver step).
 - **PASS — party-side combat tell (built game):** an enemy move resisted by a party creature displayed `Glances off` above that creature rather than above the enemy.
 - **PASS — reserve swap (built game, headless Chromium at 375 × 812):** picked Antlerback and Barrow/Quill/Pip, confirmed Pip started as `reserveId: "thornwren"`, then pressed `S`. Pip entered at Barrow's exact `{ x: 5.5, y: 12.5 }` tile, Barrow became `reserveId: "loamox"`, the tray changed to `Swap · Barrow ◷5`, and the public swap cooldown reported `{ remaining: 5.03, total: 6 }` immediately after the exchange.
 - **PASS — attack lunges:** every executed move lunges the attacker toward its target and back over 250 ms, peaking 0.45 tiles out, in both the flat and diorama looks; measured headless at 375 × 812 by sampling `__wyld.anim()` through a full Antlerback fight.

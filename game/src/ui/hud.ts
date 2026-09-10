@@ -12,6 +12,7 @@ type HudState = TimeState & {
   party?: { individual: Individual; name: string }[];
   selection?: string;
   combat?: CombatState | null;
+  autopilotMoveId?: string | null;
 };
 type HudActions = {
   selectCreature?(id: string): void;
@@ -168,16 +169,20 @@ const createHud = (
         const combatant = state.combat?.party.find((c) => c.id === selected?.individual.id);
         const cooldown = combatant?.cooldowns[move.id];
         const cost = deliveries[move.delivery].focus;
+        const armed = state.autopilotMoveId === move.id;
         const button = control(
-          `${move.name}${cooldown?.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
+          `${move.name}${armed ? ' ↻' : ''}${cooldown?.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
         );
         button.dataset.moveId = move.id;
         button.style.flex = '1 1 0';
         button.style.minWidth = '0';
-        button.disabled = Boolean(
+        const unavailable = Boolean(
           combatant && (combatant.focus < cost || (cooldown?.remaining ?? 0) > 0),
         );
-        button.style.opacity = button.disabled ? '0.45' : '1';
+        button.disabled = !state.combat && unavailable;
+        button.style.opacity = unavailable ? '0.45' : '1';
+        button.setAttribute('aria-pressed', String(armed));
+        if (armed) button.style.outline = '2px solid #bd7132';
         button.style.background = cooldown?.remaining
           ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
           : '#f4efd9ee';
