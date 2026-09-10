@@ -213,10 +213,10 @@ describe('Today', () => {
       const { container } = renderToday();
       if (hidden) {
         await waitFor(() => expect(container.querySelector('.today-go-outside')).toBeNull());
-        await waitFor(() => expect(screen.getByRole('link', { name: '1 Rumbles' })).not.toBeNull());
+        await waitFor(() => expect(screen.getByRole('link', { name: 'one Rumble' })).not.toBeNull());
       } else {
         await waitFor(() => expect(container.querySelector('.today-go-outside')).not.toBeNull());
-        expect(screen.queryByRole('link', { name: '1 Rumbles' })).toBeNull();
+        expect(screen.queryByRole('link', { name: 'one Rumble' })).toBeNull();
       }
     },
   );
@@ -568,7 +568,16 @@ describe('Today', () => {
     );
   });
 
-  it('renders no signals at zero and caps visible counts', () => {
+  it('renders one Rumble with a singular label', () => {
+    render(
+      <MemoryRouter>
+        <Signals rumbles={1} memory={null} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'one Rumble' }).getAttribute('href')).toBe('/rumble');
+  });
+
+  it('renders no signals at zero and twelve Rumbles in words', () => {
     const { container, rerender } = render(
       <MemoryRouter>
         <Signals rumbles={0} memory={null} />
@@ -580,6 +589,8 @@ describe('Today', () => {
         <Signals rumbles={12} memory={null} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('link', { name: '9+ Rumbles' }).getAttribute('href')).toBe('/rumble');
+    expect(screen.getByRole('link', { name: 'twelve Rumbles' }).getAttribute('href')).toBe(
+      '/rumble',
+    );
   });
 });

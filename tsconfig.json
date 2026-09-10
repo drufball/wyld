@@ -11,6 +11,15 @@
       "path": "./factory/server"
     },
     {
+      "path": "./factory/wake"
+    },
+    {
+      "path": "./factory/ops"
+    },
+    {
+      "path": "./factory/planner-host"
+    },
+    {
       "path": "./factory/pak"
     },
     {
