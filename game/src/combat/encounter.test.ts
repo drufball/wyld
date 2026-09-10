@@ -372,6 +372,21 @@ describe('combat encounter', () => {
     expect(subject.state().flashes).toHaveLength(0);
   });
 
+  it('flashes the target once for every landed hit', () => {
+    const strike = move('Strike');
+    const subject = setup({ enemyTile: { x: 1, y: 0 } });
+    subject.useMove('owned', strike.id);
+    for (let time = 0; time < 1; time += 0.05) {
+      const events = subject.update(0.05);
+      const landed = events.filter(({ type }) => type === 'hit');
+      if (landed.length > 0) {
+        expect(subject.state().flashes).toHaveLength(landed.length);
+        return;
+      }
+    }
+    expect.fail('expected the move to land');
+  });
+
   it('regenerates two focus a second', () => {
     const subject = setup({
       party: [fighter('owned', [move('Strike')])],
