@@ -158,6 +158,9 @@ const createPlayerController = (o: ControllerOptions) => {
   return {
     tap,
     moveTo,
+    clearPath() {
+      path = [];
+    },
     update,
     nudge(x: number, y: number) {
       tx = x;

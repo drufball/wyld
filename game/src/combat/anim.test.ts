@@ -108,6 +108,7 @@ describe('combat animation', () => {
         rng: { next: () => 0 },
         partyTiles: positions,
         enemyTile: { x: 5, y: 2 },
+        reserve: '',
       }),
       subject = createAnimations(),
       dt = 1 / 60;

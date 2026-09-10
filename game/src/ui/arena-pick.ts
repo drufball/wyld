@@ -100,11 +100,12 @@ const createArenaPick = (
               `<small style="display:inline-block;border:1px solid #777566;padding:2px 4px;margin:3px 2px 0 0">${m.name} · ${m.delivery} · ${m.force}</small>`,
           )
           .join('');
+        const reserve = state.party[2] === entry.id;
         cards.append(
           card(
             entry.id,
             entry.name,
-            `Hide: ${definition.hide}<br>${moves}`,
+            `${reserve ? '<b data-reserve-badge>Reserve</b><br>' : ''}Hide: ${definition.hide}<br>${moves}`,
             state.party.includes(entry.id),
             () => {
               state = toggleMember(state, entry.id);
@@ -128,7 +129,8 @@ const createArenaPick = (
         render();
       };
       const count = document.createElement('span');
-      count.textContent = `${state.party.length} of 3 chosen`;
+      count.textContent =
+        state.party.length === 3 ? '2 out, 1 in reserve' : `${state.party.length} of 3 chosen`;
       const fight = document.createElement('button');
       fight.textContent = 'Fight';
       fight.disabled = !canFight(state);

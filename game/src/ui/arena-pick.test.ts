@@ -28,6 +28,17 @@ describe('arena pick UI', () => {
     picker.dispose();
   });
 
+  it('marks the third pick as the reserve', () => {
+    const picker = createArenaPick(createNotebook(), vi.fn());
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
+    for (const key of ['1', '2', '3']) window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+    const reserve = document.querySelector('[data-reserve-badge]');
+    expect(reserve?.closest('button')?.textContent).toContain('Pip');
+    expect(reserve?.textContent).toBe('Reserve');
+    expect(document.body.textContent).toContain('2 out, 1 in reserve');
+    picker.dispose();
+  });
+
   it('removes its keyboard listener after the fight starts', () => {
     const fight = vi.fn();
     const picker = createArenaPick(createNotebook(), fight);

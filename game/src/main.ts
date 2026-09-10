@@ -605,6 +605,27 @@ debugConsole.registerCommand('wipe', {
 hudActions.useMove = (moveId) => {
   if (partyState.selection !== 'player') encounter?.useMove(partyState.selection, moveId);
 };
+const swapSelected = (): boolean => {
+  if (!encounter) return false;
+  const before = encounter.state();
+  const outgoing =
+    before.party.find((member) => member.id === partyState.selection && !member.benched) ??
+    before.party.find((member) => !member.benched);
+  if (!outgoing || !encounter.swap(outgoing.id)) return false;
+  const after = encounter.state();
+  const previousReserveId = before.reserveId;
+  const incoming = after.party.find((member) => member.id === previousReserveId && !member.benched);
+  if (!incoming) return false;
+  const destination = tileToWorld(incoming.tile.x - 0.5, incoming.tile.y - 0.5);
+  partyControllers.get(incoming.id)?.teleport(destination.x, destination.z);
+  partyControllers.get(outgoing.id)?.clearPath();
+  partyState = selectCreature(partyState, incoming.id);
+  return true;
+};
+hudActions.swap = () => void swapSelected();
+window.addEventListener('keydown', (event) => {
+  if (event.key.toLowerCase() === 's' && encounter?.state().phase === 'fight') swapSelected();
+});
 const render = (alpha = 1) => {
   const clock = timeAt(elapsedSeconds),
     palette = paletteAt(clock.phase, clock.phaseProgress),
@@ -657,6 +678,7 @@ const render = (alpha = 1) => {
         const tile = controller.interpolated(alpha);
         const offset = animations.offsetFor(member.individual.id);
         const combatant = combat?.party.find(({ id }) => id === member.individual.id);
+        if (combatant?.benched) return [];
         if (!tileOnScreen(tile.x, tile.y, 1)) return [];
         return [
           {
@@ -736,6 +758,7 @@ const render = (alpha = 1) => {
       offset = animations.offsetFor(member.individual.id),
       bodyOrigin = { x: origin.x + offset.x * 16, y: origin.y + offset.y * 16 };
     const combatant = encounter?.state().party.find((c) => c.id === member.individual.id);
+    if (combatant?.benched) continue;
     if (partyState.selection === member.individual.id && !combatant?.downed) {
       flat.context.strokeStyle = definition.palette.accent ?? '#bd7132';
       flat.context.lineWidth = 1;
@@ -862,16 +885,21 @@ const loop = createLoop({
       const combatEvents = encounter.update(
         dt,
         Object.fromEntries(
-          partyState.party.map(({ individual }) => {
+          partyState.party.flatMap(({ individual }) => {
+            const combatant = encounter
+              ?.state()
+              .party.find((member) => member.id === individual.id);
+            if (combatant?.benched) return [];
             const t = partyControllers.get(individual.id)!.tile;
-            return [individual.id, { x: t.x, y: t.y }];
+            return [[individual.id, { x: t.x, y: t.y }] as const];
           }),
         ),
         { x: player.tile.x, y: player.tile.y },
       );
       const combat = encounter.state();
       for (const member of combat.party)
-        if (!member.downed) partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
+        if (!member.downed && !member.benched)
+          partyControllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
       const foeEntry = arenaState?.enemy ? enemy(arenaState.enemy) : null;
       animations.push(combatEvents, (id) => {
         const partyCombatant = combat.party.find((candidate) => candidate.id === id);
@@ -928,7 +956,7 @@ const loop = createLoop({
         registry.setState(foe.id, combat.enemy.downed ? 'idle' : 'walk');
       }
       for (const member of combat.party) {
-        if (!member.desiredTile || member.downed) continue;
+        if (!member.desiredTile || member.downed || member.benched) continue;
         const controller = partyControllers.get(member.id);
         if (!controller?.moving)
           controller?.moveTo({
@@ -954,6 +982,8 @@ const loop = createLoop({
       activeFlatScreen = { sx: player.screen.x, sy: player.screen.y };
       const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
       const partyHit = partyState.party.find(({ individual }) => {
+        if (encounter?.state().party.find((member) => member.id === individual.id)?.benched)
+          return false;
         const tile = partyControllers.get(individual.id)!.tile;
         return Math.floor(tile.x) === tx && Math.floor(tile.y) === ty;
       });
@@ -995,7 +1025,9 @@ const loop = createLoop({
           follower.moveTo(wanted);
       });
     }
-    for (const controller of partyControllers.values()) controller.update(dt);
+    for (const [id, controller] of partyControllers)
+      if (!encounter?.state().party.find((member) => member.id === id)?.benched)
+        controller.update(dt);
     if (partyState.selection !== 'player') {
       const leader = partyControllers.get(partyState.selection);
       if (leader && (leader.screen.x !== player.screen.x || leader.screen.y !== player.screen.y)) {
