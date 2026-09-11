@@ -519,7 +519,9 @@ describe('combat encounter', () => {
       enemyTile: { x: 0, y: 0 },
     });
     subject.useMove('enemy', sweep.id, 'one');
-    advance(subject, 1);
+    let downed = false;
+    while (!downed) downed = subject.update(0.05).some(({ type }) => type === 'downed');
+    subject.update(0);
     expect(
       subject
         .state()
@@ -564,7 +566,7 @@ describe('combat encounter', () => {
     expect(state.swapCooldown).toEqual({ remaining: 0, total: 6 });
   });
 
-  it('enters one tile away from the enemy on a manual swap and on an auto-deploy', () => {
+  it('enters one tile away from the enemy on a manual swap', () => {
     const subject = setup({
       party: reserveParty(),
       partyTiles: { one: { x: 2, y: 3 }, two: { x: 0, y: 0 }, three: { x: 9, y: 9 } },
@@ -579,6 +581,28 @@ describe('combat encounter', () => {
       distanceForTest({ x: 2, y: 3 }, state.enemy.tile),
     );
     expect(state.reserveId).toBe('one');
+  });
+
+  it('enters one tile away from the enemy on an auto-deploy', () => {
+    const strike = { ...move('Strike'), power: 30 };
+    const subject = setup({
+      party: reserveParty().map((individual) => ({
+        ...individual,
+        stats: { ...individual.stats, vigor: individual.id === 'one' ? 1 : 10_000 },
+      })),
+      enemy: fighter('enemy', [strike]),
+      partyTiles: { one: { x: 5.5, y: 9.5 }, two: { x: 12.5, y: 12.5 } },
+      enemyTile: { x: 5.7, y: 8.3 },
+    });
+    subject.useMove('enemy', strike.id, 'one');
+    advance(subject, 1, { one: { x: 5.5, y: 9.5 } });
+    const fallen = subject.state().party.find(({ id }) => id === 'one')!;
+    expect(fallen.downed).toBe(true);
+    advance(subject, 2.05, { one: { x: 5.5, y: 9.5 } });
+    expect(subject.state().party.find(({ id }) => id === 'three')).toMatchObject({
+      benched: false,
+      tile: { x: 5.5, y: 10.5 },
+    });
   });
 
   it('keeps each creature hp, focus and cooldowns across a swap', () => {
@@ -710,8 +734,15 @@ describe('combat encounter', () => {
 
   it('deploys the reserve two seconds after the first active falls', () => {
     const subject = downActiveParty();
-    advance(subject, 2, {}, { x: 20, y: 20 });
-    expect(subject.state().party.filter(({ benched }) => !benched)).toHaveLength(2);
+    advance(subject, 1.9, {}, { x: 20, y: 20 });
+    expect(subject.state().party.find(({ id }) => id === 'three')?.benched).toBe(true);
+    expect(Math.abs(subject.state().autoDeployIn! - 0.1)).toBeLessThanOrEqual(0.06);
+
+    const events = advance(subject, 0.15, {}, { x: 20, y: 20 });
+    expect(subject.state().party.find(({ id }) => id === 'three')?.benched).toBe(false);
+    expect(subject.state().party.find(({ id }) => id === 'one')?.benched).toBe(true);
+    expect(events).toContainEqual({ type: 'auto-deploy', target: 'three', out: 'one' });
+    expect(subject.state().autoDeployIn).toBeNull();
   });
 
   it('asks for the reserve once when both active creatures are down', () => {

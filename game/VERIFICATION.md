@@ -80,9 +80,9 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 
 ### Reserve deployment
 
-- **Simulated:** the named encounter test measured automatic reserve deployment after a 2 s countdown.
-- **Simulated:** the named placement test measured a tile-centred entry one tile farther from the enemy than the fallen tile.
-- **Simulated:** the encounter implementation checks 1 s of entry grace for immunity and target exclusion.
+- **Simulated:** at 1.9 s after the downed event the reserve is still benched and the countdown reads 0.10 s; on the 2.05 s tick it deploys and the countdown clears.
+- **Simulated:** with the fallen creature at tile centre (5.5, 9.5) and the enemy at (5.7, 8.3), the automatically deployed reserve enters at tile centre (5.5, 10.5).
+- **Simulated:** the incoming reserve takes no hit during the first 0.9 s of entry grace and takes a hit by 3.9 s after entry.
 
 
 ## Diorama

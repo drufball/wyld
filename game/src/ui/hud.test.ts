@@ -442,4 +442,48 @@ describe('thumb HUD', () => {
     reserveHud();
     expect(document.querySelector('[data-swap]')).toBeNull();
   });
+  it('renders a downed reserve as a dim, inert plain card', () => {
+    const party = [creature('a'), creature('b'), creature('reserve')];
+    const selected: string[] = [];
+    const combatant = (entry: (typeof party)[number], benched = false) => ({
+      id: entry.individual.id,
+      speciesId: entry.individual.speciesId,
+      hp: 0,
+      maxHp: 70,
+      focus: 40,
+      maxFocus: 40,
+      tile: { x: 1, y: 1 },
+      facing: 0,
+      windup: null,
+      downed: benched,
+      benched,
+      cooldowns: {},
+      desiredTile: null,
+      grace: 0,
+    });
+    const hud = createHud(false, document.body, {
+      selectCreature: (id) => selected.push(id),
+      swapIn: (id) => selected.push(id),
+    });
+    hud.update({
+      ...state(party),
+      combat: {
+        phase: 'fight',
+        elapsed: 1,
+        enemy: combatant(creature('enemy')),
+        party: [combatant(party[0]!), combatant(party[1]!), combatant(party[2]!, true)],
+        reserveId: 'reserve',
+        autoDeployIn: null,
+        swapCooldown: { remaining: 0, total: 6 },
+        projectiles: [],
+        flashes: [],
+      },
+    });
+    const card = document.querySelector<HTMLButtonElement>('[data-party-id="reserve"]')!;
+    expect(card.childNodes[0]?.textContent).toBe('reserve\nDown');
+    expect(card.style.opacity).toBe('0.45');
+    expect(card.hasAttribute('data-reserve')).toBe(false);
+    card.click();
+    expect(selected).toEqual([]);
+  });
 });

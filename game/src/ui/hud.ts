@@ -176,7 +176,9 @@ const createHud = (
               : `${name}\n${combatant?.downed ? 'Down' : individual.temperament}`,
             standingReserve
               ? () => actions.swapIn?.(individual.id)
-              : () => actions.selectCreature?.(individual.id),
+              : combatant?.downed
+                ? undefined
+                : () => actions.selectCreature?.(individual.id),
           );
           button.title = individual.speciesId;
           button.style.flex = '1 1 0';
