@@ -79,7 +79,9 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
   const scene = new THREE.Scene(),
     camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 400),
     sun = new THREE.DirectionalLight(),
-    ambient = new THREE.AmbientLight();
+    ambient = new THREE.AmbientLight(),
+    background = new THREE.Color();
+  scene.background = background;
   scene.add(sun, ambient, sun.target);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -160,7 +162,7 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
       coloured = key;
     }
     slabs.shimmer(palette, frame.elapsedSeconds);
-    scene.background = skyAt(frame.phase, frame.phaseProgress);
+    background.copy(skyAt(frame.phase, frame.phaseProgress));
     sun.color.copy(sunColourAt(frame.phase, frame.phaseProgress));
     sun.intensity = sunIntensityAt(frame.phase, frame.phaseProgress);
     ambient.color.copy(ambientColourAt(frame.phase, frame.phaseProgress));
@@ -228,6 +230,9 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
   }; // Triangle count includes the shadow pass.
   return {
     canvas,
+    get rect(): DOMRect {
+      return canvasRect;
+    },
     get scale() {
       return scale;
     },

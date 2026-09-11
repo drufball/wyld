@@ -78,11 +78,110 @@ const state = (party = [creature('a')], selection = 'player') => ({
   party,
   selection,
 });
+const combatState = (party = [creature('a')]): CombatState => {
+  const member = (entry: (typeof party)[number], benched = false) => ({
+    id: entry.individual.id,
+    speciesId: entry.individual.speciesId,
+    hp: 70,
+    maxHp: 70,
+    focus: 40,
+    maxFocus: 40,
+    tile: { x: 1, y: 1 },
+    facing: 0,
+    windup: null,
+    downed: false,
+    benched,
+    cooldowns: { 'loamox:move': { remaining: 2, total: 4 } },
+    desiredTile: null,
+    threat: 0,
+    lineToEnemy: true,
+    reachTiles: 1.25,
+    grace: 0,
+  });
+  return {
+    phase: 'fight',
+    elapsed: 1,
+    enemy: member(creature('enemy')),
+    party: party.map((entry, index) => member(entry, index === 2)),
+    reserveId: party[2]?.individual.id ?? null,
+    autoDeployIn: null,
+    swapCooldown: { remaining: 0, total: 6 },
+    projectiles: [],
+    flashes: [],
+  };
+};
 afterEach(() => {
   document.body.replaceChildren();
   document.head.replaceChildren();
 });
 describe('thumb HUD', () => {
+  it('a second update with the same state makes no DOM mutations', () => {
+    const hud = createHud(false, document.body);
+    const current = state(undefined, 'a');
+    hud.update(current);
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(hud.tray, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    hud.update(current);
+    expect(observer.takeRecords()).toHaveLength(0);
+    observer.disconnect();
+  });
+
+  it('a running cooldown updates the move button in place', () => {
+    const party = [creature('a')];
+    const combat = combatState(party);
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party, 'a'), combat });
+    const button = document.querySelector('[data-move-id]') as HTMLButtonElement;
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(hud.tray, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    const changed = structuredClone(combat);
+    changed.party[0]!.cooldowns['loamox:move']!.remaining = 1;
+    hud.update({ ...state(party, 'a'), combat: changed });
+    expect(document.querySelector('[data-move-id]')).toBe(button);
+    const records = observer.takeRecords();
+    expect(records).toHaveLength(2);
+    expect(records.map(({ target }) => target)).toEqual([button.firstChild, button]);
+    observer.disconnect();
+  });
+
+  it('a party member going down updates its card in place', () => {
+    const party = [creature('a')];
+    const combat = combatState(party);
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party), combat });
+    const card = document.querySelector('[data-party-id]') as HTMLButtonElement;
+    const changed = structuredClone(combat);
+    changed.party[0]!.downed = true;
+    hud.update({ ...state(party), combat: changed });
+    expect(document.querySelector('[data-party-id]')).toBe(card);
+    expect(card.childNodes[0]?.textContent).toBe('a\nDown');
+  });
+
+  it('the reserve card appears when a member is benched and disappears when it is not', () => {
+    const party = [creature('a'), creature('b'), creature('reserve')];
+    const combat = combatState(party);
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party), combat });
+    const first = document.querySelector('[data-party-id="a"]');
+    const reserve = document.querySelector('[data-reserve]');
+    expect(reserve).not.toBeNull();
+    const changed = structuredClone(combat);
+    changed.party[2]!.benched = false;
+    hud.update({ ...state(party), combat: changed });
+    expect(document.querySelector('[data-party-id="a"]')).toBe(first);
+    expect(document.querySelector('[data-party-id="reserve"]')).toBe(reserve);
+    expect(document.querySelector('[data-reserve]')).toBeNull();
+  });
   it('renders one party card per party member', () => {
     const hud = createHud(false, document.body);
     hud.update(state([creature('a'), creature('b')]));

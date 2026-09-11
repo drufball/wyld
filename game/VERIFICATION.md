@@ -108,6 +108,9 @@ uninformed seeds 1–3—matched this reconciled simulated harness.
 
 ## Diorama
 
+- **PASS (`simulated`) — HUD writes on change:** jsdom mutation tests verified an identical update makes no tray mutations, cooldown and downed-state changes preserve button identity, and reserve-state changes preserve the other party cards.
+- **PASS (`simulated`) — overlay writes on change:** jsdom mutation tests verified identical combat-bar, detection-eye, and combat-tell syncs make no DOM mutations, while moving each overlay anchor changes its inline `left` style.
+
 Measured in headless Chromium 151 with SwiftShader, seed 194. The party row was sampled with all
 three party members on screen; the arena row was sampled during an Antlerback fight. Counts include
 the shadow pass.

@@ -44,4 +44,25 @@ describe('createCombatOverlay', () => {
     );
     overlay.dispose();
   });
+
+  it('combat overlay: a second sync with the same bars makes no DOM mutations', () => {
+    const overlay = createCombatOverlay();
+    const bars = [entry({ hp: { value: 5, max: 10 } })];
+    overlay.sync(bars, target, frustum, rect);
+    const root = document.body.firstElementChild as HTMLDivElement;
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    overlay.sync(bars, target, frustum, rect);
+    expect(observer.takeRecords()).toHaveLength(0);
+    overlay.sync([{ ...bars[0]!, tileX: 6 }], target, frustum, rect);
+    expect(observer.takeRecords().some(({ attributeName }) => attributeName === 'style')).toBe(
+      true,
+    );
+    observer.disconnect();
+  });
 });
