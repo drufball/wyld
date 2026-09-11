@@ -103,7 +103,8 @@ laptop, as M0's PARTIAL did.
 
 These simulated silhouettes use the orthographic camera from `renderer.ts`, tilted 50° from
 vertical, with each creature in its `idle` pose at t = 0 and no water, at 160 simulated pixels per
-tile. A plan is thin when side width is < 0.45 × front width, side area is < 0.55 × front area, or
+tile. Triangles are clipped at the world ground plane before projection, so buried geometry does
+not contribute to the measurements. A plan is thin when side width is < 0.45 × front width, side area is < 0.55 × front area, or
 non-null side head area is < 0.5 × front head area, or side fill is < 0.45.
 A species reshaped in the workshop drops out of the table and baseline checks until the next
 `UPDATE_TURNAROUND=1 pnpm --filter @wyld/game test turnaround` run.
@@ -198,10 +199,10 @@ A species reshaped in the workshop drops out of the table and baseline checks un
 | Saltwing | side | 179 | 163 | 16045 | 0.55 | 1083 | — |
 | Saltwing | back | 248 | 132 | 15108 | 0.46 | 1114 | — |
 | Saltwing | three-quarter | 230 | 151 | 16100 | 0.46 | 1207 | — |
-| Kelpmaw | front | 31 | 146 | 2108 | 0.47 | 388 | — |
-| Kelpmaw | side | 220 | 39 | 4253 | 0.50 | 389 | — |
-| Kelpmaw | back | 31 | 153 | 2205 | 0.46 | 386 | — |
-| Kelpmaw | three-quarter | 159 | 117 | 3419 | 0.18 | 388 | — |
+| Kelpmaw | front | 32 | 145 | 2110 | 0.45 | 388 | — |
+| Kelpmaw | side | 220 | 32 | 3173 | 0.45 | 389 | — |
+| Kelpmaw | back | 31 | 150 | 2182 | 0.47 | 386 | — |
+| Kelpmaw | three-quarter | 160 | 114 | 2738 | 0.15 | 388 | — |
 | Emberjack | front | 44 | 153 | 4426 | 0.66 | 1260 | — |
 | Emberjack | side | 218 | 82 | 8367 | 0.47 | 1184 | — |
 | Emberjack | back | 42 | 150 | 4758 | 0.76 | 1282 | — |
@@ -226,7 +227,7 @@ A species reshaped in the workshop drops out of the table and baseline checks un
 
 Bramblehog side fill 0.36 → 0.46, front width/height/area 48/142/4267 → 44/155/4445 (within 10 %; simulated).
 Emberjack side fill 0.37 → 0.47, front width/height/area 48/140/4249 → 44/153/4426 (within 10 %; simulated).
-Kelpmaw side fill 0.31 → 0.50, front width/height/area 32/142/1927 → 31/146/2108 (within 10 %; simulated).
+Kelpmaw side fill 0.31 → 0.45, front width/height/area 32/142/1927 → 32/145/2110 (within 10 %; simulated). Its segments use 1.0 × 1.2 × 1.5 scale and rest at their scaled radius, keeping the body top below the head top while overlapping into a tube.
 
 **Thin before any plan change:** Bramblehog (side fill 0.36), Emberjack (side fill 0.37), and Kelpmaw (side fill 0.31) (simulated).
 

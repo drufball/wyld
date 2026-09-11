@@ -86,6 +86,7 @@ const expectTableMatchesBaselineVisuals = (
 describe('body-plan turnaround', () => {
   it('projects a unit cube at the diorama tilt to the expected footprint', () => {
     const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    cube.position.y = 0.5;
     const measured = measureObjectSilhouette(cube);
     expect(Math.abs(measured.width - PIXELS_PER_TILE)).toBeLessThanOrEqual(2);
     expect(
@@ -94,6 +95,24 @@ describe('body-plan turnaround', () => {
       ),
     ).toBeLessThanOrEqual(2);
     cube.geometry.dispose();
+  });
+
+  it('does not count geometry below the ground plane', () => {
+    const bisected = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    const topHalf = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 1));
+    topHalf.position.y = 0.25;
+    const buried = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    buried.position.y = -1;
+
+    const bisectedArea = measureObjectSilhouette(bisected).area;
+    const topHalfArea = measureObjectSilhouette(topHalf).area;
+    expect(bisectedArea).toBeGreaterThan(0);
+    expect(Math.abs(bisectedArea - topHalfArea) / topHalfArea).toBeLessThanOrEqual(0.01);
+    expect(measureObjectSilhouette(buried).area).toBe(0);
+
+    bisected.geometry.dispose();
+    topHalf.geometry.dispose();
+    buried.geometry.dispose();
   });
 
   it('renders every species full from the side', () => {
