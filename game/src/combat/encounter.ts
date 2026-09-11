@@ -10,6 +10,12 @@ import { formation, TAP_OVERRIDE_SECONDS, type Wander } from './formation.js';
 import { authority, hears, moveTapAuthority } from './authority.js';
 import { pickTarget, pruneHits, threatOf, type ThreatHit } from './threat.js';
 import { lineClear } from './line.js';
+import {
+  ARENA_BALANCE,
+  scaledEnemyDamage,
+  scaledEnemyHealth,
+  type ArenaBalance,
+} from './balance.js';
 import { ENTRY_GRACE_SECONDS, RESERVE_AUTO_DEPLOY_SECONDS, entryTile } from './reserve.js';
 import {
   canAfford,
@@ -82,6 +88,7 @@ type EncounterOptions = {
   partyTiles?: Record<string, Point>;
   enemyTile?: Point;
   reserve?: string;
+  balance?: ArenaBalance;
 };
 type Internal = Omit<Combatant, 'lineToEnemy'> & {
   individual: Individual;
@@ -161,11 +168,13 @@ const createEncounter = ({
   partyTiles = {},
   enemyTile = { x: 0, y: -6 },
   reserve = party[2]?.id,
+  balance = ARENA_BALANCE,
 }: EncounterOptions) => {
   const owned = party.map((p, i) =>
     make(p, partyTiles[p.id] ?? { x: i - 1, y: 1 }, p.id === reserve),
   );
   const foe = make(enemy, enemyTile);
+  foe.hp = foe.maxHp = scaledEnemyHealth(enemy.stats.vigor, balance);
   const foeReach = Math.max(
     0,
     ...enemy.repertoire
@@ -196,7 +205,8 @@ const createEncounter = ({
       1,
       Math.round(move.power * 5 * (0.6 + attacker.individual.stats.power / 10)),
     );
-    const final = damage(move, attacker.individual.stats.power, hide(target));
+    const dealt = damage(move, attacker.individual.stats.power, hide(target));
+    const final = attacker === foe ? scaledEnemyDamage(dealt, balance) : dealt;
     target.hp = Math.max(0, target.hp - final);
     if (target === foe && owned.includes(attacker))
       threatHits.push({ attacker: attacker.id, final, force: move.force, at: elapsed });

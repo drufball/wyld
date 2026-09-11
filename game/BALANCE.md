@@ -13,3 +13,14 @@ rock from **0.7 to 8**. The tree densities were reduced from their initial 2D va
 creatures' 5–8 tile sight lines are usually clear while the forest still reads as forest. Rejection
 sampling and biome masks keep props concentrated in their intended biomes; rocks remain movement
 obstacles but no longer block sight.
+
+## Arena enemy scale
+
+The arena has two named enemy-only presets: **fast** keeps health and damage at ×1, while
+**trade** uses health ×2.5 and damage ×0.4. Trade is active: it is the founder's chosen dial for
+bringing the encounter into §7's 30–90 s fight band without changing party stats, move data, or
+combat rules.
+
+The reviewing lead's played 375 × 812, seeds 1–5 measurement put fast at a decisive **8.7 s
+informed win** and **12.4–13.3 s uninformed loss**. Trade measured a **34.4 s informed win** and
+**27.0–39.3 s uninformed loss**, with 287–371 of the Antlerback's scaled 500 health remaining.

@@ -5,6 +5,7 @@ import { arenaSpeedTilesPerSecond } from './pace.js';
 import type { CombatEvent } from './encounter.js';
 import { createEncounter } from './encounter.js';
 import { LUNGE_OUT_FRACTION, LUNGE_PEAK_TILES, LUNGE_SECONDS, createAnimations } from './anim.js';
+import { ARENA_BALANCE_PRESETS } from './balance.js';
 
 const executed = (attacker = 'a', target = 'b', move = 'strike'): CombatEvent => ({
   type: 'executed',
@@ -109,6 +110,7 @@ describe('combat animation', () => {
         partyTiles: positions,
         enemyTile: { x: 5, y: 2 },
         reserve: '',
+        balance: ARENA_BALANCE_PRESETS.fast,
       }),
       subject = createAnimations(),
       dt = 1 / 60;

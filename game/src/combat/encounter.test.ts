@@ -14,6 +14,7 @@ import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES } from './spacing.js';
 import { choiceInputFrom, createChooser } from './choice.js';
 import { createRng } from '../engine/rng.js';
+import { ARENA_BALANCE_PRESETS } from './balance.js';
 
 const member = (id: string): Individual => buildArenaIndividual(rosterMember(id)!);
 const antlerback = (): Individual => buildArenaIndividual(enemy('antlerback')!);
@@ -871,6 +872,7 @@ describe('combat encounter', () => {
         partyTiles: positions,
         enemyTile: { x: 5, y: 2 },
         reserve: '',
+        balance: ARENA_BALANCE_PRESETS.fast,
       }),
       dt = 1 / 60;
     while (subject.state().phase === 'fight' && subject.state().elapsed < 90) {
@@ -1115,7 +1117,11 @@ describe('combat encounter', () => {
 
   it('wins when the enemy reaches zero', () => {
     const strike = { ...move('Strike'), power: 30 };
-    const subject = setup({ party: [fighter('owned', [strike])], enemyTile: { x: 1, y: 0 } });
+    const subject = setup({
+      party: [fighter('owned', [strike])],
+      enemyTile: { x: 1, y: 0 },
+      balance: ARENA_BALANCE_PRESETS.fast,
+    });
     subject.useMove('owned', strike.id);
     advance(subject, 1);
     expect(subject.state().phase).toBe('win');
@@ -1415,6 +1421,7 @@ describe('combat encounter', () => {
       partyTiles: positions,
       enemyTile: { x: 0, y: 0 },
       player: { x: 0, y: 6 },
+      balance: ARENA_BALANCE_PRESETS.fast,
     });
     for (let elapsed = 0; elapsed < 90 && subject.state().phase === 'fight'; elapsed += 0.05) {
       const state = subject.state();

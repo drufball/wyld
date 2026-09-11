@@ -68,6 +68,25 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 
 ## Arena — learn, lose, repeat
 
+### Arena enemy balance harness (simulated)
+
+The 60 Hz unit harness used the 11 × 22 forest arena and seeds 1–5. These are simulated results
+from this run (not browser-played results):
+
+| preset | party / policy    |                          seed 1 |                          seed 2 |                          seed 3 |                          seed 4 |                          seed 5 |
+| ------ | ----------------- | ------------------------------: | ------------------------------: | ------------------------------: | ------------------------------: | ------------------------------: |
+| trade  | informed / armed  |                     win 20.40 s |                     win 19.10 s |                     win 20.38 s |                     win 23.40 s |                     win 26.25 s |
+| trade  | informed / none   |                     win 32.05 s |                     win 23.40 s |                     win 20.38 s |                     win 28.38 s |                     win 23.40 s |
+| trade  | uninformed / none | driven off 36.70 s (330/500 hp) | driven off 36.17 s (335/500 hp) | driven off 39.70 s (309/500 hp) | driven off 37.95 s (311/500 hp) | driven off 37.70 s (321/500 hp) |
+| fast   | informed / armed  |                      win 6.98 s |                      win 7.13 s |                      win 7.60 s |                      win 6.98 s |                      win 7.60 s |
+| fast   | informed / none   |                      win 7.17 s |                      win 7.60 s |                      win 7.60 s |                      win 8.72 s |                      win 7.60 s |
+| fast   | uninformed / none | driven off 11.62 s (136/200 hp) | driven off 11.30 s (131/200 hp) | driven off 16.27 s (131/200 hp) | driven off 16.27 s (131/200 hp) | driven off 11.62 s (131/200 hp) |
+
+The simulated informed trade runs do not reproduce the lead's played 34.4 s column and therefore
+do not meet the 30 s lower bound on four seeds. The constants remain the founder-selected values;
+this discrepancy is recorded rather than silently retuning them.
+
+
 - **PASS — autopilot cooldown DPS (`simulated`):** over 20 s at 60 Hz with seed 7, the armed creature dealt 108 damage and the identical unarmed creature dealt 108 damage.
 - **PASS — move autopilot (built game, headless Chromium 375 × 812):** one tap on Grit's Mandible lit the button with `↻` and produced six attacks over twelve seconds with no further taps, measured 2.03, 2.01, 2.04, 1.97 and 2.06 s apart against its 2.00 s cooldown. A double tap on Ash Spray produced exactly one Ash Spray and left the armed move unchanged; tapping the lit button while its cooldown ran turned it off.
 - **PASS — party-side combat tell (built game):** an enemy move resisted by a party creature displayed `Glances off` above that creature rather than above the enemy.
