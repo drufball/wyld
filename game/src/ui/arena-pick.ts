@@ -106,7 +106,7 @@ const createArenaPick = (
           card(
             entry.id,
             entry.name,
-            `${reserve ? '<b data-reserve-badge>Reserve</b><br>' : ''}${hideLine(definition.hide)}<br>${moves}`,
+            `${reserve ? '<b data-reserve-badge>Reserve</b><br>' : ''}<b data-temperament-badge>${entry.temperament}</b><br>${hideLine(definition.hide)}<br>${moves}`,
             state.party.includes(entry.id),
             () => {
               state = toggleMember(state, entry.id);

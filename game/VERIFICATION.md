@@ -238,6 +238,18 @@ tiles from the player and 4.0 from the enemy, Quill finished 2.1 tiles from the 
 from the enemy, and Pip finished 2.0 tiles from the player and 8.0 from the enemy. The sampled
 fight length was 10.0 s (simulated).
 
+Roster pick cards show a temperament badge, active tray cards show the temperament beneath the
+name (with species in the title), and the Swap detail shows the reserve temperament beside its
+hide protection; these three DOM checks are simulated.
+
+In the 60 Hz zero-tap fight against an Antlerback (simulated), Barrow travelled 8.12 tiles,
+Quill travelled 17.84 tiles, and Pip travelled 3.06 tiles. The fight resolved as driven-off in
+20.05 s (simulated).
+
+In the built game at 375 × 812 in headless Chromium (played), Barrow travelled 3.34 tiles and
+Quill travelled 16.21 tiles before both were downed with Pip standing in reserve after 10.73 s.
+A CDP screenshot was captured 5.0 s into the fight (played).
+
 ### Renderer invariants
 
 - The camera tilt is 50° from vertical; its frustum is anisotropic and deliberately does **not** fit

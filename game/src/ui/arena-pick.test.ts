@@ -49,6 +49,15 @@ describe('arena pick UI', () => {
     picker.dispose();
   });
 
+  it('shows the temperament badge on a roster card', () => {
+    const picker = createArenaPick(createNotebook(), vi.fn());
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
+    const badge = document.querySelector('[data-temperament-badge]');
+    expect(badge?.closest('button')?.textContent).toContain('Barrow');
+    expect(badge?.textContent).toBe('Steady');
+    picker.dispose();
+  });
+
   it('removes its keyboard listener after the fight starts', () => {
     const fight = vi.fn();
     const picker = createArenaPick(createNotebook(), fight);
