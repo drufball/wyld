@@ -263,3 +263,8 @@ A CDP screenshot was captured 5.0 s into the fight (played).
 - An `InstancedMesh` whose matrices are written after construction must have
   `computeBoundingSphere()` called or be marked `frustumCulled = false`; track decals were invisible
   for a whole review round while every unit test passed.
+
+### Arena — creatures pick their own moves
+
+- **Simulated:** At 60 Hz with seed 331, Barrow executed 3 moves, Quill 2, and Pip 3 in a zero-tap Antlerback fight. The first party execution was at 0.50 s, and the party was driven off at 10.12 s.
+- **Played:** In the built game at 375 × 812 in headless Chromium, with no taps, Barrow executed 3 moves and Quill executed 4 before both active creatures were downed at 8.83 s with Pip standing in reserve. A CDP screenshot was captured at 5.0 s.

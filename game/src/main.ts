@@ -65,6 +65,7 @@ import { createPick, chooseEnemy, toggleMember, startFight, type PickState } fro
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
 import { createAutopilot } from './combat/autopilot.js';
+import { choiceInputFrom, createChooser } from './combat/choice.js';
 import { LUNGE_SECONDS, createAnimations } from './combat/anim.js';
 import { createToastStack } from './ui/toasts.js';
 import { learnedFactText, learnFromCombat, type LearnedFact } from './arena/learning.js';
@@ -265,6 +266,7 @@ const aiStates = new Map<string, AiState>();
 let arenaState: PickState | null = synthetic ? createPick() : null;
 let encounter: ReturnType<typeof createEncounter> | null = null;
 const autopilot = createAutopilot();
+const chooser = createChooser(() => rng.next());
 const animations = createAnimations();
 let fightLearned: LearnedFact[] = [];
 let resultScreen: ReturnType<typeof createArenaResult> | null = null;
@@ -493,6 +495,7 @@ const beginArena = (state: PickState): void => {
   if (!foe || state.party.length !== 3) return;
   animations.clear();
   autopilot.clearAll();
+  chooser.clearAll();
   arenaState = state;
   fightLearned = [];
   fightRecorded = false;
@@ -562,6 +565,7 @@ const showEnemyPicker = (): void => {
   resultScreen = null;
   encounter = null;
   autopilot.clearAll();
+  chooser.clearAll();
   animations.clear();
   arenaState = createPick();
   arenaPick = createArenaPick(notebook, beginArena, (state) => (arenaState = state), {
@@ -620,6 +624,7 @@ const swapSelected = (): boolean => {
     combat.party.find((member) => !member.benched);
   if (!outgoing || !encounter.swap(outgoing.id)) return false;
   autopilot.clear(outgoing.id);
+  chooser.clear(outgoing.id);
   const incoming = combat.party.find((member) => member.id === combat.reserveId);
   if (!incoming) return false;
   const destination = tileToWorld(outgoing.tile.x - 0.5, outgoing.tile.y - 0.5);
@@ -912,6 +917,15 @@ const loop = createLoop({
           const moveId = autopilot.armed(member.id);
           if (moveId && !member.downed && !member.benched) encounter.useMove(member.id, moveId);
         }
+      if (preUpdateCombat.phase === 'fight')
+        for (const { creatureId, moveId } of chooser.choose(
+          choiceInputFrom(
+            preUpdateCombat,
+            partyState.party.map(({ individual }) => individual),
+            (id) => autopilot.armed(id) !== null,
+          ),
+        ))
+          encounter.useMove(creatureId, moveId);
       const combatEvents = encounter.update(
         dt,
         Object.fromEntries(
@@ -927,8 +941,14 @@ const loop = createLoop({
       combat = encounter.state();
       const postUpdateCombat = combat;
       for (const event of combatEvents)
-        if (event.type === 'downed' && event.target) autopilot.clear(event.target);
-      if (combat.phase !== 'fight') autopilot.clearAll();
+        if (event.type === 'downed' && event.target) {
+          autopilot.clear(event.target);
+          chooser.clear(event.target);
+        }
+      if (combat.phase !== 'fight') {
+        autopilot.clearAll();
+        chooser.clearAll();
+      }
       if (shouldAskForReserve(combat, reservePrompted)) {
         const reserve = partyState.party.find(
           ({ individual }) => individual.id === postUpdateCombat.reserveId,

@@ -12,6 +12,7 @@ import {
 import { canAfford, damage, deliveries } from './resolve.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES } from './spacing.js';
+import { choiceInputFrom, createChooser } from './choice.js';
 
 const member = (id: string): Individual => buildArenaIndividual(rosterMember(id)!);
 const antlerback = (): Individual => buildArenaIndividual(enemy('antlerback')!);
@@ -67,8 +68,10 @@ const driveIdleParty = (
   player = { x: 0, y: 0 },
   speeds: Record<string, number> = {},
   onTick: (before: Record<string, Point>, ticks: number) => void = () => undefined,
+  choice?: { chooser: ReturnType<typeof createChooser>; party: readonly Individual[] },
 ) => {
   const positions: Record<string, Point> = {};
+  const events: ReturnType<typeof subject.update> = [];
   let tick = 0;
   for (; tick < seconds * 60 && subject.state().phase === 'fight'; tick += 1) {
     for (const combatant of subject.state().party) {
@@ -85,15 +88,120 @@ const driveIdleParty = (
     const before = Object.fromEntries(
       subject.state().party.map(({ id, tile }) => [id, { ...tile }]),
     );
-    subject.update(1 / 60, positions, player);
+    if (choice)
+      for (const selected of choice.chooser.choose(choiceInputFrom(subject.state(), choice.party)))
+        subject.useMove(selected.creatureId, selected.moveId);
+    events.push(...subject.update(1 / 60, positions, player));
     onTick(before, tick + 1);
     for (const combatant of subject.state().party)
       if (!combatant.benched && !combatant.downed) positions[combatant.id] = combatant.tile;
   }
-  return { positions, ticks: tick };
+  return { positions, ticks: tick, events };
 };
 
 describe('combat encounter', () => {
+  it('fires chosen moves without ever double-firing inside a cooldown', () => {
+    const strike = move('Strike');
+    const owned = fighter('owned', [strike], { temperament: 'Bold' });
+    const subject = setup({ party: [owned], enemyTile: { x: 1, y: 0 }, reserve: '' });
+    const { events } = driveIdleParty(subject, 7, { x: 0, y: 0 }, {}, () => undefined, {
+      chooser: createChooser(() => 0),
+      party: [owned],
+    });
+    const times: number[] = [];
+    let elapsed = 0;
+    // Executions are collected at 60 Hz; reconstruct their tick times from a dedicated replay.
+    const replay = setup({ party: [owned], enemyTile: { x: 1, y: 0 }, reserve: '' });
+    const chooser = createChooser(() => 0);
+    for (let tick = 0; tick < 7 * 60 && replay.state().phase === 'fight'; tick += 1) {
+      for (const selected of chooser.choose(choiceInputFrom(replay.state(), [owned])))
+        replay.useMove(selected.creatureId, selected.moveId);
+      elapsed += 1 / 60;
+      if (
+        replay
+          .update(1 / 60)
+          .some((event) => event.type === 'executed' && event.attacker === 'owned')
+      )
+        times.push(elapsed);
+    }
+    expect(
+      events.filter((event) => event.type === 'executed' && event.attacker === 'owned').length,
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      times
+        .slice(1)
+        .every((time, index) => time - times[index]! >= deliveries.Strike.cooldown - 1e-9),
+    ).toBe(true);
+  });
+
+  it('resolves a zero-tap fight in which every active creature executes at least two moves', () => {
+    const party = [member('loamox'), member('bramblehog'), member('thornwren')];
+    let seed = 331;
+    const random = () => (seed = (seed * 1_664_525 + 1_013_904_223) >>> 0) / 2 ** 32;
+    const subject = setup({
+      party,
+      enemy: antlerback(),
+      enemyTile: { x: 0, y: -6 },
+      player: { x: 0, y: 0 },
+      reserve: '',
+      rng: random,
+    });
+    const chooser = createChooser(random);
+    const executionTimes: Record<string, number[]> = Object.fromEntries(
+      party.map(({ id }) => [id, []]),
+    );
+    let first = Infinity;
+    const positions: Record<string, Point> = {};
+    let ticks = 0;
+    for (; ticks < 90 * 60 && subject.state().phase === 'fight'; ticks += 1) {
+      const state = subject.state();
+      for (const combatant of state.party) {
+        const target = combatant.desiredTile;
+        if (!target || combatant.downed || combatant.benched) continue;
+        const current = positions[combatant.id] ?? combatant.tile;
+        const distance = distanceForTest(current, target);
+        const speed = party.find(({ id }) => id === combatant.id)!.stats.speed;
+        const step = Math.min(distance, arenaSpeedTilesPerSecond(speed) / 60);
+        positions[combatant.id] = {
+          x: current.x + ((target.x - current.x) / (distance || 1)) * step,
+          y: current.y + ((target.y - current.y) / (distance || 1)) * step,
+        };
+      }
+      for (const selected of chooser.choose(choiceInputFrom(state, party)))
+        subject.useMove(selected.creatureId, selected.moveId);
+      for (const event of subject.update(1 / 60, positions, { x: 0, y: 0 }))
+        if (event.type === 'executed' && event.attacker && executionTimes[event.attacker]) {
+          executionTimes[event.attacker]!.push(subject.state().elapsed);
+          first = Math.min(first, subject.state().elapsed);
+        }
+      for (const combatant of subject.state().party) positions[combatant.id] = combatant.tile;
+    }
+    const counts = party.map(({ id }) => executionTimes[id]!.length);
+    // Simulated at 60 Hz: Barrow 3, Quill 2, Pip 3; first at 0.50 s; driven off at 10.12 s.
+    expect(first + 1e-9).toBeGreaterThanOrEqual(0.5);
+    expect(counts.every((count) => count >= 2)).toBe(true);
+    expect(subject.state().enemy.hp).toBeLessThan(subject.state().enemy.maxHp);
+    expect(subject.state().phase).not.toBe('fight');
+    expect(ticks / 60).toBeLessThan(90);
+  });
+
+  it('lets a tap fire now and win over the choice', () => {
+    const light = move('Strike');
+    const heavy = { ...move('Strike'), id: 'heavy', power: 5 };
+    const owned = fighter('owned', [light, heavy], { temperament: 'Bold' });
+    const subject = setup({ party: [owned], enemyTile: { x: 1, y: 0 }, reserve: '' });
+    expect(subject.useMove('owned', light.id)).toBe(true);
+    const chooser = createChooser(() => 0);
+    for (const selected of chooser.choose(choiceInputFrom(subject.state(), [owned])))
+      subject.useMove(selected.creatureId, selected.moveId);
+    const events = advance(subject, deliveries.Strike.cooldown - 0.01);
+    expect(
+      events
+        .filter(({ type, attacker }) => type === 'executed' && attacker === 'owned')
+        .map(({ move }) => move),
+    ).toEqual([light.id]);
+  });
+
   it('resolves a fight with zero taps and every active creature moving at least three tiles', () => {
     const party = [member('loamox'), member('bramblehog'), member('thornwren')];
     let seed = 331;
