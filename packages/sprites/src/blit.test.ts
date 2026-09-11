@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { blitSprite, clearSpriteCache } from './blit-canvas.js';
@@ -106,88 +107,12 @@ const canvasWithSize = (width: number, height: number): FakeCanvas => {
   return canvas;
 };
 
-const oldBlitCache = new Map<string, HTMLCanvasElement>();
-const oldBlit = (
-  ctx: CanvasRenderingContext2D,
-  sprite: PixelSprite & { key: string },
-  x: number,
-  y: number,
-  flipX = false,
-): number => {
-  const key = `${sprite.key}:${flipX}`;
-  let canvas = oldBlitCache.get(key);
-  if (!canvas) {
-    canvas = document.createElement('canvas');
-    canvas.width = sprite.width;
-    canvas.height = sprite.height;
-    const target = canvas.getContext('2d')!;
-    for (let py = 0; py < sprite.height; py++)
-      for (let px = 0; px < sprite.width; px++) {
-        const index = sprite.grid[py * sprite.width + px] ?? 0;
-        if (!index) continue;
-        target.fillStyle = sprite.palette[index] ?? '#000';
-        target.fillRect(flipX ? sprite.width - 1 - px : px, py, 1, 1);
-      }
-    oldBlitCache.set(key, canvas);
-  }
-  ctx.drawImage(canvas, x, y);
-  return 1;
-};
-
-const oldCreatureCache = new Map<string, HTMLCanvasElement>();
-const oldCreatureLoop = (
-  ctx: CanvasRenderingContext2D,
-  data: SpeciesData,
-  facing: SpriteFacing,
-  frame: SpriteFrame,
-  x: number,
-  y: number,
-  flip = false,
-): number => {
-  const key = `${data.id}:${facing}:${frame}:${flip}`;
-  let canvas = oldCreatureCache.get(key);
-  if (!canvas) {
-    const sprite = generateSprite(data, facing, frame);
-    canvas = document.createElement('canvas');
-    canvas.width = sprite.width;
-    canvas.height = sprite.height;
-    const target = canvas.getContext('2d')!;
-    for (let py = 0; py < sprite.height; py++)
-      for (let px = 0; px < sprite.width; px++) {
-        const index = sprite.grid[py * sprite.width + px]!;
-        if (index) {
-          target.fillStyle = sprite.palette[index]!;
-          target.fillRect(flip ? sprite.width - 1 - px : px, py, 1, 1);
-        }
-      }
-    oldCreatureCache.set(key, canvas);
-  }
-  ctx.drawImage(canvas, x, y);
-  return 1;
-};
-
-const oldPakBlit = (canvas: FakeCanvas, sprite: PixelSprite, scale: number): void => {
-  canvas.width = sprite.width * scale;
-  canvas.height = sprite.height * scale;
-  const context = canvas.getContext('2d');
-  if (!context) return;
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  sprite.grid.forEach((index, position) => {
-    if (index !== 0) {
-      context.fillStyle = sprite.palette[index]!;
-      context.fillRect(
-        (position % sprite.width) * scale,
-        Math.floor(position / sprite.width) * scale,
-        scale,
-        scale,
-      );
-    }
-  });
-};
-
 const species = JSON.parse(
   readFileSync(new URL('../../../game/src/data/species.json', import.meta.url), 'utf8'),
 ) as SpeciesData[];
+const storedHashes = JSON.parse(
+  readFileSync(new URL('./blit.hashes.json', import.meta.url), 'utf8'),
+) as Record<string, string>;
 const facings: SpriteFacing[] = ['down', 'up', 'side'];
 const frames: SpriteFrame[] = ['idle', 'walk0', 'walk1', 'execute'];
 
@@ -201,59 +126,43 @@ expect.addEqualityTesters([
 
 afterEach(() => {
   clearSpriteCache();
-  oldBlitCache.clear();
-  oldCreatureCache.clear();
   vi.unstubAllGlobals();
 });
 
 describe('sprite blitting', () => {
-  it('draws every species pixel-identically to the three old drawers', () => {
+  it('draws every species to its stored pixel hash', () => {
     vi.stubGlobal('document', { createElement: () => fakeCanvas() });
-    for (const data of species)
+    const actualHashes: Record<string, string> = {};
+    for (const data of species) {
+      const hash = createHash('sha256');
       for (const facing of facings)
         for (const frame of frames)
           for (const flip of [false, true]) {
             const sprite = generateSprite(data, facing, frame);
-            const width = sprite.width + 6;
-            const height = sprite.height + 10;
-            const oldPlayerTarget = canvasWithSize(width, height);
-            const newPlayerTarget = canvasWithSize(width, height);
-            oldBlit(
-              contextOf(oldPlayerTarget),
-              { ...sprite, key: `${data.id}:${facing}:${frame}` },
-              3,
-              5,
-              flip,
-            );
-            blitSprite(contextOf(newPlayerTarget), sprite, sprite.palette, {
+            const gameTarget = canvasWithSize(sprite.width + 6, sprite.height + 10);
+            blitSprite(contextOf(gameTarget), sprite, sprite.palette, {
               x: 3,
               y: 5,
               flip,
-              cache: `player:${data.id}:${facing}:${frame}`,
+              cache: `${data.id}:${facing}:${frame}`,
             });
-            expect(newPlayerTarget.buffer).toEqual(oldPlayerTarget.buffer);
+            hash.update(gameTarget.buffer);
 
-            const oldCreatureTarget = canvasWithSize(width, height);
-            const newCreatureTarget = canvasWithSize(width, height);
-            oldCreatureLoop(contextOf(oldCreatureTarget), data, facing, frame, 3, 5, flip);
-            blitSprite(contextOf(newCreatureTarget), sprite, sprite.palette, {
-              x: 3,
-              y: 5,
-              flip,
-              cache: `creature:${data.id}:${facing}:${frame}`,
-            });
-            expect(newCreatureTarget.buffer).toEqual(oldCreatureTarget.buffer);
-
-            const oldPakTarget = fakeCanvas();
-            const newPakTarget = fakeCanvas();
-            oldPakBlit(oldPakTarget, sprite, 4);
-            newPakTarget.width = sprite.width * 4;
-            newPakTarget.height = sprite.height * 4;
-            const newPakContext = contextOf(newPakTarget);
-            newPakContext.clearRect(0, 0, newPakTarget.width, newPakTarget.height);
-            blitSprite(newPakContext, sprite, sprite.palette, { x: 0, y: 0, scale: 4 });
-            expect(newPakTarget.buffer).toEqual(oldPakTarget.buffer);
+            const pakTarget = canvasWithSize(sprite.width * 4, sprite.height * 4);
+            const pakContext = contextOf(pakTarget);
+            pakContext.clearRect(0, 0, pakTarget.width, pakTarget.height);
+            blitSprite(pakContext, sprite, sprite.palette, { x: 0, y: 0, scale: 4 });
+            hash.update(pakTarget.buffer);
           }
+      actualHashes[data.id] = hash.digest('hex');
+      expect(actualHashes[data.id], `Pixel hash differs for ${data.id}`).toBe(
+        storedHashes[data.id],
+      );
+    }
+    expect(
+      Object.keys(storedHashes).sort(),
+      'Stored hashes must exactly match the species roster',
+    ).toEqual(species.map(({ id }) => id).sort());
   });
 
   it('skips palette index 0 and flips around the sprite width', () => {
