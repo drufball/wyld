@@ -9,6 +9,7 @@ import { MIN_SEPARATION_TILES, separate } from './spacing.js';
 import { formation, TAP_OVERRIDE_SECONDS, type Wander } from './formation.js';
 import { authority, hears } from './authority.js';
 import { pickTarget, pruneHits, threatOf, type ThreatHit } from './threat.js';
+import { lineClear } from './line.js';
 import {
   canAfford,
   cooldownFor,
@@ -46,8 +47,9 @@ type CombatState = {
   elapsed: number;
   enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining' | 'threat'> & {
     targetId?: string | null;
+    reachTiles?: number;
   };
-  party: Combatant[];
+  party: (Combatant & { lineToEnemy?: boolean })[];
   reserveId: string | null;
   swapCooldown: { remaining: number; total: number };
   projectiles: Projectile[];
@@ -155,6 +157,12 @@ const createEncounter = ({
     make(p, partyTiles[p.id] ?? { x: i - 1, y: 1 }, p.id === reserve),
   );
   const foe = make(enemy, enemyTile);
+  const foeReach = Math.max(
+    0,
+    ...enemy.repertoire
+      .filter((move) => move.delivery === 'Strike' || move.delivery === 'Sweep')
+      .map(rangeTilesFor),
+  );
   let playerTile = player;
   let phase: CombatState['phase'] = 'fight',
     elapsed = 0,
@@ -319,6 +327,11 @@ const createEncounter = ({
       a.approach = { move, targetId: target.id, elapsed: 0 };
       return true;
     }
+    if (
+      (move.delivery === 'Bolt' || move.delivery === 'Arc') &&
+      !lineClear(a.tile, target.tile, (tx, ty) => grid.isWalkable(tx, ty))
+    )
+      return false;
     beginMove(a, target, move);
     return true;
   };
@@ -333,7 +346,9 @@ const createEncounter = ({
       (m) =>
         foe.cooldowns[m.id]!.remaining <= 0 &&
         canAfford(foe.focus, m) &&
-        (d <= rangeTilesFor(m) || m.delivery === 'Strike' || m.delivery === 'Lunge'),
+        (d <= rangeTilesFor(m) || m.delivery === 'Strike' || m.delivery === 'Lunge') &&
+        (!(m.delivery === 'Bolt' || m.delivery === 'Arc') ||
+          lineClear(foe.tile, enemyTarget.tile, (tx, ty) => grid.isWalkable(tx, ty))),
     );
     return candidates
       .map((move) => ({ move, score: Math.abs(rangeTilesFor(move) - d), tie: random(rng) }))
@@ -440,7 +455,14 @@ const createEncounter = ({
       }
     }
     const formationMembers = owned.filter(
-      (c) => !c.downed && !c.benched && !c.approach && !c.pending && elapsed >= c.overrideUntil,
+      (c) =>
+        !c.downed &&
+        !c.benched &&
+        !c.approach &&
+        (!c.pending ||
+          (c.individual.temperament === 'Skittish' &&
+            (c.pending.move.delivery === 'Bolt' || c.pending.move.delivery === 'Arc'))) &&
+        elapsed >= c.overrideUntil,
     );
     for (const c of owned)
       if (!c.downed && !c.benched && !c.approach && !c.pending && elapsed < c.overrideUntil)
@@ -448,6 +470,7 @@ const createEncounter = ({
     const formed = formation({
       player: playerTile,
       enemy: foe.tile,
+      enemyReach: foeReach,
       creatures: formationMembers.map((c) => ({
         id: c.id,
         temperament: c.individual.temperament,
@@ -459,6 +482,7 @@ const createEncounter = ({
           rangeTiles: rangeTilesFor(move),
           power: move.power,
           ready: c.cooldowns[move.id]!.remaining <= 0 && canAfford(c.focus, move),
+          ranged: move.delivery === 'Bolt' || move.delivery === 'Arc',
         })),
         wander: c.wander,
       })),
@@ -588,7 +612,7 @@ const createEncounter = ({
     partyWipedElapsed = null;
     return true;
   };
-  const publicCombatant = (c: Internal): Combatant => ({
+  const publicCombatant = (c: Internal): Combatant & { lineToEnemy: boolean } => ({
     id: c.id,
     speciesId: c.speciesId,
     hp: c.hp,
@@ -605,6 +629,10 @@ const createEncounter = ({
     threat: threatOf(threatHits, c.id, elapsed),
     approaching: c.approach !== null,
     overrideRemaining: Math.max(0, c.overrideUntil - elapsed),
+    lineToEnemy:
+      c.benched || c.downed
+        ? true
+        : lineClear(c.tile, foe.tile, (tx, ty) => grid.isWalkable(tx, ty)),
   });
   const state = (): CombatState => ({
     phase,
@@ -622,6 +650,7 @@ const createEncounter = ({
       desiredTile: foe.desiredTile ? copy(foe.desiredTile) : null,
       approaching: foe.approach !== null,
       targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? threatTarget()?.id ?? null,
+      reachTiles: foeReach,
     },
     party: owned.map(publicCombatant),
     reserveId: owned.find((c) => c.benched)?.id ?? null,
