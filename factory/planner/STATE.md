@@ -1296,3 +1296,4 @@ Sweep/QA/Retro/Reset done at midnight (retro 2026-09-10 written; briefing 169; n
 
 ## 2026-09-11 07:00Z — lights_on fired (run open, as the rule wants); ended clean by me after the alarm
 Note for #302's follow-up: at 07:00:03Z the run still showed ended=null/outcome=null — the server's lights_on end did not close it (or runs later than the alarm); the Planner ended it after lights_on, which is the documented action and satisfies the rule. Check the guard's timing in a sweep. Morning: host restart now (tool schema), then act on Dru's answers (164 reserve placement, 168 pacing dial) → arena units; diorama-all-angles; creatures-own-movement.
+- 07:02Z host restarted (wake channel pid 33702; pak_publish_artifact.kind visible). No overnight replies from Dru (164, 168 open). Day: diorama-all-angles lead spawned (brief /tmp/wyld-leads/diorama-all-angles/brief.md, 2 issues: measure, thicken); creatures-own-movement after it (same package); arena follow-ups wait on Dru.
