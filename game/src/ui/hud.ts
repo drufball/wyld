@@ -145,9 +145,10 @@ const createHud = (
         ...(state.party ?? []).map(({ individual, name }) => {
           const combatant = state.combat?.party.find((c) => c.id === individual.id);
           const button = control(
-            `${name}\n${combatant?.benched ? 'Reserve' : individual.speciesId}`,
+            `${name}\n${combatant?.benched ? 'Reserve' : individual.temperament}`,
             combatant?.benched ? undefined : () => actions.selectCreature?.(individual.id),
           );
+          button.title = individual.speciesId;
           button.style.flex = '1 1 0';
           button.style.minWidth = '0';
           button.setAttribute('aria-pressed', String(state.selection === individual.id));
@@ -199,7 +200,7 @@ const createHud = (
           () => actions.swap?.(),
         );
         const detail = document.createElement('small');
-        detail.textContent = shrugsOffLine(speciesById(reserve.individual.speciesId)!.hide);
+        detail.textContent = `${reserve.individual.temperament} · ${shrugsOffLine(speciesById(reserve.individual.speciesId)!.hide)}`;
         detail.style.cssText = 'display:block;font-size:9px;line-height:10px';
         button.append(detail);
         button.dataset.swap = '';

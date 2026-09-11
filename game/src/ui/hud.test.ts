@@ -88,6 +88,13 @@ describe('thumb HUD', () => {
     hud.update(state([creature('a'), creature('b')]));
     expect(document.querySelectorAll('[data-party-id]')).toHaveLength(2);
   });
+  it('shows the temperament word on a party card', () => {
+    const hud = createHud(false, document.body);
+    hud.update(state([creature('Barrow')]));
+    const card = document.querySelector('[data-party-id="Barrow"]');
+    expect(card?.textContent).toBe('Barrow\nSteady');
+    expect(card?.getAttribute('title')).toBe('loamox');
+  });
   it("marks the selected creature's card", () => {
     const hud = createHud(false, document.body);
     hud.update(state(undefined, 'a'));
@@ -240,14 +247,14 @@ describe('thumb HUD', () => {
     const hud = createHud(false, document.body, { swap: () => swapped.push('swap') });
     hud.update({ ...state(party), combat });
     const button = document.querySelector('[data-swap]') as HTMLButtonElement;
-    expect(button.textContent).toBe('Swap · Pipshrugs off Surge');
+    expect(button.textContent).toBe('Swap · PipSteady · shrugs off Surge');
     expect(button.style.minWidth).toBe('44px');
     expect(button.style.height).toBe('44px');
     button.click();
     expect(swapped).toEqual(['swap']);
   });
 
-  it('shows what the reserve shrugs off on the swap button', () => {
+  it("shows the reserve's temperament on the swap button", () => {
     const party = [creature('Barrow'), creature('Quill'), creature('Pip')];
     const member = (entry: (typeof party)[number], benched = false) => ({
       id: entry.individual.id,
@@ -278,7 +285,9 @@ describe('thumb HUD', () => {
         flashes: [],
       },
     });
-    expect(document.querySelector('[data-swap] small')?.textContent).toBe('shrugs off Surge');
+    expect(document.querySelector('[data-swap] small')?.textContent).toBe(
+      'Steady · shrugs off Surge',
+    );
   });
 
   it('disables the swap button while its cooldown runs', () => {

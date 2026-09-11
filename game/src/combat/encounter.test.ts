@@ -65,28 +65,69 @@ const driveIdleParty = (
   subject: ReturnType<typeof setup>,
   seconds: number,
   player = { x: 0, y: 0 },
+  speeds: Record<string, number> = {},
+  onTick: (before: Record<string, Point>, ticks: number) => void = () => undefined,
 ) => {
   const positions: Record<string, Point> = {};
-  for (let tick = 0; tick < seconds * 60; tick += 1) {
+  let tick = 0;
+  for (; tick < seconds * 60 && subject.state().phase === 'fight'; tick += 1) {
     for (const combatant of subject.state().party) {
       const target = combatant.desiredTile;
       if (!target || combatant.benched || combatant.downed) continue;
       const current = positions[combatant.id] ?? combatant.tile;
       const distance = Math.hypot(target.x - current.x, target.y - current.y);
-      const step = Math.min(distance, arenaSpeedTilesPerSecond(4) / 60);
+      const step = Math.min(distance, arenaSpeedTilesPerSecond(speeds[combatant.id] ?? 4) / 60);
       positions[combatant.id] = {
         x: current.x + ((target.x - current.x) / (distance || 1)) * step,
         y: current.y + ((target.y - current.y) / (distance || 1)) * step,
       };
     }
+    const before = Object.fromEntries(
+      subject.state().party.map(({ id, tile }) => [id, { ...tile }]),
+    );
     subject.update(1 / 60, positions, player);
+    onTick(before, tick + 1);
     for (const combatant of subject.state().party)
       if (!combatant.benched && !combatant.downed) positions[combatant.id] = combatant.tile;
   }
-  return positions;
+  return { positions, ticks: tick };
 };
 
 describe('combat encounter', () => {
+  it('resolves a fight with zero taps and every active creature moving at least three tiles', () => {
+    const party = [member('loamox'), member('bramblehog'), member('thornwren')];
+    let seed = 331;
+    const subject = setup({
+      party,
+      rng: () => (seed = (seed * 1_664_525 + 1_013_904_223) >>> 0) / 2 ** 32,
+      reserve: '',
+      enemy: antlerback(),
+      enemyTile: { x: 0, y: -6 },
+      player: { x: 0, y: 0 },
+      partyTiles: {
+        loamox: { x: -5, y: 5 },
+        bramblehog: { x: 5, y: 5 },
+        thornwren: { x: 0, y: -3 },
+      },
+    });
+    const paths = Object.fromEntries(party.map(({ id }) => [id, 0]));
+    const { ticks } = driveIdleParty(
+      subject,
+      60,
+      { x: 0, y: 0 },
+      Object.fromEntries(party.map(({ id, stats }) => [id, stats.speed])),
+      (before) => {
+        for (const combatant of subject.state().party) {
+          paths[combatant.id]! += distanceForTest(before[combatant.id]!, combatant.tile);
+        }
+      },
+    );
+    // Simulated at 60 Hz: Barrow 8.12, Quill 17.84, Pip 3.06 tiles; resolved in 20.05 s.
+    expect(Object.values(paths).every((path) => path >= 3)).toBe(true);
+    expect(subject.state().phase).not.toBe('fight');
+    expect(ticks / 60).toBeLessThan(60);
+  });
+
   it('moves an idle party by temperament with no taps', () => {
     const subject = setup({
       party: [member('loamox'), member('bramblehog'), member('thornwren')],
