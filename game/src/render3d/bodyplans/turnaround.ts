@@ -10,12 +10,14 @@ export const TURNAROUND_YAWS = {
   threeQuarter: (3 * Math.PI) / 4,
 } as const;
 export const PIXELS_PER_TILE = 160;
+export const SIDE_FILL_MIN = 0.45;
 const CANVAS_SIZE = PIXELS_PER_TILE * 5;
 
 export type Silhouette = {
   width: number;
   height: number;
   area: number;
+  fill: number;
   headArea: number | null;
 };
 export type Turnaround = Record<keyof typeof TURNAROUND_YAWS, Silhouette>;
@@ -105,7 +107,9 @@ const bounds = (coverage: Uint8Array) => {
     maxY = Math.max(maxY, y);
     area += 1;
   });
-  return { width: area ? maxX - minX + 1 : 0, height: area ? maxY - minY + 1 : 0, area };
+  const width = area ? maxX - minX + 1 : 0;
+  const height = area ? maxY - minY + 1 : 0;
+  return { width, height, area, fill: area ? area / (width * height) : 0 };
 };
 
 export const measureObjectSilhouette = (group: THREE.Object3D): Silhouette => {
@@ -140,6 +144,8 @@ export const isThin = (turnaround: Turnaround): { thin: boolean; reasons: string
   const areaRatio = turnaround.side.area / turnaround.front.area;
   if (widthRatio < 0.45) reasons.push(`side width ${widthRatio.toFixed(2)} of front`);
   if (areaRatio < 0.55) reasons.push(`side area ${areaRatio.toFixed(2)} of front`);
+  if (turnaround.side.fill < SIDE_FILL_MIN)
+    reasons.push(`side fill ${turnaround.side.fill.toFixed(2)}`);
   if (turnaround.side.headArea !== null && turnaround.front.headArea !== null) {
     const headRatio = turnaround.side.headArea / turnaround.front.headArea;
     if (headRatio < 0.5) reasons.push(`side head area ${headRatio.toFixed(2)} of front`);
@@ -149,8 +155,8 @@ export const isThin = (turnaround: Turnaround): { thin: boolean; reasons: string
 
 export const formatTurnaroundTable = (rows: Record<string, Turnaround>): string => {
   const lines = [
-    '| Species | Angle | Width px | Height px | Area px | Head px | Thin? |',
-    '| --- | --- | ---: | ---: | ---: | ---: | --- |',
+    '| Species | Angle | Width px | Height px | Area px | Fill | Head px | Thin? |',
+    '| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |',
   ];
   for (const data of allSpecies()) {
     const turnaround = rows[data.id];
@@ -160,7 +166,7 @@ export const formatTurnaroundTable = (rows: Record<string, Turnaround>): string 
       const thin =
         angle === 'side' && assessment.thin ? `yes — ${assessment.reasons.join('; ')}` : '—';
       lines.push(
-        `| ${data.name} | ${angle === 'threeQuarter' ? 'three-quarter' : angle} | ${silhouette.width} | ${silhouette.height} | ${silhouette.area} | ${silhouette.headArea ?? '—'} | ${thin} |`,
+        `| ${data.name} | ${angle === 'threeQuarter' ? 'three-quarter' : angle} | ${silhouette.width} | ${silhouette.height} | ${silhouette.area} | ${silhouette.fill.toFixed(2)} | ${silhouette.headArea ?? '—'} | ${thin} |`,
       );
     }
   }

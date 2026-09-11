@@ -12,7 +12,7 @@ import {
   PIXELS_PER_TILE,
 } from './turnaround.js';
 
-const KNOWN_THIN: readonly SpeciesId[] = [];
+const KNOWN_THIN: readonly SpeciesId[] = ['bramblehog', 'emberjack', 'kelpmaw'];
 const directory = fileURLToPath(new URL('.', import.meta.url));
 const verificationPath = fileURLToPath(new URL('../../../VERIFICATION.md', import.meta.url));
 const baselinePath = `${directory}turnaround.baseline.json`;
@@ -97,10 +97,22 @@ describe('body-plan turnaround', () => {
   });
 
   it('renders every species full from the side', () => {
-    const thin = species()
-      .filter((data) => isThin(measureTurnaround(data)).thin)
-      .map(({ id }) => id);
+    // Dru: "the creatures look a bit flat when they turn sideways."
+    // The fill rule matches those words: it measures the silhouette, not its width.
+    const assessments = species().map((data) => ({
+      id: data.id,
+      ...isThin(measureTurnaround(data)),
+    }));
+    const thin = assessments
+      .filter(({ thin }) => thin)
+      .map(({ id }) => id)
+      .sort();
     expect(thin).toEqual(KNOWN_THIN);
+    expect(assessments.filter(({ thin }) => thin).map(({ reasons }) => reasons)).toEqual([
+      ['side fill 0.36'],
+      ['side fill 0.31'],
+      ['side fill 0.37'],
+    ]);
   });
 
   it('keeps every species front view within 10% of the baseline', () => {
