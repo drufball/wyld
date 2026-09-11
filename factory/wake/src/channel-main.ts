@@ -3,13 +3,13 @@ import { fileURLToPath } from 'node:url';
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createLogger } from '@wyld/shared';
 
 import packageMetadata from '../package.json' with { type: 'json' };
 import {
   CHANNEL_INSTRUCTIONS,
   createDaemonPost,
   createDeliveryLoop,
-  createStreamLogger,
   parseClaimResponse,
   registerPakTools,
 } from './channel.js';
@@ -18,7 +18,7 @@ import { createToolReloader } from './reload.js';
 const wakePort = process.env.WAKE_PORT ?? '8788';
 const wakeSecret = process.env.WAKE_SECRET ?? '';
 const wakeUrl = `http://127.0.0.1:${wakePort}`;
-const channelLog = createStreamLogger(process.stderr);
+const channelLog = createLogger(process.stderr);
 
 const mcp = new Server(
   { name: 'wake', version: packageMetadata.version },

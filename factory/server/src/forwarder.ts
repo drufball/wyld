@@ -1,12 +1,10 @@
-import type { Event } from '@wyld/shared';
-
-import { log, type LogContext } from './logger.js';
+import { log, type Event, type Logger } from '@wyld/shared';
 
 export type WakeForwarderDependencies = {
   wakeUrl?: string;
   wakeSecret?: string;
   fetch?: typeof globalThis.fetch;
-  logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
+  logger?: Logger;
 };
 
 export function createWakeForwarder(dependencies: WakeForwarderDependencies) {

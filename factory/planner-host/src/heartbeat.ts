@@ -1,4 +1,4 @@
-import type { Logger } from './logger.js';
+import type { Logger } from '@wyld/shared';
 
 export type HeartbeatState = { turnInFlight: boolean; lastTurnAt: string | null };
 

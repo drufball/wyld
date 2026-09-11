@@ -1,7 +1,7 @@
 import { OpsReport } from '@wyld/shared';
 import { readConfig } from './config.js';
 import { readGithubStatus } from './github.js';
-import { log } from './logger.js';
+import { log } from '@wyld/shared';
 import { readTokensToday } from './usage.js';
 import { runWatchdog } from './watchdog.js';
 

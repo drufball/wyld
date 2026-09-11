@@ -18,7 +18,7 @@ import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import { ensureMechanicalBriefing } from './catchup.js';
 import type { Config } from './config.js';
-import { formatIssues } from './validation.js';
+import { formatIssues } from '@wyld/shared';
 import { compareRumbles } from './rumbles.js';
 import { artifacts, chainMessages, chains, demos, events, presence, quests } from './schema.js';
 

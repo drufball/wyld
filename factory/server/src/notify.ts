@@ -1,4 +1,4 @@
-import { log, type LogContext } from './logger.js';
+import { log, type Logger } from '@wyld/shared';
 
 export type NotifyOptions = { tags?: string[]; click?: string; priority?: number };
 export type Notifier = (title: string, message: string, options?: NotifyOptions) => void;
@@ -7,7 +7,7 @@ export function createNotifier(dependencies: {
   ntfyUrl?: string;
   topic: string;
   fetch?: typeof globalThis.fetch;
-  logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
+  logger?: Logger;
 }): Notifier {
   const logger = dependencies.logger ?? log;
   if (dependencies.ntfyUrl === undefined) {

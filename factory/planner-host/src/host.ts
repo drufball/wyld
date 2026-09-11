@@ -13,7 +13,7 @@ import type { Config } from './config.js';
 import { renderBatch } from './framing.js';
 import type { HeartbeatState } from './heartbeat.js';
 import { createInputQueue } from './input-queue.js';
-import type { Logger } from './logger.js';
+import type { Logger } from '@wyld/shared';
 import type { QueuedMessage, QueueClient } from './queue.js';
 
 export const DEFAULT_FIRST_MESSAGE =

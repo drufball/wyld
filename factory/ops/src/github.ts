@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 
 import { z } from 'zod';
 
-import { log } from './logger.js';
+import { log } from '@wyld/shared';
 
 const execFileAsync = promisify(execFile);
 

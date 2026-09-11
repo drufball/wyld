@@ -342,44 +342,51 @@ describe('planner host', () => {
   });
 
   it('does not queue a claimed id twice', async () => {
-    const prompts: string[] = [];
-    const result = defer();
-    const query = (({ prompt }: { prompt: AsyncIterable<SDKUserMessage> }) =>
-      (async function* () {
-        const iterator = prompt[Symbol.asyncIterator]();
-        prompts.push((await iterator.next()).value!.message.content as string);
-        await result.promise;
-        yield {
-          type: 'result',
-          subtype: 'success',
-          is_error: false,
-          num_turns: 1,
-        } as unknown as SDKMessage;
-        const next = await Promise.race([
-          iterator.next(),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 20)),
-        ]);
-        if (next) prompts.push(next.value!.message.content as string);
-        await new Promise(() => undefined);
-      })() as Query) as never;
-    const claim = vi.fn().mockResolvedValue({ messages: [row(7)], dropped: [] });
-    const host = createHost({
-      config: readConfig({ WAKE_SECRET: 'x'.repeat(16) }),
-      queue: { claim, ack: vi.fn(async () => undefined) },
-      log: vi.fn(),
-      query,
-      readSession: () => 'session',
-      adapterExists: () => true,
-      setTimeout: vi.fn(() => 1) as never,
-      clearTimeout: vi.fn() as never,
-    });
-    host.start();
-    await vi.waitFor(() => expect(prompts).toHaveLength(1));
-    await host.tick();
-    result.resolve();
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    expect(prompts).toHaveLength(1);
-    host.stop();
+    vi.useFakeTimers();
+    try {
+      const prompts: string[] = [];
+      const result = defer();
+      const query = (({ prompt }: { prompt: AsyncIterable<SDKUserMessage> }) =>
+        (async function* () {
+          const iterator = prompt[Symbol.asyncIterator]();
+          prompts.push((await iterator.next()).value!.message.content as string);
+          await result.promise;
+          yield {
+            type: 'result',
+            subtype: 'success',
+            is_error: false,
+            num_turns: 1,
+          } as unknown as SDKMessage;
+          const nextPromise = Promise.race([
+            iterator.next(),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 20)),
+          ]);
+          await vi.advanceTimersByTimeAsync(20);
+          const next = await nextPromise;
+          if (next) prompts.push(next.value!.message.content as string);
+          await new Promise(() => undefined);
+        })() as Query) as never;
+      const claim = vi.fn().mockResolvedValue({ messages: [row(7)], dropped: [] });
+      const host = createHost({
+        config: readConfig({ WAKE_SECRET: 'x'.repeat(16) }),
+        queue: { claim, ack: vi.fn(async () => undefined) },
+        log: vi.fn(),
+        query,
+        readSession: () => 'session',
+        adapterExists: () => true,
+        setTimeout: vi.fn(() => 1) as never,
+        clearTimeout: vi.fn() as never,
+      });
+      host.start();
+      await vi.waitFor(() => expect(prompts).toHaveLength(1));
+      await host.tick();
+      result.resolve();
+      await vi.advanceTimersByTimeAsync(30);
+      expect(prompts).toHaveLength(1);
+      host.stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('ignores a buffered result from a superseded query generation', async () => {

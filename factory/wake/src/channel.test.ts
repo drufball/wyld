@@ -1,13 +1,13 @@
 import { PassThrough } from 'node:stream';
 
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { createLogger } from '@wyld/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   createDaemonPost,
   createToolRegistry,
   createDeliveryLoop,
-  createStreamLogger,
   notificationFor,
   parseClaimResponse,
   registerPakTools,
@@ -128,7 +128,7 @@ describe('Wake channel delivery', () => {
     const stderr = new PassThrough();
     let output = '';
     stderr.on('data', (chunk) => (output += String(chunk)));
-    createStreamLogger(stderr)('debug', 'retry');
+    createLogger(stderr)('debug', 'retry');
     expect(output).toContain('"msg":"retry"');
   });
 
