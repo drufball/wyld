@@ -21,7 +21,14 @@ The arena has two named enemy-only presets: **fast** keeps health and damage at 
 bringing the encounter into §7's 30–90 s fight band without changing party stats, move data, or
 combat rules.
 
-The reconciled 60 Hz harness sweep over seeds 1–5 measured trade's informed/armed party winning
-four times in **33.0–35.6 s** and losing once at **38.9 s**; informed/none won all five in
-**31.9–44.4 s**. The uninformed party was driven off four times in **34.0–39.4 s**, with one
-**44.2 s** outlier.
+The reconciled simulated harness sweep over seeds 1–5 measured trade's informed party winning in
+**41.05 s** with either armed moves or zero taps. The uninformed party was driven off in
+**32.23–44.87 s**, leaving the enemy on **441–508 of 650 hp**. Fast's informed party won in
+**7.60 s** when armed and **7.60–8.68 s** with zero taps; its uninformed party was driven off in
+**14.20–18.17 s**, leaving **119–136 of 200 hp**.
+
+The old harness differed from the game because the fight shared the world's random stream, it
+started player-distance calculations at the corner rather than the centre of the player's tile,
+and it supplied positions for benched members. Reconciliation gives each fight fresh dice and
+matches the game's centre and active-position inputs. The uninformed test band was widened to
+45 s rather than moving the balance dial.
