@@ -1318,3 +1318,4 @@ Run 34588808152 (c377a43, docs push): "The job was not started because recent ac
 - 11:12Z Dru (176): make the repo public? Scan: no credentials in tree or history; .factory ignored. Exposed if public: tailnet hostnames + ntfy topic in STATE (tailnet-only), Codex env id (identifier), the spec + STATE + retros (design and Dru's notes). Answered; his call. If public: Actions free; branch protection possible without Pro.
 - 11:14Z Dru (178): keep move gating; softer (probability falls with distance, mashing works) + obvious → arena lead Unit A: move-tap authority floor 0.15, loud refusal, tests. Walk curve unchanged.
 - 11:16Z Dru (168): "less about enemy power, more about health — it just isn't dying" → Unit B lever order: enemy hp scale first. Lead told.
+- 11:18Z Dru (164): reserve deploys as soon as ONE goes down — two slots always filled. Lead told (Unit A).
