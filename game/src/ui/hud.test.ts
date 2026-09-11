@@ -393,12 +393,14 @@ describe('thumb HUD', () => {
       benched,
       cooldowns: {},
       desiredTile: null,
+      threat: 0,
+      lineToEnemy: true,
       grace: 0,
     });
     const combat: CombatState = {
       phase: 'fight',
       elapsed: 1,
-      enemy: member(creature('enemy')),
+      enemy: { ...member(creature('enemy')), reachTiles: 1.25 },
       party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
       reserveId: 'reserve',
       autoDeployIn: options.autoDeployIn ?? null,
@@ -459,6 +461,8 @@ describe('thumb HUD', () => {
       benched,
       cooldowns: {},
       desiredTile: null,
+      threat: 0,
+      lineToEnemy: true,
       grace: 0,
     });
     const hud = createHud(false, document.body, {
@@ -470,7 +474,7 @@ describe('thumb HUD', () => {
       combat: {
         phase: 'fight',
         elapsed: 1,
-        enemy: combatant(creature('enemy')),
+        enemy: { ...combatant(creature('enemy')), reachTiles: 1.25 },
         party: [combatant(party[0]!), combatant(party[1]!), combatant(party[2]!, true)],
         reserveId: 'reserve',
         autoDeployIn: null,

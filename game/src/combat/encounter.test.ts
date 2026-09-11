@@ -515,7 +515,7 @@ describe('combat encounter', () => {
         stats: { ...individual.stats, vigor: 1 },
       })),
       enemy: fighter('enemy', [sweep]),
-      partyTiles: { one: { x: 1, y: 0 }, two: { x: 1, y: 0.5 }, three: { x: 1, y: 1 } },
+      partyTiles: { one: { x: 1, y: 0 }, two: { x: 1, y: 0.5 }, three: { x: 0.5, y: 0.5 } },
       enemyTile: { x: 0, y: 0 },
     });
     subject.useMove('enemy', sweep.id, 'one');
@@ -980,6 +980,40 @@ describe('combat encounter', () => {
     expect(subject.state().enemy.targetId).toBe('far');
     expect(subject.state().party.find(({ id }) => id === 'far')!.threat).toBeGreaterThan(0);
     expect(subject.state().party.find(({ id }) => id === 'near')!.threat).toBe(0);
+  });
+
+  it('never makes a creature in grace the threat pick', () => {
+    const impact = move('Strike', 'Impact');
+    const knockout = { ...move('Arc'), power: 30, speed: -10 };
+    const subject = setup({
+      party: [
+        fighter('one', [impact], { stats: { vigor: 1, power: 3, speed: 4, focus: 40 } }),
+        fighter('two', [impact], { stats: { vigor: 10_000, power: 3, speed: 4, focus: 40 } }),
+        fighter('three', [impact], { stats: { vigor: 10_000, power: 3, speed: 4, focus: 40 } }),
+      ],
+      enemy: fighter('enemy', [knockout], {
+        stats: { vigor: 10_000, power: 3, speed: 4, focus: 40 },
+      }),
+      partyTiles: { one: { x: 1, y: 0 }, two: { x: 1.5, y: 0.5 }, three: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 0, y: 0 },
+      reserve: 'one',
+    });
+
+    subject.useMove('three', impact.id);
+    expect(subject.useMove('enemy', knockout.id, 'two')).toBe(true);
+    expect(
+      advance(subject, 1).some(({ type, attacker }) => type === 'hit' && attacker === 'three'),
+    ).toBe(true);
+    expect(subject.state().party.find(({ id }) => id === 'three')!.threat).toBeGreaterThan(0);
+    expect(subject.swap('three')).toBe(true);
+    advance(subject, 2);
+    expect(subject.state().party.find(({ id }) => id === 'one')!.downed).toBe(true);
+    expect(subject.swap('one')).toBe(true);
+
+    expect(subject.state().party.find(({ id }) => id === 'three')!.grace).toBeGreaterThan(0);
+    expect(subject.state().enemy.targetId).toBe('two');
+    subject.update(1.01);
+    expect(subject.state().enemy.targetId).toBe('three');
   });
 
   it('makes a shove a taunt: a small Impact hit outdraws a bigger Cut hit', () => {
