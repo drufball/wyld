@@ -8,6 +8,7 @@ import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES, separate } from './spacing.js';
 import { formation, TAP_OVERRIDE_SECONDS, type Wander } from './formation.js';
 import { authority, hears } from './authority.js';
+import { pickTarget, pruneHits, threatOf, type ThreatHit } from './threat.js';
 import {
   canAfford,
   cooldownFor,
@@ -34,6 +35,7 @@ type Combatant = {
   benched: boolean;
   cooldowns: Record<string, { remaining: number; total: number }>;
   desiredTile: Point | null;
+  threat: number;
   approaching?: boolean;
   overrideRemaining?: number;
 };
@@ -42,7 +44,7 @@ type Flash = { id: string; at: Point; remaining: number };
 type CombatState = {
   phase: 'fight' | 'win' | 'driven-off';
   elapsed: number;
-  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining'> & {
+  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining' | 'threat'> & {
     targetId?: string | null;
   };
   party: Combatant[];
@@ -124,6 +126,7 @@ const make = (individual: Individual, tile: Point, benched = false): Internal =>
     individual.repertoire.map((m) => [m.id, { remaining: 0, total: cooldownFor(m) }]),
   ),
   desiredTile: null,
+  threat: 0,
   overrideRemaining: 0,
   individual,
   pending: null,
@@ -162,6 +165,7 @@ const createEncounter = ({
   const flights: Flight[] = [],
     flashes: Flash[] = [];
   const events: CombatEvent[] = [];
+  const threatHits: ThreatHit[] = [];
   const all = (): Internal[] => [...owned, foe];
   const byId = (id: string): Internal | undefined => all().find((c) => c.id === id);
   const hide = (c: Internal): HideType => speciesById(c.speciesId)?.hide ?? 'Hide';
@@ -176,6 +180,8 @@ const createEncounter = ({
     );
     const final = damage(move, attacker.individual.stats.power, hide(target));
     target.hp = Math.max(0, target.hp - final);
+    if (target === foe && owned.includes(attacker))
+      threatHits.push({ attacker: attacker.id, final, force: move.force, at: elapsed });
     flashes.push({ id: `${++serial}`, at: copy(target.tile), remaining: 0.16 });
     events.push({
       type: 'hit',
@@ -245,6 +251,31 @@ const createEncounter = ({
     owned
       .filter((c) => !c.downed && !c.benched)
       .sort((a, b) => distance(a.tile, foe.tile) - distance(b.tile, foe.tile))[0];
+  const reachable = (candidate: Internal): boolean =>
+    grid.isWalkable(Math.floor(candidate.tile.x), Math.floor(candidate.tile.y)) &&
+    (() => {
+      const from = { tx: Math.floor(foe.tile.x), ty: Math.floor(foe.tile.y) },
+        to = { tx: Math.floor(candidate.tile.x), ty: Math.floor(candidate.tile.y) };
+      return (
+        findPath(grid, from, to, {
+          minTx: Math.min(from.tx, to.tx) - 16,
+          maxTx: Math.max(from.tx, to.tx) + 16,
+          minTy: Math.min(from.ty, to.ty) - 16,
+          maxTy: Math.max(from.ty, to.ty) + 16,
+          diagonals: true,
+        }) !== null
+      );
+    })();
+  const threatTarget = (): Internal | undefined => {
+    const standingOwned = owned.filter((c) => !c.downed && !c.benched);
+    const id = pickTarget(
+      standingOwned.map((c) => ({ id: c.id, distance: distance(c.tile, foe.tile) })),
+      threatHits,
+      elapsed,
+      (candidateId) => reachable(byId(candidateId)!),
+    );
+    return id ? byId(id) : undefined;
+  };
   const beginMove = (a: Internal, target: Internal, move: Move): void => {
     a.desiredTile = null;
     a.approach = null;
@@ -258,7 +289,7 @@ const createEncounter = ({
   const useMove = (attackerId: string, moveId: string, targetId?: string): boolean => {
     if (phase !== 'fight') return false;
     const a = byId(attackerId),
-      target = targetId ? byId(targetId) : a === foe ? nearest() : foe;
+      target = targetId ? byId(targetId) : a === foe ? threatTarget() : foe;
     const move = a?.individual.repertoire.find((m) => m.id === moveId);
     if (
       !a ||
@@ -294,10 +325,10 @@ const createEncounter = ({
   const chooseEnemyMove = (): Move | undefined => {
     return enemyMoveCandidates()[0];
   };
-  const enemyMoveCandidates = (): Move[] => {
-    const target = nearest();
-    if (!target) return [];
-    const d = distance(foe.tile, target.tile);
+  const enemyMoveCandidates = (cachedTarget?: Internal): Move[] => {
+    const enemyTarget = cachedTarget ?? threatTarget();
+    if (!enemyTarget) return [];
+    const d = distance(foe.tile, enemyTarget.tile);
     const candidates = foe.individual.repertoire.filter(
       (m) =>
         foe.cooldowns[m.id]!.remaining <= 0 &&
@@ -367,6 +398,7 @@ const createEncounter = ({
     playerTile = latestPlayerTile;
     if (phase !== 'fight') return events;
     elapsed += dt;
+    threatHits.splice(0, threatHits.length, ...pruneHits(threatHits, elapsed));
     swapCooldownRemaining = Math.max(0, swapCooldownRemaining - dt);
     for (const c of all()) {
       const p = pointFrom(positions, c.id);
@@ -490,9 +522,9 @@ const createEncounter = ({
         flights.splice(i, 1);
       }
     }
-    const target = nearest();
-    if (target) partyWipedElapsed = null;
-    if (!foe.downed && !foe.pending && target) {
+    const enemyTarget = threatTarget();
+    if (enemyTarget) partyWipedElapsed = null;
+    if (!foe.downed && !foe.pending && enemyTarget) {
       foe.hold = Math.max(0, foe.hold - dt);
       if (foe.hold <= 0) {
         if (foe.approach) {
@@ -507,14 +539,16 @@ const createEncounter = ({
               beginMove(foe, approachTarget, foe.approach.move);
           }
         } else {
-          moveEnemy(dt, target.tile);
-          const used = enemyMoveCandidates().some((move) => useMove(foe.id, move.id, target.id));
+          moveEnemy(dt, enemyTarget.tile);
+          const used = enemyMoveCandidates(enemyTarget).some((move) =>
+            useMove(foe.id, move.id, enemyTarget.id),
+          );
           if (!used) foe.hold = 1;
         }
       }
     }
     const allOwnedDown = owned.every((c) => c.downed);
-    if (!foe.downed && !target && allOwnedDown) {
+    if (!foe.downed && !enemyTarget && allOwnedDown) {
       partyWipedElapsed = (partyWipedElapsed ?? 0) + dt;
       const drivenOffRange = metresToTiles(2);
       if (!foe.pending) moveEnemy(dt, playerTile, drivenOffRange);
@@ -568,6 +602,7 @@ const createEncounter = ({
     benched: c.benched,
     cooldowns: structuredClone(c.cooldowns),
     desiredTile: c.desiredTile ? copy(c.desiredTile) : null,
+    threat: threatOf(threatHits, c.id, elapsed),
     approaching: c.approach !== null,
     overrideRemaining: Math.max(0, c.overrideUntil - elapsed),
   });
@@ -586,7 +621,7 @@ const createEncounter = ({
       downed: foe.downed,
       desiredTile: foe.desiredTile ? copy(foe.desiredTile) : null,
       approaching: foe.approach !== null,
-      targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? nearest()?.id ?? null,
+      targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? threatTarget()?.id ?? null,
     },
     party: owned.map(publicCombatant),
     reserveId: owned.find((c) => c.benched)?.id ?? null,

@@ -148,8 +148,8 @@ describe('combat animation', () => {
       subject.update(dt);
       executedCount += events.filter(({ type }) => type === 'executed').length;
     }
-    // This deterministic 60 Hz fight executes 13 moves.
-    expect(executedCount).toBe(13);
+    // Threat targeting changes the enemy's target sequence, so this deterministic fight now executes 11 moves.
+    expect(executedCount).toBe(11);
     expect(subject.startedCount()).toBe(executedCount);
   });
 });

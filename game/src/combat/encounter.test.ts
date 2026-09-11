@@ -720,6 +720,106 @@ describe('combat encounter', () => {
     expect(subject.nearestTarget()).toBe('near');
   });
 
+  it('turns the enemy on the creature that hurt it most, not the nearest', () => {
+    const bolt = move('Bolt', 'Cut');
+    const subject = setup({
+      party: [fighter('near', [move('Strike')]), fighter('far', [bolt])],
+      partyTiles: { near: { x: 4, y: 0 }, far: { x: 0, y: 0 } },
+      enemyTile: { x: 6, y: 0 },
+      reserve: '',
+    });
+    expect(subject.state().enemy.targetId).toBe('near');
+    expect(subject.useMove('far', bolt.id)).toBe(true);
+    expect(
+      advance(subject, 2).some(({ type, attacker }) => type === 'hit' && attacker === 'far'),
+    ).toBe(true);
+    expect(subject.state().enemy.targetId).toBe('far');
+    expect(subject.state().party.find(({ id }) => id === 'far')!.threat).toBeGreaterThan(0);
+    expect(subject.state().party.find(({ id }) => id === 'near')!.threat).toBe(0);
+  });
+
+  it('makes a shove a taunt: a small Impact hit outdraws a bigger Cut hit', () => {
+    const cut = { ...move('Strike', 'Cut'), id: 'cut', power: 2 };
+    const shove = { ...move('Bolt', 'Impact'), id: 'shove', power: 1 };
+    const subject = setup({
+      party: [fighter('heavy', [cut]), fighter('shover', [shove])],
+      partyTiles: { heavy: { x: 1, y: 0 }, shover: { x: 0, y: 3 } },
+      enemyTile: { x: 0, y: 0 },
+      reserve: '',
+    });
+    subject.useMove('heavy', cut.id);
+    subject.useMove('shover', shove.id);
+    const hits = advance(subject, 1).filter(
+      ({ type, attacker }) => type === 'hit' && (attacker === 'heavy' || attacker === 'shover'),
+    );
+    const heavyHit = hits.find(({ attacker }) => attacker === 'heavy')!;
+    const shoveHit = hits.find(({ attacker }) => attacker === 'shover')!;
+    expect(shoveHit.final).toBeLessThan(heavyHit.final!);
+    const state = subject.state();
+    const heavy = state.party.find(({ id }) => id === 'heavy')!;
+    const shover = state.party.find(({ id }) => id === 'shover')!;
+    expect(shover.threat).toBeGreaterThan(heavy.threat);
+    expect(distanceForTest(shover.tile, state.enemy.tile)).toBeGreaterThan(
+      distanceForTest(heavy.tile, state.enemy.tile),
+    );
+    expect(state.enemy.targetId).toBe('shover');
+  });
+
+  it('lets threat fade back to the nearest after six seconds', () => {
+    const bolt = move('Bolt', 'Cut');
+    const subject = setup({
+      party: [fighter('near', [move('Strike')]), fighter('far', [bolt])],
+      partyTiles: { near: { x: 4, y: 0 }, far: { x: 0, y: 0 } },
+      enemyTile: { x: 6, y: 0 },
+      reserve: '',
+    });
+    subject.useMove('far', bolt.id);
+    expect(
+      advance(subject, 2).some(({ type, attacker }) => type === 'hit' && attacker === 'far'),
+    ).toBe(true);
+    expect(subject.state().enemy.targetId).toBe('far');
+    advance(subject, 6.1);
+    expect(subject.state().enemy.targetId).toBe('near');
+    expect(subject.state().party.every(({ threat }) => threat === 0)).toBe(true);
+  });
+
+  it('lands a hit on the highest-threat creature from fight-start distance', () => {
+    const bolt = move('Bolt', 'Cut');
+    const strike = move('Strike');
+    const sturdy = { vigor: 100_000, power: 3, speed: 4, focus: 40 };
+    const subject = setup({
+      party: [
+        fighter('near', [strike], { stats: sturdy }),
+        fighter('far', [bolt], { stats: sturdy }),
+      ],
+      enemy: fighter('enemy', [strike], {
+        temperament: 'Bold',
+        stats: { vigor: 70, power: 3, speed: 4, focus: 40 },
+      }),
+      partyTiles: { near: { x: 1, y: 0 }, far: { x: 0, y: 2 } },
+      enemyTile: { x: 0, y: -6 },
+      reserve: '',
+    });
+    const positions = { near: { x: 1, y: 0 }, far: { x: 0, y: 2 } };
+    subject.useMove('far', bolt.id);
+    const openingEvents = subject.update(2, positions);
+    const enemyHit = [...openingEvents, ...advance(subject, 10, positions)].find(
+      ({ type, attacker }) => type === 'hit' && attacker === 'enemy',
+    );
+    expect(enemyHit?.target).toBe('far');
+  });
+
+  it('keeps targeting the nearest while nobody has struck', () => {
+    const subject = setup({
+      party: [fighter('far', [move('Strike')]), fighter('near', [move('Strike')])],
+      partyTiles: { far: { x: 0, y: 0 }, near: { x: 4, y: 0 } },
+      reserve: '',
+    });
+    advance(subject, 3);
+    expect(subject.state().enemy.targetId).toBe('near');
+    expect(subject.state().party.every(({ threat }) => threat === 0)).toBe(true);
+  });
+
   it('retargets when the nearest is downed', () => {
     const strike = { ...move('Strike'), power: 20 };
     const subject = setup({
