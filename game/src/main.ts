@@ -43,15 +43,10 @@ import { blit } from './render2d/blit.js';
 import { createCanvas } from './render2d/canvas.js';
 import { pixelScale, screenCols, screenRows } from './render2d/canvas.js';
 import { lookFromQuery } from './render3d/look.js';
-import { createDiorama } from './render3d/renderer.js';
-import { createVignette } from './render3d/vignette.js';
 import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
 import { spriteOrigin } from './render2d/placement.js';
 import { combatBarOrigin } from './render2d/combat-bar.js';
-import { anchorFor } from './render3d/anchors.js';
-import { cameraTarget, orthoFrustum } from './render3d/camera.js';
-import { TIER_LENGTH_TILES } from './render3d/bodyplans/index.js';
 import { createTileRenderer } from './render2d/tiles.js';
 import { buildState } from './state.js';
 import { createControlsCard, shouldIgnoreArenaKey } from './ui/controls.js';
@@ -96,6 +91,7 @@ document.body.style.cssText =
   'height:100%;margin:0;overflow:hidden;display:grid;place-items:center;background:#19212d';
 const scenario = scenarioFromQuery(location.search);
 const look = lookFromQuery(location.search);
+const render3dLoading = look === 'diorama' ? import('./render3d/diorama.js') : null;
 const synthetic = scenario?.synthetic === true;
 const seed = resolveSeed(),
   rng = createRng(seed),
@@ -129,9 +125,11 @@ const trackPlacements = placeTracks({
 });
 let activeFlatScreen = { sx: 0, sy: 0 };
 let flatRect: DOMRect;
-const dioramaView =
-  look === 'diorama' ? createDiorama(grid, synthetic ? [] : trackPlacements) : null;
-const vignette = look === 'diorama' ? createVignette() : null;
+const render3d = render3dLoading ? await render3dLoading : null;
+const dioramaView = render3d
+  ? render3d.createDiorama(grid, synthetic ? [] : trackPlacements)
+  : null;
+const vignette = render3d ? render3d.createVignette() : null;
 const flatView =
   look === 'flat'
     ? createCanvas({
@@ -799,18 +797,18 @@ const render = (alpha = 1) => {
     });
     if (combat) {
       const rect = dioramaView!.rect;
-      const target = cameraTarget(screen, player.sliding, view.cols, view.rows);
-      const frustum = orthoFrustum(view.cols, view.rows);
+      const target = render3d!.cameraTarget(screen, player.sliding, view.cols, view.rows);
+      const frustum = render3d!.orthoFrustum(view.cols, view.rows);
       const stackIndexes = new Map<string, number>();
       tellOverlay.sync(
         tellStack.list().flatMap((tell) => {
           const combatant = combat.party.find(({ id }) => id === tell.targetId) ?? combat.enemy;
           if (!combatant) return [];
           const definition = speciesById(combatant.speciesId)!;
-          const anchor = anchorFor(
+          const anchor = render3d!.anchorFor(
             combatant.tile.x,
             combatant.tile.y,
-            TIER_LENGTH_TILES[definition.tier] * 0.6,
+            render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
             target,
             frustum,
             rect,

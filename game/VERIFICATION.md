@@ -307,3 +307,14 @@ A CDP screenshot was captured 5.0 s into the fight (played).
 
 - **Simulated:** With seed 7 at five tiles, two identical encounters produced the same ten-order heard sequence, containing both heard and ignored results.
 - **Simulated:** The order firing test fired the armed move at authority 1, yielded to the chooser at authority 1/6, and resumed the armed move at authority 1.
+
+## Bundle
+
+- **Before (`build output`):** total JavaScript 758.33 kB (gzip 212.61 kB); entry `index-GT0BnVRM.js` 758.33 kB (gzip 212.61 kB); no diorama chunk.
+- **After (`build output`):** total JavaScript 758.97 kB (gzip 214.20 kB); entry `index-BLIZ7zjX.js` 126.73 kB (gzip 46.80 kB); shared `time-C8kFassO.js` 123.61 kB (gzip 36.29 kB); diorama `diorama-SQs-Giv7.js` 508.63 kB (gzip 131.11 kB). The built `index.html` modulepreloads the shared chunk.
+- **Finding (`build output`):** Vite's 500 kB warning is still printed for the lazy `diorama-*.js` chunk, whose 509 kB includes 483 kB of three.js. It is loaded only for the diorama look, and `chunkSizeWarningLimit` is deliberately untouched.
+- **PASS (`simulated`) — the entry and its shared chunk contain no three.js or render3d module:** the programmatic Vite build found neither Three.js nor render3d sources other than `look.ts` in either chunk, found no `THREE.WebGLRenderer` warning literal there, and measured their combined code below Vite's 500 kB warning threshold.
+- **PASS (`simulated`) — the diorama chunk is a separate dynamic import that carries three.js and render3d:** the programmatic Vite build found exactly one dynamic diorama chunk containing all render3d sources other than `look.ts`, Three.js, and the renderer warning literal.
+- **PASS (`simulated`) — the flat look never requests the diorama chunk:** headless Chromium observed exactly the entry and its shared chunk, no diorama request, `THREE.WebGLRenderer` in neither fetched body, `window.__wyld`, and no import- or Three.js-related page error after one further second.
+- **PASS (`simulated`) — the diorama look requests the diorama chunk after the entry and shared chunk:** headless Chromium observed exactly those three scripts with the diorama chunk last, `window.__wyld`, and `THREE.WebGLRenderer` only in the fetched diorama body.
+- **PASS (`simulated`) — the default look is diorama and loads the chunk too:** without a `look` query parameter, headless Chromium observed exactly the entry, its shared chunk, and the diorama chunk last, with `THREE.WebGLRenderer` only in the fetched diorama body.
