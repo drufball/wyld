@@ -1320,3 +1320,4 @@ Run 34588808152 (c377a43, docs push): "The job was not started because recent ac
 - 11:16Z Dru (168): "less about enemy power, more about health — it just isn't dying" → Unit B lever order: enemy hp scale first. Lead told.
 - 11:18Z Dru (164): reserve deploys as soon as ONE goes down — two slots always filled. Lead told (Unit A).
 - 11:20Z Dru (177): Swap wasn't hidden — tray rows/buttons ambiguous, taps silent → Unit A UX: reserve card = swap control, no silent taps (reason lines), labelled rows, drop the Swap button. Lead told.
+- 11:24Z Dru (176): designs public fine; wants working notes hidden — STATE.md can move to .factory (ignored) going forward, but history has every version; options given: accept / fresh repo from a snapshot (loses issues+PRs, re-point Codex env, webhook, tokens) / fix billing and stay private. Awaiting his pick.
