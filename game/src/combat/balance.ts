@@ -1,10 +1,10 @@
 type ArenaBalance = { enemyHealthScale: number; enemyPowerScale: number };
 
-// Fast measured a 9 s informed win and 13 s uninformed loss; trade measured a 34 s win and 27–39 s loss.
-// Switch between those played arena dials only by changing the ARENA_BALANCE line below.
+// Harness seeds 1–5: trade informed/armed wins at 33.0–35.6 s (4/5) and loses at 38.9 s.
+// Informed/none wins at 31.9–44.4 s (5/5); uninformed is driven off at 34.0–44.2 s (4/5).
 const ARENA_BALANCE_PRESETS: Readonly<Record<'fast' | 'trade', ArenaBalance>> = {
   fast: { enemyHealthScale: 1, enemyPowerScale: 1 },
-  trade: { enemyHealthScale: 2.5, enemyPowerScale: 0.4 },
+  trade: { enemyHealthScale: 3.25, enemyPowerScale: 0.42 },
 };
 const ARENA_BALANCE: ArenaBalance = ARENA_BALANCE_PRESETS.trade;
 const scaledEnemyHealth = (vigor: number, balance = ARENA_BALANCE): number =>

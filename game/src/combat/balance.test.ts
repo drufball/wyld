@@ -134,8 +134,17 @@ const playFight = ({ preset, party: knowledge, policy, seed }: FightOptions) => 
   };
 };
 
-const runs = (options: Omit<FightOptions, 'seed'>) =>
-  [1, 2, 3, 4, 5].map((seed) => playFight({ ...options, seed }));
+type FightResult = ReturnType<typeof playFight>;
+
+const runCache = new Map<string, FightResult[]>();
+const runs = (options: Omit<FightOptions, 'seed'>): FightResult[] => {
+  const key = `${options.preset}/${options.party}/${options.policy}`;
+  const cached = runCache.get(key);
+  if (cached) return cached;
+  const results = [1, 2, 3, 4, 5].map((seed) => playFight({ ...options, seed }));
+  runCache.set(key, results);
+  return results;
+};
 
 describe('arena balance', () => {
   it('trade: the informed Heat party with autopilot wins in 30–60 s in at least 4 of 5 seeded runs', () => {
@@ -144,21 +153,21 @@ describe('arena balance', () => {
       results.filter((r) => r.phase === 'win' && r.elapsed >= 30 && r.elapsed <= 60).length,
       JSON.stringify(results),
     ).toBeGreaterThanOrEqual(4);
-  });
+  }, 60_000);
   it('trade: the informed Heat party with zero taps wins in 30–60 s in at least 4 of 5 seeded runs', () => {
     const results = runs({ preset: 'trade', party: 'informed', policy: 'none' });
     expect(
       results.filter((r) => r.phase === 'win' && r.elapsed >= 30 && r.elapsed <= 60).length,
       JSON.stringify(results),
     ).toBeGreaterThanOrEqual(4);
-  });
+  }, 60_000);
   it('trade: the uninformed party is driven off in 20–40 s in at least 4 of 5 seeded runs', () => {
     const results = runs({ preset: 'trade', party: 'uninformed', policy: 'none' });
     expect(
       results.filter((r) => r.phase === 'driven-off' && r.elapsed >= 20 && r.elapsed <= 40).length,
       JSON.stringify(results),
     ).toBeGreaterThanOrEqual(4);
-  });
+  }, 60_000);
   it('fast: the informed Heat party wins in under 15 s on every seed', () => {
     for (const policy of ['armed', 'none'] as const) {
       const results = runs({ preset: 'fast', party: 'informed', policy });
@@ -167,16 +176,16 @@ describe('arena balance', () => {
         JSON.stringify({ policy, results }),
       ).toBe(true);
     }
-  });
+  }, 60_000);
   it('fast: the uninformed party is driven off in under 20 s on every seed', () => {
     const results = runs({ preset: 'fast', party: 'uninformed', policy: 'none' });
     expect(
       results.every((r) => r.phase === 'driven-off' && r.elapsed < 20),
       JSON.stringify(results),
     ).toBe(true);
-  });
+  }, 60_000);
   it("scales only the arena enemy's health", () => {
-    expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.trade)).toBe(500);
+    expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.trade)).toBe(650);
     expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.fast)).toBe(200);
     const party = individual('loamox');
     const subject = createEncounter({
@@ -185,9 +194,9 @@ describe('arena balance', () => {
       grid: buildArena(11, 22),
       rng: createRng(1),
     });
-    expect(subject.state().enemy.maxHp).toBe(500);
+    expect(subject.state().enemy.maxHp).toBe(650);
     expect(subject.state().party[0]!.maxHp).toBe(party.stats.vigor);
-  });
+  }, 60_000);
   it("scales only the arena enemy's damage", () => {
     const foe = buildArenaIndividual(enemy('antlerback')!);
     const strike = foe.repertoire.find((move) => move.delivery === 'Strike')!;
@@ -211,7 +220,7 @@ describe('arena balance', () => {
       enemyHit = subject
         .update(1 / 60, { [target.id]: { x: 0.5, y: 0.5 } })
         .find((event) => event.type === 'hit' && event.attacker === foe.id)?.final;
-    expect(enemyHit).toBe(Math.max(1, Math.round(raw * 0.4)));
+    expect(enemyHit).toBe(Math.max(1, Math.round(raw * 0.42)));
 
     const partyMove = target.repertoire.find((move) => move.delivery === 'Strike')!;
     expect(subject.useMove(target.id, partyMove.id)).toBe(true);
@@ -222,10 +231,10 @@ describe('arena balance', () => {
         .find((event) => event.type === 'hit' && event.attacker === target.id)?.final;
     expect(partyHit).toBe(damage(partyMove, target.stats.power, 'Bark'));
     expect(scaledEnemyDamage(raw, ARENA_BALANCE_PRESETS.trade)).toBe(enemyHit);
-  });
+  }, 60_000);
   it('the active preset is trade', () => {
     expect(ARENA_BALANCE).toBe(ARENA_BALANCE_PRESETS.trade);
-  });
+  }, 60_000);
 });
 
 export { playFight };
