@@ -1,7 +1,11 @@
 import type { Temperament } from '../creatures/species.js';
 import { MIN_SEPARATION_TILES } from './spacing.js';
+import { lineClear } from './line.js';
 
 const TAP_OVERRIDE_SECONDS = 4;
+// One tile of buffer plus the ground a heavy covers during a Bolt windup.
+const KITE_MARGIN_TILES = 2.25;
+const KITE_STEP_TILES = 1;
 type Point = { x: number; y: number };
 type Wander = { target: Point; remaining: number } | null;
 type FormationCreature = {
@@ -11,12 +15,13 @@ type FormationCreature = {
   home: Point;
   hp: number;
   maxHp: number;
-  moves: readonly { rangeTiles: number; power: number; ready: boolean }[];
+  moves: readonly { rangeTiles: number; power: number; ready: boolean; ranged: boolean }[];
   wander: Wander;
 };
 type FormationInput = {
   player: Point;
   enemy: Point;
+  enemyReach: number;
   creatures: readonly FormationCreature[];
   isWalkable(tx: number, ty: number): boolean;
   rng(): number;
@@ -33,6 +38,36 @@ const unit = (from: Point, to: Point, fallback = { x: 0, y: -1 }): Point => {
   return d ? { x: dx / d, y: dy / d } : fallback;
 };
 
+const kiteFrom = (
+  creature: FormationCreature,
+  enemy: Point,
+  enemyReach: number,
+  isWalkable: (tx: number, ty: number) => boolean,
+): Point | null => {
+  const ranged = creature.moves.filter((move) => move.ranged);
+  const currentDistance = distance(creature.tile, enemy);
+  if (ranged.length === 0 || currentDistance > enemyReach + KITE_MARGIN_TILES) return null;
+  const away = unit(enemy, creature.tile);
+  for (const angle of [0, Math.PI / 4, -Math.PI / 4]) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const direction = { x: away.x * cos - away.y * sin, y: away.x * sin + away.y * cos };
+    const candidate = centre({
+      x: creature.tile.x + direction.x * KITE_STEP_TILES,
+      y: creature.tile.y + direction.y * KITE_STEP_TILES,
+    });
+    const candidateDistance = distance(candidate, enemy);
+    if (
+      isWalkable(Math.floor(candidate.x), Math.floor(candidate.y)) &&
+      candidateDistance > currentDistance &&
+      candidateDistance <= Math.max(...ranged.map((move) => move.rangeTiles)) &&
+      lineClear(candidate, enemy, isWalkable)
+    )
+      return candidate;
+  }
+  return centre(creature.tile);
+};
+
 const formation = (input: FormationInput): FormationOutput => {
   const u = unit(input.player, input.enemy);
   const steady = { x: input.player.x + u.x * 2.5, y: input.player.y + u.y * 2.5 };
@@ -40,12 +75,13 @@ const formation = (input: FormationInput): FormationOutput => {
     let target: Point;
     let wander = creature.wander;
     if (creature.temperament === 'Skittish') {
+      const kite = kiteFrom(creature, input.enemy, input.enemyReach, input.isWalkable);
       const holds =
         distance(creature.tile, input.player) <= 2 &&
         distance(creature.tile, input.enemy) >= distance(input.player, input.enemy);
-      target = holds
-        ? creature.tile
-        : { x: input.player.x - u.x * 1.5, y: input.player.y - u.y * 1.5 };
+      target =
+        kite ??
+        (holds ? creature.tile : { x: input.player.x - u.x * 1.5, y: input.player.y - u.y * 1.5 });
     } else if (
       creature.temperament === 'Steady' ||
       (creature.temperament === 'Bold' && creature.hp < creature.maxHp * 0.3) ||
@@ -129,5 +165,5 @@ const formation = (input: FormationInput): FormationOutput => {
   });
 };
 
-export { formation, TAP_OVERRIDE_SECONDS };
+export { formation, kiteFrom, KITE_MARGIN_TILES, KITE_STEP_TILES, TAP_OVERRIDE_SECONDS };
 export type { FormationCreature, FormationInput, FormationOutput, Point, Wander };

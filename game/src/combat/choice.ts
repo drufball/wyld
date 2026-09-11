@@ -14,6 +14,7 @@ type ChoiceMove = {
   cooldownTotal: number;
   cooldownRemaining: number;
   affordable: boolean;
+  needsLine: boolean;
 };
 type ChoiceCreature = {
   id: string;
@@ -23,6 +24,7 @@ type ChoiceCreature = {
   benched: boolean;
   busy: boolean;
   armed: boolean;
+  lineToEnemy: boolean;
   moves: readonly ChoiceMove[];
 };
 type ChoiceInput = {
@@ -43,6 +45,7 @@ type ChoiceCombatState = {
     benched: boolean;
     windup: unknown | null;
     approaching?: boolean;
+    lineToEnemy?: boolean;
     cooldowns: Record<string, { remaining: number }>;
   }[];
 };
@@ -69,6 +72,7 @@ const choiceInputFrom = (
       benched: combatant.benched,
       busy: combatant.windup !== null || combatant.approaching === true,
       armed: armed(combatant.id),
+      lineToEnemy: combatant.lineToEnemy ?? true,
       moves: individual.repertoire.map((move) => ({
         id: move.id,
         power: move.power,
@@ -76,6 +80,7 @@ const choiceInputFrom = (
         cooldownTotal: cooldownFor(move),
         cooldownRemaining: combatant.cooldowns[move.id]?.remaining ?? 0,
         affordable: canAfford(combatant.focus, move),
+        needsLine: move.delivery === 'Bolt' || move.delivery === 'Arc',
       })),
     };
   }),
@@ -99,6 +104,7 @@ const createChooser = (rng: () => number) => {
         (move) =>
           move.cooldownRemaining <= 0 &&
           move.affordable &&
+          (!move.needsLine || creature.lineToEnemy) &&
           Math.hypot(creature.tile.x - input.enemy.tile.x, creature.tile.y - input.enemy.tile.y) <=
             move.rangeTiles,
       );

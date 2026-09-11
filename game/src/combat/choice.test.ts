@@ -15,6 +15,7 @@ const move = (id: string, overrides: Partial<ChoiceMove> = {}): ChoiceMove => ({
   cooldownTotal: 2,
   cooldownRemaining: 0,
   affordable: true,
+  needsLine: false,
   ...overrides,
 });
 const creature = (overrides: Partial<ChoiceCreature> = {}): ChoiceCreature => ({
@@ -25,6 +26,7 @@ const creature = (overrides: Partial<ChoiceCreature> = {}): ChoiceCreature => ({
   benched: false,
   busy: false,
   armed: false,
+  lineToEnemy: true,
   moves: [move('light'), move('heavy', { power: 3 })],
   ...overrides,
 });
@@ -121,6 +123,21 @@ describe('temperament move choice', () => {
     expect(chooser.choose(far)).toEqual([]);
     far.enemy.tile.x = 1.2;
     expect(chooser.choose(far)).toEqual([{ creatureId: 'owned', moveId: 'strike' }]);
+  });
+
+  it('never chooses a Bolt or Arc without a line to the enemy', () => {
+    const owned = creature({
+      lineToEnemy: false,
+      moves: [move('bolt', { needsLine: true }), move('arc', { needsLine: true })],
+    });
+    expect(createChooser(() => 0).choose(input(owned))).toEqual([]);
+  });
+
+  it('still chooses a contact move without a line', () => {
+    const owned = creature({ lineToEnemy: false, moves: [move('strike')] });
+    expect(createChooser(() => 0).choose(input(owned))).toEqual([
+      { creatureId: 'owned', moveId: 'strike' },
+    ]);
   });
 
   it('is deterministic for the same rng sequence', () => {

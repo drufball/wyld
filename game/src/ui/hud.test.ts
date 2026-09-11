@@ -148,6 +148,8 @@ describe('thumb HUD', () => {
       cooldowns: { 'loamox:move': { remaining: 1, total: 2 } },
       desiredTile: null,
       threat: 0,
+      lineToEnemy: true,
+      reachTiles: 1.25,
     };
     const combat: CombatState = {
       phase: 'fight',
@@ -194,6 +196,8 @@ describe('thumb HUD', () => {
       cooldowns: {},
       desiredTile: null,
       threat: 0,
+      lineToEnemy: true,
+      reachTiles: 1.25,
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -248,6 +252,8 @@ describe('thumb HUD', () => {
       cooldowns: {},
       desiredTile: null,
       threat: 0,
+      lineToEnemy: true,
+      reachTiles: 1.25,
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -287,6 +293,8 @@ describe('thumb HUD', () => {
       cooldowns: {},
       desiredTile: null,
       threat: 0,
+      lineToEnemy: true,
+      reachTiles: 1.25,
     });
     const hud = createHud(false, document.body);
     hud.update({
@@ -325,6 +333,8 @@ describe('thumb HUD', () => {
       cooldowns: {},
       desiredTile: null,
       threat: 0,
+      lineToEnemy: true,
+      reachTiles: 1.25,
     });
     hud.update({
       ...state(party),

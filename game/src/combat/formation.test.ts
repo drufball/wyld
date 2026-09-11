@@ -8,7 +8,7 @@ const creature = (overrides: Partial<FormationCreature> = {}): FormationCreature
   home: { x: 5.5, y: 5.5 },
   hp: 10,
   maxHp: 10,
-  moves: [{ rangeTiles: 2, power: 1, ready: true }],
+  moves: [{ rangeTiles: 2, power: 1, ready: true, ranged: false }],
   wander: null,
   ...overrides,
 });
@@ -16,6 +16,7 @@ const run = (creatures: FormationCreature[], overrides: Partial<FormationInput> 
   formation({
     player: { x: 0.5, y: 0.5 },
     enemy: { x: 0.5, y: -9.5 },
+    enemyReach: 1.25,
     creatures,
     isWalkable: () => true,
     rng: () => 0,
@@ -45,8 +46,8 @@ describe('formation', () => {
         temperament: 'Bold',
         tile: { x: 0.5, y: 0.5 },
         moves: [
-          { rangeTiles: 5, power: 9, ready: true },
-          { rangeTiles: 2, power: 10, ready: false },
+          { rangeTiles: 5, power: 9, ready: true, ranged: false },
+          { rangeTiles: 2, power: 10, ready: false, ranged: false },
         ],
       }),
     ])[0]!.tile;
@@ -96,6 +97,73 @@ describe('formation', () => {
       });
     };
     expect(once()).toEqual(once());
+  });
+  it('backs a Skittish Bolt-holder one tile off when the enemy comes within reach', () => {
+    expect(
+      run(
+        [
+          creature({
+            temperament: 'Skittish',
+            tile: { x: 0.5, y: 0.5 },
+            moves: [{ rangeTiles: 10, power: 1, ready: true, ranged: true }],
+          }),
+        ],
+        { enemy: { x: 0.5, y: -1.5 }, player: { x: 5.5, y: 5.5 } },
+      )[0]!.tile,
+    ).toEqual({ x: 0.5, y: 1.5 });
+  });
+  it('holds instead of stepping out of its own range', () => {
+    expect(
+      run(
+        [
+          creature({
+            temperament: 'Skittish',
+            tile: { x: 0.5, y: 0.5 },
+            moves: [{ rangeTiles: 2.2, power: 1, ready: true, ranged: true }],
+          }),
+        ],
+        { enemy: { x: 0.5, y: -1.5 }, player: { x: 0.5, y: 1.5 } },
+      )[0]!.tile,
+    ).toEqual({ x: 0.5, y: 0.5 });
+  });
+  it('steps aside when straight back is a rock', () => {
+    const tile = run(
+      [
+        creature({
+          temperament: 'Skittish',
+          tile: { x: 0.5, y: 0.5 },
+          moves: [{ rangeTiles: 10, power: 1, ready: true, ranged: true }],
+        }),
+      ],
+      {
+        enemy: { x: 0.5, y: -1.5 },
+        player: { x: 0.5, y: 1.5 },
+        isWalkable: (x, y) => !(x === 0 && y === 1),
+      },
+    )[0]!.tile;
+    expect(tile).toEqual({ x: -0.5, y: 1.5 });
+  });
+  it('does not kite without a ranged move', () => {
+    expect(
+      run([creature({ temperament: 'Skittish', tile: { x: 0.5, y: 0.5 } })], {
+        enemy: { x: 0.5, y: -1.5 },
+        player: { x: 0.5, y: 1.5 },
+      })[0]!.tile,
+    ).toEqual({ x: 0.5, y: 3.5 });
+  });
+  it('does not kite while the enemy is out of reach', () => {
+    expect(
+      run(
+        [
+          creature({
+            temperament: 'Skittish',
+            tile: { x: 0.5, y: 0.5 },
+            moves: [{ rangeTiles: 10, power: 1, ready: true, ranged: true }],
+          }),
+        ],
+        { enemy: { x: 0.5, y: -8.5 }, player: { x: 0.5, y: 1.5 } },
+      )[0]!.tile,
+    ).toEqual({ x: 0.5, y: 3.5 });
   });
   it("never gives two creatures the same tile, nor the player's, the enemy's or a rock", () => {
     const cs = [0, 1, 2].map((i) => creature({ id: `${i}`, tile: { x: 4 + i, y: 4 } }));

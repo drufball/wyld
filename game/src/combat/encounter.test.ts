@@ -133,6 +133,128 @@ describe('authority', () => {
 });
 
 describe('combat encounter', () => {
+  it('refuses a Bolt whose line crosses a rock', () => {
+    const blocked = setup({
+      party: [fighter('owned', [move('Bolt')])],
+      partyTiles: { owned: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 6.5, y: 0.5 },
+      grid: { isWalkable: (x, y) => !(x === 3 && y === 0) },
+      reserve: '',
+    });
+    expect(blocked.useMove('owned', 'bolt')).toBe(false);
+    expect(advance(blocked, 3).some((event) => event.type === 'executed')).toBe(false);
+
+    const clear = setup({
+      party: [fighter('owned', [move('Bolt')])],
+      partyTiles: { owned: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 6.5, y: 0.5 },
+      grid: { isWalkable: (x, y) => !(x === 3 && y === 1) },
+      reserve: '',
+    });
+    expect(clear.useMove('owned', 'bolt')).toBe(true);
+  });
+
+  it('refuses an Arc whose line crosses a rock', () => {
+    const subject = setup({
+      party: [fighter('owned', [move('Arc')])],
+      partyTiles: { owned: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 6.5, y: 0.5 },
+      grid: { isWalkable: (x, y) => !(x === 3 && y === 0) },
+      reserve: '',
+    });
+    expect(subject.useMove('owned', 'arc')).toBe(false);
+  });
+
+  it("holds the enemy's Bolt while a rock is in the way", () => {
+    const makeSubject = (rockY: number) =>
+      setup({
+        party: [fighter('owned', [move('Strike')])],
+        enemy: fighter('enemy', [move('Bolt')], {
+          temperament: 'Steady',
+          stats: { vigor: 70, power: 3, speed: 4, focus: 40 },
+        }),
+        partyTiles: { owned: { x: 0.5, y: 0.5 } },
+        enemyTile: { x: 6.5, y: 0.5 },
+        grid: { isWalkable: (x, y) => !(x === 3 && y === rockY) },
+        reserve: '',
+      });
+    expect(
+      advance(makeSubject(0), 3).some(
+        (event) => event.type === 'executed' && event.attacker === 'enemy',
+      ),
+    ).toBe(false);
+    expect(
+      advance(makeSubject(1), 3).some(
+        (event) => event.type === 'executed' && event.attacker === 'enemy',
+      ),
+    ).toBe(true);
+  });
+
+  it('reports whether each creature has a line to the enemy', () => {
+    const makeSubject = (rockY: number) =>
+      setup({
+        partyTiles: { owned: { x: 0.5, y: 0.5 } },
+        enemyTile: { x: 6.5, y: 0.5 },
+        grid: { isWalkable: (x, y) => !(x === 3 && y === rockY) },
+        reserve: '',
+      });
+    expect(makeSubject(0).state().party[0]!.lineToEnemy).toBe(false);
+    expect(makeSubject(1).state().party[0]!.lineToEnemy).toBe(true);
+    expect(makeSubject(1).state().enemy.reachTiles).toBe(1.25);
+  });
+
+  it('keeps a heavy off a kiting Bolt-holder for ten seconds while the kiter lands three Bolts', () => {
+    const start = { x: 0.5, y: 3.5 };
+    const heavyStart = { x: 0.5, y: -0.5 };
+    const kiter = fighter('kiter', [move('Bolt')], {
+      temperament: 'Skittish',
+      stats: { vigor: 45, power: 3, speed: 7, focus: 45 },
+    });
+    const subject = setup({
+      party: [kiter],
+      enemy: fighter('heavy', [move('Strike')], {
+        temperament: 'Bold',
+        stats: { vigor: 200, power: 5, speed: 4, focus: 55 },
+      }),
+      partyTiles: { kiter: start },
+      enemyTile: heavyStart,
+      player: { x: 0.5, y: 1.5 },
+      rng: createRng(339),
+      reserve: '',
+    });
+    const { events } = driveIdleParty(subject, 10, { x: 0.5, y: 1.5 }, { kiter: 7 }, () => {
+      const state = subject.state();
+      if (distanceForTest(state.party[0]!.tile, state.enemy.tile) <= 3.5)
+        subject.useMove('kiter', 'bolt');
+    });
+    expect(events.some((event) => event.type === 'hit' && event.attacker === 'heavy')).toBe(false);
+    expect(
+      events.filter((event) => event.type === 'hit' && event.attacker === 'kiter').length,
+    ).toBeGreaterThanOrEqual(3);
+    expect(distanceForTest(subject.state().party[0]!.tile, heavyStart)).toBeGreaterThan(
+      distanceForTest(start, heavyStart),
+    );
+  });
+
+  it('still lands a Strike from fight-start distance on a creature that stands its ground', () => {
+    const subject = setup({
+      party: [fighter('owned', [move('Strike')], { temperament: 'Steady' })],
+      enemy: fighter('enemy', [move('Strike')], {
+        temperament: 'Bold',
+        stats: { vigor: 70, power: 3, speed: 4, focus: 40 },
+      }),
+      partyTiles: { owned: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 0.5, y: -5.5 },
+      player: { x: 0.5, y: 3.5 },
+      reserve: '',
+    });
+    expect(
+      driveIdleParty(subject, 10).events.some(
+        (event) => event.type === 'hit' && event.attacker === 'enemy',
+      ),
+    ).toBe(true);
+  });
+
   it('fires chosen moves without ever double-firing inside a cooldown', () => {
     const strike = move('Strike');
     const owned = fighter('owned', [strike], { temperament: 'Bold' });
