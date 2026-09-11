@@ -29,15 +29,31 @@ const entry = () => {
 };
 
 describe('production bundle', () => {
-  test('the entry chunk contains no three.js and no render3d module', { timeout: 60_000 }, () => {
-    expect(entry().moduleIds.some((id) => id.includes('/node_modules/three/'))).toBe(false);
-    expect(
-      entry().moduleIds.filter(
-        (id) => id.includes('/src/render3d/') && !id.endsWith('/src/render3d/look.ts'),
-      ),
-    ).toEqual([]);
-    expect(entry().code).not.toContain(threeWarning);
-  });
+  test(
+    'the entry and its shared chunks contain no three.js or render3d module',
+    { timeout: 60_000 },
+    () => {
+      const importedChunks = entry().imports.map((fileName) => {
+        const chunk = chunks().find((candidate) => candidate.fileName === fileName);
+        if (!chunk) throw new Error(`imported chunk not found: ${fileName}`);
+        return chunk;
+      });
+      const flatChunks = [entry(), ...importedChunks];
+
+      for (const chunk of flatChunks) {
+        expect(chunk.moduleIds.some((id) => id.includes('/node_modules/three/'))).toBe(false);
+        expect(
+          chunk.moduleIds.filter(
+            (id) => id.includes('/src/render3d/') && !id.endsWith('/src/render3d/look.ts'),
+          ),
+        ).toEqual([]);
+        expect(chunk.code).not.toContain(threeWarning);
+      }
+      expect(flatChunks.reduce((size, chunk) => size + chunk.code.length, 0)).toBeLessThan(
+        500 * 1024,
+      );
+    },
+  );
 
   test(
     'the diorama chunk is a separate dynamic import that carries three.js and render3d',
@@ -60,9 +76,4 @@ describe('production bundle', () => {
       expect(diorama.code).toContain(threeWarning);
     },
   );
-
-  test('the entry chunk is under the 500 kB warning limit', { timeout: 60_000 }, () => {
-    // This is the warning threshold Vite prints, not a budget chosen by the game.
-    expect(entry().code.length).toBeLessThan(500 * 1024);
-  });
 });
