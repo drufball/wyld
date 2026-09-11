@@ -1,6 +1,12 @@
-import { generateSprite, type SpriteFacing, type SpriteFrame } from '@wyld/sprites';
+import {
+  blitSprite,
+  generateSprite,
+  type PixelSprite,
+  type SpriteFacing,
+  type SpriteFrame,
+} from '@wyld/sprites';
 import { speciesById } from '../creatures/species.js';
-const cache = new Map<string, HTMLCanvasElement>();
+const cache = new Map<string, PixelSprite>();
 const drawCreatureSprite = (
   ctx: CanvasRenderingContext2D,
   speciesId: string,
@@ -10,27 +16,14 @@ const drawCreatureSprite = (
   y: number,
   flip = false,
 ): number => {
-  const key = `${speciesId}:${facing}:${frame}:${flip}`;
-  let canvas = cache.get(key);
-  if (!canvas) {
+  const key = `${speciesId}:${facing}:${frame}`;
+  let sprite = cache.get(key);
+  if (!sprite) {
     const data = speciesById(speciesId);
     if (!data) return 0;
-    const sprite = generateSprite(data, facing, frame);
-    canvas = document.createElement('canvas');
-    canvas.width = sprite.width;
-    canvas.height = sprite.height;
-    const target = canvas.getContext('2d')!;
-    for (let py = 0; py < sprite.height; py++)
-      for (let px = 0; px < sprite.width; px++) {
-        const index = sprite.grid[py * sprite.width + px]!;
-        if (index) {
-          target.fillStyle = sprite.palette[index]!;
-          target.fillRect(flip ? sprite.width - 1 - px : px, py, 1, 1);
-        }
-      }
-    cache.set(key, canvas);
+    sprite = generateSprite(data, facing, frame);
+    cache.set(key, sprite);
   }
-  ctx.drawImage(canvas, x, y);
-  return 1;
+  return blitSprite(ctx, sprite, sprite.palette, { x, y, flip, cache: key });
 };
 export { drawCreatureSprite };

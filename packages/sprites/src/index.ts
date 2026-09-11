@@ -20,6 +20,9 @@ const painters: Record<SpriteSpec['bodyPlan'], Painter> = {
 const generateSprite = (spec: SpriteSpec, facing: SpriteFacing, frame: SpriteFrame): PixelSprite =>
   painters[spec.bodyPlan](spec, facing, frame);
 export { generateSprite };
+export { paintSprite } from './blit.js';
+export type { BlitOptions, PaintRect } from './blit.js';
+export { blitSprite, clearSpriteCache } from './blit-canvas.js';
 export type { PixelSprite, SpriteFacing, SpriteFrame, SpriteSpec } from './types.js';
 export * from './species.js';
 export * from './validate.js';
