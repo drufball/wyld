@@ -66,7 +66,7 @@ describe('tile world', () => {
     expect(grid.tileAt(350, 170).surface).toBe('salt');
     expect(grid.tileAt(125, 225).surface).toBe('path');
   });
-  it('returns the same grid for the same seed', () => {
+  it('returns the same grid for the same seed', { timeout: 30_000 }, () => {
     const options = { propPlacements: [placement('rock')] };
     expect(fixture(options).data).toEqual(fixture(options).data);
   });

@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { species, type SpeciesData, type SpeciesId } from '../../creatures/species.js';
 import { ELEVATION, TILT_FROM_VERTICAL } from '../camera.js';
 import {
@@ -10,6 +10,7 @@ import {
   measureObjectSilhouette,
   measureTurnaround,
   PIXELS_PER_TILE,
+  type Turnaround,
 } from './turnaround.js';
 
 const KNOWN_THIN: readonly SpeciesId[] = [];
@@ -24,6 +25,15 @@ type BaselineEntry = {
   visual: SpeciesData['visual'];
 };
 type Baseline = Partial<Record<SpeciesId, BaselineEntry>>;
+
+let measured: ReadonlyMap<SpeciesId, Turnaround>;
+
+// This id-keyed memo is only safe for the canonical species list; clone tests bypass it.
+const measuredFor = (data: SpeciesData): Turnaround => {
+  const turnaround = measured.get(data.id);
+  if (!turnaround) throw new Error(`Missing turnaround measurement for ${data.id}`);
+  return turnaround;
+};
 
 const sameVisual = (data: SpeciesData, entry: BaselineEntry | undefined): boolean =>
   entry !== undefined &&
@@ -52,11 +62,12 @@ const updateBaseline = (allSpecies: readonly SpeciesData[]): Baseline => {
 const expectFrontViewsWithinBaseline = (
   allSpecies: readonly SpeciesData[],
   baseline: Baseline,
+  measure: (data: SpeciesData) => Turnaround = measureTurnaround,
 ): void => {
   for (const data of allSpecies) {
     const entry = baseline[data.id];
     if (!entry || !sameVisual(data, entry)) continue;
-    const current = measureTurnaround(data).front;
+    const current = measure(data).front;
     for (const field of ['width', 'height', 'area'] as const) {
       expect(current[field], `${data.id} ${field}`).toBeGreaterThanOrEqual(entry[field] * 0.9);
       expect(current[field], `${data.id} ${field}`).toBeLessThanOrEqual(entry[field] * 1.1);
@@ -74,16 +85,21 @@ const expectTableMatchesBaselineVisuals = (
   allSpecies: readonly SpeciesData[],
   baseline: Baseline,
   actualTable: string,
+  measure: (data: SpeciesData) => Turnaround = measureTurnaround,
 ): void => {
   const unchanged = allSpecies.filter((data) => sameVisual(data, baseline[data.id]));
   const names = new Set(unchanged.map(({ name }) => name));
-  const rows = Object.fromEntries(unchanged.map((data) => [data.id, measureTurnaround(data)]));
+  const rows = Object.fromEntries(unchanged.map((data) => [data.id, measure(data)]));
   expect(tableRowsFor(actualTable, names)).toBe(formatTurnaroundTable(rows));
 };
 
 // Regenerate the checked-in measurements with:
 // UPDATE_TURNAROUND=1 pnpm --filter @wyld/game test turnaround
 describe('body-plan turnaround', () => {
+  beforeAll(() => {
+    measured = new Map(species().map((data) => [data.id, measureTurnaround(data)]));
+  }, 30_000);
+
   it('projects a unit cube at the diorama tilt to the expected footprint', () => {
     const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
     cube.position.y = 0.5;
@@ -120,7 +136,7 @@ describe('body-plan turnaround', () => {
     // The fill rule matches those words: it measures the silhouette, not its width.
     const assessments = species().map((data) => ({
       id: data.id,
-      ...isThin(measureTurnaround(data)),
+      ...isThin(measuredFor(data)),
     }));
     const thin = assessments
       .filter(({ thin }) => thin)
@@ -132,11 +148,11 @@ describe('body-plan turnaround', () => {
   it('keeps every species front view within 10% of the baseline', () => {
     const baseline =
       process.env.UPDATE_TURNAROUND === '1' ? updateBaseline(species()) : readBaseline();
-    expectFrontViewsWithinBaseline(species(), baseline);
+    expectFrontViewsWithinBaseline(species(), baseline, measuredFor);
   });
 
-  it('matches the turnaround table in VERIFICATION.md', () => {
-    const rows = new Map(species().map((data) => [data.id, measureTurnaround(data)]));
+  it('matches the turnaround table in VERIFICATION.md', { timeout: 30_000 }, () => {
+    const rows = new Map(species().map((data) => [data.id, measuredFor(data)]));
     const table = formatTurnaroundTable(Object.fromEntries(rows));
     const start = '<!-- turnaround:start -->';
     const end = '<!-- turnaround:end -->';
@@ -153,7 +169,7 @@ describe('body-plan turnaround', () => {
       updateBaseline(species());
       return;
     }
-    expectTableMatchesBaselineVisuals(species(), readBaseline(), measuredBlock.trim());
+    expectTableMatchesBaselineVisuals(species(), readBaseline(), measuredBlock.trim(), measuredFor);
   });
 
   it('ignores a species whose shape changed in the workshop', () => {
