@@ -141,19 +141,63 @@ const createHud = (
       'flex:0 0 auto;writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;text-transform:uppercase;color:#f4efd9;pointer-events:none';
     return label;
   };
-  const applyNotice = (button: HTMLButtonElement, id: string, notice: HudState['notice']): void => {
-    if (!notice || notice.id !== id) return;
-    button.dataset.notice = notice.text;
+  const yoursLabel = trayLabel('Yours');
+  const movesLabel = trayLabel('Moves');
+  type CachedControl = {
+    button: HTMLButtonElement;
+    label: Text;
+    detail: HTMLElement;
+    bars: HTMLSpanElement;
+    hp: HTMLElement;
+    focus: HTMLElement;
+    action: () => void;
+  };
+  const partyControls = new Map<string, CachedControl>();
+  const moveControls = new Map<string, CachedControl>();
+  let partyOrder: string | null = null;
+  let moveOrder: string | null = null;
+  const write = <K extends keyof CSSStyleDeclaration>(
+    style: CSSStyleDeclaration,
+    property: K,
+    value: CSSStyleDeclaration[K],
+  ): void => {
+    if (style[property] !== value) style[property] = value;
+  };
+  const text = (node: Node, value: string): void => {
+    if (node.textContent !== value) node.textContent = value;
+  };
+  const property = <T extends object, K extends keyof T>(target: T, key: K, value: T[K]): void => {
+    if (target[key] !== value) target[key] = value;
+  };
+  const attribute = (element: Element, name: string, value?: string): void => {
+    if (value === undefined) {
+      if (element.hasAttribute(name)) element.removeAttribute(name);
+    } else if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+  };
+  const cachedControl = (action: () => void): CachedControl => {
+    const button = control('');
+    const label = document.createTextNode('');
     const detail = document.createElement('small');
-    detail.dataset.noticeText = '';
-    detail.textContent = notice.text;
     detail.style.cssText = 'display:block;font-size:9px;line-height:10px';
-    button.querySelector('small')?.remove();
-    button.append(detail);
-    if (notice.refused) {
-      button.dataset.refused = '';
-      button.style.outline = '3px dashed #b3261e';
-    }
+    const bars = document.createElement('span');
+    bars.style.cssText = 'display:block;width:52px;height:5px;background:#292b25';
+    const hp = document.createElement('i');
+    hp.style.cssText = 'display:block;width:0%;height:2px;background:#bd7132';
+    const focus = document.createElement('i');
+    focus.style.cssText = 'display:block;width:0%;height:2px;background:#4e8292';
+    bars.append(hp, focus);
+    button.replaceChildren(label);
+    const entry = { button, label, detail, bars, hp, focus, action };
+    button.addEventListener('click', () => entry.action());
+    return entry;
+  };
+  const applyNotice = (entry: CachedControl, id: string, notice: HudState['notice']): boolean => {
+    const active = notice?.id === id;
+    attribute(entry.button, 'data-notice', active ? notice.text : undefined);
+    attribute(entry.button, 'data-refused', active && notice.refused ? '' : undefined);
+    attribute(entry.detail, 'data-notice-text', active ? '' : undefined);
+    if (active) text(entry.detail, notice.text);
+    return active;
   };
   return {
     update(state: HudState): void {
@@ -165,93 +209,162 @@ const createHud = (
         : (state.regionName ?? '');
       region.hidden = !state.regionName && !state.biome;
       updateDetectionTarget({ bar: targetBar, fill: eyeFill, outline: eyeOutline }, state.target);
-      partyCards.replaceChildren(
-        trayLabel('Yours'),
-        ...(state.party ?? []).map(({ individual, name }) => {
-          const combatant = state.combat?.party.find((c) => c.id === individual.id);
-          const standingReserve = Boolean(combatant?.benched && !combatant.downed);
-          const button = control(
-            standingReserve
-              ? `Tap to bring ${name} in`
-              : `${name}\n${combatant?.downed ? 'Down' : individual.temperament}`,
-            standingReserve
-              ? () => actions.swapIn?.(individual.id)
-              : combatant?.downed
-                ? undefined
-                : () => actions.selectCreature?.(individual.id),
-          );
-          button.title = individual.speciesId;
-          button.style.flex = '1 1 0';
-          button.style.minWidth = '0';
-          if (standingReserve) button.style.minWidth = '44px';
-          button.setAttribute('aria-pressed', String(state.selection === individual.id));
-          button.dataset.partyId = individual.id;
-          if (state.selection === individual.id) button.style.outline = '2px solid #bd7132';
-          if (combatant?.benched && combatant.downed) button.style.opacity = '0.45';
-          if (standingReserve) {
-            button.dataset.reserve = '';
-            const urgent =
-              state.combat!.autoDeployIn !== null ||
-              state.combat!.party.some((c) => !c.benched && c.downed);
-            const swapState = urgent
-              ? 'urgent'
-              : state.combat!.swapCooldown.remaining === 0
-                ? 'ready'
-                : 'cooldown';
-            button.dataset.swapState = swapState;
-            const detail = document.createElement('small');
-            detail.textContent =
-              state.combat!.autoDeployIn !== null
-                ? `Coming in… ${Math.ceil(state.combat!.autoDeployIn)}`
-                : `${individual.temperament} · ${shrugsOffLine(speciesById(individual.speciesId)!.hide)}`;
-            detail.style.cssText = 'display:block;font-size:9px;line-height:10px';
-            button.append(detail);
-            if (swapState === 'cooldown') {
-              button.firstChild!.textContent += ` ◷${Math.ceil(state.combat!.swapCooldown.remaining)}`;
-              button.style.background = `linear-gradient(to top,#aaa ${(state.combat!.swapCooldown.remaining / state.combat!.swapCooldown.total) * 100}%,#f4efd9ee 0)`;
-            }
+      const partyKeys = (state.party ?? []).map(({ individual }) => individual.id);
+      for (const key of partyControls.keys())
+        if (!partyKeys.includes(key)) partyControls.delete(key);
+      for (const { individual, name } of state.party ?? []) {
+        const combatant = state.combat?.party.find((c) => c.id === individual.id);
+        const standingReserve = Boolean(combatant?.benched && !combatant.downed);
+        let entry = partyControls.get(individual.id);
+        if (!entry) {
+          entry = cachedControl(() => undefined);
+          partyControls.set(individual.id, entry);
+        }
+        entry.action = standingReserve
+          ? () => actions.swapIn?.(individual.id)
+          : combatant?.downed
+            ? () => undefined
+            : () => actions.selectCreature?.(individual.id);
+        const button = entry.button;
+        let label = standingReserve
+          ? `Tap to bring ${name} in`
+          : `${name}\n${combatant?.downed ? 'Down' : individual.temperament}`;
+        property(button, 'title', individual.speciesId);
+        write(button.style, 'flex', '1 1 0');
+        write(button.style, 'minWidth', standingReserve ? '44px' : '0px');
+        attribute(button, 'aria-pressed', String(state.selection === individual.id));
+        attribute(button, 'data-party-id', individual.id);
+        write(
+          button.style,
+          'outline',
+          state.selection === individual.id ? '2px solid #bd7132' : '',
+        );
+        write(button.style, 'opacity', combatant?.benched && combatant.downed ? '0.45' : '');
+        attribute(button, 'data-reserve', standingReserve ? '' : undefined);
+        attribute(button, 'data-swap-state');
+        write(button.style, 'background', '#f4efd9ee');
+        let detail: string | undefined;
+        if (standingReserve) {
+          const urgent =
+            state.combat!.autoDeployIn !== null ||
+            state.combat!.party.some((c) => !c.benched && c.downed);
+          const swapState = urgent
+            ? 'urgent'
+            : state.combat!.swapCooldown.remaining === 0
+              ? 'ready'
+              : 'cooldown';
+          attribute(button, 'data-swap-state', swapState);
+          detail =
+            state.combat!.autoDeployIn !== null
+              ? `Coming in… ${Math.ceil(state.combat!.autoDeployIn)}`
+              : `${individual.temperament} · ${shrugsOffLine(speciesById(individual.speciesId)!.hide)}`;
+          if (swapState === 'cooldown') {
+            label += ` ◷${Math.ceil(state.combat!.swapCooldown.remaining)}`;
+            write(
+              button.style,
+              'background',
+              `linear-gradient(to top,#aaa ${(state.combat!.swapCooldown.remaining / state.combat!.swapCooldown.total) * 100}%,#f4efd9ee 0)`,
+            );
           }
-          if (combatant) {
-            const bars = document.createElement('span');
-            bars.style.cssText = 'display:block;width:52px;height:5px;background:#292b25';
-            bars.innerHTML = `<i style="display:block;width:${(combatant.hp / combatant.maxHp) * 100}%;height:2px;background:#bd7132"></i><i style="display:block;width:${(combatant.focus / combatant.maxFocus) * 100}%;height:2px;background:#4e8292"></i>`;
-            button.append(bars);
-          }
-          applyNotice(button, individual.id, state.notice);
-          return button;
-        }),
-      );
-      moves.replaceChildren(trayLabel('Moves'));
+        }
+        if (combatant) {
+          write(entry.hp.style, 'width', `${(combatant.hp / combatant.maxHp) * 100}%`);
+          write(entry.focus.style, 'width', `${(combatant.focus / combatant.maxFocus) * 100}%`);
+        }
+        const notice = applyNotice(entry, individual.id, state.notice);
+        text(entry.label, label);
+        if (notice) detail = state.notice!.text;
+        if (detail !== undefined) text(entry.detail, detail);
+        const children: Node[] = [entry.label];
+        if (detail !== undefined && !notice) children.push(entry.detail);
+        if (combatant) children.push(entry.bars);
+        if (notice) children.push(entry.detail);
+        if (
+          children.some((child, index) => button.childNodes[index] !== child) ||
+          button.childNodes.length !== children.length
+        )
+          button.replaceChildren(...children);
+        write(
+          button.style,
+          'outline',
+          notice && state.notice!.refused
+            ? '3px dashed #b3261e'
+            : state.selection === individual.id
+              ? '2px solid #bd7132'
+              : '',
+        );
+      }
+      const nextPartyOrder = partyKeys.join('\0');
+      if (partyOrder !== nextPartyOrder) {
+        partyCards.replaceChildren(
+          yoursLabel,
+          ...partyKeys.map((key) => partyControls.get(key)!.button),
+        );
+        partyOrder = nextPartyOrder;
+      }
       const selected = state.party?.find(({ individual }) => individual.id === state.selection);
+      const moveKeys = (selected?.individual.repertoire ?? []).map(({ id }) => id);
+      for (const key of moveControls.keys()) if (!moveKeys.includes(key)) moveControls.delete(key);
       for (const move of selected?.individual.repertoire ?? []) {
         const combatant = state.combat?.party.find((c) => c.id === selected?.individual.id);
         const cooldown = combatant?.cooldowns[move.id];
         const cost = deliveries[move.delivery].focus;
         const armed = state.autopilotMoveId === move.id;
-        const button = control(
+        let entry = moveControls.get(move.id);
+        if (!entry) {
+          entry = cachedControl(() => actions.useMove?.(move.id));
+          moveControls.set(move.id, entry);
+        }
+        const button = entry.button;
+        text(
+          entry.label,
           `${move.name}${armed ? ' ↻' : ''}${cooldown?.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
         );
-        button.dataset.moveId = move.id;
-        button.style.flex = '1 1 0';
-        button.style.minWidth = '0';
+        attribute(button, 'data-move-id', move.id);
+        write(button.style, 'flex', '1 1 0');
+        write(button.style, 'minWidth', '0px');
         const unavailable = Boolean(
           combatant && (combatant.focus < cost || (cooldown?.remaining ?? 0) > 0),
         );
-        button.disabled = !state.combat && unavailable;
-        button.style.opacity = unavailable ? '0.45' : '1';
-        button.setAttribute('aria-pressed', String(armed));
-        if (armed) {
-          button.dataset.autopilot = state.autopilotYielding ? 'yielding' : 'holding';
-          button.style.outline = state.autopilotYielding
-            ? '2px dashed #bd7132'
-            : '2px solid #bd7132';
-        }
-        applyNotice(button, move.id, state.notice);
-        button.style.background = cooldown?.remaining
-          ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
-          : '#f4efd9ee';
-        button.addEventListener('click', () => actions.useMove?.(move.id));
-        moves.append(button);
+        property(button, 'disabled', !state.combat && unavailable);
+        write(button.style, 'opacity', unavailable ? '0.45' : '1');
+        attribute(button, 'aria-pressed', String(armed));
+        attribute(
+          button,
+          'data-autopilot',
+          armed ? (state.autopilotYielding ? 'yielding' : 'holding') : undefined,
+        );
+        const notice = applyNotice(entry, move.id, state.notice);
+        write(
+          button.style,
+          'outline',
+          notice && state.notice!.refused
+            ? '3px dashed #b3261e'
+            : armed
+              ? state.autopilotYielding
+                ? '2px dashed #bd7132'
+                : '2px solid #bd7132'
+              : '',
+        );
+        const children: Node[] = [entry.label];
+        if (notice) children.push(entry.detail);
+        if (
+          children.some((child, index) => button.childNodes[index] !== child) ||
+          button.childNodes.length !== children.length
+        )
+          button.replaceChildren(...children);
+        write(
+          button.style,
+          'background',
+          cooldown?.remaining
+            ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
+            : '#f4efd9ee',
+        );
+      }
+      const nextMoveOrder = moveKeys.join('\0');
+      if (moveOrder !== nextMoveOrder) {
+        moves.replaceChildren(movesLabel, ...moveKeys.map((key) => moveControls.get(key)!.button));
+        moveOrder = nextMoveOrder;
       }
     },
     targetBar,

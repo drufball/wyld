@@ -37,6 +37,13 @@ const createBar = (): Bar => {
   return { root, hp, focus, windup };
 };
 const fraction = (value: number, max = 1) => Math.max(0, Math.min(1, max > 0 ? value / max : 0));
+const writeStyle = (
+  element: HTMLElement,
+  property: 'left' | 'top' | 'width' | 'display',
+  value: string,
+) => {
+  if (element.style[property] !== value) element.style[property] = value;
+};
 const createCombatOverlay = () => {
   const bars = new Map<string, Bar>();
   return {
@@ -56,15 +63,15 @@ const createCombatOverlay = () => {
         const bar = bars.get(entry.key) ?? createBar();
         bars.set(entry.key, bar);
         const anchor = anchorFor(entry.tileX, entry.tileY, entry.headHeight, target, frustum, rect);
-        bar.root.style.left = `${anchor.left}px`;
-        bar.root.style.top = `${anchor.top - 12}px`;
+        writeStyle(bar.root, 'left', `${anchor.left}px`);
+        writeStyle(bar.root, 'top', `${anchor.top - 12}px`);
         for (const [element, value] of [
           [bar.hp, entry.hp && fraction(entry.hp.value, entry.hp.max)],
           [bar.focus, entry.focus && fraction(entry.focus.value, entry.focus.max)],
           [bar.windup, entry.windup === undefined ? undefined : fraction(entry.windup)],
         ] as const) {
-          element.track.style.display = value === undefined ? 'none' : '';
-          if (value !== undefined) element.fill.style.width = `${value * 34}px`;
+          writeStyle(element.track, 'display', value === undefined ? 'none' : '');
+          if (value !== undefined) writeStyle(element.fill, 'width', `${value * 34}px`);
         }
       }
     },

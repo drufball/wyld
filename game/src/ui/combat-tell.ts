@@ -21,10 +21,13 @@ const createCombatTellOverlay = () => {
       for (const tell of tells) {
         const element = elements.get(tell.id) ?? createCombatTell();
         elements.set(tell.id, element);
-        element.setAttribute('aria-live', 'polite');
-        element.textContent = tell.text;
-        element.style.left = `${tell.left}px`;
-        element.style.top = `${tell.top}px`;
+        if (element.getAttribute('aria-live') !== 'polite')
+          element.setAttribute('aria-live', 'polite');
+        if (element.textContent !== tell.text) element.textContent = tell.text;
+        const left = `${tell.left}px`;
+        const top = `${tell.top}px`;
+        if (element.style.left !== left) element.style.left = left;
+        if (element.style.top !== top) element.style.top = top;
       }
     },
     dispose(): void {

@@ -128,10 +128,20 @@ const trackPlacements = placeTracks({
   },
 });
 let activeFlatScreen = { sx: 0, sy: 0 };
+let flatRect: DOMRect;
 const dioramaView =
   look === 'diorama' ? createDiorama(grid, synthetic ? [] : trackPlacements) : null;
 const vignette = look === 'diorama' ? createVignette() : null;
-const flatView = look === 'flat' ? createCanvas({ screen: () => activeFlatScreen }) : null;
+const flatView =
+  look === 'flat'
+    ? createCanvas({
+        screen: () => activeFlatScreen,
+        resized: (rect) => {
+          flatRect = rect;
+        },
+      })
+    : null;
+if (flatView) flatRect = flatView.canvas.getBoundingClientRect();
 const view = dioramaView ?? flatView!;
 const scenarioStart = synthetic
   ? { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) }
@@ -788,7 +798,7 @@ const render = (alpha = 1) => {
       combat: combat ? { projectiles: combat.projectiles, flashes: combat.flashes } : null,
     });
     if (combat) {
-      const rect = dioramaView!.canvas.getBoundingClientRect();
+      const rect = dioramaView!.rect;
       const target = cameraTarget(screen, player.sliding, view.cols, view.rows);
       const frustum = orthoFrustum(view.cols, view.rows);
       const stackIndexes = new Map<string, number>();
@@ -836,6 +846,7 @@ const render = (alpha = 1) => {
       playerSpriteFacing.flip,
     );
   let drawCalls = calls;
+  const combat = encounter?.state();
   for (const member of partyState.party) {
     const controller = partyControllers.get(member.individual.id)!;
     const tile = controller.interpolated(alpha);
@@ -848,7 +859,7 @@ const render = (alpha = 1) => {
       origin = spriteOrigin(tx, ty, size, size),
       offset = animations.offsetFor(member.individual.id),
       bodyOrigin = { x: origin.x + offset.x * 16, y: origin.y + offset.y * 16 };
-    const combatant = encounter?.state().party.find((c) => c.id === member.individual.id);
+    const combatant = combat?.party.find((c) => c.id === member.individual.id);
     if (combatant?.benched) continue;
     if (partyState.selection === member.individual.id && !combatant?.downed) {
       flat.context.strokeStyle = definition.palette.accent ?? '#bd7132';
@@ -912,7 +923,6 @@ const render = (alpha = 1) => {
       flat.context.fillRect(ex + 2, ey + 2, Math.ceil(meter * 3), 1);
     }
   }
-  const combat = encounter?.state();
   if (combat) {
     const definition = speciesById(combat.enemy.speciesId)!;
     const size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32;
@@ -950,7 +960,7 @@ const render = (alpha = 1) => {
         16,
       );
     }
-    const rect = flat.canvas.getBoundingClientRect();
+    const rect = flatRect;
     const scaleX = rect.width / flat.canvas.width;
     const scaleY = rect.height / flat.canvas.height;
     const stackIndexes = new Map<string, number>();
@@ -1323,6 +1333,7 @@ const loop = createLoop({
       for (const camp of camps())
         if (Math.hypot(camp.x - world.x, camp.z - world.z) <= 6) notebook.discoverCamp(camp.id);
     }
+    const hudCombat = encounter?.state() ?? null;
     hud.update({
       ...clock,
       regionName: region?.name ?? null,
@@ -1332,15 +1343,14 @@ const loop = createLoop({
         : null,
       party: partyState.party,
       selection: partyState.selection,
-      combat: encounter?.state() ?? null,
-      autopilotMoveId:
-        encounter?.state().phase === 'fight' ? autopilot.armed(partyState.selection) : null,
+      combat: hudCombat,
+      autopilotMoveId: hudCombat?.phase === 'fight' ? autopilot.armed(partyState.selection) : null,
       autopilotYielding:
-        encounter?.state().phase === 'fight' && autopilot.armed(partyState.selection) !== null
-          ? !autopilotHolds(encounter.authorityOf(partyState.selection))
+        hudCombat?.phase === 'fight' && autopilot.armed(partyState.selection) !== null
+          ? !autopilotHolds(encounter!.authorityOf(partyState.selection))
           : false,
       notice:
-        notice && (encounter?.state().elapsed ?? 0) < notice.until
+        notice && (hudCombat?.elapsed ?? 0) < notice.until
           ? { id: notice.id, text: notice.text, refused: notice.refused }
           : null,
     });

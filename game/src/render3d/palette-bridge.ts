@@ -40,10 +40,12 @@ const authored: Record<Phase, Lighting> = {
     ambientIntensity: 1.5,
   },
 };
+const fromColour = new THREE.Color();
+const toColour = new THREE.Color();
 const mix = (phase: Phase, progress: number, field: 'sky' | 'sun' | 'ambient') => {
   const t = Math.max(0, Math.min(1, progress));
   const next = phases[(phases.indexOf(phase) + 1) % phases.length]!;
-  return new THREE.Color(authored[phase][field]).lerp(new THREE.Color(authored[next][field]), t);
+  return fromColour.set(authored[phase][field]).lerp(toColour.set(authored[next][field]), t);
 };
 const mixNumber = (phase: Phase, progress: number, field: 'sunIntensity' | 'ambientIntensity') => {
   const t = Math.max(0, Math.min(1, progress));

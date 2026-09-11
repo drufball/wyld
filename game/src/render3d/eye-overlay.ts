@@ -32,9 +32,12 @@ const createEyeOverlay = () => {
         const eye = eyes.get(entry.key) ?? createEye();
         eyes.set(entry.key, eye);
         const anchor = anchorFor(entry.tileX, entry.tileY, entry.headHeight, target, frustum, rect);
-        eye.root.style.left = `${anchor.left}px`;
-        eye.root.style.top = `${anchor.top - 10}px`;
-        eye.fill.style.width = `${Math.max(0, Math.min(1, entry.meter)) * 16}px`;
+        const left = `${anchor.left}px`;
+        const top = `${anchor.top - 10}px`;
+        const width = `${Math.max(0, Math.min(1, entry.meter)) * 16}px`;
+        if (eye.root.style.left !== left) eye.root.style.left = left;
+        if (eye.root.style.top !== top) eye.root.style.top = top;
+        if (eye.fill.style.width !== width) eye.fill.style.width = width;
       }
     },
     dispose() {
