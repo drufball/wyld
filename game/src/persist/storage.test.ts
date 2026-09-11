@@ -91,8 +91,7 @@ describe('safe storage', () => {
     const allowed = new Set(['persist/storage.ts']);
     const files = readdirSync(src, { recursive: true, withFileTypes: true })
       .filter(
-        (entry) =>
-          entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts'),
+        (entry) => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts'),
       )
       .map((entry) => path.relative(src, path.join(entry.parentPath, entry.name)));
     const offenders = files.filter(

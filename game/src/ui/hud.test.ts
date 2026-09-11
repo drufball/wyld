@@ -151,7 +151,6 @@ describe('thumb HUD', () => {
       lineToEnemy: true,
       reachTiles: 1.25,
       grace: 0,
-
     };
     const combat: CombatState = {
       phase: 'fight',
@@ -202,7 +201,6 @@ describe('thumb HUD', () => {
       lineToEnemy: true,
       reachTiles: 1.25,
       grace: 0,
-
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -261,7 +259,6 @@ describe('thumb HUD', () => {
       lineToEnemy: true,
       reachTiles: 1.25,
       grace: 0,
-
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -305,7 +302,6 @@ describe('thumb HUD', () => {
       lineToEnemy: true,
       reachTiles: 1.25,
       grace: 0,
-
     });
     const hud = createHud(false, document.body);
     hud.update({
@@ -346,7 +342,6 @@ describe('thumb HUD', () => {
       lineToEnemy: true,
       reachTiles: 1.25,
       grace: 0,
-
     });
     hud.update({
       ...state(party),

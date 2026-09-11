@@ -20,9 +20,7 @@ describe('performance panel', () => {
     const bottom = Number(phoneRule.match(/bottom:(\d+)px!important/)?.[1]);
 
     expect(bottom).toBeGreaterThanOrEqual(60);
-    expect(phoneRule).toContain(
-      '[data-performance-stat="tile"]{display:none!important}',
-    );
+    expect(phoneRule).toContain('[data-performance-stat="tile"]{display:none!important}');
     expect(document.querySelector('[data-performance-stat="tile"]')?.textContent).toContain(
       'TILE MS',
     );
