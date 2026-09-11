@@ -1045,7 +1045,10 @@ const loop = createLoop({
       else {
         partyState = groundTapped(partyState);
         if (partyState.selection === 'player') player.tap(tap.clientX, tap.clientY);
-        else partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
+        else {
+          encounter?.override(partyState.selection);
+          partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
+        }
       }
     }
     player.update(dt);

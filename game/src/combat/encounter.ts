@@ -6,6 +6,7 @@ import type { Move } from './moves.js';
 import { hideMultiplier } from './hides.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES, separate } from './spacing.js';
+import { formation, TAP_OVERRIDE_SECONDS, type Wander } from './formation.js';
 import {
   canAfford,
   cooldownFor,
@@ -32,13 +33,14 @@ type Combatant = {
   benched: boolean;
   cooldowns: Record<string, { remaining: number; total: number }>;
   desiredTile: Point | null;
+  overrideRemaining?: number;
 };
 type Projectile = { id: string; moveId: string; owner: string; position: Point; target: Point };
 type Flash = { id: string; at: Point; remaining: number };
 type CombatState = {
   phase: 'fight' | 'win' | 'driven-off';
   elapsed: number;
-  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched'>;
+  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining'>;
   party: Combatant[];
   reserveId: string | null;
   swapCooldown: { remaining: number; total: number };
@@ -72,6 +74,9 @@ type Internal = Combatant & {
   hold: number;
   strafe: number;
   strafeDirection: number;
+  home: Point;
+  wander: Wander;
+  overrideUntil: number;
 };
 type Flight = Projectile & {
   from: Point;
@@ -115,12 +120,16 @@ const make = (individual: Individual, tile: Point, benched = false): Internal =>
     individual.repertoire.map((m) => [m.id, { remaining: 0, total: cooldownFor(m) }]),
   ),
   desiredTile: null,
+  overrideRemaining: 0,
   individual,
   pending: null,
   approach: null,
   hold: 0,
   strafe: 0,
   strafeDirection: 1,
+  home: copy(tile),
+  wander: null,
+  overrideUntil: 0,
 });
 const random = (rng: EncounterOptions['rng']): number =>
   typeof rng === 'function' ? rng() : rng.next();
@@ -392,6 +401,42 @@ const createEncounter = ({
         }
       }
     }
+    const formationMembers = owned.filter(
+      (c) => !c.downed && !c.benched && !c.approach && !c.pending && elapsed >= c.overrideUntil,
+    );
+    for (const c of owned)
+      if (!c.downed && !c.benched && !c.approach && !c.pending && elapsed < c.overrideUntil)
+        c.desiredTile = null;
+    const formed = formation({
+      player: playerTile,
+      enemy: foe.tile,
+      creatures: formationMembers.map((c) => ({
+        id: c.id,
+        temperament: c.individual.temperament,
+        tile: c.tile,
+        home: c.home,
+        hp: c.hp,
+        maxHp: c.maxHp,
+        moves: c.individual.repertoire.map((move) => ({
+          rangeTiles: rangeTilesFor(move),
+          power: move.power,
+          ready: c.cooldowns[move.id]!.remaining <= 0 && canAfford(c.focus, move),
+        })),
+        wander: c.wander,
+      })),
+      isWalkable: (tx, ty) => grid.isWalkable(tx, ty),
+      rng: () => random(rng),
+      dt,
+    });
+    for (const result of formed) {
+      const c = byId(result.id)!;
+      c.wander = result.wander;
+      c.desiredTile =
+        Math.floor(result.tile.x) === Math.floor(c.tile.x) &&
+        Math.floor(result.tile.y) === Math.floor(c.tile.y)
+          ? null
+          : result.tile;
+    }
     for (let i = flashes.length - 1; i >= 0; i--) {
       const flash = flashes[i]!;
       flash.remaining -= dt;
@@ -481,6 +526,8 @@ const createEncounter = ({
       incoming = owned.find((c) => c.benched);
     if (phase !== 'fight' || !outgoing || !incoming || swapCooldownRemaining > 0) return false;
     incoming.tile = copy(outgoing.tile);
+    incoming.home = copy(outgoing.tile);
+    incoming.wander = null;
     outgoing.benched = true;
     incoming.benched = false;
     for (const combatant of [outgoing, incoming]) {
@@ -515,6 +562,7 @@ const createEncounter = ({
     benched: c.benched,
     cooldowns: structuredClone(c.cooldowns),
     desiredTile: c.desiredTile ? copy(c.desiredTile) : null,
+    overrideRemaining: Math.max(0, c.overrideUntil - elapsed),
   });
   const state = (): CombatState => ({
     phase,
@@ -550,12 +598,22 @@ const createEncounter = ({
       c.downed = false;
     }
   };
+  const override = (creatureId: string): void => {
+    if (phase !== 'fight') return;
+    const creature = owned.find(
+      (candidate) => candidate.id === creatureId && !candidate.downed && !candidate.benched,
+    );
+    if (!creature || creature.pending || creature.approach) return;
+    creature.overrideUntil = elapsed + TAP_OVERRIDE_SECONDS;
+    creature.desiredTile = null;
+  };
   return {
     update,
     useMove,
     swap,
     state,
     heal,
+    override,
     nearestTarget: () => nearest()?.id ?? null,
     chooseEnemyMove: () => chooseEnemyMove()?.id ?? null,
   };

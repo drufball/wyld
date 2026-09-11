@@ -17,6 +17,7 @@ const member = (id: string): Individual => buildArenaIndividual(rosterMember(id)
 const antlerback = (): Individual => buildArenaIndividual(enemy('antlerback')!);
 const openGrid = { isWalkable: () => true };
 const fixed = { next: () => 0 };
+const distanceForTest = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const move = (delivery: Move['delivery'], force: Move['force'] = 'Impact'): Move => ({
   id: delivery.toLowerCase(),
   name: delivery,
@@ -60,8 +61,115 @@ const advance = (
     events.push(...encounter.update(0.05, positions, player));
   return events;
 };
+const driveIdleParty = (
+  subject: ReturnType<typeof setup>,
+  seconds: number,
+  player = { x: 0, y: 0 },
+) => {
+  const positions: Record<string, Point> = {};
+  for (let tick = 0; tick < seconds * 60; tick += 1) {
+    for (const combatant of subject.state().party) {
+      const target = combatant.desiredTile;
+      if (!target || combatant.benched || combatant.downed) continue;
+      const current = positions[combatant.id] ?? combatant.tile;
+      const distance = Math.hypot(target.x - current.x, target.y - current.y);
+      const step = Math.min(distance, arenaSpeedTilesPerSecond(4) / 60);
+      positions[combatant.id] = {
+        x: current.x + ((target.x - current.x) / (distance || 1)) * step,
+        y: current.y + ((target.y - current.y) / (distance || 1)) * step,
+      };
+    }
+    subject.update(1 / 60, positions, player);
+    for (const combatant of subject.state().party)
+      if (!combatant.benched && !combatant.downed) positions[combatant.id] = combatant.tile;
+  }
+  return positions;
+};
 
 describe('combat encounter', () => {
+  it('moves an idle party by temperament with no taps', () => {
+    const subject = setup({
+      party: [member('loamox'), member('bramblehog'), member('thornwren')],
+      reserve: '',
+      enemy: antlerback(),
+      enemyTile: { x: 0, y: -6 },
+      partyTiles: {
+        loamox: { x: -3, y: 3 },
+        bramblehog: { x: 3, y: 3 },
+        thornwren: { x: 0, y: -3 },
+      },
+    });
+    subject.update(1 / 60, {}, { x: 0, y: 0 });
+    expect(subject.state().party.every(({ desiredTile }) => desiredTile !== null)).toBe(true);
+    driveIdleParty(subject, 10);
+    const [barrow, , pip] = subject.state().party;
+    expect(barrow!.tile.y).toBeLessThan(0);
+    expect(distanceForTest(pip!.tile, { x: 0, y: 0 })).toBeLessThanOrEqual(2.1);
+  });
+
+  it('holds the policy off for four seconds after a tap, then resumes', () => {
+    const subject = setup({ partyTiles: { owned: { x: 5, y: 5 } } });
+    subject.override('owned');
+    advance(subject, 3.9, { owned: { x: 5, y: 5 } });
+    expect(subject.state().party[0]).toMatchObject({ desiredTile: null });
+    expect(subject.state().party[0]!.overrideRemaining).toBeGreaterThan(0);
+    subject.update(0.2, { owned: { x: 5, y: 5 } });
+    expect(subject.state().party[0]!.desiredTile).not.toBeNull();
+    expect(subject.state().party[0]!.overrideRemaining).toBe(0);
+  });
+
+  it('does not set a formation tile while a move approach is in progress', () => {
+    const subject = setup({ enemyTile: { x: 6, y: 0 } });
+    expect(subject.useMove('owned', 'strike')).toBe(true);
+    subject.update(0.01, { owned: { x: 0, y: 0 } });
+    expect(subject.state().party[0]!.desiredTile!.x).toBeGreaterThan(3);
+  });
+
+  it('lands a Lunge from fight-start distance while the party moves by temperament', () => {
+    const lunge = move('Lunge');
+    const subject = setup({
+      enemy: fighter('enemy', [lunge], { stats: { vigor: 70, power: 3, speed: 8, focus: 100 } }),
+      enemyTile: { x: 6, y: 0 },
+    });
+    const hp = subject.state().party[0]!.hp;
+    driveIdleParty(subject, 8);
+    expect(subject.state().party[0]!.hp).toBeLessThan(hp);
+  });
+
+  it('keeps every standing combatant a tile apart while the formation runs', () => {
+    const subject = setup({
+      party: [
+        fighter('one', [move('Strike')]),
+        fighter('two', [move('Strike')]),
+        fighter('three', [move('Strike')]),
+      ],
+      reserve: '',
+      partyTiles: { one: { x: -2, y: 0 }, two: { x: 0, y: 0 }, three: { x: 2, y: 0 } },
+    });
+    driveIdleParty(subject, 10);
+    const all = [...subject.state().party, subject.state().enemy];
+    for (let i = 0; i < all.length; i++)
+      for (let j = i + 1; j < all.length; j++)
+        expect(distanceForTest(all[i]!.tile, all[j]!.tile)).toBeGreaterThanOrEqual(
+          MIN_SEPARATION_TILES - 1e-10,
+        );
+  });
+
+  it('gives the swapped-in reserve its entry tile as home', () => {
+    const party = [
+      fighter('one', [move('Strike')]),
+      fighter('two', [move('Strike')]),
+      fighter('three', [move('Strike')], { temperament: 'Erratic' }),
+    ];
+    const subject = setup({
+      party,
+      partyTiles: { one: { x: 8, y: 8 }, two: { x: 2, y: 2 }, three: { x: 20, y: 20 } },
+    });
+    subject.swap('one');
+    subject.update(0.01, {}, { x: 0, y: 0 });
+    const target = subject.state().party.find(({ id }) => id === 'three')!.desiredTile!;
+    expect(distanceForTest(target, { x: 8, y: 8 })).toBeLessThanOrEqual(4);
+  });
   const reserveParty = () => [
     fighter('one', [move('Strike')]),
     fighter('two', [move('Strike')]),

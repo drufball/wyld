@@ -231,6 +231,13 @@ Kelpmaw side fill 0.31 → 0.45, front width/height/area 32/142/1927 → 32/145/
 
 **Thin before any plan change:** Bramblehog (side fill 0.36), Emberjack (side fill 0.37), and Kelpmaw (side fill 0.31) (simulated).
 
+### Arena — creatures move by temperament
+
+In the 10.0 s headless idle-party fight against an Antlerback (simulated), Barrow finished 2.0
+tiles from the player and 4.0 from the enemy, Quill finished 2.1 tiles from the player and 7.0
+from the enemy, and Pip finished 2.0 tiles from the player and 8.0 from the enemy. The sampled
+fight length was 10.0 s (simulated).
+
 ### Renderer invariants
 
 - The camera tilt is 50° from vertical; its frustum is anisotropic and deliberately does **not** fit
