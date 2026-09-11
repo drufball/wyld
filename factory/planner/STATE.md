@@ -1319,3 +1319,4 @@ Run 34588808152 (c377a43, docs push): "The job was not started because recent ac
 - 11:14Z Dru (178): keep move gating; softer (probability falls with distance, mashing works) + obvious → arena lead Unit A: move-tap authority floor 0.15, loud refusal, tests. Walk curve unchanged.
 - 11:16Z Dru (168): "less about enemy power, more about health — it just isn't dying" → Unit B lever order: enemy hp scale first. Lead told.
 - 11:18Z Dru (164): reserve deploys as soon as ONE goes down — two slots always filled. Lead told (Unit A).
+- 11:20Z Dru (177): Swap wasn't hidden — tray rows/buttons ambiguous, taps silent → Unit A UX: reserve card = swap control, no silent taps (reason lines), labelled rows, drop the Swap button. Lead told.
