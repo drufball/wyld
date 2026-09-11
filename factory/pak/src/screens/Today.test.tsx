@@ -213,7 +213,9 @@ describe('Today', () => {
       const { container } = renderToday();
       if (hidden) {
         await waitFor(() => expect(container.querySelector('.today-go-outside')).toBeNull());
-        await waitFor(() => expect(screen.getByRole('link', { name: 'one Rumble' })).not.toBeNull());
+        await waitFor(() =>
+          expect(screen.getByRole('link', { name: 'one Rumble' })).not.toBeNull(),
+        );
       } else {
         await waitFor(() => expect(container.querySelector('.today-go-outside')).not.toBeNull());
         expect(screen.queryByRole('link', { name: 'one Rumble' })).toBeNull();

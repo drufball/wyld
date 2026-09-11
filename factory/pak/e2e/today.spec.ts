@@ -3,9 +3,9 @@ import { expect, test } from '@playwright/test';
 test('the nav has seven destinations and no demos tab', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
-  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link')).toHaveCount(
-    7,
-  );
+  await expect(
+    page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link'),
+  ).toHaveCount(7);
   await expect(page.getByRole('link', { name: 'Demos' })).toHaveCount(0);
   await page.goto('/demos');
   await expect(page).toHaveURL('/');

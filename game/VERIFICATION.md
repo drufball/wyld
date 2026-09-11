@@ -106,7 +106,6 @@ uninformed seeds 1–3—matched this reconciled simulated harness.
 - **Simulated:** with the fallen creature at tile centre (5.5, 9.5) and the enemy at (5.7, 8.3), the automatically deployed reserve enters at tile centre (5.5, 10.5).
 - **Simulated:** the incoming reserve takes no hit during the first 0.9 s of entry grace and takes a hit by 3.9 s after entry.
 
-
 ## Diorama
 
 Measured in headless Chromium 151 with SwiftShader, seed 194. The party row was sampled with all
@@ -140,6 +139,7 @@ A species reshaped in the workshop drops out of the table and baseline checks un
 
 #### Before (measuring pass, no plan change)
 
+<!-- prettier-ignore -->
 | Species | Angle | Width px | Height px | Area px | Fill | Head px | Thin? |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | Loamox | front | 92 | 132 | 9528 | 0.78 | 3410 | — |
@@ -197,6 +197,7 @@ A species reshaped in the workshop drops out of the table and baseline checks un
 
 #### After
 
+<!-- prettier-ignore-start -->
 <!-- turnaround:start -->
 | Species | Angle | Width px | Height px | Area px | Fill | Head px | Thin? |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -253,6 +254,7 @@ A species reshaped in the workshop drops out of the table and baseline checks un
 | Pyreclaw | back | 264 | 373 | 66605 | 0.68 | 16080 | — |
 | Pyreclaw | three-quarter | 252 | 409 | 62241 | 0.60 | 18891 | — |
 <!-- turnaround:end -->
+<!-- prettier-ignore-end -->
 
 Bramblehog side fill 0.36 → 0.46, front width/height/area 48/142/4267 → 44/155/4445 (within 10 %; simulated).
 Emberjack side fill 0.37 → 0.47, front width/height/area 48/140/4249 → 44/153/4426 (within 10 %; simulated).

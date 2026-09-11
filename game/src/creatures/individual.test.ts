@@ -29,7 +29,10 @@ describe('individual rolls', () => {
       expect(individual.repertoire).toHaveLength(entry.signatureMoves.length);
       entry.signatureMoves.forEach((move, index) => {
         expect(individual.repertoire[index]!.id).toBe(
-          `${entry.id}:${move.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`,
+          `${entry.id}:${move.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')}`,
         );
         expect(individual.repertoire[index]).toMatchObject({
           ...move,

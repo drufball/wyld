@@ -5,5 +5,8 @@ pnpm-lock.yaml
 AGENTS.md
 CLAUDE.md
 factory/planner/**
+# drizzle-kit output; migrations are never rewritten
+factory/server/drizzle/**
+factory/wake/drizzle/**
 .github/ISSUE_TEMPLATE/**
 *-spec.md

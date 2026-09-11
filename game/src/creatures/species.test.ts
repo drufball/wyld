@@ -121,6 +121,11 @@ describe('species data', () => {
     }
   });
   it('keeps discovery hints free of answers they are meant to nudge towards', () => {
-    expect(validateHints(species(), regions().map(({ name }) => name))).toEqual([]);
+    expect(
+      validateHints(
+        species(),
+        regions().map(({ name }) => name),
+      ),
+    ).toEqual([]);
   });
 });

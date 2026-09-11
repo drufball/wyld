@@ -35,8 +35,7 @@ describe('arena pick', () => {
       }).phase,
     ).toBe('fight');
   });
-  it('goes back to enemies', () =>
-    expect(backToEnemies()).toEqual(createPick()));
+  it('goes back to enemies', () => expect(backToEnemies()).toEqual(createPick()));
   it('never mutates input', () => {
     const state = { phase: 'pick-party' as const, enemy: 'antlerback', party: ['mirefin'] };
     toggleMember(state, 'ashcrawl');
