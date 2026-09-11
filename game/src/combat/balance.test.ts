@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { buildArenaIndividual, enemy, rosterMember } from '../arena/roster.js';
 import type { Individual } from '../creatures/individual.js';
 import { createRng } from '../engine/rng.js';
-import { findPath } from '../player/pathing.js';
+import { createPlayerController } from '../player/controller.js';
 import { buildArena } from '../scenarios/scenarios.js';
+import { tileToWorld } from '../world/tiles.js';
 import { createAutopilot } from './autopilot.js';
 import {
   ARENA_BALANCE,
@@ -50,7 +51,24 @@ const playFight = ({ preset, party: knowledge, policy, seed }: FightOptions) => 
   });
   const autopilot = createAutopilot();
   const chooser = createChooser(() => rng.next());
-  const walkers = new Map<string, { path: { tx: number; ty: number }[] | null }>();
+  const controllers = new Map(
+    party.map((member) => [
+      member.id,
+      createPlayerController({
+        grid,
+        canvas: {} as HTMLCanvasElement,
+        cols: () => 11,
+        rows: () => 22,
+        start: tileToWorld(
+          Math.floor(positions[member.id]!.x),
+          Math.floor(positions[member.id]!.y),
+        ),
+        screenFlipping: false,
+        diagonals: true,
+        speedTilesPerSecond: arenaSpeedTilesPerSecond(member.stats.speed),
+      }),
+    ]),
+  );
   let tapped = false;
   const dt = 1 / 60;
 
@@ -82,39 +100,29 @@ const playFight = ({ preset, party: knowledge, policy, seed }: FightOptions) => 
         autopilot.clear(event.out);
         chooser.clear(event.out);
         const incoming = encounter.state().party.find(({ id }) => id === event.target)!;
-        positions[event.target] = { ...incoming.tile };
+        controllers.get(event.out)?.clearPath();
+        const destination = tileToWorld(incoming.tile.x - 0.5, incoming.tile.y - 0.5);
+        controllers.get(event.target)?.teleport(destination.x, destination.z);
       }
     }
 
     for (const member of encounter.state().party)
-      if (!member.downed && !member.benched) positions[member.id] = { ...member.tile };
+      if (!member.downed && !member.benched)
+        controllers.get(member.id)?.nudge(member.tile.x, member.tile.y);
 
     for (const member of encounter.state().party) {
       if (member.downed || member.benched || !member.desiredTile) continue;
-      const walker = walkers.get(member.id) ?? { path: null };
-      walkers.set(member.id, walker);
-      const current = positions[member.id] ?? member.tile;
-      if (walker.path === null)
-        walker.path =
-          findPath(
-            grid,
-            { tx: Math.floor(current.x), ty: Math.floor(current.y) },
-            { tx: Math.floor(member.desiredTile.x), ty: Math.floor(member.desiredTile.y) },
-            { minTx: 0, maxTx: 999, minTy: 0, maxTy: 999, diagonals: true },
-          )?.slice() ?? null;
-      let remaining =
-        arenaSpeedTilesPerSecond(party.find(({ id }) => id === member.id)!.stats.speed) * dt;
-      while (walker.path?.length && remaining > 0) {
-        const centre = { x: walker.path[0]!.tx + 0.5, y: walker.path[0]!.ty + 0.5 };
-        const distance = Math.hypot(centre.x - current.x, centre.y - current.y);
-        const step = Math.min(distance, remaining);
-        current.x += ((centre.x - current.x) / (distance || 1)) * step;
-        current.y += ((centre.y - current.y) / (distance || 1)) * step;
-        remaining -= step;
-        if (step >= distance) walker.path.shift();
-      }
-      if (walker.path?.length === 0) walker.path = null;
-      positions[member.id] = current;
+      const controller = controllers.get(member.id)!;
+      if (!controller.moving)
+        controller.moveTo({
+          tx: Math.floor(member.desiredTile.x),
+          ty: Math.floor(member.desiredTile.y),
+        });
+    }
+    for (const [id, controller] of controllers) {
+      if (!encounter.state().party.find((member) => member.id === id)?.benched)
+        controller.update(dt);
+      positions[id] = controller.tile;
     }
   }
   const state = encounter.state();
@@ -133,14 +141,14 @@ describe('arena balance', () => {
   it('trade: the informed Heat party with autopilot wins in 30–60 s in at least 4 of 5 seeded runs', () => {
     const results = runs({ preset: 'trade', party: 'informed', policy: 'armed' });
     expect(
-      results.filter((r) => r.phase === 'win' && r.elapsed >= 15 && r.elapsed <= 60),
+      results.filter((r) => r.phase === 'win' && r.elapsed >= 30 && r.elapsed <= 60).length,
       JSON.stringify(results),
-    ).toHaveLength(5);
+    ).toBeGreaterThanOrEqual(4);
   });
   it('trade: the informed Heat party with zero taps wins in 30–60 s in at least 4 of 5 seeded runs', () => {
     const results = runs({ preset: 'trade', party: 'informed', policy: 'none' });
     expect(
-      results.filter((r) => r.phase === 'win' && r.elapsed >= 15 && r.elapsed <= 60).length,
+      results.filter((r) => r.phase === 'win' && r.elapsed >= 30 && r.elapsed <= 60).length,
       JSON.stringify(results),
     ).toBeGreaterThanOrEqual(4);
   });

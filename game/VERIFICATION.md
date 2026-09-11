@@ -75,16 +75,21 @@ from this run (not browser-played results):
 
 | preset | party / policy    |                          seed 1 |                          seed 2 |                          seed 3 |                          seed 4 |                          seed 5 |
 | ------ | ----------------- | ------------------------------: | ------------------------------: | ------------------------------: | ------------------------------: | ------------------------------: |
-| trade  | informed / armed  |                     win 20.40 s |                     win 19.10 s |                     win 20.38 s |                     win 23.40 s |                     win 26.25 s |
-| trade  | informed / none   |                     win 32.05 s |                     win 23.40 s |                     win 20.38 s |                     win 28.38 s |                     win 23.40 s |
-| trade  | uninformed / none | driven off 36.70 s (330/500 hp) | driven off 36.17 s (335/500 hp) | driven off 39.70 s (309/500 hp) | driven off 37.95 s (311/500 hp) | driven off 37.70 s (321/500 hp) |
-| fast   | informed / armed  |                      win 6.98 s |                      win 7.13 s |                      win 7.60 s |                      win 6.98 s |                      win 7.60 s |
-| fast   | informed / none   |                      win 7.17 s |                      win 7.60 s |                      win 7.60 s |                      win 8.72 s |                      win 7.60 s |
-| fast   | uninformed / none | driven off 11.62 s (136/200 hp) | driven off 11.30 s (131/200 hp) | driven off 16.27 s (131/200 hp) | driven off 16.27 s (131/200 hp) | driven off 11.62 s (131/200 hp) |
+| trade  | informed / armed  |                     win 22.65 s |                     win 24.38 s |                     win 25.05 s |                     win 23.08 s |                     win 24.38 s |
+| trade  | informed / none   |                     win 24.35 s |                     win 23.52 s |                     win 24.38 s |                     win 29.40 s |                     win 21.05 s |
+| trade  | uninformed / none | driven off 44.17 s (321/500 hp) | driven off 35.07 s (307/500 hp) | driven off 40.65 s (307/500 hp) | driven off 38.98 s (303/500 hp) | driven off 39.43 s (306/500 hp) |
+| fast   | informed / armed  |                      win 7.52 s |                      win 7.52 s |                      win 7.52 s |                      win 6.67 s |                      win 6.85 s |
+| fast   | informed / none   |                      win 7.52 s |                      win 7.57 s |                      win 7.53 s |                      win 7.10 s |                      win 7.57 s |
+| fast   | uninformed / none | driven off 13.25 s (136/200 hp) | driven off 19.15 s (131/200 hp) | driven off 14.52 s (131/200 hp) | driven off 14.52 s (131/200 hp) | driven off 13.25 s (131/200 hp) |
 
-The simulated informed trade runs do not reproduce the lead's played 34.4 s column and therefore
-do not meet the 30 s lower bound on four seeds. The constants remain the founder-selected values;
-this discrepancy is recorded rather than silently retuning them.
+The harness now uses the same player controller, bounded path planning, waypoint-centre walking,
+last-waypoint snap, separation nudge, and frame ordering as the game. In the seed-1 zero-tap trace,
+the old harness first diverged at 2.13 s when Cinder's Y tile remained about 9.75 while the game
+controller snapped it to 9.50. After replacing the approximate walker, the built game ended at
+24.38 s and the harness at 24.35 s (one 60 Hz tick apart). This local trace still does not reproduce
+the lead's played 34.4 s result, and the informed runs still miss the named 30 s lower bound. The
+constants and assertions remain unchanged; the discrepancy is recorded rather than silently
+retuning or softening them.
 
 
 - **PASS — autopilot cooldown DPS (`simulated`):** over 20 s at 60 Hz with seed 7, the armed creature dealt 108 damage and the identical unarmed creature dealt 108 damage.
