@@ -33,6 +33,7 @@ type Combatant = {
   benched: boolean;
   cooldowns: Record<string, { remaining: number; total: number }>;
   desiredTile: Point | null;
+  approaching?: boolean;
   overrideRemaining?: number;
 };
 type Projectile = { id: string; moveId: string; owner: string; position: Point; target: Point };
@@ -40,7 +41,9 @@ type Flash = { id: string; at: Point; remaining: number };
 type CombatState = {
   phase: 'fight' | 'win' | 'driven-off';
   elapsed: number;
-  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining'>;
+  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining'> & {
+    targetId?: string | null;
+  };
   party: Combatant[];
   reserveId: string | null;
   swapCooldown: { remaining: number; total: number };
@@ -562,6 +565,7 @@ const createEncounter = ({
     benched: c.benched,
     cooldowns: structuredClone(c.cooldowns),
     desiredTile: c.desiredTile ? copy(c.desiredTile) : null,
+    approaching: c.approach !== null,
     overrideRemaining: Math.max(0, c.overrideUntil - elapsed),
   });
   const state = (): CombatState => ({
@@ -578,6 +582,8 @@ const createEncounter = ({
       windup: foe.windup ? { ...foe.windup } : null,
       downed: foe.downed,
       desiredTile: foe.desiredTile ? copy(foe.desiredTile) : null,
+      approaching: foe.approach !== null,
+      targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? nearest()?.id ?? null,
     },
     party: owned.map(publicCombatant),
     reserveId: owned.find((c) => c.benched)?.id ?? null,
