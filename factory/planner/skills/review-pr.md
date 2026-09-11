@@ -77,3 +77,6 @@ Codex added a source guard ("no direct `localStorage` outside the accessor") and
 
 ### Fight tests must include the approach (2026-09-10)
 #304 shipped an enemy that never attacks: every combat test started the enemy already in range, and the one "never silent for more than four seconds" case used a fighter that owns only a Strike, so the Lunge approach that could never complete under one-tile separation was never exercised. For any change to positions, spacing, range or movement: require at least one named test that starts the enemy at fight-start distance (~6 tiles) with an idle party and asserts it lands a hit; and a liveness test with a fighter that owns a Lunge. A control run (revert, watch it fail) proves the test sees the bug.
+
+### Requesting changes on our own PRs (2026-09-11)
+Codex pushes as the same account, so `gh pr review --request-changes` is refused ("cannot request changes on your own pull request"). The standard is: post the review as a PR comment (numbered items, "commit and push to <branch>; no new PR"), then start the round with `codex cloud exec --branch <branch>`. Three leads rediscovered this independently; don't.
