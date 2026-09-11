@@ -75,3 +75,6 @@ Three times in two days a command run in a fresh worktree failed because a works
 
 ### Verify commands: lint is root-level (2026-09-11)
 `game/` (and most packages) have no `lint` script; `pnpm --filter @wyld/game lint` is a no-op that reads as green. The verify block is: `pnpm --filter "@wyld/game..." build`, `pnpm typecheck`, `pnpm lint` (root), `pnpm --filter @wyld/game test`. Leads' briefs must say the same.
+
+### Fix rounds land on the PR branch, or get moved (2026-09-11)
+A fix round whose prompt didn't say "commit and push to `<pr branch>`; no new PR" was pushed by Codex to its default branch `work`. Always pass `--branch <pr branch>` AND say the branch name in the prompt. If a round still lands on `work`: fast-forward the PR branch to it (`git push origin <sha>:<pr branch>`), delete `work`, never open a second PR.
