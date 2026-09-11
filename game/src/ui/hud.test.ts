@@ -147,6 +147,7 @@ describe('thumb HUD', () => {
       benched: false,
       cooldowns: { 'loamox:move': { remaining: 1, total: 2 } },
       desiredTile: null,
+      threat: 0,
     };
     const combat: CombatState = {
       phase: 'fight',
@@ -192,6 +193,7 @@ describe('thumb HUD', () => {
       benched: false,
       cooldowns: {},
       desiredTile: null,
+      threat: 0,
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -245,6 +247,7 @@ describe('thumb HUD', () => {
       benched,
       cooldowns: {},
       desiredTile: null,
+      threat: 0,
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -283,6 +286,7 @@ describe('thumb HUD', () => {
       benched,
       cooldowns: {},
       desiredTile: null,
+      threat: 0,
     });
     const hud = createHud(false, document.body);
     hud.update({
@@ -320,6 +324,7 @@ describe('thumb HUD', () => {
       benched,
       cooldowns: {},
       desiredTile: null,
+      threat: 0,
     });
     hud.update({
       ...state(party),

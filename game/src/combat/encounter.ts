@@ -35,6 +35,7 @@ type Combatant = {
   benched: boolean;
   cooldowns: Record<string, { remaining: number; total: number }>;
   desiredTile: Point | null;
+  threat: number;
   approaching?: boolean;
   overrideRemaining?: number;
 };
@@ -43,10 +44,10 @@ type Flash = { id: string; at: Point; remaining: number };
 type CombatState = {
   phase: 'fight' | 'win' | 'driven-off';
   elapsed: number;
-  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining'> & {
+  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining' | 'threat'> & {
     targetId?: string | null;
   };
-  party: (Combatant & { threat?: number })[];
+  party: Combatant[];
   reserveId: string | null;
   swapCooldown: { remaining: number; total: number };
   projectiles: Projectile[];
@@ -125,6 +126,7 @@ const make = (individual: Individual, tile: Point, benched = false): Internal =>
     individual.repertoire.map((m) => [m.id, { remaining: 0, total: cooldownFor(m) }]),
   ),
   desiredTile: null,
+  threat: 0,
   overrideRemaining: 0,
   individual,
   pending: null,
@@ -250,17 +252,20 @@ const createEncounter = ({
       .filter((c) => !c.downed && !c.benched)
       .sort((a, b) => distance(a.tile, foe.tile) - distance(b.tile, foe.tile))[0];
   const reachable = (candidate: Internal): boolean =>
-    [foe.tile, candidate.tile].every(
-      ({ x, y }) =>
-        Math.floor(x) >= 0 && Math.floor(y) >= 0 && Math.floor(x) <= 999 && Math.floor(y) <= 999,
-    ) &&
     grid.isWalkable(Math.floor(candidate.tile.x), Math.floor(candidate.tile.y)) &&
-    findPath(
-      grid,
-      { tx: Math.floor(foe.tile.x), ty: Math.floor(foe.tile.y) },
-      { tx: Math.floor(candidate.tile.x), ty: Math.floor(candidate.tile.y) },
-      { minTx: 0, maxTx: 999, minTy: 0, maxTy: 999, diagonals: true },
-    ) !== null;
+    (() => {
+      const from = { tx: Math.floor(foe.tile.x), ty: Math.floor(foe.tile.y) },
+        to = { tx: Math.floor(candidate.tile.x), ty: Math.floor(candidate.tile.y) };
+      return (
+        findPath(grid, from, to, {
+          minTx: Math.min(from.tx, to.tx) - 16,
+          maxTx: Math.max(from.tx, to.tx) + 16,
+          minTy: Math.min(from.ty, to.ty) - 16,
+          maxTy: Math.max(from.ty, to.ty) + 16,
+          diagonals: true,
+        }) !== null
+      );
+    })();
   const threatTarget = (): Internal | undefined => {
     const standingOwned = owned.filter((c) => !c.downed && !c.benched);
     const id = pickTarget(
@@ -597,6 +602,7 @@ const createEncounter = ({
     benched: c.benched,
     cooldowns: structuredClone(c.cooldowns),
     desiredTile: c.desiredTile ? copy(c.desiredTile) : null,
+    threat: threatOf(threatHits, c.id, elapsed),
     approaching: c.approach !== null,
     overrideRemaining: Math.max(0, c.overrideUntil - elapsed),
   });
@@ -617,10 +623,7 @@ const createEncounter = ({
       approaching: foe.approach !== null,
       targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? threatTarget()?.id ?? null,
     },
-    party: owned.map((c) => ({
-      ...publicCombatant(c),
-      threat: threatOf(threatHits, c.id, elapsed),
-    })),
+    party: owned.map(publicCombatant),
     reserveId: owned.find((c) => c.benched)?.id ?? null,
     swapCooldown: { remaining: swapCooldownRemaining, total: swapCooldownTotal },
     projectiles: flights.map((p) => ({
