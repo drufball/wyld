@@ -68,6 +68,7 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 
 ## Arena — learn, lose, repeat
 
+- **PASS — autopilot cooldown DPS (`simulated`):** over 20 s at 60 Hz with seed 7, the armed creature dealt 108 damage and the identical unarmed creature dealt 108 damage.
 - **PASS — move autopilot (built game, headless Chromium 375 × 812):** one tap on Grit's Mandible lit the button with `↻` and produced six attacks over twelve seconds with no further taps, measured 2.03, 2.01, 2.04, 1.97 and 2.06 s apart against its 2.00 s cooldown. A double tap on Ash Spray produced exactly one Ash Spray and left the armed move unchanged; tapping the lit button while its cooldown ran turned it off.
 - **PASS — party-side combat tell (built game):** an enemy move resisted by a party creature displayed `Glances off` above that creature rather than above the enemy.
 - **PASS — reserve swap (built game, headless Chromium at 375 × 812):** picked Antlerback and Barrow/Quill/Pip, confirmed Pip started as `reserveId: "thornwren"`, then pressed `S`. Pip entered at Barrow's exact `{ x: 5.5, y: 12.5 }` tile, Barrow became `reserveId: "loamox"`, the tray changed to `Swap · Barrow ◷5`, and the public swap cooldown reported `{ remaining: 5.03, total: 6 }` immediately after the exchange.

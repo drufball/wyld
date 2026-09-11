@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildArenaIndividual, rosterMember } from '../arena/roster.js';
 import type { Individual } from '../creatures/individual.js';
+import { createRng } from '../engine/rng.js';
 import { createAutopilot } from './autopilot.js';
 import { createChooser } from './choice.js';
 import { createEncounter, type Point } from './encounter.js';
@@ -13,10 +14,10 @@ import {
   type OrderEntry,
 } from './orders.js';
 
-const move = (id: string, power: number): Move => ({
+const move = (id: string, power: number, delivery: Move['delivery'] = 'Strike'): Move => ({
   id,
   name: id,
-  delivery: 'Strike',
+  delivery,
   force: 'Impact',
   power,
   speed: 1,
@@ -32,6 +33,43 @@ const fighter = (id: string, moves: Move[], overrides: Partial<Individual> = {})
   repertoire: moves,
   ...overrides,
 });
+const setup = (individual: Individual, enemyTile: Point = { x: 1, y: 0 }) =>
+  createEncounter({
+    party: [individual],
+    enemy: fighter('enemy', [move('enemy-strike', 1)], {
+      stats: { vigor: 100_000, power: 1, speed: 1, focus: 0 },
+    }),
+    grid: { isWalkable: () => true },
+    rng: createRng(7),
+    partyTiles: { [individual.id]: { x: 0, y: 0 } },
+    enemyTile,
+    player: { x: 0, y: 0 },
+    reserve: '',
+  });
+const advance = (
+  subject: ReturnType<typeof setup>,
+  individual: Individual,
+  autopilot: ReturnType<typeof createAutopilot>,
+  seconds: number,
+) => {
+  const chooser = createChooser(createRng(7).next);
+  const fired = [];
+  const events = [];
+  for (let tick = 0; tick < seconds * 60; tick += 1) {
+    fired.push(
+      ...fireOrders({
+        combat: subject.state(),
+        party: [individual],
+        autopilot,
+        chooser,
+        authorityOf: () => 1,
+        useMove: subject.useMove,
+      }),
+    );
+    events.push(...subject.update(1 / 60));
+  }
+  return { events, fired };
+};
 
 const entry = (heard: boolean, at = 0): OrderEntry => ({
   creatureId: 'fighter',
@@ -76,7 +114,63 @@ describe('orders', () => {
     for (let at = 0; at < 55; at++) log.record(entry(true, at));
     expect(log.list().map((o) => o.at)).toEqual(Array.from({ length: 50 }, (_, i) => i + 5));
   });
-  it('yields an armed move to the chooser below half authority and resumes above it', () => {
+  it('fires the armed move first whenever it is ready', () => {
+    const strike = move('strike', 2);
+    const arc = move('arc', 4, 'Arc');
+    const individual = fighter('owned', [strike, arc], { temperament: 'Bold' });
+    const subject = setup(individual);
+    const autopilot = createAutopilot();
+    autopilot.tap(individual.id, arc.id, 0);
+
+    const { fired } = advance(subject, individual, autopilot, 14);
+    const arcs = fired.filter(({ moveId }) => moveId === arc.id);
+    expect(arcs.length).toBeGreaterThanOrEqual(2);
+    expect(arcs.every(({ source }) => source === 'autopilot')).toBe(true);
+  });
+
+  it('lets the chooser fire another move while the armed move cools down', () => {
+    const strike = move('strike', 2);
+    const arc = move('arc', 4, 'Arc');
+    const individual = fighter('owned', [strike, arc], { temperament: 'Bold' });
+    const subject = setup(individual);
+    const autopilot = createAutopilot();
+    autopilot.tap(individual.id, arc.id, 0);
+
+    const { fired } = advance(subject, individual, autopilot, 6);
+    expect(fired[0]).toMatchObject({ moveId: arc.id, source: 'autopilot' });
+    expect(
+      fired.filter(({ moveId, source }) => moveId === strike.id && source === 'choice').length,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it('never fires the armed move through the chooser', () => {
+    const strike = move('strike', 2);
+    const arc = move('arc', 4, 'Arc');
+    const individual = fighter('owned', [strike, arc], { temperament: 'Bold' });
+    const subject = setup(individual);
+    const autopilot = createAutopilot();
+    autopilot.tap(individual.id, arc.id, 0);
+
+    const { fired } = advance(subject, individual, autopilot, 20);
+    expect(fired.filter(({ moveId }) => moveId === arc.id)).not.toHaveLength(0);
+    expect(fired.every(({ moveId, source }) => moveId !== arc.id || source === 'autopilot')).toBe(
+      true,
+    );
+  });
+
+  it('waits for an armed move that is ready but out of range instead of choosing', () => {
+    const strike = move('strike', 2);
+    const bolt = move('bolt', 4, 'Bolt');
+    const individual = fighter('owned', [strike, bolt], { temperament: 'Bold' });
+    const subject = setup(individual, { x: 20, y: 0 });
+    const autopilot = createAutopilot();
+    autopilot.tap(individual.id, bolt.id, 0);
+
+    const { fired } = advance(subject, individual, autopilot, 1);
+    expect(fired.filter(({ source }) => source === 'choice')).toHaveLength(0);
+  });
+
+  it('yields the whole creature to its chooser when authority drops', () => {
     const light = move('light', 1);
     const heavy = move('heavy', 5);
     const individual = fighter('owned', [light, heavy], {
@@ -128,6 +222,37 @@ describe('orders', () => {
       moveId: light.id,
       source: 'autopilot',
     });
+  });
+
+  it("armed creature's dps is at least an unarmed creature's over twenty seconds (seeded)", () => {
+    const simulate = (armed: boolean): number => {
+      const strike = move('strike', 2);
+      const arc = move('arc', 4, 'Arc');
+      const individual = fighter('owned', [strike, arc], { temperament: 'Bold' });
+      const subject = setup(individual);
+      const autopilot = createAutopilot();
+      if (armed) autopilot.tap(individual.id, arc.id, 0);
+      const chooser = createChooser(createRng(7).next);
+      let total = 0;
+      for (let tick = 0; tick < 20 * 60; tick += 1) {
+        fireOrders({
+          combat: subject.state(),
+          party: [individual],
+          autopilot,
+          chooser,
+          authorityOf: () => 1,
+          useMove: subject.useMove,
+        });
+        for (const event of subject.update(1 / 60))
+          if (event.type === 'hit' && event.attacker === individual.id) total += event.final ?? 0;
+      }
+      return total;
+    };
+    const armed = simulate(true);
+    const unarmed = simulate(false);
+    expect(armed).toBeGreaterThanOrEqual(unarmed);
+    expect(armed).toBeGreaterThan(0);
+    expect(unarmed).toBeGreaterThan(0);
   });
   it('never fires or chooses outside a fight', () => {
     const choose = vi.fn(() => []),
