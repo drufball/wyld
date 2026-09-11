@@ -13,6 +13,7 @@ const build: BodyPlanBuilder = (spec) => {
       i < 3 ? m.primary : m.secondary,
       i === 0,
     );
+    part.scale.set(0.9, 1.9, 1.5);
     part.position.set(0, radius, l * (0.42 - i / 10));
     segments.push(part);
     group.add(part);

@@ -12,7 +12,7 @@ import {
   PIXELS_PER_TILE,
 } from './turnaround.js';
 
-const KNOWN_THIN: readonly SpeciesId[] = ['bramblehog', 'emberjack', 'kelpmaw'];
+const KNOWN_THIN: readonly SpeciesId[] = [];
 const directory = fileURLToPath(new URL('.', import.meta.url));
 const verificationPath = fileURLToPath(new URL('../../../VERIFICATION.md', import.meta.url));
 const baselinePath = `${directory}turnaround.baseline.json`;
@@ -108,11 +108,6 @@ describe('body-plan turnaround', () => {
       .map(({ id }) => id)
       .sort();
     expect(thin).toEqual(KNOWN_THIN);
-    expect(assessments.filter(({ thin }) => thin).map(({ reasons }) => reasons)).toEqual([
-      ['side fill 0.36'],
-      ['side fill 0.31'],
-      ['side fill 0.37'],
-    ]);
   });
 
   it('keeps every species front view within 10% of the baseline', () => {

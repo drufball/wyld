@@ -174,10 +174,10 @@ A species reshaped in the workshop drops out of the table and baseline checks un
 | Loamox | side | 169 | 145 | 13846 | 0.57 | 3304 | — |
 | Loamox | back | 92 | 178 | 11672 | 0.71 | 3596 | — |
 | Loamox | three-quarter | 166 | 185 | 14458 | 0.47 | 3934 | — |
-| Bramblehog | front | 48 | 142 | 4267 | 0.63 | 1264 | — |
-| Bramblehog | side | 218 | 80 | 6316 | 0.36 | 1182 | yes — side fill 0.36 |
-| Bramblehog | back | 48 | 150 | 4852 | 0.67 | 1286 | — |
-| Bramblehog | three-quarter | 151 | 121 | 5786 | 0.32 | 1278 | — |
+| Bramblehog | front | 44 | 155 | 4445 | 0.65 | 1264 | — |
+| Bramblehog | side | 218 | 83 | 8386 | 0.46 | 1182 | — |
+| Bramblehog | back | 44 | 150 | 4783 | 0.72 | 1286 | — |
+| Bramblehog | three-quarter | 151 | 128 | 7295 | 0.38 | 1278 | — |
 | Thornwren | front | 156 | 79 | 6662 | 0.54 | 492 | — |
 | Thornwren | side | 120 | 104 | 7067 | 0.57 | 481 | — |
 | Thornwren | back | 156 | 91 | 6810 | 0.48 | 492 | — |
@@ -198,14 +198,14 @@ A species reshaped in the workshop drops out of the table and baseline checks un
 | Saltwing | side | 179 | 163 | 16045 | 0.55 | 1083 | — |
 | Saltwing | back | 248 | 132 | 15108 | 0.46 | 1114 | — |
 | Saltwing | three-quarter | 230 | 151 | 16100 | 0.46 | 1207 | — |
-| Kelpmaw | front | 32 | 142 | 1927 | 0.42 | 388 | — |
-| Kelpmaw | side | 217 | 32 | 2148 | 0.31 | 389 | yes — side fill 0.31 |
-| Kelpmaw | back | 32 | 149 | 2016 | 0.42 | 386 | — |
-| Kelpmaw | three-quarter | 158 | 113 | 2132 | 0.12 | 388 | — |
-| Emberjack | front | 48 | 140 | 4249 | 0.63 | 1260 | — |
-| Emberjack | side | 218 | 79 | 6303 | 0.37 | 1184 | yes — side fill 0.37 |
-| Emberjack | back | 48 | 150 | 4825 | 0.67 | 1282 | — |
-| Emberjack | three-quarter | 151 | 120 | 5755 | 0.32 | 1278 | — |
+| Kelpmaw | front | 31 | 146 | 2108 | 0.47 | 388 | — |
+| Kelpmaw | side | 220 | 39 | 4253 | 0.50 | 389 | — |
+| Kelpmaw | back | 31 | 153 | 2205 | 0.46 | 386 | — |
+| Kelpmaw | three-quarter | 159 | 117 | 3419 | 0.18 | 388 | — |
+| Emberjack | front | 44 | 153 | 4426 | 0.66 | 1260 | — |
+| Emberjack | side | 218 | 82 | 8367 | 0.47 | 1184 | — |
+| Emberjack | back | 42 | 150 | 4758 | 0.76 | 1282 | — |
+| Emberjack | three-quarter | 151 | 127 | 7273 | 0.38 | 1278 | — |
 | Dunecask | front | 162 | 189 | 19456 | 0.64 | 1258 | — |
 | Dunecask | side | 238 | 146 | 20494 | 0.59 | 1234 | — |
 | Dunecask | back | 162 | 163 | 18596 | 0.70 | 1216 | — |
@@ -223,6 +223,10 @@ A species reshaped in the workshop drops out of the table and baseline checks un
 | Pyreclaw | back | 264 | 373 | 66605 | 0.68 | 16080 | — |
 | Pyreclaw | three-quarter | 252 | 409 | 62241 | 0.60 | 18891 | — |
 <!-- turnaround:end -->
+
+Bramblehog side fill 0.36 → 0.46, front width/height/area 48/142/4267 → 44/155/4445 (within 10 %; simulated).
+Emberjack side fill 0.37 → 0.47, front width/height/area 48/140/4249 → 44/153/4426 (within 10 %; simulated).
+Kelpmaw side fill 0.31 → 0.50, front width/height/area 32/142/1927 → 31/146/2108 (within 10 %; simulated).
 
 **Thin before any plan change:** Bramblehog (side fill 0.36), Emberjack (side fill 0.37), and Kelpmaw (side fill 0.31) (simulated).
 

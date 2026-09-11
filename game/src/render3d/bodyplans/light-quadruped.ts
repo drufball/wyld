@@ -7,6 +7,7 @@ const build: BodyPlanBuilder = (spec) => {
     group = new THREE.Group();
   const torso = mesh(new THREE.CapsuleGeometry(l * 0.16, l * 0.5, 3, 8), m.primary, true, true);
   torso.rotation.x = Math.PI / 2;
+  torso.scale.z = 2;
   torso.position.y = h * 0.62;
   group.add(torso);
   const head = mesh(new THREE.ConeGeometry(l * 0.17, l * 0.4, 8), m.secondary, false);
@@ -26,7 +27,7 @@ const build: BodyPlanBuilder = (spec) => {
         m.secondary,
         false,
       );
-      leg.position.set(x * l * 0.14, h * 0.25, z * l * 0.25);
+      leg.position.set(x * l * 0.1, h * 0.25, z * l * 0.4);
       legs.push(leg);
       group.add(leg);
     }
