@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import {
+  blitSprite,
   generateSprite,
   type SpriteFacing,
   type SpriteFrame,
   type SpriteSpec,
 } from '@wyld/sprites';
-import { blitSprite } from '../lib/sprite-canvas.js';
 export function SpriteCanvas({
   spec,
   facing,
@@ -24,7 +24,14 @@ export function SpriteCanvas({
   const ref = useRef<HTMLCanvasElement>(null);
   const sprite = useMemo(() => generateSprite(spec, facing, frame), [spec, facing, frame]);
   useEffect(() => {
-    if (ref.current) blitSprite(ref.current, sprite, scale);
+    const canvas = ref.current;
+    if (!canvas) return;
+    canvas.width = sprite.width * scale;
+    canvas.height = sprite.height * scale;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    blitSprite(ctx, sprite, sprite.palette, { x: 0, y: 0, scale });
   }, [sprite, scale]);
   return (
     <canvas

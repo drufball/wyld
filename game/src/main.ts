@@ -21,6 +21,7 @@ import {
   targetWildCreature,
 } from './party/party.js';
 import { buildArena, scenarioFromQuery } from './scenarios/scenarios.js';
+import { blitSprite } from '@wyld/sprites';
 import { speciesById } from './creatures/species.js';
 import {
   canHearPlayer,
@@ -39,7 +40,6 @@ import { placeTracks } from './world/tracks.js';
 import { species, type Temperament } from './creatures/species.js';
 import { createPlayerController } from './player/controller.js';
 import { ARENA_PACE, arenaSpeedTilesPerSecond, worldSpeedTilesPerSecond } from './combat/pace.js';
-import { blit } from './render2d/blit.js';
 import { createCanvas } from './render2d/canvas.js';
 import { pixelScale, screenCols, screenRows } from './render2d/canvas.js';
 import { lookFromQuery } from './render3d/look.js';
@@ -834,15 +834,15 @@ const render = (alpha = 1) => {
     y = playerOrigin.y + (player.moving ? 0 : Math.round(Math.sin(elapsedSeconds * 2) * 0.5 + 0.5)),
     frame = player.moving ? ((Math.floor(elapsedSeconds * 8) % 2) as 0 | 1) : 'idle';
   const playerSpriteFacing = spriteFacingFromCardinal(player.facing);
+  const sprite = playerSprite(playerSpriteFacing.facing, frame);
   const calls =
     1 +
-    blit(
-      flat.context,
-      playerSprite(playerSpriteFacing.facing, frame),
+    blitSprite(flat.context, sprite, sprite.palette, {
       x,
       y,
-      playerSpriteFacing.flip,
-    );
+      flip: playerSpriteFacing.flip,
+      cache: sprite.key,
+    });
   let drawCalls = calls;
   const combat = encounter?.state();
   for (const member of partyState.party) {

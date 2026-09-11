@@ -3,12 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SpriteSpec } from '@wyld/sprites';
 
 const { blitSprite } = vi.hoisted(() => ({ blitSprite: vi.fn() }));
-vi.mock('../lib/sprite-canvas.js', () => ({ blitSprite }));
+vi.mock('@wyld/sprites', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@wyld/sprites')>()),
+  blitSprite,
+}));
 
 import { SpriteCanvas } from './SpriteCanvas.js';
 
 describe('SpriteCanvas', () => {
   it('blits the generated sprite for the given species, facing and frame', async () => {
+    const context = { clearRect: vi.fn() } as unknown as CanvasRenderingContext2D;
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
     const spec: SpriteSpec = {
       bodyPlan: 'avian',
       tier: 2,

@@ -318,3 +318,9 @@ A CDP screenshot was captured 5.0 s into the fight (played).
 - **PASS (`simulated`) — the flat look never requests the diorama chunk:** headless Chromium observed exactly the entry and its shared chunk, no diorama request, `THREE.WebGLRenderer` in neither fetched body, `window.__wyld`, and no import- or Three.js-related page error after one further second.
 - **PASS (`simulated`) — the diorama look requests the diorama chunk after the entry and shared chunk:** headless Chromium observed exactly those three scripts with the diorama chunk last, `window.__wyld`, and `THREE.WebGLRenderer` only in the fetched diorama body.
 - **PASS (`simulated`) — the default look is diorama and loads the chunk too:** without a `look` query parameter, headless Chromium observed exactly the entry, its shared chunk, and the diorama chunk last, with `THREE.WebGLRenderer` only in the fetched diorama body.
+
+## Sprite blit
+
+- **Before (`simulated`):** 3 blit implementations (`blit.ts`, `creature-sprite.ts`, `sprite-canvas.ts`). **After:** 1 (`packages/sprites/src/blit.ts` + `blit-canvas.ts`).
+- **PASS (`simulated`):** 13 species × 3 facings × 4 frames × 2 flip values × 3 old drawer paths = 936 pixel-buffer comparisons ran in commit 1; all were byte-for-byte equal.
+- **PASS (`simulated`):** 13 stored pixel hashes were produced by the new code after the pixel comparison passed.
