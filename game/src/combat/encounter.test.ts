@@ -204,8 +204,8 @@ describe('combat encounter', () => {
   });
 
   it('keeps a heavy off a kiting Bolt-holder for ten seconds while the kiter lands three Bolts', () => {
-    const start = { x: 0.5, y: 0.5 };
-    const heavyStart = { x: 0.5, y: -3.5 };
+    const start = { x: 0.5, y: 3.5 };
+    const heavyStart = { x: 0.5, y: -0.5 };
     const kiter = fighter('kiter', [move('Bolt')], {
       temperament: 'Skittish',
       stats: { vigor: 45, power: 3, speed: 7, focus: 45 },

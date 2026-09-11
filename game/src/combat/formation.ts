@@ -3,7 +3,8 @@ import { MIN_SEPARATION_TILES } from './spacing.js';
 import { lineClear } from './line.js';
 
 const TAP_OVERRIDE_SECONDS = 4;
-const KITE_MARGIN_TILES = 1;
+// One tile of buffer plus the ground a heavy covers during a Bolt windup.
+const KITE_MARGIN_TILES = 2.25;
 const KITE_STEP_TILES = 1;
 type Point = { x: number; y: number };
 type Wander = { target: Point; remaining: number } | null;

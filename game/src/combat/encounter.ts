@@ -37,6 +37,7 @@ type Combatant = {
   cooldowns: Record<string, { remaining: number; total: number }>;
   desiredTile: Point | null;
   threat: number;
+  lineToEnemy: boolean;
   approaching?: boolean;
   overrideRemaining?: number;
 };
@@ -45,11 +46,14 @@ type Flash = { id: string; at: Point; remaining: number };
 type CombatState = {
   phase: 'fight' | 'win' | 'driven-off';
   elapsed: number;
-  enemy: Omit<Combatant, 'cooldowns' | 'id' | 'benched' | 'overrideRemaining' | 'threat'> & {
+  enemy: Omit<
+    Combatant,
+    'cooldowns' | 'id' | 'benched' | 'overrideRemaining' | 'threat' | 'lineToEnemy'
+  > & {
     targetId?: string | null;
-    reachTiles?: number;
+    reachTiles: number;
   };
-  party: (Combatant & { lineToEnemy?: boolean })[];
+  party: Combatant[];
   reserveId: string | null;
   swapCooldown: { remaining: number; total: number };
   projectiles: Projectile[];
@@ -75,7 +79,7 @@ type EncounterOptions = {
   enemyTile?: Point;
   reserve?: string;
 };
-type Internal = Combatant & {
+type Internal = Omit<Combatant, 'lineToEnemy'> & {
   individual: Individual;
   pending: { move: Move; target: Point; targetId: string; elapsed: number; total: number } | null;
   approach: { move: Move; targetId: string; elapsed: number } | null;
@@ -455,14 +459,7 @@ const createEncounter = ({
       }
     }
     const formationMembers = owned.filter(
-      (c) =>
-        !c.downed &&
-        !c.benched &&
-        !c.approach &&
-        (!c.pending ||
-          (c.individual.temperament === 'Skittish' &&
-            (c.pending.move.delivery === 'Bolt' || c.pending.move.delivery === 'Arc'))) &&
-        elapsed >= c.overrideUntil,
+      (c) => !c.downed && !c.benched && !c.approach && !c.pending && elapsed >= c.overrideUntil,
     );
     for (const c of owned)
       if (!c.downed && !c.benched && !c.approach && !c.pending && elapsed < c.overrideUntil)
@@ -612,7 +609,7 @@ const createEncounter = ({
     partyWipedElapsed = null;
     return true;
   };
-  const publicCombatant = (c: Internal): Combatant & { lineToEnemy: boolean } => ({
+  const publicCombatant = (c: Internal): Combatant => ({
     id: c.id,
     speciesId: c.speciesId,
     hp: c.hp,
