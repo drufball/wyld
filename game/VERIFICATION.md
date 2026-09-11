@@ -105,6 +105,8 @@ These simulated silhouettes use the orthographic camera from `renderer.ts`, tilt
 vertical, with each creature in its `idle` pose at t = 0 and no water, at 160 simulated pixels per
 tile. A plan is thin when side width is < 0.45 × front width, side area is < 0.55 × front area, or
 non-null side head area is < 0.5 × front head area.
+A species reshaped in the workshop drops out of the table and baseline checks until the next
+`UPDATE_TURNAROUND=1 pnpm --filter @wyld/game test turnaround` run.
 
 <!-- turnaround:start -->
 | Species | Angle | Width px | Height px | Area px | Head px | Thin? |

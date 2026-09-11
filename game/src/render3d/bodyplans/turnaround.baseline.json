@@ -2,66 +2,121 @@
   "loamox": {
     "width": 92,
     "height": 132,
-    "area": 9528
+    "area": 9528,
+    "visual": {
+      "length": 1.6,
+      "height": 1
+    }
   },
   "bramblehog": {
     "width": 48,
     "height": 142,
-    "area": 4267
+    "area": 4267,
+    "visual": {
+      "length": 0.8,
+      "height": 0.5
+    }
   },
   "thornwren": {
     "width": 156,
     "height": 79,
-    "area": 6662
+    "area": 6662,
+    "visual": {
+      "length": 0.55,
+      "height": 0.45,
+      "wingspan": 0.95
+    }
   },
   "mirefin": {
     "width": 140,
     "height": 96,
-    "area": 8235
+    "area": 8235,
+    "visual": {
+      "length": 1,
+      "height": 0.45
+    }
   },
   "antlerback": {
     "width": 146,
     "height": 204,
-    "area": 22244
+    "area": 22244,
+    "visual": {
+      "length": 2.6,
+      "height": 1.8
+    }
   },
   "tidewhelk": {
     "width": 108,
     "height": 134,
-    "area": 9418
+    "area": 9418,
+    "visual": {
+      "length": 1,
+      "height": 0.7
+    }
   },
   "saltwing": {
     "width": 248,
     "height": 121,
-    "area": 14892
+    "area": 14892,
+    "visual": {
+      "length": 1.2,
+      "height": 0.5,
+      "wingspan": 2.2
+    }
   },
   "kelpmaw": {
     "width": 32,
     "height": 142,
-    "area": 1927
+    "area": 1927,
+    "visual": {
+      "length": 4.5,
+      "height": 0.8
+    }
   },
   "emberjack": {
     "width": 48,
     "height": 140,
-    "area": 4249
+    "area": 4249,
+    "visual": {
+      "length": 0.9,
+      "height": 0.55
+    }
   },
   "dunecask": {
     "width": 162,
     "height": 189,
-    "area": 19456
+    "area": 19456,
+    "visual": {
+      "length": 2,
+      "height": 1.2
+    }
   },
   "glasswing": {
     "width": 244,
     "height": 122,
-    "area": 14822
+    "area": 14822,
+    "visual": {
+      "length": 1,
+      "height": 0.4,
+      "wingspan": 1.8
+    }
   },
   "ashcrawl": {
     "width": 196,
     "height": 167,
-    "area": 15774
+    "area": 15774,
+    "visual": {
+      "length": 1.8,
+      "height": 0.6
+    }
   },
   "pyreclaw": {
     "width": 264,
     "height": 351,
-    "area": 63936
+    "area": 63936,
+    "visual": {
+      "length": 3.2,
+      "height": 4.2
+    }
   }
 }
