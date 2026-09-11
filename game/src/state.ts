@@ -21,6 +21,7 @@ type BuildStateOptions = {
   arena?: WyldGameState['arena'];
   combat?: WyldGameState['combat'];
   autopilot?: WyldGameState['autopilot'];
+  orders?: WyldGameState['orders'];
 };
 const buildState = (o: BuildStateOptions): WyldGameState => ({
   version: o.version,
@@ -38,6 +39,7 @@ const buildState = (o: BuildStateOptions): WyldGameState => ({
   arena: structuredClone(o.arena ?? null),
   combat: structuredClone(o.combat ?? null),
   autopilot: structuredClone(o.autopilot ?? []),
+  orders: structuredClone(o.orders ?? []),
   creatures: structuredClone(o.creatures ?? []),
   party: structuredClone(o.party ?? []),
   selection: o.selection ?? 'player',

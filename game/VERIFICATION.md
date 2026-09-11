@@ -268,3 +268,8 @@ A CDP screenshot was captured 5.0 s into the fight (played).
 
 - **Simulated:** At 60 Hz with seed 331, Barrow executed 3 moves, Quill 2, and Pip 3 in a zero-tap Antlerback fight. The first party execution was at 0.50 s, and the party was driven off at 10.12 s.
 - **Played:** In the built game at 375 × 812 in headless Chromium, with no taps, Barrow executed 3 moves and Quill executed 4 before both active creatures were downed at 8.83 s with Pip standing in reserve. A CDP screenshot was captured at 5.0 s.
+
+### Arena — obedience fades with distance
+
+- **Simulated:** With seed 7 at five tiles, two identical encounters produced the same ten-order heard sequence, containing both heard and ignored results.
+- **Simulated:** The order firing test fired the armed move at authority 1, yielded to the chooser at authority 1/6, and resumed the armed move at authority 1.

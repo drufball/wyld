@@ -1,8 +1,8 @@
 import type { CombatEvent } from './encounter.js';
 
 type CombatTell = {
-  kind: 'glance' | 'heavy';
-  text: 'Glances off' | 'Heavy damage';
+  kind: 'glance' | 'heavy' | 'ignored';
+  text: 'Glances off' | 'Heavy damage' | '…';
   targetId: string;
 };
 type ActiveTell = CombatTell & { id: number };

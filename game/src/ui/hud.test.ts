@@ -118,6 +118,19 @@ describe('thumb HUD', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(button.style.outline).toBe('2px solid #bd7132');
   });
+  it('dims the autopilot mark while the creature is out of reach', () => {
+    const hud = createHud(false, document.body);
+    hud.update({
+      ...state(undefined, 'a'),
+      autopilotMoveId: 'loamox:move',
+      autopilotYielding: true,
+    });
+    const button = document.querySelector('[data-move-id]') as HTMLButtonElement;
+    expect(button.dataset.autopilot).toBe('yielding');
+    expect(button.style.outline).toBe('2px dashed #bd7132');
+    expect(button.textContent).toContain('↻');
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+  });
   it('leaves every move button tappable during a fight', () => {
     const selected = creature('a');
     const combatant = {

@@ -13,6 +13,7 @@ type HudState = TimeState & {
   selection?: string;
   combat?: CombatState | null;
   autopilotMoveId?: string | null;
+  autopilotYielding?: boolean;
 };
 type HudActions = {
   selectCreature?(id: string): void;
@@ -183,7 +184,12 @@ const createHud = (
         button.disabled = !state.combat && unavailable;
         button.style.opacity = unavailable ? '0.45' : '1';
         button.setAttribute('aria-pressed', String(armed));
-        if (armed) button.style.outline = '2px solid #bd7132';
+        if (armed) {
+          button.dataset.autopilot = state.autopilotYielding ? 'yielding' : 'holding';
+          button.style.outline = state.autopilotYielding
+            ? '2px dashed #bd7132'
+            : '2px solid #bd7132';
+        }
         button.style.background = cooldown?.remaining
           ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
           : '#f4efd9ee';

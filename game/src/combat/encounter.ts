@@ -7,6 +7,7 @@ import { hideMultiplier } from './hides.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES, separate } from './spacing.js';
 import { formation, TAP_OVERRIDE_SECONDS, type Wander } from './formation.js';
+import { authority, hears } from './authority.js';
 import {
   canAfford,
   cooldownFor,
@@ -151,6 +152,7 @@ const createEncounter = ({
     make(p, partyTiles[p.id] ?? { x: i - 1, y: 1 }, p.id === reserve),
   );
   const foe = make(enemy, enemyTile);
+  let playerTile = player;
   let phase: CombatState['phase'] = 'fight',
     elapsed = 0,
     serial = 0,
@@ -359,9 +361,10 @@ const createEncounter = ({
   const update = (
     dt: number,
     positions: Positions = {},
-    playerTile: Point = player,
+    latestPlayerTile: Point = player,
   ): CombatEvent[] => {
     events.length = 0;
+    playerTile = latestPlayerTile;
     if (phase !== 'fight') return events;
     elapsed += dt;
     swapCooldownRemaining = Math.max(0, swapCooldownRemaining - dt);
@@ -613,6 +616,20 @@ const createEncounter = ({
     creature.overrideUntil = elapsed + TAP_OVERRIDE_SECONDS;
     creature.desiredTile = null;
   };
+  const authorityOf = (creatureId: string): number => {
+    if (phase !== 'fight') return 1;
+    const creature = owned.find(({ id }) => id === creatureId);
+    return creature
+      ? authority(distance(playerTile, creature.tile), creature.individual.temperament)
+      : 0;
+  };
+  const hear = (creatureId: string) => {
+    if (phase !== 'fight') return { heard: true, authority: 1, distanceTiles: 0 };
+    const creature = owned.find(({ id }) => id === creatureId);
+    const distanceTiles = creature ? distance(playerTile, creature.tile) : 0;
+    const authorityValue = authorityOf(creatureId);
+    return { heard: hears(authorityValue, random(rng)), authority: authorityValue, distanceTiles };
+  };
   return {
     update,
     useMove,
@@ -620,6 +637,8 @@ const createEncounter = ({
     state,
     heal,
     override,
+    authorityOf,
+    hear,
     nearestTarget: () => nearest()?.id ?? null,
     chooseEnemyMove: () => chooseEnemyMove()?.id ?? null,
   };
