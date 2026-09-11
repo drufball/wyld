@@ -150,6 +150,8 @@ describe('thumb HUD', () => {
       threat: 0,
       lineToEnemy: true,
       reachTiles: 1.25,
+      grace: 0,
+
     };
     const combat: CombatState = {
       phase: 'fight',
@@ -157,6 +159,7 @@ describe('thumb HUD', () => {
       enemy: combatant,
       party: [combatant],
       reserveId: null,
+      autoDeployIn: null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
       flashes: [],
@@ -198,6 +201,8 @@ describe('thumb HUD', () => {
       threat: 0,
       lineToEnemy: true,
       reachTiles: 1.25,
+      grace: 0,
+
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -205,6 +210,7 @@ describe('thumb HUD', () => {
       enemy: combatant(creature('enemy')),
       party: party.map(combatant),
       reserveId: null,
+      autoDeployIn: null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
       flashes: [],
@@ -235,7 +241,7 @@ describe('thumb HUD', () => {
       Array.from({ length: moves.length + cards.length + tools.length }, () => '44px'),
     );
   });
-  it('offers a forty-four pixel swap button naming the reserve', () => {
+  it('makes the reserve card the swap control reading Tap to bring name in', () => {
     const party = [creature('Barrow'), creature('Quill'), creature('Pip')];
     const combatant = (member: (typeof party)[number], benched = false) => ({
       id: member.individual.id,
@@ -254,6 +260,8 @@ describe('thumb HUD', () => {
       threat: 0,
       lineToEnemy: true,
       reachTiles: 1.25,
+      grace: 0,
+
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -261,22 +269,23 @@ describe('thumb HUD', () => {
       enemy: combatant(creature('enemy')),
       party: [combatant(party[0]!), combatant(party[1]!), combatant(party[2]!, true)],
       reserveId: 'Pip',
+      autoDeployIn: null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
       flashes: [],
     };
     const swapped: string[] = [];
-    const hud = createHud(false, document.body, { swap: () => swapped.push('swap') });
+    const hud = createHud(false, document.body, { swapIn: (id) => swapped.push(id) });
     hud.update({ ...state(party), combat });
-    const button = document.querySelector('[data-swap]') as HTMLButtonElement;
-    expect(button.textContent).toBe('Swap · PipSteady · shrugs off Surge');
+    const button = document.querySelector('[data-reserve]') as HTMLButtonElement;
+    expect(button.textContent).toContain('Tap to bring Pip in');
     expect(button.style.minWidth).toBe('44px');
     expect(button.style.height).toBe('44px');
     button.click();
-    expect(swapped).toEqual(['swap']);
+    expect(swapped).toEqual(['Pip']);
   });
 
-  it("shows the reserve's temperament on the swap button", () => {
+  it('glows the reserve card when a swap is ready', () => {
     const party = [creature('Barrow'), creature('Quill'), creature('Pip')];
     const member = (entry: (typeof party)[number], benched = false) => ({
       id: entry.individual.id,
@@ -295,6 +304,8 @@ describe('thumb HUD', () => {
       threat: 0,
       lineToEnemy: true,
       reachTiles: 1.25,
+      grace: 0,
+
     });
     const hud = createHud(false, document.body);
     hud.update({
@@ -305,17 +316,16 @@ describe('thumb HUD', () => {
         enemy: member(creature('enemy')),
         party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
         reserveId: 'Pip',
+        autoDeployIn: null,
         swapCooldown: { remaining: 0, total: 6 },
         projectiles: [],
         flashes: [],
       },
     });
-    expect(document.querySelector('[data-swap] small')?.textContent).toBe(
-      'Steady · shrugs off Surge',
-    );
+    expect(document.querySelector('[data-reserve]')?.getAttribute('data-swap-state')).toBe('ready');
   });
 
-  it('disables the swap button while its cooldown runs', () => {
+  it('keeps the reserve card tappable during the swap cooldown', () => {
     const party = [creature('a'), creature('b'), creature('reserve')];
     const hud = createHud(false, document.body);
     const member = (entry: (typeof party)[number], benched = false) => ({
@@ -335,6 +345,8 @@ describe('thumb HUD', () => {
       threat: 0,
       lineToEnemy: true,
       reachTiles: 1.25,
+      grace: 0,
+
     });
     hud.update({
       ...state(party),
@@ -344,13 +356,14 @@ describe('thumb HUD', () => {
         enemy: member(creature('enemy')),
         party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
         reserveId: 'reserve',
+        autoDeployIn: null,
         swapCooldown: { remaining: 4.2, total: 6 },
         projectiles: [],
         flashes: [],
       },
     });
-    const button = document.querySelector('[data-swap]') as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
+    const button = document.querySelector('[data-reserve]') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
     expect(button.textContent).toContain('◷5');
     expect(button.style.background).toContain('linear-gradient');
   });
@@ -361,5 +374,72 @@ describe('thumb HUD', () => {
       'hidden',
       true,
     );
+  });
+  const reserveHud = (
+    options: { downed?: boolean; autoDeployIn?: number | null; notice?: HudState['notice'] } = {},
+  ) => {
+    const party = [creature('a'), creature('b'), creature('reserve')];
+    const member = (entry: (typeof party)[number], benched = false) => ({
+      id: entry.individual.id,
+      speciesId: entry.individual.speciesId,
+      hp: 70,
+      maxHp: 70,
+      focus: 40,
+      maxFocus: 40,
+      tile: { x: 1, y: 1 },
+      facing: 0,
+      windup: null,
+      downed: Boolean(options.downed && entry.individual.id === 'a'),
+      benched,
+      cooldowns: {},
+      desiredTile: null,
+      grace: 0,
+    });
+    const combat: CombatState = {
+      phase: 'fight',
+      elapsed: 1,
+      enemy: member(creature('enemy')),
+      party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
+      reserveId: 'reserve',
+      autoDeployIn: options.autoDeployIn ?? null,
+      swapCooldown: { remaining: 0, total: 6 },
+      projectiles: [],
+      flashes: [],
+    };
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party, 'a'), combat, notice: options.notice });
+    return hud;
+  };
+  it('pulses the reserve card while an active creature is down', () => {
+    reserveHud({ downed: true });
+    expect(document.querySelector('[data-reserve]')?.getAttribute('data-swap-state')).toBe(
+      'urgent',
+    );
+  });
+  it('shows the countdown on the reserve card while the reserve is coming in', () => {
+    reserveHud({ autoDeployIn: 1.2 });
+    expect(document.querySelector('[data-reserve] small')?.textContent).toBe('Coming in… 2');
+  });
+  it('shows a reason on the card that was tapped', () => {
+    reserveHud({ notice: { id: 'reserve', text: 'Pick who to swap out', refused: false } });
+    expect(document.querySelector('[data-reserve]')?.getAttribute('data-notice')).toBe(
+      'Pick who to swap out',
+    );
+  });
+  it('flashes a dashed outline and reason on a refused move', () => {
+    reserveHud({ notice: { id: 'loamox:move', text: 'Too far — get closer', refused: true } });
+    const button = document.querySelector('[data-move-id]') as HTMLButtonElement;
+    expect(button.dataset.refused).toBe('');
+    expect(button.style.outline).toBe('3px dashed #b3261e');
+  });
+  it('labels the two tray rows Yours and Moves', () => {
+    reserveHud();
+    expect(
+      [...document.querySelectorAll('[data-tray-label]')].map((label) => label.textContent),
+    ).toEqual(['Moves', 'Yours']);
+  });
+  it('has no separate swap button', () => {
+    reserveHud();
+    expect(document.querySelector('[data-swap]')).toBeNull();
   });
 });

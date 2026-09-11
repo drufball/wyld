@@ -7,9 +7,10 @@ import { hideMultiplier } from './hides.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES, separate } from './spacing.js';
 import { formation, TAP_OVERRIDE_SECONDS, type Wander } from './formation.js';
-import { authority, hears } from './authority.js';
+import { authority, hears, moveTapAuthority } from './authority.js';
 import { pickTarget, pruneHits, threatOf, type ThreatHit } from './threat.js';
 import { lineClear } from './line.js';
+import { ENTRY_GRACE_SECONDS, RESERVE_AUTO_DEPLOY_SECONDS, entryTile } from './reserve.js';
 import {
   canAfford,
   cooldownFor,
@@ -40,6 +41,7 @@ type Combatant = {
   lineToEnemy: boolean;
   approaching?: boolean;
   overrideRemaining?: number;
+  grace: number;
 };
 type Projectile = { id: string; moveId: string; owner: string; position: Point; target: Point };
 type Flash = { id: string; at: Point; remaining: number };
@@ -56,13 +58,15 @@ type CombatState = {
   party: Combatant[];
   reserveId: string | null;
   swapCooldown: { remaining: number; total: number };
+  autoDeployIn: number | null;
   projectiles: Projectile[];
   flashes: Flash[];
 };
 type CombatEvent = {
-  type: 'hit' | 'miss' | 'executed' | 'downed' | 'win' | 'driven-off';
+  type: 'hit' | 'miss' | 'executed' | 'downed' | 'win' | 'driven-off' | 'auto-deploy';
   attacker?: string;
   target?: string;
+  out?: string;
   move?: string;
   base?: number;
   hideMult?: number;
@@ -134,6 +138,7 @@ const make = (individual: Individual, tile: Point, benched = false): Internal =>
   desiredTile: null,
   threat: 0,
   overrideRemaining: 0,
+  grace: 0,
   individual,
   pending: null,
   approach: null,
@@ -172,7 +177,8 @@ const createEncounter = ({
     elapsed = 0,
     serial = 0,
     partyWipedElapsed: number | null = null,
-    swapCooldownRemaining = 0;
+    swapCooldownRemaining = 0,
+    autoDeployRemaining: number | null = null;
   const swapCooldownTotal = 6;
   const flights: Flight[] = [],
     flashes: Flash[] = [];
@@ -185,7 +191,7 @@ const createEncounter = ({
     a.facing = yawFromDelta(p.x - a.tile.x, p.y - a.tile.y);
   };
   const hit = (attacker: Internal, target: Internal, move: Move): void => {
-    if (target.downed || target.benched) return;
+    if (target.downed || target.benched || target.grace > 0) return;
     const base = Math.max(
       1,
       Math.round(move.power * 5 * (0.6 + attacker.individual.stats.power / 10)),
@@ -261,7 +267,7 @@ const createEncounter = ({
   };
   const nearest = (): Internal | undefined =>
     owned
-      .filter((c) => !c.downed && !c.benched)
+      .filter((c) => !c.downed && !c.benched && c.grace <= 0)
       .sort((a, b) => distance(a.tile, foe.tile) - distance(b.tile, foe.tile))[0];
   const reachable = (candidate: Internal): boolean =>
     grid.isWalkable(Math.floor(candidate.tile.x), Math.floor(candidate.tile.y)) &&
@@ -279,7 +285,7 @@ const createEncounter = ({
       );
     })();
   const threatTarget = (): Internal | undefined => {
-    const standingOwned = owned.filter((c) => !c.downed && !c.benched);
+    const standingOwned = owned.filter((c) => !c.downed && !c.benched && c.grace <= 0);
     const id = pickTarget(
       standingOwned.map((c) => ({ id: c.id, distance: distance(c.tile, foe.tile) })),
       threatHits,
@@ -419,6 +425,17 @@ const createEncounter = ({
     elapsed += dt;
     threatHits.splice(0, threatHits.length, ...pruneHits(threatHits, elapsed));
     swapCooldownRemaining = Math.max(0, swapCooldownRemaining - dt);
+    for (const c of owned) c.grace = Math.max(0, c.grace - dt);
+    const downed = owned.find((c) => !c.benched && c.downed);
+    const reserveCreature = owned.find((c) => c.benched && !c.downed);
+    if (downed && reserveCreature) {
+      autoDeployRemaining = (autoDeployRemaining ?? RESERVE_AUTO_DEPLOY_SECONDS) - dt;
+      if (autoDeployRemaining <= 0) {
+        const incomingId = reserveCreature.id;
+        if (swap(downed.id))
+          events.push({ type: 'auto-deploy', target: incomingId, out: downed.id });
+      }
+    } else autoDeployRemaining = null;
     for (const c of all()) {
       const p = pointFrom(positions, c.id);
       if (p && c !== foe && !c.benched && !c.pending) c.tile = copy(p);
@@ -584,10 +601,27 @@ const createEncounter = ({
   };
   const swap = (outId: string): boolean => {
     const outgoing = owned.find((c) => c.id === outId && !c.benched),
-      incoming = owned.find((c) => c.benched);
-    if (phase !== 'fight' || !outgoing || !incoming || swapCooldownRemaining > 0) return false;
-    incoming.tile = copy(outgoing.tile);
-    incoming.home = copy(outgoing.tile);
+      incoming = owned.find((c) => c.benched && !c.downed);
+    if (
+      phase !== 'fight' ||
+      !outgoing ||
+      !incoming ||
+      (swapCooldownRemaining > 0 && !outgoing.downed)
+    )
+      return false;
+    incoming.tile = entryTile({
+      fallen: outgoing.tile,
+      enemy: foe.tile,
+      isWalkable: (tx, ty) => grid.isWalkable(tx, ty),
+      occupied: [
+        foe.tile,
+        ...owned
+          .filter((c) => c !== outgoing && c !== incoming && !c.downed && !c.benched)
+          .map((c) => c.tile),
+      ],
+    });
+    incoming.home = copy(incoming.tile);
+    incoming.grace = ENTRY_GRACE_SECONDS;
     incoming.wander = null;
     outgoing.benched = true;
     incoming.benched = false;
@@ -607,6 +641,7 @@ const createEncounter = ({
     }
     swapCooldownRemaining = swapCooldownTotal;
     partyWipedElapsed = null;
+    autoDeployRemaining = null;
     return true;
   };
   const publicCombatant = (c: Internal): Combatant => ({
@@ -630,6 +665,7 @@ const createEncounter = ({
       c.benched || c.downed
         ? true
         : lineClear(c.tile, foe.tile, (tx, ty) => grid.isWalkable(tx, ty)),
+    grace: c.grace,
   });
   const state = (): CombatState => ({
     phase,
@@ -648,10 +684,12 @@ const createEncounter = ({
       approaching: foe.approach !== null,
       targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? threatTarget()?.id ?? null,
       reachTiles: foeReach,
+      grace: foe.grace,
     },
     party: owned.map(publicCombatant),
     reserveId: owned.find((c) => c.benched)?.id ?? null,
     swapCooldown: { remaining: swapCooldownRemaining, total: swapCooldownTotal },
+    autoDeployIn: autoDeployRemaining === null ? null : Math.max(0, autoDeployRemaining),
     projectiles: flights.map((p) => ({
       id: p.id,
       moveId: p.moveId,
@@ -684,11 +722,12 @@ const createEncounter = ({
       ? authority(distance(playerTile, creature.tile), creature.individual.temperament)
       : 0;
   };
-  const hear = (creatureId: string) => {
+  const hear = (creatureId: string, kind: 'walk' | 'move' = 'walk') => {
     if (phase !== 'fight') return { heard: true, authority: 1, distanceTiles: 0 };
     const creature = owned.find(({ id }) => id === creatureId);
     const distanceTiles = creature ? distance(playerTile, creature.tile) : 0;
-    const authorityValue = authorityOf(creatureId);
+    const authorityValue =
+      kind === 'move' ? moveTapAuthority(authorityOf(creatureId)) : authorityOf(creatureId);
     return { heard: hears(authorityValue, random(rng)), authority: authorityValue, distanceTiles };
   };
   return {

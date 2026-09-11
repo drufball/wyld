@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { authority, autopilotHolds, hears } from './authority.js';
+import { authority, autopilotHolds, hears, moveTapAuthority } from './authority.js';
 
 describe('authority', () => {
+  it('floors move-tap authority at fifteen percent', () => expect(moveTapAuthority(0)).toBe(0.15));
   it('is full within two tiles and reaches zero at eight for a Steady creature', () =>
     expect([0, 2, 5, 8, 9].map((d) => authority(d, 'Steady'))).toEqual([1, 1, 0.5, 0, 0]));
   it('is full within two tiles and reaches zero at eight for a Bold creature', () =>

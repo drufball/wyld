@@ -14,11 +14,12 @@ type HudState = TimeState & {
   combat?: CombatState | null;
   autopilotMoveId?: string | null;
   autopilotYielding?: boolean;
+  notice?: { id: string; text: string; refused: boolean } | null;
 };
 type HudActions = {
   selectCreature?(id: string): void;
   useMove?(moveId: string): void;
-  swap?(): void;
+  swapIn?(reserveId: string): void;
   openBook?(): void;
   openMap?(): void;
   openConsole?(): void;
@@ -69,7 +70,7 @@ const createHud = (
   document.body.append(root);
   const responsive = document.createElement('style');
   responsive.textContent =
-    '@media(max-width:479px){[aria-label="Time and place"]{top:8px!important;left:8px!important;width:134px!important;padding:7px 9px!important;font-size:10px!important;line-height:16px!important}[data-hud-heading]{gap:6px!important;font-size:13px!important}[data-hud-heading] svg{width:32px;height:18px}[aria-label="Time and place"] div:nth-child(3){margin-top:3px!important;font-size:9px!important}}';
+    '@keyframes wyld-swap-pulse{from{box-shadow:0 0 0 0 #bd7132}to{box-shadow:0 0 0 8px #bd713200}}[data-swap-state="urgent"]{animation:wyld-swap-pulse .8s infinite}[data-swap-state="ready"]{font-weight:700;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}@media(prefers-reduced-motion:reduce){[data-swap-state="urgent"]{animation:none;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}}@media(max-width:479px){[aria-label="Time and place"]{top:8px!important;left:8px!important;width:134px!important;padding:7px 9px!important;font-size:10px!important;line-height:16px!important}[data-hud-heading]{gap:6px!important;font-size:13px!important}[data-hud-heading] svg{width:32px;height:18px}[aria-label="Time and place"] div:nth-child(3){margin-top:3px!important;font-size:9px!important}}';
   document.head.append(responsive);
   const controlsHint = document.createElement('div');
   controlsHint.textContent = '? — controls';
@@ -132,6 +133,28 @@ const createHud = (
   partyAndTools.append(partyCards, tools);
   tray.append(moves, partyAndTools);
   document.body.append(tray);
+  const trayLabel = (text: string): HTMLSpanElement => {
+    const label = document.createElement('span');
+    label.dataset.trayLabel = '';
+    label.textContent = text;
+    label.style.cssText =
+      'flex:0 0 auto;writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;text-transform:uppercase;color:#f4efd9;pointer-events:none';
+    return label;
+  };
+  const applyNotice = (button: HTMLButtonElement, id: string, notice: HudState['notice']): void => {
+    if (!notice || notice.id !== id) return;
+    button.dataset.notice = notice.text;
+    const detail = document.createElement('small');
+    detail.dataset.noticeText = '';
+    detail.textContent = notice.text;
+    detail.style.cssText = 'display:block;font-size:9px;line-height:10px';
+    button.querySelector('small')?.remove();
+    button.append(detail);
+    if (notice.refused) {
+      button.dataset.refused = '';
+      button.style.outline = '3px dashed #b3261e';
+    }
+  };
   return {
     update(state: HudState): void {
       phase.textContent = state.phase;
@@ -143,29 +166,60 @@ const createHud = (
       region.hidden = !state.regionName && !state.biome;
       updateDetectionTarget({ bar: targetBar, fill: eyeFill, outline: eyeOutline }, state.target);
       partyCards.replaceChildren(
+        trayLabel('Yours'),
         ...(state.party ?? []).map(({ individual, name }) => {
           const combatant = state.combat?.party.find((c) => c.id === individual.id);
+          const standingReserve = Boolean(combatant?.benched && !combatant.downed);
           const button = control(
-            `${name}\n${combatant?.benched ? 'Reserve' : individual.temperament}`,
-            combatant?.benched ? undefined : () => actions.selectCreature?.(individual.id),
+            standingReserve
+              ? `Tap to bring ${name} in`
+              : `${name}\n${combatant?.downed ? 'Down' : individual.temperament}`,
+            standingReserve
+              ? () => actions.swapIn?.(individual.id)
+              : () => actions.selectCreature?.(individual.id),
           );
           button.title = individual.speciesId;
           button.style.flex = '1 1 0';
           button.style.minWidth = '0';
+          if (standingReserve) button.style.minWidth = '44px';
           button.setAttribute('aria-pressed', String(state.selection === individual.id));
           button.dataset.partyId = individual.id;
           if (state.selection === individual.id) button.style.outline = '2px solid #bd7132';
-          if (combatant?.benched) button.style.opacity = '0.45';
+          if (combatant?.benched && combatant.downed) button.style.opacity = '0.45';
+          if (standingReserve) {
+            button.dataset.reserve = '';
+            const urgent =
+              state.combat!.autoDeployIn !== null ||
+              state.combat!.party.some((c) => !c.benched && c.downed);
+            const swapState = urgent
+              ? 'urgent'
+              : state.combat!.swapCooldown.remaining === 0
+                ? 'ready'
+                : 'cooldown';
+            button.dataset.swapState = swapState;
+            const detail = document.createElement('small');
+            detail.textContent =
+              state.combat!.autoDeployIn !== null
+                ? `Coming in… ${Math.ceil(state.combat!.autoDeployIn)}`
+                : `${individual.temperament} · ${shrugsOffLine(speciesById(individual.speciesId)!.hide)}`;
+            detail.style.cssText = 'display:block;font-size:9px;line-height:10px';
+            button.append(detail);
+            if (swapState === 'cooldown') {
+              button.firstChild!.textContent += ` ◷${Math.ceil(state.combat!.swapCooldown.remaining)}`;
+              button.style.background = `linear-gradient(to top,#aaa ${(state.combat!.swapCooldown.remaining / state.combat!.swapCooldown.total) * 100}%,#f4efd9ee 0)`;
+            }
+          }
           if (combatant) {
             const bars = document.createElement('span');
             bars.style.cssText = 'display:block;width:52px;height:5px;background:#292b25';
             bars.innerHTML = `<i style="display:block;width:${(combatant.hp / combatant.maxHp) * 100}%;height:2px;background:#bd7132"></i><i style="display:block;width:${(combatant.focus / combatant.maxFocus) * 100}%;height:2px;background:#4e8292"></i>`;
             button.append(bars);
           }
+          applyNotice(button, individual.id, state.notice);
           return button;
         }),
       );
-      moves.replaceChildren();
+      moves.replaceChildren(trayLabel('Moves'));
       const selected = state.party?.find(({ individual }) => individual.id === state.selection);
       for (const move of selected?.individual.repertoire ?? []) {
         const combatant = state.combat?.party.find((c) => c.id === selected?.individual.id);
@@ -190,31 +244,11 @@ const createHud = (
             ? '2px dashed #bd7132'
             : '2px solid #bd7132';
         }
+        applyNotice(button, move.id, state.notice);
         button.style.background = cooldown?.remaining
           ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
           : '#f4efd9ee';
         button.addEventListener('click', () => actions.useMove?.(move.id));
-        moves.append(button);
-      }
-      const reserve = state.party?.find(
-        ({ individual }) => individual.id === state.combat?.reserveId,
-      );
-      if (reserve && state.combat) {
-        const cooldown = state.combat.swapCooldown;
-        const button = control(
-          `Swap · ${reserve.name}${cooldown.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
-          () => actions.swap?.(),
-        );
-        const detail = document.createElement('small');
-        detail.textContent = `${reserve.individual.temperament} · ${shrugsOffLine(speciesById(reserve.individual.speciesId)!.hide)}`;
-        detail.style.cssText = 'display:block;font-size:9px;line-height:10px';
-        button.append(detail);
-        button.dataset.swap = '';
-        button.disabled = cooldown.remaining > 0;
-        button.style.opacity = button.disabled ? '0.45' : '1';
-        button.style.background = cooldown.remaining
-          ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
-          : '#f4efd9ee';
         moves.append(button);
       }
     },
