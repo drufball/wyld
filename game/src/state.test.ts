@@ -20,4 +20,42 @@ describe('game state', () => {
     expect(state).not.toHaveProperty('camera');
     expect(state).not.toHaveProperty('stance');
   });
+  it('copies the order log into public state', () => {
+    const base = buildState({
+      version: '0',
+      elapsedSeconds: 0,
+      player: { x: 0, y: 0, z: 0 },
+      screen: { x: 0, y: 0 },
+      tile: { x: 0, y: 0 },
+      seed: 1,
+      region: null,
+      biome: null,
+      phase: 'Day',
+      day: 1,
+      phaseProgress: 0,
+      waterDepth: 0,
+      orders: [
+        {
+          creatureId: 'one',
+          kind: 'walk',
+          moveId: null,
+          distanceTiles: 9,
+          authority: 0,
+          heard: false,
+          at: 2,
+        },
+      ],
+    });
+    expect(base.orders).toEqual([
+      {
+        creatureId: 'one',
+        kind: 'walk',
+        moveId: null,
+        distanceTiles: 9,
+        authority: 0,
+        heard: false,
+        at: 2,
+      },
+    ]);
+  });
 });

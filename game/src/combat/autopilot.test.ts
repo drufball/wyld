@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { createAutopilot, DOUBLE_TAP_SECONDS } from './autopilot.js';
 
 describe('combat autopilot', () => {
+  it('reports a pending double tap without changing the armed move', () => {
+    const autopilot = createAutopilot();
+    autopilot.tap('one', 'strike', 1);
+    expect(autopilot.doubleTapPending('one', 'strike', 1.1)).toBe(true);
+    expect(autopilot.armed('one')).toBe('strike');
+  });
+
   it('arms a move on a single tap', () => {
     const autopilot = createAutopilot();
     autopilot.tap('one', 'strike', 1);

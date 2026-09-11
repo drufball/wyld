@@ -13,6 +13,7 @@ import { canAfford, damage, deliveries } from './resolve.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES } from './spacing.js';
 import { choiceInputFrom, createChooser } from './choice.js';
+import { createRng } from '../engine/rng.js';
 
 const member = (id: string): Individual => buildArenaIndividual(rosterMember(id)!);
 const antlerback = (): Individual => buildArenaIndividual(enemy('antlerback')!);
@@ -98,6 +99,38 @@ const driveIdleParty = (
   }
   return { positions, ticks: tick, events };
 };
+
+describe('authority', () => {
+  it("hears every order within two tiles and none beyond the temperament's reach", () => {
+    const near = setup({ rng: { next: () => 0.999 }, partyTiles: { owned: { x: 1, y: 0 } } });
+    expect(near.hear('owned')).toMatchObject({ heard: true, authority: 1 });
+    const far = setup({ rng: { next: () => 0 }, partyTiles: { owned: { x: 9, y: 0 } } });
+    expect(far.hear('owned')).toMatchObject({ heard: false, authority: 0 });
+  });
+  it('draws exactly one roll per order', () => {
+    let draws = 0;
+    const subject = setup({ rng: { next: () => (draws++, 0.5) } });
+    subject.hear('owned');
+    subject.hear('owned');
+    subject.authorityOf('owned');
+    expect(draws).toBe(2);
+  });
+  it('rolls the same way for the same seed', () => {
+    const makeSeeded = () => setup({ rng: createRng(7), partyTiles: { owned: { x: 5, y: 0 } } });
+    const a = makeSeeded(),
+      b = makeSeeded();
+    const first = Array.from({ length: 10 }, () => a.hear('owned').heard);
+    const second = Array.from({ length: 10 }, () => b.hear('owned').heard);
+    expect(first).toEqual(second);
+    expect(new Set(first).size).toBe(2);
+  });
+  it('keeps the player tile from the latest update for authority', () => {
+    const subject = setup({ partyTiles: { owned: { x: 5, y: 0 } } });
+    expect(subject.authorityOf('owned')).toBe(0.5);
+    subject.update(0, { owned: { x: 5, y: 0 } }, { x: 5, y: 0 });
+    expect(subject.authorityOf('owned')).toBe(1);
+  });
+});
 
 describe('combat encounter', () => {
   it('fires chosen moves without ever double-firing inside a cooldown', () => {

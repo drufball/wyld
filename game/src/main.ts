@@ -65,7 +65,9 @@ import { createPick, chooseEnemy, toggleMember, startFight, type PickState } fro
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
 import { createAutopilot } from './combat/autopilot.js';
-import { choiceInputFrom, createChooser } from './combat/choice.js';
+import { createChooser } from './combat/choice.js';
+import { autopilotHolds } from './combat/authority.js';
+import { createOrderLog, fireOrders, ignoredTell, type OrderEntry } from './combat/orders.js';
 import { LUNGE_SECONDS, createAnimations } from './combat/anim.js';
 import { createToastStack } from './ui/toasts.js';
 import { learnedFactText, learnFromCombat, type LearnedFact } from './arena/learning.js';
@@ -266,6 +268,7 @@ const aiStates = new Map<string, AiState>();
 let arenaState: PickState | null = synthetic ? createPick() : null;
 let encounter: ReturnType<typeof createEncounter> | null = null;
 const autopilot = createAutopilot();
+const orders = createOrderLog();
 const chooser = createChooser(() => rng.next());
 const animations = createAnimations();
 let fightLearned: LearnedFact[] = [];
@@ -495,6 +498,7 @@ const beginArena = (state: PickState): void => {
   if (!foe || state.party.length !== 3) return;
   animations.clear();
   autopilot.clearAll();
+  orders.clear();
   chooser.clearAll();
   arenaState = state;
   fightLearned = [];
@@ -565,6 +569,7 @@ const showEnemyPicker = (): void => {
   resultScreen = null;
   encounter = null;
   autopilot.clearAll();
+  orders.clear();
   chooser.clearAll();
   animations.clear();
   arenaState = createPick();
@@ -613,8 +618,24 @@ debugConsole.registerCommand('wipe', {
   },
 });
 hudActions.useMove = (moveId) => {
-  if (partyState.selection !== 'player' && encounter?.state().phase === 'fight')
-    autopilot.tap(partyState.selection, moveId, encounter.state().elapsed);
+  if (partyState.selection !== 'player' && encounter?.state().phase === 'fight') {
+    const combat = encounter.state();
+    if (autopilot.doubleTapPending(partyState.selection, moveId, combat.elapsed)) {
+      autopilot.tap(partyState.selection, moveId, combat.elapsed);
+      return;
+    }
+    const result = encounter.hear(partyState.selection);
+    const entry: OrderEntry = {
+      creatureId: partyState.selection,
+      kind: 'move',
+      moveId,
+      ...result,
+      at: combat.elapsed,
+    };
+    orders.record(entry);
+    if (entry.heard) autopilot.tap(partyState.selection, moveId, combat.elapsed);
+    else tellStack.push(ignoredTell(entry)!);
+  }
 };
 const swapSelected = (): boolean => {
   if (!encounter) return false;
@@ -911,21 +932,16 @@ const loop = createLoop({
     tellStack.update(dt);
     let combat = encounter?.state() ?? null;
     if (encounter && combat) {
+      const activeEncounter = encounter;
       const preUpdateCombat = combat;
-      if (preUpdateCombat.phase === 'fight')
-        for (const member of preUpdateCombat.party) {
-          const moveId = autopilot.armed(member.id);
-          if (moveId && !member.downed && !member.benched) encounter.useMove(member.id, moveId);
-        }
-      if (preUpdateCombat.phase === 'fight')
-        for (const { creatureId, moveId } of chooser.choose(
-          choiceInputFrom(
-            preUpdateCombat,
-            partyState.party.map(({ individual }) => individual),
-            (id) => autopilot.armed(id) !== null,
-          ),
-        ))
-          encounter.useMove(creatureId, moveId);
+      fireOrders({
+        combat: preUpdateCombat,
+        party: partyState.party.map(({ individual }) => individual),
+        autopilot,
+        chooser,
+        authorityOf: (id) => activeEncounter.authorityOf(id),
+        useMove: (id, moveId) => activeEncounter.useMove(id, moveId),
+      });
       const combatEvents = encounter.update(
         dt,
         Object.fromEntries(
@@ -947,6 +963,7 @@ const loop = createLoop({
         }
       if (combat.phase !== 'fight') {
         autopilot.clearAll();
+        orders.clear();
         chooser.clearAll();
       }
       if (shouldAskForReserve(combat, reservePrompted)) {
@@ -1066,8 +1083,25 @@ const loop = createLoop({
         partyState = groundTapped(partyState);
         if (partyState.selection === 'player') player.tap(tap.clientX, tap.clientY);
         else {
-          encounter?.override(partyState.selection);
-          partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
+          if (encounter?.state().phase === 'fight') {
+            const combatState = encounter.state();
+            const result = encounter.hear(partyState.selection);
+            const entry: OrderEntry = {
+              creatureId: partyState.selection,
+              kind: 'walk',
+              moveId: null,
+              ...result,
+              at: combatState.elapsed,
+            };
+            orders.record(entry);
+            if (entry.heard) {
+              encounter.override(partyState.selection);
+              partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
+            } else tellStack.push(ignoredTell(entry)!);
+          } else {
+            encounter?.override(partyState.selection);
+            partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
+          }
         }
       }
     }
@@ -1247,6 +1281,10 @@ const loop = createLoop({
       combat: encounter?.state() ?? null,
       autopilotMoveId:
         encounter?.state().phase === 'fight' ? autopilot.armed(partyState.selection) : null,
+      autopilotYielding:
+        encounter?.state().phase === 'fight' && autopilot.armed(partyState.selection) !== null
+          ? !autopilotHolds(encounter.authorityOf(partyState.selection))
+          : false,
     });
     input.endFrame();
   },
@@ -1301,6 +1339,7 @@ window.__wyld = {
       arena: arenaState,
       combat: encounter?.state() ?? null,
       autopilot: encounter?.state().phase === 'fight' ? [...autopilot.list()] : [],
+      orders: encounter?.state().phase === 'fight' ? [...orders.list()] : [],
       creatures: registry.list().map((c) => {
         const t = worldToTile(c.position.x, c.position.z),
           ai = aiStates.get(c.id);

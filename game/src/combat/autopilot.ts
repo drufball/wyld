@@ -8,6 +8,10 @@ const createAutopilot = () => {
   const lastTaps = new Map<string, Tap>();
 
   return {
+    doubleTapPending(creatureId: string, moveId: string, now: number): boolean {
+      const last = lastTaps.get(creatureId);
+      return last?.moveId === moveId && now - last.at <= DOUBLE_TAP_SECONDS;
+    },
     tap(creatureId: string, moveId: string, now: number): void {
       const last = lastTaps.get(creatureId);
       if (last?.moveId === moveId && now - last.at <= DOUBLE_TAP_SECONDS) {
