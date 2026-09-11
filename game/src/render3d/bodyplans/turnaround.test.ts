@@ -151,6 +151,7 @@ describe('body-plan turnaround', () => {
     expectFrontViewsWithinBaseline(species(), baseline, measuredFor);
   });
 
+  // The uncached setup is CPU-bound on GitHub's two-core runners.
   it('matches the turnaround table in VERIFICATION.md', { timeout: 30_000 }, () => {
     const rows = new Map(species().map((data) => [data.id, measuredFor(data)]));
     const table = formatTurnaroundTable(Object.fromEntries(rows));
