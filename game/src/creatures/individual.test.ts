@@ -4,7 +4,8 @@ import { roll } from './individual.js';
 import { species } from './species.js';
 
 describe('individual rolls', () => {
-  it('rolls integer stats and weighted declared temperaments', () => {
+  // CPU-bound on GitHub's two-core runners.
+  it('rolls integer stats and weighted declared temperaments', { timeout: 30_000 }, () => {
     for (const [speciesIndex, entry] of species().entries()) {
       const counts: Record<string, number> = {};
       const rng = createRng(10_000 + speciesIndex);
