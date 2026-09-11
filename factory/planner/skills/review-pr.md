@@ -80,3 +80,6 @@ Codex added a source guard ("no direct `localStorage` outside the accessor") and
 
 ### Requesting changes on our own PRs (2026-09-11)
 Codex pushes as the same account, so `gh pr review --request-changes` is refused ("cannot request changes on your own pull request"). The standard is: post the review as a PR comment (numbered items, "commit and push to <branch>; no new PR"), then start the round with `codex cloud exec --branch <branch>`. Three leads rediscovered this independently; don't.
+
+### Played timings need an idle machine (2026-09-11)
+A balance table measured on the Mac at load 15 with two headless browsers in parallel was wrong by ten seconds a fight; the reconciled harness agreed with the built game to one tick once the machine was idle. Any played timing must record `uptime`'s load alongside the number and be taken with nothing else running; if load per core is above ~0.5, the number is not evidence.
