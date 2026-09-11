@@ -2,7 +2,7 @@ import { readConfig } from './config.js';
 import { createHeartbeat } from './heartbeat.js';
 import { startHealthServer } from './health.js';
 import { createHost } from './host.js';
-import { log } from './logger.js';
+import { log } from '@wyld/shared';
 import { createQueueClient } from './queue.js';
 import { scrubSecrets } from './scrub.js';
 

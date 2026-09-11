@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { events, retros, sleepRuns } from './schema.js';
-import { formatIssues } from './validation.js';
+import { formatIssues } from '@wyld/shared';
 
 export type SleepConfig = {
   timeZone: string;

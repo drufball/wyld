@@ -1,6 +1,6 @@
 import { WakeMessageWire, type WakeMessageWire as WakeMessageWireType } from '@wyld/shared';
 import { z } from 'zod';
-import type { Logger } from './logger.js';
+import type { Logger } from '@wyld/shared';
 
 export type QueuedMessage = WakeMessageWireType & { id: number };
 

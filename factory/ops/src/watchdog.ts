@@ -1,7 +1,7 @@
 import { HealthSnapshot } from '@wyld/shared';
 
 import type { Config } from './config.js';
-import { log } from './logger.js';
+import { log } from '@wyld/shared';
 
 // Codex is deliberately absent: ops neither runs Codex nor sees its quota errors, and treating a
 // long-running task as inactivity would create false positives. The Planner sees Codex failures

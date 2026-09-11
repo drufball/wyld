@@ -1,6 +1,8 @@
 import { watch as watchDirectory, type FSWatcher } from 'node:fs';
 
-import { createToolRegistry, type Logger, type ToolRegistry } from './channel.js';
+import type { Logger } from '@wyld/shared';
+
+import { createToolRegistry, type ToolRegistry } from './channel.js';
 
 export function createToolReloader(options: {
   moduleUrl: string;

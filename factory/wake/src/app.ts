@@ -1,12 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-import { Event, WakeMessageWire } from '@wyld/shared';
+import { Event, WakeMessageWire, formatIssues, log, type Logger } from '@wyld/shared';
 import { and, asc, inArray, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { enqueueMessage, isPaused, setPaused, type AppDatabase } from './database.js';
-import { log, type LogContext, type LogLevel } from './logger.js';
 import { isBotGithubSender, normaliseEvent, normaliseGithub } from './normalise.js';
 import { messages } from './schema.js';
 
@@ -21,7 +20,7 @@ export type WakeAppDependencies = {
   githubWebhookSecret: string;
   version?: string;
   now?: () => Date;
-  logger?: (level: LogLevel, msg: string, context?: LogContext) => void;
+  logger?: Logger;
 };
 
 function equalSecret(actual: string | undefined, expected: string): boolean {
@@ -104,8 +103,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
       return c.json({ error: 'Unauthorized' }, 401);
     const body: unknown = await c.req.json().catch(() => ({}));
     const parsed = Claim.safeParse(body);
-    if (!parsed.success)
-      return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400);
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
     // Pending rows remain untouched while paused, so the ordinary next claim replays them in ts order.
     if (isPaused(database)) return c.json({ messages: [] });
     const rows = database.db
@@ -154,8 +152,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
       return c.json({ error: 'Unauthorized' }, 401);
     const body: unknown = await c.req.json().catch(() => undefined);
     const parsed = Ack.safeParse(body);
-    if (!parsed.success)
-      return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400);
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
     if (parsed.data.ids.length === 0) return c.json({ acked: 0 });
     const result = database.db
       .update(messages)
@@ -169,8 +166,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
     if (!equalSecret(c.req.header('X-Wake-Secret'), dependencies.wakeSecret))
       return c.json({ error: 'Unauthorized' }, 401);
     const parsed = Pause.safeParse(await c.req.json().catch(() => undefined));
-    if (!parsed.success)
-      return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400);
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
     if (!isPaused(database)) setPaused(database, parsed.data.since);
     return c.json({ paused: true });
   });
@@ -179,8 +175,7 @@ export function createWakeApp(dependencies: WakeAppDependencies) {
     if (!equalSecret(c.req.header('X-Wake-Secret'), dependencies.wakeSecret))
       return c.json({ error: 'Unauthorized' }, 401);
     const parsed = Resume.safeParse(await c.req.json().catch(() => ({})));
-    if (!parsed.success)
-      return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400);
+    if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
     if (isPaused(database)) setPaused(database, null);
     return c.json({ paused: false });
   });

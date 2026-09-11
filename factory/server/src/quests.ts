@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import { deriveProgress } from './progress.js';
 import { questLinks, questNotes, quests, worlds } from './schema.js';
-import { formatIssues } from './validation.js';
+import { formatIssues } from '@wyld/shared';
 
 const QuestStatus = Quest.shape.status;
 const QuestCreate = Quest.omit({ progress: true }).partial({

@@ -1,5 +1,5 @@
 import http, { type Server } from 'node:http';
-import type { Logger } from './logger.js';
+import type { Logger } from '@wyld/shared';
 
 export type HealthState = {
   sessionId: string | null;

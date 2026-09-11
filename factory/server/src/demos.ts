@@ -9,8 +9,8 @@ import { z } from 'zod';
 import { DEMO_SLUG, type DemoBuilder } from './builder.js';
 import type { Config } from './config.js';
 import type { AppDatabase } from './database.js';
-import type { LogContext } from './logger.js';
-import { formatIssues } from './validation.js';
+import type { Logger } from '@wyld/shared';
+import { formatIssues } from '@wyld/shared';
 import { demos, feedback, quests } from './schema.js';
 import { demoUrl } from './chain-cards.js';
 
@@ -20,7 +20,7 @@ type Dependencies = {
   storeEvent: (event: NewEvent) => Promise<unknown>;
   config: Pick<Config, 'feedbackDir'>;
   builder: DemoBuilder;
-  logger: (level: 'info' | 'error', message: string, context?: LogContext) => void;
+  logger: Logger;
 };
 const BuildRequest = z.object({ id: z.string().optional() });
 const FeedbackQuery = z.object({ demo: z.string().optional() });

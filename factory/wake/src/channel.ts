@@ -7,6 +7,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   ChainKind,
+  type Logger,
   CiState,
   DemoKind,
   type HealthReport,
@@ -20,14 +21,11 @@ import {
 } from '@wyld/shared';
 import { z } from 'zod';
 
-import type { LogContext, LogLevel } from './logger.js';
-
 export type QueuedMessage = WakeMessageWireType & { id: number };
 export type ChannelNotification = {
   method: 'notifications/claude/channel';
   params: { content: string; meta: Record<string, string> };
 };
-export type Logger = (level: LogLevel, msg: string, context?: LogContext) => void;
 
 export function createDaemonPost(options: {
   wakeUrl: string;
@@ -53,11 +51,6 @@ export function createDaemonPost(options: {
     if (!response.ok) throw new Error(`${path} returned HTTP ${response.status}: ${responseBody}`);
     return response;
   };
-}
-
-export function createStreamLogger(stream: NodeJS.WritableStream): Logger {
-  return (level, msg, context = {}) =>
-    stream.write(`${JSON.stringify({ ts: new Date().toISOString(), level, msg, ...context })}\n`);
 }
 
 export const CHANNEL_INSTRUCTIONS = `Events arrive as <channel source="wake" kind="..." quest="..." issue="..." pr="..." chain="..." url="..." ts="...">summary</channel>.

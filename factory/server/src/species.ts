@@ -18,7 +18,7 @@ import {
 } from '@wyld/sprites';
 import { z } from 'zod';
 import type { AppDatabase } from './database.js';
-import { log, type LogContext } from './logger.js';
+import { log, type Logger } from '@wyld/shared';
 import { speciesDrafts } from './schema.js';
 
 type SpeciesRouteOptions = {
@@ -26,7 +26,7 @@ type SpeciesRouteOptions = {
   worktreesDir?: string;
   database: AppDatabase;
   now?: () => Date;
-  logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
+  logger?: Logger;
   git?: string;
   pnpm?: string;
   gh?: string;

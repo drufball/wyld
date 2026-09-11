@@ -651,24 +651,31 @@ describe('Pak server', () => {
   });
 
   it('does not delay or fail event ingestion when Wake is unreachable', async () => {
-    const fetcher = vi.fn<typeof fetch>(() => new Promise(() => undefined));
-    app = createApp({
-      database,
-      demosDir: path.join(directory, 'demos'),
-      feedbackDir: path.join(directory, 'feedback'),
-      logger: silentLogger,
-      wakeUrl: 'http://unreachable.invalid',
-      wakeSecret: 'shared-secret',
-      fetch: fetcher,
-    });
-    const response = await Promise.race([
-      postEvent('human.intent', 'keep going'),
-      new Promise<never>((_resolve, reject) =>
-        setTimeout(() => reject(new Error('event ingestion waited for Wake')), 100),
-      ),
-    ]);
-    expect(response.status).toBe(201);
-    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi.fn<typeof fetch>(() => new Promise(() => undefined));
+      app = createApp({
+        database,
+        demosDir: path.join(directory, 'demos'),
+        feedbackDir: path.join(directory, 'feedback'),
+        logger: silentLogger,
+        wakeUrl: 'http://unreachable.invalid',
+        wakeSecret: 'shared-secret',
+        fetch: fetcher,
+      });
+      const responsePromise = Promise.race([
+        postEvent('human.intent', 'keep going'),
+        new Promise<never>((_resolve, reject) =>
+          setTimeout(() => reject(new Error('event ingestion waited for Wake')), 100),
+        ),
+      ]);
+      await vi.advanceTimersByTimeAsync(100);
+      const response = await responsePromise;
+      expect(response.status).toBe(201);
+      await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

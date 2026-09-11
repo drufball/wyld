@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import type { LogContext } from './logger.js';
+import type { Logger } from '@wyld/shared';
 
 const execFileAsync = promisify(execFile);
 export const DEMO_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -19,7 +19,7 @@ type Dependencies = {
   repoDir: string;
   demosDir: string;
   worktreesDir: string;
-  logger: (level: 'info' | 'error', message: string, context?: LogContext) => void;
+  logger: Logger;
   run?: CommandRunner;
 };
 

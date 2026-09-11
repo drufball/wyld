@@ -8,7 +8,7 @@ import packageMetadata from '../package.json' with { type: 'json' };
 import { createApp } from './app.js';
 import { readConfig } from './config.js';
 import { openDatabase } from './database.js';
-import { log } from './logger.js';
+import { log } from '@wyld/shared';
 import { createDemoBuilder } from './builder.js';
 
 const config = readConfig();

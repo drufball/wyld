@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import type { WakePauseNotifier } from './forwarder.js';
 import type { Notifier } from './notify.js';
-import { formatIssues } from './validation.js';
+import { formatIssues } from '@wyld/shared';
 import { clearRumbleChoice, decideRumbleRow, writeRumble } from './rumbles.js';
 import { pauses } from './schema.js';
 

@@ -17,7 +17,7 @@ import {
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
-import { log, type LogContext } from './logger.js';
+import { log, type Logger } from '@wyld/shared';
 import { chainMessages, events, healthReports, pauses, presence } from './schema.js';
 import {
   CATCHUP_AWAY_SECONDS,
@@ -27,7 +27,7 @@ import {
 import { createStaticHandler } from './static.js';
 import { createWakeForwarder, createWakePauseNotifier } from './forwarder.js';
 import { createQuestRoutes } from './quests.js';
-import { formatIssues } from './validation.js';
+import { formatIssues } from '@wyld/shared';
 import { createChainRoutes } from './chains.js';
 import { createOpsRoutes, latestOpsReport } from './ops.js';
 import { createRumbleRoutes } from './rumbles.js';
@@ -110,7 +110,7 @@ export type AppDependencies = {
   ntfyTopic?: string;
   now?: () => Date;
   fetch?: typeof globalThis.fetch;
-  logger?: (level: 'info' | 'error', msg: string, context?: LogContext) => void;
+  logger?: Logger;
   pakDist?: string;
   demosDir: string;
   feedbackDir: string;
