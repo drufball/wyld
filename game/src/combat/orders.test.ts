@@ -160,9 +160,9 @@ describe('orders', () => {
 
   it('waits for an armed move that is ready but out of range instead of choosing', () => {
     const strike = move('strike', 2);
-    const bolt = move('bolt', 4, 'Bolt');
+    const bolt = { ...move('bolt', 4, 'Bolt'), rangeMult: 0.05 };
     const individual = fighter('owned', [strike, bolt], { temperament: 'Bold' });
-    const subject = setup(individual, { x: 20, y: 0 });
+    const subject = setup(individual);
     const autopilot = createAutopilot();
     autopilot.tap(individual.id, bolt.id, 0);
 
