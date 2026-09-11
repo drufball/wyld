@@ -1,5 +1,16 @@
 # M0 — Skeleton world verification (seed 194)
 
+## Bundle
+
+- **Before (`build output`):** total JavaScript 758.33 kB (gzip 212.61 kB); entry `index-GT0BnVRM.js` 758.33 kB (gzip 212.61 kB); no diorama chunk.
+- **After (`build output`):** total JavaScript 758.97 kB (gzip 214.20 kB); entry `index-BLIZ7zjX.js` 126.73 kB (gzip 46.80 kB); diorama `diorama-SQs-Giv7.js` 508.63 kB (gzip 131.11 kB). The remaining shared `time-C8kFassO.js` is 123.61 kB (gzip 36.29 kB).
+- **PASS (`simulated`) — the entry chunk contains no three.js and no render3d module:** the programmatic Vite build found neither Three.js nor render3d sources other than `look.ts` in the entry, and found no `THREE.WebGLRenderer` warning literal there.
+- **PASS (`simulated`) — the diorama chunk is a separate dynamic import that carries three.js and render3d:** the programmatic Vite build found exactly one dynamic diorama chunk containing all render3d sources other than `look.ts`, Three.js, and the renderer warning literal.
+- **PASS (`simulated`) — the entry chunk is under the 500 kB warning limit:** the programmatic Vite build measured the entry code below Vite's 500 kB warning threshold.
+- **PASS (`simulated`) — the flat look loads one script and never requests the diorama chunk:** headless Chromium observed the entry bundle boundary, no diorama bundle request, `window.__wyld`, and no import- or Three.js-related page error after one further second.
+- **PASS (`simulated`) — the diorama look requests the diorama chunk after the entry:** headless Chromium observed the entry and diorama bundle boundaries in order, `window.__wyld`, and `THREE.WebGLRenderer` only in the fetched diorama body.
+- **PASS (`simulated`) — the default look is diorama and loads the chunk too:** headless Chromium observed a diorama bundle request with no `look` query parameter.
+
 - **PASS — seeded RNG:** `pnpm --filter @wyld/game exec vitest run src/engine/rng.test.ts` compared 20 draws from each of two RNGs seeded `1234`; all 20 were identical (2 tests passed).
 - **PASS — region lookup:** `pnpm --filter @wyld/game exec vitest run src/world/regions.test.ts` checked Hollow, Pond Hollow, Dunes, Crater Rim, and `(-390, 390)` outside every region; all 5 fixtures returned the expected result (6 tests passed including tie-breaking).
 - **PASS — traversal (Planner review, headless Chromium at 1280×720):** From Shore Camp on Near Island, sprinting in all four directions for six seconds each stopped the player at exactly 0.60 m water depth every time, without entering deeper water. Fern Chasm walls sampled at 56–64°, above the 45° limit, and blocked traversal. Terrain height under the player tracked continuously throughout.
