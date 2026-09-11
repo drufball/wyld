@@ -461,6 +461,20 @@ describe('thumb HUD', () => {
     expect(button.textContent).toContain('◷5');
     expect(button.style.background).toContain('linear-gradient');
   });
+  it("a standing reserve's card drops the cooldown fill when the cooldown ends", () => {
+    const party = [creature('a'), creature('b'), creature('reserve')];
+    const combat = combatState(party);
+    combat.swapCooldown = { remaining: 3, total: 6 };
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party), combat });
+    const button = document.querySelector('[data-reserve]') as HTMLButtonElement;
+    expect(button.style.background).toContain('linear-gradient');
+
+    combat.swapCooldown = { remaining: 0, total: 6 };
+    hud.update({ ...state(party), combat });
+    expect(document.querySelector('[data-reserve]')).toBe(button);
+    expect(button.style.background).toBe('rgba(244, 239, 217, 0.933)');
+  });
   it('suppresses location for a synthetic scenario', () => {
     const hud = createHud(true, document.body);
     hud.update({ ...state(), biome: null });

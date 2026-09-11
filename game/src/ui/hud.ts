@@ -242,6 +242,7 @@ const createHud = (
         write(button.style, 'opacity', combatant?.benched && combatant.downed ? '0.45' : '');
         attribute(button, 'data-reserve', standingReserve ? '' : undefined);
         attribute(button, 'data-swap-state');
+        write(button.style, 'background', '#f4efd9ee');
         let detail: string | undefined;
         if (standingReserve) {
           const urgent =
@@ -266,7 +267,6 @@ const createHud = (
             );
           }
         }
-        if (!standingReserve) write(button.style, 'background', '#f4efd9ee');
         if (combatant) {
           write(entry.hp.style, 'width', `${(combatant.hp / combatant.maxHp) * 100}%`);
           write(entry.focus.style, 'width', `${(combatant.focus / combatant.maxFocus) * 100}%`);
