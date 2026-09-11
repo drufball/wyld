@@ -1,0 +1,67 @@
+{
+  "loamox": {
+    "width": 92,
+    "height": 132,
+    "area": 9528
+  },
+  "bramblehog": {
+    "width": 48,
+    "height": 142,
+    "area": 4267
+  },
+  "thornwren": {
+    "width": 156,
+    "height": 79,
+    "area": 6662
+  },
+  "mirefin": {
+    "width": 140,
+    "height": 96,
+    "area": 8235
+  },
+  "antlerback": {
+    "width": 146,
+    "height": 204,
+    "area": 22244
+  },
+  "tidewhelk": {
+    "width": 108,
+    "height": 134,
+    "area": 9418
+  },
+  "saltwing": {
+    "width": 248,
+    "height": 121,
+    "area": 14892
+  },
+  "kelpmaw": {
+    "width": 32,
+    "height": 142,
+    "area": 1927
+  },
+  "emberjack": {
+    "width": 48,
+    "height": 140,
+    "area": 4249
+  },
+  "dunecask": {
+    "width": 162,
+    "height": 189,
+    "area": 19456
+  },
+  "glasswing": {
+    "width": 244,
+    "height": 122,
+    "area": 14822
+  },
+  "ashcrawl": {
+    "width": 196,
+    "height": 167,
+    "area": 15774
+  },
+  "pyreclaw": {
+    "width": 264,
+    "height": 351,
+    "area": 63936
+  }
+}

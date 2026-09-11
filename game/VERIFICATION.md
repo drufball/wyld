@@ -99,6 +99,72 @@ These `frameMsP50` / `frameMsP95` values are the values returned by `__wyld.perf
 **SwiftShader frame times are not the 60 fps budget**; the frame-rate checkpoint still needs Dru's
 laptop, as M0's PARTIAL did.
 
+### Diorama turnarounds
+
+These simulated silhouettes use the orthographic camera from `renderer.ts`, tilted 50° from
+vertical, with each creature in its `idle` pose at t = 0 and no water, at 160 simulated pixels per
+tile. A plan is thin when side width is < 0.45 × front width, side area is < 0.55 × front area, or
+non-null side head area is < 0.5 × front head area.
+
+<!-- turnaround:start -->
+| Species | Angle | Width px | Height px | Area px | Head px | Thin? |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| Loamox | front | 92 | 132 | 9528 | 3410 | — |
+| Loamox | side | 169 | 145 | 13846 | 3304 | — |
+| Loamox | back | 92 | 178 | 11672 | 3596 | — |
+| Loamox | three-quarter | 166 | 185 | 14458 | 3934 | — |
+| Bramblehog | front | 48 | 142 | 4267 | 1264 | — |
+| Bramblehog | side | 218 | 80 | 6316 | 1182 | — |
+| Bramblehog | back | 48 | 150 | 4852 | 1286 | — |
+| Bramblehog | three-quarter | 151 | 121 | 5786 | 1278 | — |
+| Thornwren | front | 156 | 79 | 6662 | 492 | — |
+| Thornwren | side | 120 | 104 | 7067 | 481 | — |
+| Thornwren | back | 156 | 91 | 6810 | 492 | — |
+| Thornwren | three-quarter | 146 | 98 | 7233 | 537 | — |
+| Mirefin | front | 140 | 96 | 8235 | — | — |
+| Mirefin | side | 128 | 99 | 8262 | — | — |
+| Mirefin | back | 140 | 96 | 8235 | — | — |
+| Mirefin | three-quarter | 161 | 112 | 8819 | — | — |
+| Antlerback | front | 146 | 204 | 22244 | 8280 | — |
+| Antlerback | side | 252 | 235 | 32500 | 7503 | — |
+| Antlerback | back | 146 | 287 | 27740 | 8280 | — |
+| Antlerback | three-quarter | 248 | 298 | 34526 | 9310 | — |
+| Tidewhelk | front | 108 | 134 | 9418 | 764 | — |
+| Tidewhelk | side | 161 | 105 | 9976 | 748 | — |
+| Tidewhelk | back | 108 | 114 | 8774 | 736 | — |
+| Tidewhelk | three-quarter | 134 | 116 | 9702 | 732 | — |
+| Saltwing | front | 248 | 121 | 14892 | 1112 | — |
+| Saltwing | side | 179 | 163 | 16045 | 1083 | — |
+| Saltwing | back | 248 | 132 | 15108 | 1114 | — |
+| Saltwing | three-quarter | 230 | 151 | 16100 | 1207 | — |
+| Kelpmaw | front | 32 | 142 | 1927 | 388 | — |
+| Kelpmaw | side | 217 | 32 | 2148 | 389 | — |
+| Kelpmaw | back | 32 | 149 | 2016 | 386 | — |
+| Kelpmaw | three-quarter | 158 | 113 | 2132 | 388 | — |
+| Emberjack | front | 48 | 140 | 4249 | 1260 | — |
+| Emberjack | side | 218 | 79 | 6303 | 1184 | — |
+| Emberjack | back | 48 | 150 | 4825 | 1282 | — |
+| Emberjack | three-quarter | 151 | 120 | 5755 | 1278 | — |
+| Dunecask | front | 162 | 189 | 19456 | 1258 | — |
+| Dunecask | side | 238 | 146 | 20494 | 1234 | — |
+| Dunecask | back | 162 | 163 | 18596 | 1216 | — |
+| Dunecask | three-quarter | 197 | 162 | 20079 | 1218 | — |
+| Glasswing | front | 244 | 122 | 14822 | 1112 | — |
+| Glasswing | side | 181 | 160 | 15957 | 1090 | — |
+| Glasswing | back | 244 | 132 | 15002 | 1110 | — |
+| Glasswing | three-quarter | 226 | 148 | 15939 | 1207 | — |
+| Ashcrawl | front | 196 | 167 | 15774 | 992 | — |
+| Ashcrawl | side | 247 | 133 | 16397 | 1173 | — |
+| Ashcrawl | back | 196 | 163 | 15627 | 994 | — |
+| Ashcrawl | three-quarter | 224 | 152 | 16517 | 1102 | — |
+| Pyreclaw | front | 264 | 351 | 63936 | 16080 | — |
+| Pyreclaw | side | 126 | 397 | 39935 | 15369 | — |
+| Pyreclaw | back | 264 | 373 | 66605 | 16080 | — |
+| Pyreclaw | three-quarter | 252 | 409 | 62241 | 18891 | — |
+<!-- turnaround:end -->
+
+**Thin before any plan change:** none (simulated; no width, area, or head-area rule triggered).
+
 ### Renderer invariants
 
 - The camera tilt is 50° from vertical; its frustum is anisotropic and deliberately does **not** fit

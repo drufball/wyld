@@ -31,6 +31,7 @@ const build: BodyPlanBuilder = (spec) => {
     }
   for (const side of [-1, 1]) {
     const jaw = mesh(new THREE.ConeGeometry(l * 0.055, l * 0.28, 8), m.accent, false);
+    jaw.name = 'head';
     jaw.rotation.x = Math.PI / 2;
     jaw.rotation.z = side * 0.25;
     jaw.position.set(side * l * 0.1, h * 0.34, l * 0.65);

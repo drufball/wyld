@@ -18,6 +18,7 @@ const build: BodyPlanBuilder = (spec) => {
     group.add(part);
   }
   const head = mesh(new THREE.SphereGeometry(h * 0.34, 8, 6), m.primary, false);
+  head.name = 'head';
   head.position.set(0, h * 0.34, l * 0.56);
   group.add(head);
   for (const x of [-1, 1]) {
