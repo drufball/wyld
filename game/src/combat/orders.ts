@@ -15,6 +15,29 @@ type OrderEntry = {
   at: number;
 };
 type FiredMove = { creatureId: string; moveId: string; source: 'autopilot' | 'choice' };
+const NOTICE_SECONDS = 1.5;
+
+const createRefusalFeedback = () => {
+  let toasted = false;
+  return {
+    refused(entry: OrderEntry, name: string) {
+      if (entry.kind !== 'move' || entry.heard || !entry.moveId)
+        return { notice: null, toast: null };
+      const notice = {
+        id: entry.moveId,
+        text: 'Too far — get closer' as const,
+        refused: true as const,
+        until: entry.at + NOTICE_SECONDS,
+      };
+      const toast = toasted ? null : `Too far — ${name} didn't hear you; get closer`;
+      toasted = true;
+      return { notice, toast };
+    },
+    reset(): void {
+      toasted = false;
+    },
+  };
+};
 
 const ignoredTell = (entry: OrderEntry): CombatTell | null =>
   entry.heard ? null : { kind: 'ignored', text: '…', targetId: entry.creatureId };
@@ -59,5 +82,5 @@ const fireOrders = (input: {
   return fired;
 };
 
-export { createOrderLog, fireOrders, ignoredTell };
+export { NOTICE_SECONDS, createOrderLog, createRefusalFeedback, fireOrders, ignoredTell };
 export type { FiredMove, OrderEntry, OrderKind };

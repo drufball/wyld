@@ -5,7 +5,13 @@ import { createAutopilot } from './autopilot.js';
 import { createChooser } from './choice.js';
 import { createEncounter, type Point } from './encounter.js';
 import type { Move } from './moves.js';
-import { createOrderLog, fireOrders, ignoredTell, type OrderEntry } from './orders.js';
+import {
+  createOrderLog,
+  createRefusalFeedback,
+  fireOrders,
+  ignoredTell,
+  type OrderEntry,
+} from './orders.js';
 
 const move = (id: string, power: number): Move => ({
   id,
@@ -37,6 +43,30 @@ const entry = (heard: boolean, at = 0): OrderEntry => ({
   at,
 });
 describe('orders', () => {
+  it('toasts a refused move once per fight and notices the button every time', () => {
+    const feedback = createRefusalFeedback();
+    const entry: OrderEntry = {
+      creatureId: 'c',
+      kind: 'move',
+      moveId: 'ember',
+      distanceTiles: 9,
+      authority: 0.15,
+      heard: false,
+      at: 2,
+    };
+    expect(feedback.refused(entry, 'Cinder')).toEqual({
+      notice: { id: 'ember', text: 'Too far — get closer', refused: true, until: 3.5 },
+      toast: "Too far — Cinder didn't hear you; get closer",
+    });
+    expect(feedback.refused(entry, 'Cinder').toast).toBeNull();
+    expect(feedback.refused({ ...entry, kind: 'walk', moveId: null }, 'Cinder')).toEqual({
+      notice: null,
+      toast: null,
+    });
+    feedback.reset();
+    expect(feedback.refused(entry, 'Cinder').toast).not.toBeNull();
+  });
+
   it('raises the "…" tell only on an order that was not heard', () => {
     expect(ignoredTell(entry(true))).toBeNull();
     expect(ignoredTell(entry(false))).toEqual({ kind: 'ignored', text: '…', targetId: 'fighter' });

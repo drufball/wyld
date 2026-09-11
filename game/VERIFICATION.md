@@ -78,6 +78,13 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 - **NOTE — duration:** measured in the built game at 375 × 812 with both active creatures on autopilot and the reserve swapped in when they fell. The first, uninformed party — Barrow/Quill/Pip, whose moves are Impact and Cut against the Antlerback's Bark — is driven off at 13.05 s with the enemy still on 185 of 200 hp: the loss that teaches you the hide. The informed party that Heat gives you — Cinder/Grit/Barrow — is driven off at 19.72 s with the enemy down to 46 of 200: a close-run thing rather than a rout. §7's 30–90 s band is still not met, but the gap is now a balance question (party vigor against enemy power) rather than a missing mechanic, and the learning loop reads correctly in the numbers: knowing the weakness turns a 13-second rout into a fight you nearly win. Figures replace the 9.63 s and 11.48 s recorded before the reserve and autopilot units.
 - **PASS — walkthrough:** from cleared `fieldwork.arena.v1`, picked Antlerback and Barrow/Quill/Pip, was driven off, and the result recorded Bark, Cut resistance, Bull Rush, and Bold temperament. Returned to the enemy card, selected Cinder, and won; the result added the Heat weakness. The guide paused and resumed the encounter from both G and Escape.
 
+### Reserve deployment
+
+- **Simulated:** at 1.9 s after the downed event the reserve is still benched and the countdown reads 0.10 s; on the 2.05 s tick it deploys and the countdown clears.
+- **Simulated:** with the fallen creature at tile centre (5.5, 9.5) and the enemy at (5.7, 8.3), the automatically deployed reserve enters at tile centre (5.5, 10.5).
+- **Simulated:** the incoming reserve takes no hit during the first 0.9 s of entry grace and takes a hit by 3.9 s after entry.
+
+
 ## Diorama
 
 Measured in headless Chromium 151 with SwiftShader, seed 194. The party row was sampled with all

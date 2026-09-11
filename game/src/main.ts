@@ -67,7 +67,15 @@ import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
 import { createAutopilot } from './combat/autopilot.js';
 import { createChooser } from './combat/choice.js';
 import { autopilotHolds } from './combat/authority.js';
-import { createOrderLog, fireOrders, ignoredTell, type OrderEntry } from './combat/orders.js';
+import {
+  NOTICE_SECONDS,
+  createOrderLog,
+  createRefusalFeedback,
+  fireOrders,
+  ignoredTell,
+  type OrderEntry,
+} from './combat/orders.js';
+import { swapTapOutcome } from './combat/reserve.js';
 import { LUNGE_SECONDS, createAnimations } from './combat/anim.js';
 import { createToastStack } from './ui/toasts.js';
 import { learnedFactText, learnFromCombat, type LearnedFact } from './arena/learning.js';
@@ -215,6 +223,18 @@ const createPartyController = (member: (typeof partyState.party)[number]) =>
   });
 hudActions.selectCreature = (id) => {
   partyState = selectCreature(partyState, id);
+  const combat = encounter?.state();
+  const member = combat?.party.find((candidate) => candidate.id === id);
+  if (combat && member?.downed && !member.benched) {
+    const reserve = combat.party.find((candidate) => candidate.benched && !candidate.downed);
+    const reserveName = reserve ? (rosterMember(reserve.id)?.name ?? reserve.id) : null;
+    notice = {
+      id,
+      text: reserveName ? `Down — ${reserveName} is coming in` : 'Down',
+      refused: false,
+      until: combat.elapsed + NOTICE_SECONDS,
+    };
+  }
 };
 const registry = createCreatureRegistry(terrain.heightAt, () => player.world);
 const onScreen = (x: number, z: number, margin = 0): boolean => {
@@ -269,12 +289,14 @@ let arenaState: PickState | null = synthetic ? createPick() : null;
 let encounter: ReturnType<typeof createEncounter> | null = null;
 const autopilot = createAutopilot();
 const orders = createOrderLog();
+const refusal = createRefusalFeedback();
 const chooser = createChooser(() => rng.next());
 const animations = createAnimations();
 let fightLearned: LearnedFact[] = [];
 let resultScreen: ReturnType<typeof createArenaResult> | null = null;
 let fightRecorded = false;
 let reservePrompted = false;
+let notice: { id: string; text: string; refused: boolean; until: number } | null = null;
 let damageLogging = false;
 const seedCreature = (id: string): void => {
   const c = registry.get(id);
@@ -504,6 +526,8 @@ const beginArena = (state: PickState): void => {
   fightLearned = [];
   fightRecorded = false;
   reservePrompted = false;
+  refusal.reset();
+  notice = null;
   resultScreen?.dispose();
   resultScreen = null;
   const built = buildArena(view.cols, view.rows, foe.biome);
@@ -624,7 +648,7 @@ hudActions.useMove = (moveId) => {
       autopilot.tap(partyState.selection, moveId, combat.elapsed);
       return;
     }
-    const result = encounter.hear(partyState.selection);
+    const result = encounter.hear(partyState.selection, 'move');
     const entry: OrderEntry = {
       creatureId: partyState.selection,
       kind: 'move',
@@ -634,30 +658,57 @@ hudActions.useMove = (moveId) => {
     };
     orders.record(entry);
     if (entry.heard) autopilot.tap(partyState.selection, moveId, combat.elapsed);
-    else tellStack.push(ignoredTell(entry)!);
+    else {
+      tellStack.push(ignoredTell(entry)!);
+      const feedback = refusal.refused(
+        entry,
+        rosterMember(partyState.selection)?.name ?? partyState.selection,
+      );
+      notice = feedback.notice;
+      if (feedback.toast) toasts.note(feedback.toast);
+    }
   }
 };
-const swapSelected = (): boolean => {
+const bringIn = (incomingId: string, outId: string): void => {
+  if (!encounter) return;
+  autopilot.clear(outId);
+  chooser.clear(outId);
+  partyControllers.get(outId)?.clearPath();
+  const incoming = encounter.state().party.find((member) => member.id === incomingId);
+  if (!incoming) return;
+  const destination = tileToWorld(incoming.tile.x - 0.5, incoming.tile.y - 0.5);
+  partyControllers.get(incomingId)?.teleport(destination.x, destination.z);
+  partyState = selectCreature(partyState, incomingId);
+};
+const swapSelected = (reserveId: string): boolean => {
   if (!encounter) return false;
   const combat = encounter.state();
-  const outgoing =
-    combat.party.find((member) => member.id === partyState.selection && !member.benched) ??
-    combat.party.find((member) => !member.benched);
-  if (!outgoing || !encounter.swap(outgoing.id)) return false;
-  autopilot.clear(outgoing.id);
-  chooser.clear(outgoing.id);
-  const incoming = combat.party.find((member) => member.id === combat.reserveId);
-  if (!incoming) return false;
-  const destination = tileToWorld(outgoing.tile.x - 0.5, outgoing.tile.y - 0.5);
-  partyControllers.get(incoming.id)?.teleport(destination.x, destination.z);
-  partyControllers.get(outgoing.id)?.clearPath();
-  partyState = selectCreature(partyState, incoming.id);
+  const outcome = swapTapOutcome({
+    phase: combat.phase,
+    selection: partyState.selection,
+    party: combat.party,
+    swapCooldownRemaining: combat.swapCooldown.remaining,
+  });
+  if ('reason' in outcome) {
+    notice = {
+      id: reserveId,
+      text: outcome.reason,
+      refused: false,
+      until: combat.elapsed + NOTICE_SECONDS,
+    };
+    return false;
+  }
+  if (!encounter.swap(outcome.outId)) return false;
+  bringIn(reserveId, outcome.outId);
   return true;
 };
-hudActions.swap = () => void swapSelected();
+hudActions.swapIn = (reserveId) => void swapSelected(reserveId);
 window.addEventListener('keydown', (event) => {
   if (shouldIgnoreArenaKey(event, debugConsole.isOpen, guide?.isOpen ?? false)) return;
-  if (event.key.toLowerCase() === 's' && encounter?.state().phase === 'fight') swapSelected();
+  if (event.key.toLowerCase() === 's' && encounter) {
+    const reserveId = encounter.state().reserveId;
+    if (reserveId) swapSelected(reserveId);
+  }
 });
 const render = (alpha = 1) => {
   const clock = timeAt(elapsedSeconds),
@@ -960,7 +1011,8 @@ const loop = createLoop({
         if (event.type === 'downed' && event.target) {
           autopilot.clear(event.target);
           chooser.clear(event.target);
-        }
+        } else if (event.type === 'auto-deploy' && event.target && event.out)
+          bringIn(event.target, event.out);
       if (combat.phase !== 'fight') {
         autopilot.clearAll();
         orders.clear();
@@ -973,7 +1025,7 @@ const loop = createLoop({
         const reserveName = reserve ? rosterMember(reserve.individual.id)?.name : null;
         if (reserveName) {
           reservePrompted = true;
-          toasts.note(`Both are down — swap ${reserveName} in.`);
+          toasts.note(`Both are down — ${reserveName} is coming in.`);
         }
       }
       for (const member of combat.party)
@@ -1285,6 +1337,10 @@ const loop = createLoop({
         encounter?.state().phase === 'fight' && autopilot.armed(partyState.selection) !== null
           ? !autopilotHolds(encounter.authorityOf(partyState.selection))
           : false,
+      notice:
+        notice && (encounter?.state().elapsed ?? 0) < notice.until
+          ? { id: notice.id, text: notice.text, refused: notice.refused }
+          : null,
     });
     input.endFrame();
   },

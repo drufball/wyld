@@ -130,6 +130,34 @@ describe('authority', () => {
     subject.update(0, { owned: { x: 5, y: 0 } }, { x: 5, y: 0 });
     expect(subject.authorityOf('owned')).toBe(1);
   });
+  it("never lets a move tap's authority fall below the floor", () => {
+    const subject = setup({
+      party: [fighter('owned', [move('Strike')], { temperament: 'Bold' })],
+      partyTiles: { owned: { x: 9, y: 0 } },
+      reserve: '',
+    });
+    expect(subject.hear('owned', 'move').authority).toBe(0.15);
+    expect(subject.hear('owned').authority).toBe(0);
+  });
+  it('hears a move tap at nine tiles within twenty seeded taps', () => {
+    const subject = setup({
+      rng: createRng(7),
+      party: [fighter('owned', [move('Strike')], { temperament: 'Bold' })],
+      partyTiles: { owned: { x: 9, y: 0 } },
+      reserve: '',
+    });
+    expect(
+      Array.from({ length: 20 }, () => subject.hear('owned', 'move').heard).indexOf(true),
+    ).toBeLessThan(20);
+  });
+  it('keeps walk orders on the full curve', () => {
+    const subject = setup({
+      rng: createRng(7),
+      partyTiles: { owned: { x: 9, y: 0 } },
+      reserve: '',
+    });
+    expect(Array.from({ length: 40 }, () => subject.hear('owned').heard).some(Boolean)).toBe(false);
+  });
 });
 
 describe('combat encounter', () => {
@@ -487,11 +515,13 @@ describe('combat encounter', () => {
         stats: { ...individual.stats, vigor: 1 },
       })),
       enemy: fighter('enemy', [sweep]),
-      partyTiles: { one: { x: 1, y: 0 }, two: { x: 1, y: 0.5 }, three: { x: 1, y: 1 } },
+      partyTiles: { one: { x: 1, y: 0 }, two: { x: 1, y: 0.5 }, three: { x: 0.5, y: 0.5 } },
       enemyTile: { x: 0, y: 0 },
     });
     subject.useMove('enemy', sweep.id, 'one');
-    advance(subject, 3);
+    let downed = false;
+    while (!downed) downed = subject.update(0.05).some(({ type }) => type === 'downed');
+    subject.update(0);
     expect(
       subject
         .state()
@@ -536,18 +566,43 @@ describe('combat encounter', () => {
     expect(state.swapCooldown).toEqual({ remaining: 0, total: 6 });
   });
 
-  it('swaps the reserve in at the leaving creature tile', () => {
+  it('enters one tile away from the enemy on a manual swap', () => {
     const subject = setup({
       party: reserveParty(),
       partyTiles: { one: { x: 2, y: 3 }, two: { x: 0, y: 0 }, three: { x: 9, y: 9 } },
     });
     expect(subject.swap('one')).toBe(true);
     const state = subject.state();
-    expect(state.party.find(({ id }) => id === 'three')).toMatchObject({
-      tile: { x: 2, y: 3 },
-      benched: false,
-    });
+    const incoming = state.party.find(({ id }) => id === 'three')!;
+    expect(incoming.benched).toBe(false);
+    expect(incoming.tile.x % 1).toBe(0.5);
+    expect(incoming.tile.y % 1).toBe(0.5);
+    expect(distanceForTest(incoming.tile, state.enemy.tile)).toBeGreaterThan(
+      distanceForTest({ x: 2, y: 3 }, state.enemy.tile),
+    );
     expect(state.reserveId).toBe('one');
+  });
+
+  it('enters one tile away from the enemy on an auto-deploy', () => {
+    const strike = { ...move('Strike'), power: 30 };
+    const subject = setup({
+      party: reserveParty().map((individual) => ({
+        ...individual,
+        stats: { ...individual.stats, vigor: individual.id === 'one' ? 1 : 10_000 },
+      })),
+      enemy: fighter('enemy', [strike]),
+      partyTiles: { one: { x: 5.5, y: 9.5 }, two: { x: 12.5, y: 12.5 } },
+      enemyTile: { x: 5.7, y: 8.3 },
+    });
+    subject.useMove('enemy', strike.id, 'one');
+    advance(subject, 1, { one: { x: 5.5, y: 9.5 } });
+    const fallen = subject.state().party.find(({ id }) => id === 'one')!;
+    expect(fallen.downed).toBe(true);
+    advance(subject, 2.05, { one: { x: 5.5, y: 9.5 } });
+    expect(subject.state().party.find(({ id }) => id === 'three')).toMatchObject({
+      benched: false,
+      tile: { x: 5.5, y: 10.5 },
+    });
   });
 
   it('keeps each creature hp, focus and cooldowns across a swap', () => {
@@ -566,7 +621,7 @@ describe('combat encounter', () => {
     ).toEqual(before);
   });
 
-  it('refuses a second swap until the cooldown expires', () => {
+  it('still holds the swap cooldown for a standing creature', () => {
     const subject = setup({ party: reserveParty() });
     expect(subject.swap('one')).toBe(true);
     expect(subject.swap('three')).toBe(false);
@@ -600,6 +655,68 @@ describe('combat encounter', () => {
     });
   });
 
+  it('swaps a downed creature out during the swap cooldown', () => {
+    const subject = downActiveParty();
+    expect(subject.swap('one')).toBe(true);
+    expect(subject.state().swapCooldown.remaining).toBe(6);
+  });
+
+  it('cannot be hit during the second of grace', () => {
+    const strike = { ...move('Strike'), power: 30 };
+    const subject = setup({
+      party: reserveParty(),
+      enemy: fighter('enemy', [strike], { stats: { vigor: 70, power: 3, speed: 10, focus: 40 } }),
+      enemyTile: { x: 1, y: 0 },
+    });
+    subject.swap('one');
+    subject.useMove('enemy', strike.id, 'three');
+    const during = advance(subject, 0.9);
+    expect(during.some(({ type, target }) => type === 'hit' && target === 'three')).toBe(false);
+    const after = advance(subject, 3);
+    expect(after.some(({ type, target }) => type === 'hit' && target === 'three')).toBe(true);
+  });
+
+  it('drops the countdown when the player swaps first', () => {
+    const subject = downActiveParty();
+    expect(subject.state().autoDeployIn).not.toBeNull();
+    expect(subject.swap('one')).toBe(true);
+    expect(subject.state().autoDeployIn).toBeNull();
+  });
+
+  it('does not deploy again once the bench is empty', () => {
+    const subject = downActiveParty();
+    advance(subject, 2.1);
+    expect(subject.state().autoDeployIn).toBeNull();
+    expect(subject.state().party.filter(({ benched }) => benched)).toHaveLength(1);
+  });
+
+  it('keeps both slots filled while a reserve exists', () => {
+    const strike = { ...move('Strike'), power: 30 };
+    const party = reserveParty().map((individual) => ({
+      ...individual,
+      stats: { ...individual.stats, vigor: individual.id === 'one' ? 1 : 10_000 },
+    }));
+    const subject = setup({ party, enemy: fighter('enemy', [strike]), enemyTile: { x: 1, y: 0 } });
+    subject.useMove('enemy', strike.id, 'one');
+    advance(subject, 1);
+    advance(subject, 3);
+    expect(subject.state().party.filter(({ benched, downed }) => !benched && !downed)).toHaveLength(
+      2,
+    );
+  });
+
+  it("is not the enemy's target during grace and is afterwards", () => {
+    const subject = setup({
+      party: reserveParty(),
+      partyTiles: { one: { x: 1, y: 0 }, two: { x: 10, y: 10 } },
+      enemyTile: { x: 0, y: 0 },
+    });
+    subject.swap('one');
+    expect(subject.state().enemy.targetId).toBe('two');
+    subject.update(1.01);
+    expect(subject.state().enemy.targetId).toBe('three');
+  });
+
   it('never targets the benched creature', () => {
     const subject = setup({
       party: reserveParty(),
@@ -615,11 +732,17 @@ describe('combat encounter', () => {
     expect(subject.state().phase).toBe('fight');
   });
 
-  it('holds the enemy in place while a standing reserve waits', () => {
-    const subject = downActiveParty(),
-      before = subject.state().enemy.tile;
-    advance(subject, 2, {}, { x: 20, y: 20 });
-    expect(subject.state().enemy.tile).toEqual(before);
+  it('deploys the reserve two seconds after the first active falls', () => {
+    const subject = downActiveParty();
+    advance(subject, 1.9, {}, { x: 20, y: 20 });
+    expect(subject.state().party.find(({ id }) => id === 'three')?.benched).toBe(true);
+    expect(Math.abs(subject.state().autoDeployIn! - 0.1)).toBeLessThanOrEqual(0.06);
+
+    const events = advance(subject, 0.15, {}, { x: 20, y: 20 });
+    expect(subject.state().party.find(({ id }) => id === 'three')?.benched).toBe(false);
+    expect(subject.state().party.find(({ id }) => id === 'one')?.benched).toBe(true);
+    expect(events).toContainEqual({ type: 'auto-deploy', target: 'three', out: 'one' });
+    expect(subject.state().autoDeployIn).toBeNull();
   });
 
   it('asks for the reserve once when both active creatures are down', () => {
@@ -628,9 +751,8 @@ describe('combat encounter', () => {
     expect(shouldAskForReserve(state, true)).toBe(false);
   });
 
-  it('drives the player off only when all three are down', () => {
+  it('loses only when all three are down', () => {
     const subject = downActiveParty();
-    expect(subject.swap('one')).toBe(true);
     advance(subject, 10, {}, subject.state().enemy.tile);
     expect(subject.state().party.every(({ downed }) => downed)).toBe(true);
     expect(subject.state().phase).toBe('driven-off');
@@ -860,6 +982,40 @@ describe('combat encounter', () => {
     expect(subject.state().party.find(({ id }) => id === 'near')!.threat).toBe(0);
   });
 
+  it('never makes a creature in grace the threat pick', () => {
+    const impact = move('Strike', 'Impact');
+    const knockout = { ...move('Arc'), power: 30, speed: -10 };
+    const subject = setup({
+      party: [
+        fighter('one', [impact], { stats: { vigor: 1, power: 3, speed: 4, focus: 40 } }),
+        fighter('two', [impact], { stats: { vigor: 10_000, power: 3, speed: 4, focus: 40 } }),
+        fighter('three', [impact], { stats: { vigor: 10_000, power: 3, speed: 4, focus: 40 } }),
+      ],
+      enemy: fighter('enemy', [knockout], {
+        stats: { vigor: 10_000, power: 3, speed: 4, focus: 40 },
+      }),
+      partyTiles: { one: { x: 1, y: 0 }, two: { x: 1.5, y: 0.5 }, three: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 0, y: 0 },
+      reserve: 'one',
+    });
+
+    subject.useMove('three', impact.id);
+    expect(subject.useMove('enemy', knockout.id, 'two')).toBe(true);
+    expect(
+      advance(subject, 1).some(({ type, attacker }) => type === 'hit' && attacker === 'three'),
+    ).toBe(true);
+    expect(subject.state().party.find(({ id }) => id === 'three')!.threat).toBeGreaterThan(0);
+    expect(subject.swap('three')).toBe(true);
+    advance(subject, 2);
+    expect(subject.state().party.find(({ id }) => id === 'one')!.downed).toBe(true);
+    expect(subject.swap('one')).toBe(true);
+
+    expect(subject.state().party.find(({ id }) => id === 'three')!.grace).toBeGreaterThan(0);
+    expect(subject.state().enemy.targetId).toBe('two');
+    subject.update(1.01);
+    expect(subject.state().enemy.targetId).toBe('three');
+  });
+
   it('makes a shove a taunt: a small Impact hit outdraws a bigger Cut hit', () => {
     const cut = { ...move('Strike', 'Cut'), id: 'cut', power: 2 };
     const shove = { ...move('Bolt', 'Impact'), id: 'shove', power: 1 };
@@ -968,7 +1124,9 @@ describe('combat encounter', () => {
   it('drives the player off when all three are down and the enemy reaches them', () => {
     const sweep = { ...move('Sweep'), power: 30 };
     const party = ['one', 'two', 'three'].map((id) =>
-      fighter(id, [move('Strike')], { stats: { vigor: 1, power: 1, speed: 1, focus: 1 } }),
+      fighter(id, [move('Strike')], {
+        stats: { vigor: 1, power: 1, speed: 1, focus: 1 },
+      }),
     );
     const subject = setup({
       party,
@@ -1097,7 +1255,9 @@ describe('combat encounter', () => {
   it('keeps fighting while one owned creature is still standing', () => {
     const sweep = { ...move('Sweep'), power: 30 };
     const party = ['one', 'two', 'three'].map((id) =>
-      fighter(id, [move('Strike')], { stats: { vigor: 1, power: 1, speed: 1, focus: 1 } }),
+      fighter(id, [move('Strike')], {
+        stats: { vigor: id === 'three' ? 10_000 : 1, power: 1, speed: 1, focus: 1 },
+      }),
     );
     const subject = setup({
       party,

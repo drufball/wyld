@@ -8,6 +8,9 @@ const AUTHORITY_ZERO_TILES: Readonly<Record<Temperament, number>> = {
   Erratic: 4,
 };
 const AUTOPILOT_YIELD_AUTHORITY = 0.5;
+const MOVE_TAP_AUTHORITY_FLOOR = 0.15;
+const moveTapAuthority = (authorityValue: number): number =>
+  Math.max(MOVE_TAP_AUTHORITY_FLOOR, authorityValue);
 
 const authority = (distanceTiles: number, temperament: Temperament): number => {
   if (Number.isNaN(distanceTiles) || distanceTiles <= AUTHORITY_FULL_TILES) return 1;
@@ -25,4 +28,6 @@ export {
   authority,
   autopilotHolds,
   hears,
+  MOVE_TAP_AUTHORITY_FLOOR,
+  moveTapAuthority,
 };
