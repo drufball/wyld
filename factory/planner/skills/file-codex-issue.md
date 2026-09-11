@@ -78,3 +78,6 @@ Three times in two days a command run in a fresh worktree failed because a works
 
 ### Fix rounds land on the PR branch, or get moved (2026-09-11)
 A fix round whose prompt didn't say "commit and push to `<pr branch>`; no new PR" was pushed by Codex to its default branch `work`. Always pass `--branch <pr branch>` AND say the branch name in the prompt. If a round still lands on `work`: fast-forward the PR branch to it (`git push origin <sha>:<pr branch>`), delete `work`, never open a second PR.
+
+### READY with no branch (2026-09-11)
+A Codex task can finish READY with a full diff and never publish a branch (neither `codex/<slug>` nor `work`). Don't re-run it: `codex cloud diff <task>` gives the patch; apply it onto the named branch, open the PR yourself, and say in the PR body that the diff is Codex's applied verbatim. Review as normal.
