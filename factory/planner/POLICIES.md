@@ -41,3 +41,6 @@ changes, update this copy in the same commit.
 7. Keep issuing work while Paused.
 8. Make you feel behind.
 
+
+### Session budget (2026-09-11)
+The Anthropic account's session limit is shared by the Planner and every lead; it cut a lead at 11:47 and the whole host from 14:31 to 18:00. Run at most one game lead and one factory lead at a time; prefer sequential units over parallel leads; when a 429 "session limit" appears, resume the cut lead after the stated reset and record the cut in STATE and the retro. Never spawn a third concurrent lead to "catch up".
