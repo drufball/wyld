@@ -103,69 +103,133 @@ laptop, as M0's PARTIAL did.
 
 These simulated silhouettes use the orthographic camera from `renderer.ts`, tilted 50° from
 vertical, with each creature in its `idle` pose at t = 0 and no water, at 160 simulated pixels per
-tile. A plan is thin when side width is < 0.45 × front width, side area is < 0.55 × front area, or
-non-null side head area is < 0.5 × front head area.
+tile. Triangles are clipped at the world ground plane before projection, so buried geometry does
+not contribute to the measurements. A plan is thin when side width is < 0.45 × front width, side area is < 0.55 × front area, or
+non-null side head area is < 0.5 × front head area, or side fill is < 0.45.
 A species reshaped in the workshop drops out of the table and baseline checks until the next
 `UPDATE_TURNAROUND=1 pnpm --filter @wyld/game test turnaround` run.
 
+#### Before (measuring pass, no plan change)
+
+| Species | Angle | Width px | Height px | Area px | Fill | Head px | Thin? |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Loamox | front | 92 | 132 | 9528 | 0.78 | 3410 | — |
+| Loamox | side | 169 | 145 | 13846 | 0.57 | 3304 | — |
+| Loamox | back | 92 | 178 | 11672 | 0.71 | 3596 | — |
+| Loamox | three-quarter | 166 | 185 | 14458 | 0.47 | 3934 | — |
+| Bramblehog | front | 48 | 142 | 4267 | 0.63 | 1264 | — |
+| Bramblehog | side | 218 | 80 | 6316 | 0.36 | 1182 | yes — side fill 0.36 |
+| Bramblehog | back | 48 | 150 | 4852 | 0.67 | 1286 | — |
+| Bramblehog | three-quarter | 151 | 121 | 5786 | 0.32 | 1278 | — |
+| Thornwren | front | 156 | 79 | 6662 | 0.54 | 492 | — |
+| Thornwren | side | 120 | 104 | 7067 | 0.57 | 481 | — |
+| Thornwren | back | 156 | 91 | 6810 | 0.48 | 492 | — |
+| Thornwren | three-quarter | 146 | 98 | 7233 | 0.51 | 537 | — |
+| Mirefin | front | 140 | 96 | 8235 | 0.61 | — | — |
+| Mirefin | side | 128 | 99 | 8262 | 0.65 | — | — |
+| Mirefin | back | 140 | 96 | 8235 | 0.61 | — | — |
+| Mirefin | three-quarter | 161 | 112 | 8819 | 0.49 | — | — |
+| Antlerback | front | 146 | 204 | 22244 | 0.75 | 8280 | — |
+| Antlerback | side | 252 | 235 | 32500 | 0.55 | 7503 | — |
+| Antlerback | back | 146 | 287 | 27740 | 0.66 | 8280 | — |
+| Antlerback | three-quarter | 248 | 298 | 34526 | 0.47 | 9310 | — |
+| Tidewhelk | front | 108 | 134 | 9418 | 0.65 | 764 | — |
+| Tidewhelk | side | 161 | 105 | 9976 | 0.59 | 748 | — |
+| Tidewhelk | back | 108 | 114 | 8774 | 0.71 | 736 | — |
+| Tidewhelk | three-quarter | 134 | 116 | 9702 | 0.62 | 732 | — |
+| Saltwing | front | 248 | 121 | 14892 | 0.50 | 1112 | — |
+| Saltwing | side | 179 | 163 | 16045 | 0.55 | 1083 | — |
+| Saltwing | back | 248 | 132 | 15108 | 0.46 | 1114 | — |
+| Saltwing | three-quarter | 230 | 151 | 16100 | 0.46 | 1207 | — |
+| Kelpmaw | front | 32 | 142 | 1927 | 0.42 | 388 | — |
+| Kelpmaw | side | 217 | 32 | 2148 | 0.31 | 389 | yes — side fill 0.31 |
+| Kelpmaw | back | 32 | 149 | 2016 | 0.42 | 386 | — |
+| Kelpmaw | three-quarter | 158 | 113 | 2132 | 0.12 | 388 | — |
+| Emberjack | front | 48 | 140 | 4249 | 0.63 | 1260 | — |
+| Emberjack | side | 218 | 79 | 6303 | 0.37 | 1184 | yes — side fill 0.37 |
+| Emberjack | back | 48 | 150 | 4825 | 0.67 | 1282 | — |
+| Emberjack | three-quarter | 151 | 120 | 5755 | 0.32 | 1278 | — |
+| Dunecask | front | 162 | 189 | 19456 | 0.64 | 1258 | — |
+| Dunecask | side | 238 | 146 | 20494 | 0.59 | 1234 | — |
+| Dunecask | back | 162 | 163 | 18596 | 0.70 | 1216 | — |
+| Dunecask | three-quarter | 197 | 162 | 20079 | 0.63 | 1218 | — |
+| Glasswing | front | 244 | 122 | 14822 | 0.50 | 1112 | — |
+| Glasswing | side | 181 | 160 | 15957 | 0.55 | 1090 | — |
+| Glasswing | back | 244 | 132 | 15002 | 0.47 | 1110 | — |
+| Glasswing | three-quarter | 226 | 148 | 15939 | 0.48 | 1207 | — |
+| Ashcrawl | front | 196 | 167 | 15774 | 0.48 | 992 | — |
+| Ashcrawl | side | 247 | 133 | 16397 | 0.50 | 1173 | — |
+| Ashcrawl | back | 196 | 163 | 15627 | 0.49 | 994 | — |
+| Ashcrawl | three-quarter | 224 | 152 | 16517 | 0.49 | 1102 | — |
+| Pyreclaw | front | 264 | 351 | 63936 | 0.69 | 16080 | — |
+| Pyreclaw | side | 126 | 397 | 39935 | 0.80 | 15369 | — |
+| Pyreclaw | back | 264 | 373 | 66605 | 0.68 | 16080 | — |
+| Pyreclaw | three-quarter | 252 | 409 | 62241 | 0.60 | 18891 | — |
+
+#### After
+
 <!-- turnaround:start -->
-| Species | Angle | Width px | Height px | Area px | Head px | Thin? |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| Loamox | front | 92 | 132 | 9528 | 3410 | — |
-| Loamox | side | 169 | 145 | 13846 | 3304 | — |
-| Loamox | back | 92 | 178 | 11672 | 3596 | — |
-| Loamox | three-quarter | 166 | 185 | 14458 | 3934 | — |
-| Bramblehog | front | 48 | 142 | 4267 | 1264 | — |
-| Bramblehog | side | 218 | 80 | 6316 | 1182 | — |
-| Bramblehog | back | 48 | 150 | 4852 | 1286 | — |
-| Bramblehog | three-quarter | 151 | 121 | 5786 | 1278 | — |
-| Thornwren | front | 156 | 79 | 6662 | 492 | — |
-| Thornwren | side | 120 | 104 | 7067 | 481 | — |
-| Thornwren | back | 156 | 91 | 6810 | 492 | — |
-| Thornwren | three-quarter | 146 | 98 | 7233 | 537 | — |
-| Mirefin | front | 140 | 96 | 8235 | — | — |
-| Mirefin | side | 128 | 99 | 8262 | — | — |
-| Mirefin | back | 140 | 96 | 8235 | — | — |
-| Mirefin | three-quarter | 161 | 112 | 8819 | — | — |
-| Antlerback | front | 146 | 204 | 22244 | 8280 | — |
-| Antlerback | side | 252 | 235 | 32500 | 7503 | — |
-| Antlerback | back | 146 | 287 | 27740 | 8280 | — |
-| Antlerback | three-quarter | 248 | 298 | 34526 | 9310 | — |
-| Tidewhelk | front | 108 | 134 | 9418 | 764 | — |
-| Tidewhelk | side | 161 | 105 | 9976 | 748 | — |
-| Tidewhelk | back | 108 | 114 | 8774 | 736 | — |
-| Tidewhelk | three-quarter | 134 | 116 | 9702 | 732 | — |
-| Saltwing | front | 248 | 121 | 14892 | 1112 | — |
-| Saltwing | side | 179 | 163 | 16045 | 1083 | — |
-| Saltwing | back | 248 | 132 | 15108 | 1114 | — |
-| Saltwing | three-quarter | 230 | 151 | 16100 | 1207 | — |
-| Kelpmaw | front | 32 | 142 | 1927 | 388 | — |
-| Kelpmaw | side | 217 | 32 | 2148 | 389 | — |
-| Kelpmaw | back | 32 | 149 | 2016 | 386 | — |
-| Kelpmaw | three-quarter | 158 | 113 | 2132 | 388 | — |
-| Emberjack | front | 48 | 140 | 4249 | 1260 | — |
-| Emberjack | side | 218 | 79 | 6303 | 1184 | — |
-| Emberjack | back | 48 | 150 | 4825 | 1282 | — |
-| Emberjack | three-quarter | 151 | 120 | 5755 | 1278 | — |
-| Dunecask | front | 162 | 189 | 19456 | 1258 | — |
-| Dunecask | side | 238 | 146 | 20494 | 1234 | — |
-| Dunecask | back | 162 | 163 | 18596 | 1216 | — |
-| Dunecask | three-quarter | 197 | 162 | 20079 | 1218 | — |
-| Glasswing | front | 244 | 122 | 14822 | 1112 | — |
-| Glasswing | side | 181 | 160 | 15957 | 1090 | — |
-| Glasswing | back | 244 | 132 | 15002 | 1110 | — |
-| Glasswing | three-quarter | 226 | 148 | 15939 | 1207 | — |
-| Ashcrawl | front | 196 | 167 | 15774 | 992 | — |
-| Ashcrawl | side | 247 | 133 | 16397 | 1173 | — |
-| Ashcrawl | back | 196 | 163 | 15627 | 994 | — |
-| Ashcrawl | three-quarter | 224 | 152 | 16517 | 1102 | — |
-| Pyreclaw | front | 264 | 351 | 63936 | 16080 | — |
-| Pyreclaw | side | 126 | 397 | 39935 | 15369 | — |
-| Pyreclaw | back | 264 | 373 | 66605 | 16080 | — |
-| Pyreclaw | three-quarter | 252 | 409 | 62241 | 18891 | — |
+| Species | Angle | Width px | Height px | Area px | Fill | Head px | Thin? |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Loamox | front | 92 | 132 | 9528 | 0.78 | 3410 | — |
+| Loamox | side | 169 | 145 | 13846 | 0.57 | 3304 | — |
+| Loamox | back | 92 | 178 | 11672 | 0.71 | 3596 | — |
+| Loamox | three-quarter | 166 | 185 | 14458 | 0.47 | 3934 | — |
+| Bramblehog | front | 44 | 155 | 4445 | 0.65 | 1264 | — |
+| Bramblehog | side | 218 | 83 | 8386 | 0.46 | 1182 | — |
+| Bramblehog | back | 44 | 150 | 4783 | 0.72 | 1286 | — |
+| Bramblehog | three-quarter | 151 | 128 | 7295 | 0.38 | 1278 | — |
+| Thornwren | front | 156 | 79 | 6662 | 0.54 | 492 | — |
+| Thornwren | side | 120 | 104 | 7067 | 0.57 | 481 | — |
+| Thornwren | back | 156 | 91 | 6810 | 0.48 | 492 | — |
+| Thornwren | three-quarter | 146 | 98 | 7233 | 0.51 | 537 | — |
+| Mirefin | front | 140 | 96 | 8235 | 0.61 | — | — |
+| Mirefin | side | 128 | 99 | 8262 | 0.65 | — | — |
+| Mirefin | back | 140 | 96 | 8235 | 0.61 | — | — |
+| Mirefin | three-quarter | 161 | 112 | 8819 | 0.49 | — | — |
+| Antlerback | front | 146 | 204 | 22244 | 0.75 | 8280 | — |
+| Antlerback | side | 252 | 235 | 32500 | 0.55 | 7503 | — |
+| Antlerback | back | 146 | 287 | 27740 | 0.66 | 8280 | — |
+| Antlerback | three-quarter | 248 | 298 | 34526 | 0.47 | 9310 | — |
+| Tidewhelk | front | 108 | 134 | 9418 | 0.65 | 764 | — |
+| Tidewhelk | side | 161 | 105 | 9976 | 0.59 | 748 | — |
+| Tidewhelk | back | 108 | 114 | 8774 | 0.71 | 736 | — |
+| Tidewhelk | three-quarter | 134 | 116 | 9702 | 0.62 | 732 | — |
+| Saltwing | front | 248 | 121 | 14892 | 0.50 | 1112 | — |
+| Saltwing | side | 179 | 163 | 16045 | 0.55 | 1083 | — |
+| Saltwing | back | 248 | 132 | 15108 | 0.46 | 1114 | — |
+| Saltwing | three-quarter | 230 | 151 | 16100 | 0.46 | 1207 | — |
+| Kelpmaw | front | 32 | 145 | 2110 | 0.45 | 388 | — |
+| Kelpmaw | side | 220 | 32 | 3173 | 0.45 | 389 | — |
+| Kelpmaw | back | 31 | 150 | 2182 | 0.47 | 386 | — |
+| Kelpmaw | three-quarter | 160 | 114 | 2738 | 0.15 | 388 | — |
+| Emberjack | front | 44 | 153 | 4426 | 0.66 | 1260 | — |
+| Emberjack | side | 218 | 82 | 8367 | 0.47 | 1184 | — |
+| Emberjack | back | 42 | 150 | 4758 | 0.76 | 1282 | — |
+| Emberjack | three-quarter | 151 | 127 | 7273 | 0.38 | 1278 | — |
+| Dunecask | front | 162 | 189 | 19456 | 0.64 | 1258 | — |
+| Dunecask | side | 238 | 146 | 20494 | 0.59 | 1234 | — |
+| Dunecask | back | 162 | 163 | 18596 | 0.70 | 1216 | — |
+| Dunecask | three-quarter | 197 | 162 | 20079 | 0.63 | 1218 | — |
+| Glasswing | front | 244 | 122 | 14822 | 0.50 | 1112 | — |
+| Glasswing | side | 181 | 160 | 15957 | 0.55 | 1090 | — |
+| Glasswing | back | 244 | 132 | 15002 | 0.47 | 1110 | — |
+| Glasswing | three-quarter | 226 | 148 | 15939 | 0.48 | 1207 | — |
+| Ashcrawl | front | 196 | 167 | 15774 | 0.48 | 992 | — |
+| Ashcrawl | side | 247 | 133 | 16397 | 0.50 | 1173 | — |
+| Ashcrawl | back | 196 | 163 | 15627 | 0.49 | 994 | — |
+| Ashcrawl | three-quarter | 224 | 152 | 16517 | 0.49 | 1102 | — |
+| Pyreclaw | front | 264 | 351 | 63936 | 0.69 | 16080 | — |
+| Pyreclaw | side | 126 | 397 | 39935 | 0.80 | 15369 | — |
+| Pyreclaw | back | 264 | 373 | 66605 | 0.68 | 16080 | — |
+| Pyreclaw | three-quarter | 252 | 409 | 62241 | 0.60 | 18891 | — |
 <!-- turnaround:end -->
 
-**Thin before any plan change:** none (simulated; no width, area, or head-area rule triggered).
+Bramblehog side fill 0.36 → 0.46, front width/height/area 48/142/4267 → 44/155/4445 (within 10 %; simulated).
+Emberjack side fill 0.37 → 0.47, front width/height/area 48/140/4249 → 44/153/4426 (within 10 %; simulated).
+Kelpmaw side fill 0.31 → 0.45, front width/height/area 32/142/1927 → 32/145/2110 (within 10 %; simulated). Its segments use 1.0 × 1.2 × 1.5 scale and rest at their scaled radius, keeping the body top below the head top while overlapping into a tube.
+
+**Thin before any plan change:** Bramblehog (side fill 0.36), Emberjack (side fill 0.37), and Kelpmaw (side fill 0.31) (simulated).
 
 ### Renderer invariants
 

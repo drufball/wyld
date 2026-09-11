@@ -13,7 +13,8 @@ const build: BodyPlanBuilder = (spec) => {
       i < 3 ? m.primary : m.secondary,
       i === 0,
     );
-    part.position.set(0, radius, l * (0.42 - i / 10));
+    part.scale.set(1, 1.2, 1.5);
+    part.position.set(0, radius * part.scale.y, l * (0.42 - i / 10));
     segments.push(part);
     group.add(part);
   }
@@ -34,7 +35,7 @@ const build: BodyPlanBuilder = (spec) => {
     segments.forEach((part, i) => {
       const wave = Math.sin((t + phase) * freq - i * 0.65);
       part.position.x = wave * amp;
-      part.position.y = h * (0.28 - i * 0.012) + wave * amp * 0.25;
+      part.position.y = h * (0.28 - i * 0.012) * part.scale.y + wave * amp * 0.25;
       part.position.z =
         l * (0.42 - i / 10) + (state === 'execute' ? l * 0.25 * p.lunge * (1 - i / 12) : 0);
     });

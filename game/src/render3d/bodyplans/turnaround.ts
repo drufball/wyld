@@ -10,12 +10,14 @@ export const TURNAROUND_YAWS = {
   threeQuarter: (3 * Math.PI) / 4,
 } as const;
 export const PIXELS_PER_TILE = 160;
+export const SIDE_FILL_MIN = 0.45;
 const CANVAS_SIZE = PIXELS_PER_TILE * 5;
 
 export type Silhouette = {
   width: number;
   height: number;
   area: number;
+  fill: number;
   headArea: number | null;
 };
 export type Turnaround = Record<keyof typeof TURNAROUND_YAWS, Silhouette>;
@@ -34,6 +36,22 @@ const dioramaCamera = (): THREE.OrthographicCamera => {
 const edge = (ax: number, ay: number, bx: number, by: number, px: number, py: number) =>
   (px - ax) * (by - ay) - (py - ay) * (bx - ax);
 
+const clipToGround = (vertices: readonly THREE.Vector3[]): THREE.Vector3[] => {
+  const clipped: THREE.Vector3[] = [];
+  for (let index = 0; index < vertices.length; index += 1) {
+    const start = vertices[index]!;
+    const end = vertices[(index + 1) % vertices.length]!;
+    const startAbove = start.y >= 0;
+    const endAbove = end.y >= 0;
+    if (startAbove) clipped.push(start.clone());
+    if (startAbove !== endAbove) {
+      const amount = start.y / (start.y - end.y);
+      clipped.push(start.clone().lerp(end, amount));
+    }
+  }
+  return clipped;
+};
+
 const rasterise = (group: THREE.Object3D, onlyHeads: boolean): Uint8Array => {
   const coverage = new Uint8Array(CANVAS_SIZE * CANVAS_SIZE);
   const camera = dioramaCamera();
@@ -47,41 +65,45 @@ const rasterise = (group: THREE.Object3D, onlyHeads: boolean): Uint8Array => {
     const position = object.geometry.getAttribute('position');
     const index = object.geometry.index;
     const triangleCount = Math.floor((index?.count ?? position.count) / 3);
-    const matrix = new THREE.Matrix4().multiplyMatrices(viewProjection, object.matrixWorld);
     for (let triangle = 0; triangle < triangleCount; triangle += 1) {
       for (let corner = 0; corner < 3; corner += 1) {
         const vertexIndex = index?.getX(triangle * 3 + corner) ?? triangle * 3 + corner;
         vertices[corner]!.fromBufferAttribute(
           position as THREE.BufferAttribute,
           vertexIndex,
-        ).applyMatrix4(matrix);
+        ).applyMatrix4(object.matrixWorld);
       }
-      const points = vertices.map(({ x, y }) => ({
-        x: ((x + 1) * CANVAS_SIZE) / 2,
-        y: ((1 - y) * CANVAS_SIZE) / 2,
-      }));
-      const minX = Math.max(0, Math.floor(Math.min(...points.map(({ x }) => x))));
-      const maxX = Math.min(CANVAS_SIZE - 1, Math.ceil(Math.max(...points.map(({ x }) => x))));
-      const minY = Math.max(0, Math.floor(Math.min(...points.map(({ y }) => y))));
-      const maxY = Math.min(CANVAS_SIZE - 1, Math.ceil(Math.max(...points.map(({ y }) => y))));
-      const winding = edge(
-        points[0]!.x,
-        points[0]!.y,
-        points[1]!.x,
-        points[1]!.y,
-        points[2]!.x,
-        points[2]!.y,
-      );
-      if (winding === 0) continue;
-      for (let y = minY; y <= maxY; y += 1) {
-        for (let x = minX; x <= maxX; x += 1) {
-          const signs = [
-            edge(points[0]!.x, points[0]!.y, points[1]!.x, points[1]!.y, x + 0.5, y + 0.5),
-            edge(points[1]!.x, points[1]!.y, points[2]!.x, points[2]!.y, x + 0.5, y + 0.5),
-            edge(points[2]!.x, points[2]!.y, points[0]!.x, points[0]!.y, x + 0.5, y + 0.5),
-          ];
-          if (signs.every((value) => value >= 0) || signs.every((value) => value <= 0))
-            coverage[y * CANVAS_SIZE + x] = 1;
+      const polygon = clipToGround(vertices);
+      for (let polygonTriangle = 1; polygonTriangle < polygon.length - 1; polygonTriangle += 1) {
+        const points = [polygon[0]!, polygon[polygonTriangle]!, polygon[polygonTriangle + 1]!].map(
+          (vertex) => {
+            const { x, y } = vertex.clone().applyMatrix4(viewProjection);
+            return { x: ((x + 1) * CANVAS_SIZE) / 2, y: ((1 - y) * CANVAS_SIZE) / 2 };
+          },
+        );
+        const minX = Math.max(0, Math.floor(Math.min(...points.map(({ x }) => x))));
+        const maxX = Math.min(CANVAS_SIZE - 1, Math.ceil(Math.max(...points.map(({ x }) => x))));
+        const minY = Math.max(0, Math.floor(Math.min(...points.map(({ y }) => y))));
+        const maxY = Math.min(CANVAS_SIZE - 1, Math.ceil(Math.max(...points.map(({ y }) => y))));
+        const winding = edge(
+          points[0]!.x,
+          points[0]!.y,
+          points[1]!.x,
+          points[1]!.y,
+          points[2]!.x,
+          points[2]!.y,
+        );
+        if (winding === 0) continue;
+        for (let y = minY; y <= maxY; y += 1) {
+          for (let x = minX; x <= maxX; x += 1) {
+            const signs = [
+              edge(points[0]!.x, points[0]!.y, points[1]!.x, points[1]!.y, x + 0.5, y + 0.5),
+              edge(points[1]!.x, points[1]!.y, points[2]!.x, points[2]!.y, x + 0.5, y + 0.5),
+              edge(points[2]!.x, points[2]!.y, points[0]!.x, points[0]!.y, x + 0.5, y + 0.5),
+            ];
+            if (signs.every((value) => value >= 0) || signs.every((value) => value <= 0))
+              coverage[y * CANVAS_SIZE + x] = 1;
+          }
         }
       }
     }
@@ -105,7 +127,9 @@ const bounds = (coverage: Uint8Array) => {
     maxY = Math.max(maxY, y);
     area += 1;
   });
-  return { width: area ? maxX - minX + 1 : 0, height: area ? maxY - minY + 1 : 0, area };
+  const width = area ? maxX - minX + 1 : 0;
+  const height = area ? maxY - minY + 1 : 0;
+  return { width, height, area, fill: area ? area / (width * height) : 0 };
 };
 
 export const measureObjectSilhouette = (group: THREE.Object3D): Silhouette => {
@@ -140,6 +164,8 @@ export const isThin = (turnaround: Turnaround): { thin: boolean; reasons: string
   const areaRatio = turnaround.side.area / turnaround.front.area;
   if (widthRatio < 0.45) reasons.push(`side width ${widthRatio.toFixed(2)} of front`);
   if (areaRatio < 0.55) reasons.push(`side area ${areaRatio.toFixed(2)} of front`);
+  if (turnaround.side.fill < SIDE_FILL_MIN)
+    reasons.push(`side fill ${turnaround.side.fill.toFixed(2)}`);
   if (turnaround.side.headArea !== null && turnaround.front.headArea !== null) {
     const headRatio = turnaround.side.headArea / turnaround.front.headArea;
     if (headRatio < 0.5) reasons.push(`side head area ${headRatio.toFixed(2)} of front`);
@@ -149,8 +175,8 @@ export const isThin = (turnaround: Turnaround): { thin: boolean; reasons: string
 
 export const formatTurnaroundTable = (rows: Record<string, Turnaround>): string => {
   const lines = [
-    '| Species | Angle | Width px | Height px | Area px | Head px | Thin? |',
-    '| --- | --- | ---: | ---: | ---: | ---: | --- |',
+    '| Species | Angle | Width px | Height px | Area px | Fill | Head px | Thin? |',
+    '| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |',
   ];
   for (const data of allSpecies()) {
     const turnaround = rows[data.id];
@@ -160,7 +186,7 @@ export const formatTurnaroundTable = (rows: Record<string, Turnaround>): string 
       const thin =
         angle === 'side' && assessment.thin ? `yes — ${assessment.reasons.join('; ')}` : '—';
       lines.push(
-        `| ${data.name} | ${angle === 'threeQuarter' ? 'three-quarter' : angle} | ${silhouette.width} | ${silhouette.height} | ${silhouette.area} | ${silhouette.headArea ?? '—'} | ${thin} |`,
+        `| ${data.name} | ${angle === 'threeQuarter' ? 'three-quarter' : angle} | ${silhouette.width} | ${silhouette.height} | ${silhouette.area} | ${silhouette.fill.toFixed(2)} | ${silhouette.headArea ?? '—'} | ${thin} |`,
       );
     }
   }
