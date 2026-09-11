@@ -75,20 +75,19 @@ from this run (not browser-played results):
 
 | preset | party / policy    |                          seed 1 |                          seed 2 |                          seed 3 |                          seed 4 |                          seed 5 |
 | ------ | ----------------- | ------------------------------: | ------------------------------: | ------------------------------: | ------------------------------: | ------------------------------: |
-| trade  | informed / armed  |                     win 33.42 s |                     win 33.05 s |                     win 34.05 s |  driven off 38.93 s (29/650 hp) |                     win 35.58 s |
-| trade  | informed / none   |                     win 31.92 s |                     win 32.72 s |                     win 33.05 s |                     win 44.45 s |                     win 32.38 s |
-| trade  | uninformed / none | driven off 44.17 s (471/650 hp) | driven off 35.07 s (457/650 hp) | driven off 34.05 s (462/650 hp) | driven off 38.98 s (453/650 hp) | driven off 39.43 s (456/650 hp) |
-| fast   | informed / armed  |                      win 7.52 s |                      win 7.52 s |                      win 7.52 s |                      win 6.67 s |                      win 6.85 s |
-| fast   | informed / none   |                      win 7.52 s |                      win 7.57 s |                      win 7.53 s |                      win 7.10 s |                      win 7.57 s |
-| fast   | uninformed / none | driven off 13.25 s (136/200 hp) | driven off 19.15 s (131/200 hp) | driven off 14.52 s (131/200 hp) | driven off 14.52 s (131/200 hp) | driven off 13.25 s (131/200 hp) |
+| trade  | informed / armed  |                     win 41.05 s |                     win 41.05 s |                     win 41.05 s |                     win 41.05 s |                     win 41.05 s |
+| trade  | informed / none   |                     win 41.05 s |                     win 41.05 s |                     win 41.05 s |                     win 41.05 s |                     win 41.05 s |
+| trade  | uninformed / none | driven off 34.37 s (489/650 hp) | driven off 39.28 s (475/650 hp) | driven off 40.67 s (471/650 hp) | driven off 44.87 s (441/650 hp) | driven off 32.23 s (508/650 hp) |
+| fast   | informed / armed  |                      win 7.60 s |                      win 7.60 s |                      win 7.60 s |                      win 7.60 s |                      win 7.60 s |
+| fast   | informed / none   |                      win 7.60 s |                      win 8.68 s |                      win 7.60 s |                      win 7.60 s |                      win 8.68 s |
+| fast   | uninformed / none | driven off 14.20 s (136/200 hp) | driven off 18.17 s (122/200 hp) | driven off 17.55 s (119/200 hp) | driven off 14.32 s (131/200 hp) | driven off 16.25 s (136/200 hp) |
 
-The harness now uses the same player controller, bounded path planning, waypoint-centre walking,
-last-waypoint snap, separation nudge, and frame ordering as the game. In the seed-1 zero-tap trace,
-the old harness first diverged at 2.13 s when Cinder's Y tile remained about 9.75 while the game
-controller snapped it to 9.50. After replacing the approximate walker, the built game ended at
-24.38 s and the harness at 24.35 s (one 60 Hz tick apart). The lead's idle re-play of ×2.5/×0.4
-gave 24.4 s for seeds 1–2 with zero taps, matching the harness, which is why the constants moved.
-
+The old harness differed from the game in three deterministic ways: the game shared the world's
+random stream with props and wild-creature AI instead of starting fresh fight dice, the harness
+used the corner rather than the centre of the player's tile, and the harness supplied positions
+for benched members. With a fresh seeded stream per fight and the same centre and active-position
+inputs, the lead's played results—41.05 s for informed seed 1 and 34.37 / 39.28 / 40.67 s for
+uninformed seeds 1–3—matched this reconciled simulated harness.
 
 - **PASS — autopilot cooldown DPS (`simulated`):** over 20 s at 60 Hz with seed 7, the armed creature dealt 108 damage and the identical unarmed creature dealt 108 damage.
 - **PASS — move autopilot (built game, headless Chromium 375 × 812):** one tap on Grit's Mandible lit the button with `↻` and produced six attacks over twelve seconds with no further taps, measured 2.03, 2.01, 2.04, 1.97 and 2.06 s apart against its 2.00 s cooldown. A double tap on Ash Spray produced exactly one Ash Spray and left the armed move unchanged; tapping the lit button while its cooldown ran turned it off.

@@ -1,7 +1,7 @@
 type ArenaBalance = { enemyHealthScale: number; enemyPowerScale: number };
 
-// Harness seeds 1–5: trade informed/armed wins at 33.0–35.6 s (4/5) and loses at 38.9 s.
-// Informed/none wins at 31.9–44.4 s (5/5); uninformed is driven off at 34.0–44.2 s (4/5).
+// Simulated harness, seeds 1–5: trade informed/armed and informed/none win at 41.05 s (5/5).
+// Trade uninformed is driven off at 32.23–44.87 s (5/5), leaving the enemy on 441–508 hp.
 const ARENA_BALANCE_PRESETS: Readonly<Record<'fast' | 'trade', ArenaBalance>> = {
   fast: { enemyHealthScale: 1, enemyPowerScale: 1 },
   trade: { enemyHealthScale: 3.25, enemyPowerScale: 0.42 },

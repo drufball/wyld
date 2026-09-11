@@ -290,7 +290,8 @@ let encounter: ReturnType<typeof createEncounter> | null = null;
 const autopilot = createAutopilot();
 const orders = createOrderLog();
 const refusal = createRefusalFeedback();
-const chooser = createChooser(() => rng.next());
+let fightRng = createRng(seed);
+const chooser = createChooser(() => fightRng.next());
 const animations = createAnimations();
 let fightLearned: LearnedFact[] = [];
 let resultScreen: ReturnType<typeof createArenaResult> | null = null;
@@ -568,12 +569,13 @@ const beginArena = (state: PickState): void => {
   }
   const at = tileToWorld(enemyTile.tx, enemyTile.ty);
   registry.add(buildArenaIndividual(foe), at.x, at.z, 0);
+  fightRng = createRng(seed);
   encounter = createEncounter({
     party: members.map((m) => m.individual),
     enemy: buildArenaIndividual(foe),
     grid,
-    rng,
-    player: { x: centre.tx, y: centre.ty },
+    rng: fightRng,
+    player: { x: centre.tx + 0.5, y: centre.ty + 0.5 },
     partyTiles: Object.fromEntries(
       members.map((member) => [
         member.individual.id,
