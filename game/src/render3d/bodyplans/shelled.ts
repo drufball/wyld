@@ -19,6 +19,7 @@ const build: BodyPlanBuilder = (spec) => {
   neck.position.set(0, h * 0.27, l * 0.43);
   group.add(neck);
   const head = mesh(new THREE.SphereGeometry(h * 0.18, 8, 6), m.secondary, false);
+  head.name = 'head';
   head.position.z = l * 0.22;
   neck.add(head);
   const legs: THREE.Mesh[] = [];

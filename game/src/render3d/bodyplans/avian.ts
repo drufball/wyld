@@ -13,6 +13,7 @@ const build: BodyPlanBuilder = (spec) => {
   body.position.y = h * 0.55;
   bodyRoot.add(body);
   const beak = mesh(new THREE.ConeGeometry(l * 0.1, l * 0.3, 8), m.accent, false);
+  beak.name = 'head';
   beak.rotation.x = Math.PI / 2;
   beak.position.set(0, h * 0.65, l * 0.43);
   bodyRoot.add(beak);

@@ -10,6 +10,7 @@ const build: BodyPlanBuilder = (spec) => {
   torso.position.y = h * 0.62;
   group.add(torso);
   const head = mesh(new THREE.ConeGeometry(l * 0.17, l * 0.4, 8), m.secondary, false);
+  head.name = 'head';
   head.rotation.x = Math.PI / 2;
   head.position.set(0, h * 0.78, l * 0.55);
   group.add(head);

@@ -9,6 +9,7 @@ const build: BodyPlanBuilder = (spec) => {
   torso.position.y = h * 0.66;
   group.add(torso);
   const head = mesh(new THREE.BoxGeometry(l * 0.42, h * 0.22, l * 0.38), m.accent, false);
+  head.name = 'head';
   head.position.set(0, h * 0.93, l * 0.06);
   group.add(head);
   const legs: THREE.Mesh[] = [],
