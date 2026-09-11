@@ -1311,3 +1311,4 @@ Note for #302's follow-up: at 07:00:03Z the run still showed ended=null/outcome=
 
 ## 2026-09-11 10:23Z — GitHub Actions blocked on billing
 Run 34588808152 (c377a43, docs push): "The job was not started because recent account payments have failed or your spending limit needs to be increased." No PR can go green → all merges held (never merge unchecked). Positioning lead told to keep reviewing, hold merges. Rumble to Dru (Billing & plans). When cleared: re-run CI on main (`gh run rerun` or an empty push), then the lead merges.
+- 11:06Z positioning issue 1 (threat, #338) reviewed and ready — held by billing. Lead stacking issue 2 (#339 range/line/kite) on codex/arena-threat, rebases after #338 lands; merge order 338 → 2 → 3, each after real green CI. file-codex-issue.md: lint is root-level (my briefs said `--filter @wyld/game lint`, a no-op).

@@ -72,3 +72,6 @@ Five leads in one evening produced two migration-number collisions (`0019` lande
 ## Fresh checkouts build their dependencies first (from 2026-09-08)
 
 Three times in two days a command run in a fresh worktree failed because a workspace package it depends on had never been built there: the disc builder (#237), the Pak deploy on the day `@wyld/sprites` appeared, and Ship's test step (#261). CI never sees it, because the root `pnpm build` builds everything in topological order. So any issue that has code run `build`, `test` or `dev` for one package in a fresh checkout or worktree specifies the dependency selector — `pnpm --filter "@wyld/game..." <script>` (the `...` suffix builds the package's workspace dependencies first) — and the lead's review checks the filter string, not just the green run.
+
+### Verify commands: lint is root-level (2026-09-11)
+`game/` (and most packages) have no `lint` script; `pnpm --filter @wyld/game lint` is a no-op that reads as green. The verify block is: `pnpm --filter "@wyld/game..." build`, `pnpm typecheck`, `pnpm lint` (root), `pnpm --filter @wyld/game test`. Leads' briefs must say the same.
