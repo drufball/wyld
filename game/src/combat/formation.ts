@@ -30,6 +30,8 @@ type FormationInput = {
 type FormationOutput = { id: string; tile: Point; wander: Wander }[];
 
 const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
+const kiteHolds = (distanceTiles: number, enemyReach: number): boolean =>
+  distanceTiles <= enemyReach + KITE_MARGIN_TILES;
 const centre = (p: Point): Point => ({ x: Math.floor(p.x) + 0.5, y: Math.floor(p.y) + 0.5 });
 const unit = (from: Point, to: Point, fallback = { x: 0, y: -1 }): Point => {
   const dx = to.x - from.x,
@@ -46,7 +48,7 @@ const kiteFrom = (
 ): Point | null => {
   const ranged = creature.moves.filter((move) => move.ranged);
   const currentDistance = distance(creature.tile, enemy);
-  if (ranged.length === 0 || currentDistance > enemyReach + KITE_MARGIN_TILES) return null;
+  if (ranged.length === 0 || !kiteHolds(currentDistance, enemyReach)) return null;
   const away = unit(enemy, creature.tile);
   for (const angle of [0, Math.PI / 4, -Math.PI / 4]) {
     const cos = Math.cos(angle);
@@ -165,5 +167,5 @@ const formation = (input: FormationInput): FormationOutput => {
   });
 };
 
-export { formation, kiteFrom, KITE_MARGIN_TILES, KITE_STEP_TILES, TAP_OVERRIDE_SECONDS };
+export { formation, kiteFrom, kiteHolds, KITE_MARGIN_TILES, KITE_STEP_TILES, TAP_OVERRIDE_SECONDS };
 export type { FormationCreature, FormationInput, FormationOutput, Point, Wander };
