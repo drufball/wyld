@@ -7,7 +7,8 @@ import { draw as lightQuadruped } from './light-quadruped.js';
 import { draw as serpentine } from './serpentine.js';
 import { draw as shelled } from './shelled.js';
 import type { Painter, PixelSprite, SpriteFacing, SpriteFrame, SpriteSpec } from './types.js';
-const painters: Record<SpriteSpec['bodyPlan'], Painter> = {
+// Body plans are listed twice on purpose: pixel painters here, mesh builders in game/src/render3d/bodyplans/index.ts — adding a body plan means touching both (parity test: game/src/render3d/bodyplans/index.test.ts).
+const bodyPlanPainters: Record<SpriteSpec['bodyPlan'], Painter> = {
   'heavy-quadruped': heavyQuadruped,
   'light-quadruped': lightQuadruped,
   avian,
@@ -18,8 +19,8 @@ const painters: Record<SpriteSpec['bodyPlan'], Painter> = {
   'large-biped': largeBiped,
 };
 const generateSprite = (spec: SpriteSpec, facing: SpriteFacing, frame: SpriteFrame): PixelSprite =>
-  painters[spec.bodyPlan](spec, facing, frame);
-export { generateSprite };
+  bodyPlanPainters[spec.bodyPlan](spec, facing, frame);
+export { bodyPlanPainters, generateSprite };
 export { paintSprite } from './blit.js';
 export type { BlitOptions, PaintRect } from './blit.js';
 export { blitSprite, clearSpriteCache } from './blit-canvas.js';
