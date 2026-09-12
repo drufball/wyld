@@ -5,6 +5,7 @@ import { createRng } from '../engine/rng.js';
 import { createAutopilot } from './autopilot.js';
 import { createChooser } from './choice.js';
 import { createEncounter, type Point } from './encounter.js';
+import { SHOT_RELEASE_MARGIN_TILES } from './formation.js';
 import type { Move } from './moves.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
 import {
@@ -281,7 +282,9 @@ describe('orders', () => {
 
     const { events, fired } = advance(subject, individual, autopilot, 1);
     expect(fired[0]).toEqual({ creatureId: 'kiter', moveId: 'bolt', source: 'autopilot' });
-    expect(events.findIndex((event) => event.type === 'executed')).toBeLessThan(60);
+    const executedAt = events.findIndex((event) => event.type === 'executed');
+    expect(executedAt).toBeGreaterThanOrEqual(0);
+    expect(executedAt).toBeLessThan(60);
   });
 
   it("holds the autopilot re-fire while a Skittish kiter is inside the heavy's reach and margin", () => {
@@ -295,7 +298,7 @@ describe('orders', () => {
     expect(fired.filter(({ moveId }) => moveId === 'bolt')).toHaveLength(1);
     expect(
       Math.hypot(subject.state().party[0]!.tile.x - 2, subject.state().party[0]!.tile.y),
-    ).toBeLessThanOrEqual(3.5);
+    ).toBeLessThan(1.25 + SHOT_RELEASE_MARGIN_TILES);
   });
 
   it('re-fires an armed Bolt for a Bold creature at the same distance', () => {
@@ -380,7 +383,7 @@ describe('orders', () => {
     const autopilot = createAutopilot();
     const chooser = createChooser(createRng(339).next);
     const windupDistances: number[] = [];
-    const events = [];
+    let heavyHitDuringWindup = false;
     autopilot.tap('kiter', 'bolt', 0);
     for (let tick = 0; tick < 15 * 60; tick += 1) {
       const before = subject.state();
@@ -390,13 +393,19 @@ describe('orders', () => {
         const dx = combatant.desiredTile.x - combatant.tile.x;
         const dy = combatant.desiredTile.y - combatant.tile.y;
         const d = Math.hypot(dx, dy);
-        const step = Math.min(d, (arenaSpeedTilesPerSecond(7) / 60) * 2);
+        const step = Math.min(d, arenaSpeedTilesPerSecond(7) / 60);
         positions.kiter =
           d === 0
             ? combatant.tile
             : { x: combatant.tile.x + (dx / d) * step, y: combatant.tile.y + (dy / d) * step };
       }
-      events.push(...subject.update(1 / 60, positions, player));
+      const wasWindingUp = combatant.windup !== null;
+      const tickEvents = subject.update(1 / 60, positions, player);
+      if (
+        wasWindingUp &&
+        tickEvents.some((event) => event.type === 'hit' && event.attacker === 'heavy')
+      )
+        heavyHitDuringWindup = true;
       const current = subject.state();
       const shotDistance = Math.hypot(
         current.party[0]!.tile.x - current.enemy.tile.x,
@@ -414,7 +423,7 @@ describe('orders', () => {
       if (started) windupDistances.push(shotDistance);
     }
     expect(windupDistances.length).toBeGreaterThanOrEqual(2);
-    expect(windupDistances.every((d) => d > 3.5)).toBe(true);
-    expect(events.some((event) => event.type === 'hit' && event.attacker === 'heavy')).toBe(false);
+    expect(windupDistances.every((d) => d > 1.25 + SHOT_RELEASE_MARGIN_TILES)).toBe(true);
+    expect(heavyHitDuringWindup).toBe(false);
   }, 5_000);
 });

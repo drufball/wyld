@@ -106,6 +106,17 @@ uninformed seeds 1–3—matched this reconciled simulated harness.
 - **Simulated:** with the fallen creature at tile centre (5.5, 9.5) and the enemy at (5.7, 8.3), the automatically deployed reserve enters at tile centre (5.5, 10.5).
 - **Simulated:** the incoming reserve takes no hit during the first 0.9 s of entry grace and takes a hit by 3.9 s after entry.
 
+### Arena — hold the shot
+
+The release margin is the ground the heavy covers during the kiter's Bolt windup at the heavy's
+arena speed, plus a quarter tile, floored at 1.25 tiles. The Antlerback (speed 4–5,
+`arenaSpeedTilesPerSecond` = (3 + 0.6·speed)/2 × 0.5 = 1.35–1.5 t/s) closes 0.85–0.95 tiles
+during a signature Bolt's windup for a speed-7 kiter (`windup` in `resolve.ts`:
+0.9 × (1.2 − 7×0.06) × (1 − 1×0.1) = 0.63 s); + 0.25 = 1.10–1.20, floored to **1.25**.
+The shot therefore releases at `reach + 1.25`, approximately 2.5 tiles from the Antlerback with
+Strike reach 1.25. An Arc (1.2 s base) computes to 1.39–1.51 and is not covered by the floor; that
+is a follow-up if a kiter ever carries an Arc, rather than making the margin per-delivery here.
+
 ## Diorama
 
 - **PASS (`simulated`) — HUD writes on change:** jsdom mutation tests verified an identical update makes no tray mutations, cooldown and downed-state changes preserve button identity, and reserve-state changes preserve the other party cards.

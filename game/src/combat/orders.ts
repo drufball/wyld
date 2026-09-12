@@ -2,7 +2,7 @@ import type { Individual } from '../creatures/individual.js';
 import { autopilotHolds } from './authority.js';
 import { choiceInputFrom, type Choice, type ChoiceInput } from './choice.js';
 import type { CombatState } from './encounter.js';
-import { kiteHolds } from './formation.js';
+import { shotHolds } from './formation.js';
 import { canAfford } from './resolve.js';
 import type { CombatTell } from './tells.js';
 
@@ -80,7 +80,7 @@ const fireOrders = (input: {
     return (
       individual?.temperament === 'Skittish' &&
       (move?.delivery === 'Bolt' || move?.delivery === 'Arc') &&
-      kiteHolds(distance(member.tile, input.combat.enemy.tile), input.combat.enemy.reachTiles)
+      shotHolds(distance(member.tile, input.combat.enemy.tile), input.combat.enemy.reachTiles)
     );
   };
   const commanded = (id: string): boolean => {
