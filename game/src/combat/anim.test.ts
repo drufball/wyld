@@ -41,6 +41,12 @@ describe('combat animation', () => {
     expect(subject.startedCount()).toBe(0);
   });
 
+  it('starts no lunge for a blocked charge', () => {
+    const subject = createAnimations();
+    subject.push([{ type: 'blocked', attacker: 'a', target: 'b', move: 'lunge' }], tileOf);
+    expect(subject.startedCount()).toBe(0);
+  });
+
   it('points the lunge at the target and freezes that direction', () => {
     const subject = createAnimations();
     subject.push([executed()], tileOf);
