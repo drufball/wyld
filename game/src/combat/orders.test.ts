@@ -5,7 +5,9 @@ import { createRng } from '../engine/rng.js';
 import { createAutopilot } from './autopilot.js';
 import { createChooser } from './choice.js';
 import { createEncounter, type Point } from './encounter.js';
+import { SHOT_RELEASE_MARGIN_TILES } from './formation.js';
 import type { Move } from './moves.js';
+import { arenaSpeedTilesPerSecond } from './pace.js';
 import {
   createOrderLog,
   createRefusalFeedback,
@@ -261,7 +263,7 @@ describe('orders', () => {
       fireOrders({
         combat: { phase: 'win' } as never,
         party: [{ id: 'fighter', temperament: 'Bold', repertoire: [] }] as never,
-        autopilot: { armed: () => null },
+        autopilot: { armed: () => null, fresh: () => false, settle: () => undefined },
         chooser: { choose },
         authorityOf: () => 1,
         useMove,
@@ -270,4 +272,158 @@ describe('orders', () => {
     expect(choose).not.toHaveBeenCalled();
     expect(useMove).not.toHaveBeenCalled();
   });
+
+  it('fires a hand-tapped Bolt inside the margin at once', () => {
+    const bolt = move('bolt', 4, 'Bolt');
+    const individual = fighter('kiter', [bolt], { temperament: 'Skittish' });
+    const subject = setup(individual, { x: 2, y: 0 });
+    const autopilot = createAutopilot();
+    autopilot.tap('kiter', 'bolt', 0);
+
+    const { events, fired } = advance(subject, individual, autopilot, 1);
+    expect(fired[0]).toEqual({ creatureId: 'kiter', moveId: 'bolt', source: 'autopilot' });
+    const executedAt = events.findIndex((event) => event.type === 'executed');
+    expect(executedAt).toBeGreaterThanOrEqual(0);
+    expect(executedAt).toBeLessThan(60);
+  });
+
+  it("holds the autopilot re-fire while a Skittish kiter is inside the heavy's reach and margin", () => {
+    const bolt = move('bolt', 4, 'Bolt');
+    const individual = fighter('kiter', [bolt], { temperament: 'Skittish' });
+    const subject = setup(individual, { x: 2, y: 0 });
+    const autopilot = createAutopilot();
+    autopilot.tap('kiter', 'bolt', 0);
+
+    const { fired } = advance(subject, individual, autopilot, 8);
+    expect(fired.filter(({ moveId }) => moveId === 'bolt')).toHaveLength(1);
+    expect(
+      Math.hypot(subject.state().party[0]!.tile.x - 2, subject.state().party[0]!.tile.y),
+    ).toBeLessThan(1.25 + SHOT_RELEASE_MARGIN_TILES);
+  });
+
+  it('re-fires an armed Bolt for a Bold creature at the same distance', () => {
+    const bolt = move('bolt', 4, 'Bolt');
+    const individual = fighter('kiter', [bolt], { temperament: 'Bold' });
+    const subject = setup(individual, { x: 2, y: 0 });
+    const autopilot = createAutopilot();
+    autopilot.tap('kiter', 'bolt', 0);
+
+    const { fired } = advance(subject, individual, autopilot, 8);
+    const bolts = fired.filter(({ moveId }) => moveId === 'bolt');
+    expect(bolts.length).toBeGreaterThanOrEqual(2);
+    expect(bolts.every(({ source }) => source === 'autopilot')).toBe(true);
+  });
+
+  it('holds a chosen Bolt inside the margin and fires it at range', () => {
+    const simulate = (kiterTile: Point) => {
+      const tank = fighter('tank', [move('strike', 2)], { temperament: 'Steady' });
+      const kiter = fighter('kiter', [move('bolt', 4, 'Bolt')], {
+        temperament: 'Skittish',
+      });
+      const subject = createEncounter({
+        party: [tank, kiter],
+        enemy: fighter('enemy', [move('enemy-strike', 1)], {
+          stats: { vigor: 100_000, power: 1, speed: 1, focus: 0 },
+        }),
+        grid: { isWalkable: () => true },
+        rng: createRng(7),
+        partyTiles: { tank: { x: 1, y: 0 }, kiter: kiterTile },
+        enemyTile: { x: 2, y: 0 },
+        player: { x: 0, y: 0 },
+        reserve: '',
+      });
+      const autopilot = createAutopilot();
+      const chooser = createChooser(createRng(7).next);
+      const fired = [];
+      for (let tick = 0; tick < 2 * 60; tick += 1) {
+        fired.push(
+          ...fireOrders({
+            combat: subject.state(),
+            party: [tank, kiter],
+            autopilot,
+            chooser,
+            authorityOf: () => 1,
+            useMove: subject.useMove,
+          }),
+        );
+        subject.update(1 / 60);
+      }
+      return fired;
+    };
+
+    expect(simulate({ x: 0, y: 0 }).some(({ creatureId }) => creatureId === 'kiter')).toBe(false);
+    expect(simulate({ x: -3, y: 0 })).toContainEqual({
+      creatureId: 'kiter',
+      moveId: 'bolt',
+      source: 'choice',
+    });
+  });
+
+  it("keeps a kiting Skittish Bolt-holder on autopilot out of a Bold heavy's reach from fight-start distance", () => {
+    const bolt = move('bolt', 4, 'Bolt');
+    const kiter = fighter('kiter', [bolt], {
+      temperament: 'Skittish',
+      stats: { vigor: 45, power: 3, speed: 7, focus: 45 },
+    });
+    const heavy = fighter('heavy', [move('strike', 5)], {
+      temperament: 'Bold',
+      stats: { vigor: 200, power: 5, speed: 4, focus: 55 },
+    });
+    const player = { x: 0.5, y: 1.5 };
+    const subject = createEncounter({
+      party: [kiter],
+      enemy: heavy,
+      grid: { isWalkable: () => true },
+      rng: createRng(339),
+      partyTiles: { kiter: { x: 0.5, y: 3.5 } },
+      enemyTile: { x: 0.5, y: -2.5 },
+      player,
+      reserve: '',
+    });
+    const autopilot = createAutopilot();
+    const chooser = createChooser(createRng(339).next);
+    const windupDistances: number[] = [];
+    let heavyHitDuringWindup = false;
+    autopilot.tap('kiter', 'bolt', 0);
+    for (let tick = 0; tick < 15 * 60; tick += 1) {
+      const before = subject.state();
+      const combatant = before.party[0]!;
+      const positions: Record<string, Point> = {};
+      if (combatant.desiredTile) {
+        const dx = combatant.desiredTile.x - combatant.tile.x;
+        const dy = combatant.desiredTile.y - combatant.tile.y;
+        const d = Math.hypot(dx, dy);
+        const step = Math.min(d, arenaSpeedTilesPerSecond(7) / 60);
+        positions.kiter =
+          d === 0
+            ? combatant.tile
+            : { x: combatant.tile.x + (dx / d) * step, y: combatant.tile.y + (dy / d) * step };
+      }
+      const wasWindingUp = combatant.windup !== null;
+      const tickEvents = subject.update(1 / 60, positions, player);
+      if (
+        wasWindingUp &&
+        tickEvents.some((event) => event.type === 'hit' && event.attacker === 'heavy')
+      )
+        heavyHitDuringWindup = true;
+      const current = subject.state();
+      const shotDistance = Math.hypot(
+        current.party[0]!.tile.x - current.enemy.tile.x,
+        current.party[0]!.tile.y - current.enemy.tile.y,
+      );
+      fireOrders({
+        combat: current,
+        party: [kiter],
+        autopilot,
+        chooser,
+        authorityOf: () => 1,
+        useMove: subject.useMove,
+      });
+      const started = combatant.windup === null && subject.state().party[0]!.windup !== null;
+      if (started) windupDistances.push(shotDistance);
+    }
+    expect(windupDistances.length).toBeGreaterThanOrEqual(2);
+    expect(windupDistances.every((d) => d > 1.25 + SHOT_RELEASE_MARGIN_TILES)).toBe(true);
+    expect(heavyHitDuringWindup).toBe(false);
+  }, 5_000);
 });

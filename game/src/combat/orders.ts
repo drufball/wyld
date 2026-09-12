@@ -2,6 +2,7 @@ import type { Individual } from '../creatures/individual.js';
 import { autopilotHolds } from './authority.js';
 import { choiceInputFrom, type Choice, type ChoiceInput } from './choice.js';
 import type { CombatState } from './encounter.js';
+import { shotHolds } from './formation.js';
 import { canAfford } from './resolve.js';
 import type { CombatTell } from './tells.js';
 
@@ -17,6 +18,8 @@ type OrderEntry = {
 };
 type FiredMove = { creatureId: string; moveId: string; source: 'autopilot' | 'choice' };
 const NOTICE_SECONDS = 1.5;
+const distance = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
+  Math.hypot(a.x - b.x, a.y - b.y);
 
 const createRefusalFeedback = () => {
   let toasted = false;
@@ -60,13 +63,26 @@ const createOrderLog = (limit = 50) => {
 const fireOrders = (input: {
   combat: CombatState;
   party: readonly Individual[];
-  autopilot: { armed(creatureId: string): string | null };
+  autopilot: {
+    armed(creatureId: string): string | null;
+    fresh(creatureId: string): boolean;
+    settle(creatureId: string): void;
+  };
   chooser: { choose(input: ChoiceInput): Choice[] };
   authorityOf(creatureId: string): number;
   useMove(creatureId: string, moveId: string): boolean;
 }): FiredMove[] => {
   if (input.combat.phase !== 'fight') return [];
   const fired: FiredMove[] = [];
+  const held = (member: CombatState['party'][number], moveId: string): boolean => {
+    const individual = input.party.find(({ id }) => id === member.id);
+    const move = individual?.repertoire.find(({ id }) => id === moveId);
+    return (
+      individual?.temperament === 'Skittish' &&
+      (move?.delivery === 'Bolt' || move?.delivery === 'Arc') &&
+      shotHolds(distance(member.tile, input.combat.enemy.tile), input.combat.enemy.reachTiles)
+    );
+  };
   const commanded = (id: string): boolean => {
     const armed = input.autopilot.armed(id);
     return armed !== null && autopilotHolds(input.authorityOf(id));
@@ -86,15 +102,25 @@ const fireOrders = (input: {
   };
   for (const member of input.combat.party) {
     const moveId = input.autopilot.armed(member.id);
-    if (moveId && !member.downed && !member.benched && commanded(member.id))
-      if (input.useMove(member.id, moveId))
+    if (
+      moveId &&
+      !member.downed &&
+      !member.benched &&
+      commanded(member.id) &&
+      (!held(member, moveId) || input.autopilot.fresh(member.id))
+    )
+      if (input.useMove(member.id, moveId)) {
+        input.autopilot.settle(member.id);
         fired.push({ creatureId: member.id, moveId, source: 'autopilot' });
+      }
   }
   for (const choice of input.chooser.choose(
     choiceInputFrom(input.combat, input.party, (id) => commanded(id) && armedReady(id)),
-  ))
-    if (input.useMove(choice.creatureId, choice.moveId))
+  )) {
+    const member = input.combat.party.find(({ id }) => id === choice.creatureId);
+    if (member && !held(member, choice.moveId) && input.useMove(choice.creatureId, choice.moveId))
       fired.push({ ...choice, source: 'choice' });
+  }
   return fired;
 };
 
