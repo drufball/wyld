@@ -59,7 +59,7 @@ const advance = (
   positions = {},
   player?: Point,
 ) => {
-  const events = [];
+  const events: ReturnType<typeof encounter.update> = [];
   for (let time = 0; time < seconds; time += 0.05)
     events.push(...encounter.update(0.05, positions, player));
   return events;
@@ -100,6 +100,137 @@ const driveIdleParty = (
   }
   return { positions, ticks: tick, events };
 };
+
+it('stops a charge on the near side of a rock and lands no hit', () => {
+  const charger = fighter('charger', [move('Lunge')]);
+  const subject = setup({
+    party: [charger],
+    partyTiles: { charger: { x: 0.5, y: 0.5 } },
+    enemyTile: { x: 6.5, y: 0.5 },
+    grid: { isWalkable: (x, y) => !(x === 3 && y === 0) },
+    reserve: '',
+  });
+  const startingFocus = subject.state().party[0]!.focus;
+  expect(subject.useMove('charger', 'lunge')).toBe(true);
+  expect(subject.state().party[0]).toMatchObject({ blockedAt: { x: 2.5, y: 0.5 } });
+  expect(subject.state().party[0]!.cooldowns.lunge!.remaining).toBeGreaterThan(0);
+  expect(subject.state().party[0]!.focus).toBe(startingFocus - deliveries.Lunge.focus);
+  let blockedTile: Point | null = null;
+  const { events } = driveIdleParty(subject, 5, { x: 0, y: 0 }, {}, () => {
+    const state = subject.state().party[0]!;
+    if (!state.approaching && blockedTile === null) blockedTile = state.tile;
+  });
+  expect(events).toContainEqual(expect.objectContaining({ type: 'blocked', attacker: 'charger' }));
+  expect(events.some((event) => event.attacker === 'charger' && event.type === 'executed')).toBe(
+    false,
+  );
+  expect(events.some((event) => event.attacker === 'charger' && event.type === 'hit')).toBe(false);
+  expect(distanceForTest(blockedTile!, { x: 2.5, y: 0.5 })).toBeLessThan(0.35);
+  expect(subject.state().party[0]).toMatchObject({ approaching: false, blockedAt: null });
+});
+
+it('charges clean when the rock is off the line', () => {
+  const subject = setup({
+    party: [fighter('charger', [move('Lunge')])],
+    partyTiles: { charger: { x: 0.5, y: 0.5 } },
+    enemyTile: { x: 6.5, y: 0.5 },
+    grid: { isWalkable: (x, y) => !(x === 3 && y === 1) },
+    reserve: '',
+  });
+  expect(subject.useMove('charger', 'lunge')).toBe(true);
+  const { events } = driveIdleParty(subject, 8, undefined, { charger: 20 });
+  expect(events).toContainEqual(
+    expect.objectContaining({ type: 'executed', attacker: 'charger', move: 'lunge' }),
+  );
+  expect(events).toContainEqual(
+    expect.objectContaining({ type: 'hit', attacker: 'charger', move: 'lunge' }),
+  );
+  expect(events.some(({ type }) => type === 'blocked')).toBe(false);
+});
+
+it('breaks an in-range charge whose line is blocked at launch and loses the windup', () => {
+  const subject = setup({
+    party: [fighter('charger', [move('Lunge')])],
+    partyTiles: { charger: { x: 0.5, y: 0.5 } },
+    enemyTile: { x: 3.5, y: 0.5 },
+    grid: { isWalkable: (x, y) => !(x === 2 && y === 0) },
+    reserve: '',
+  });
+  expect(subject.useMove('charger', 'lunge')).toBe(true);
+  expect(subject.state().party[0]!.windup).not.toBeNull();
+  const launchEvents = advance(subject, 2);
+  expect(launchEvents.some(({ type }) => type === 'hit' || type === 'executed')).toBe(false);
+  expect(subject.state().party[0]!.blockedAt).toEqual({ x: 1.5, y: 0.5 });
+  const { events } = driveIdleParty(subject, 1);
+  expect(events).toContainEqual(expect.objectContaining({ type: 'blocked', attacker: 'charger' }));
+  expect(subject.state().party[0]!.cooldowns.lunge!.remaining).toBeGreaterThan(0);
+});
+
+it('still bounds a blocked charge with the three second stall guard', () => {
+  const subject = setup({
+    party: [fighter('charger', [move('Lunge')])],
+    partyTiles: { charger: { x: 0.5, y: 0.5 } },
+    enemyTile: { x: 6.5, y: 0.5 },
+    grid: { isWalkable: (x, y) => !(x === 3 && y === 0) },
+    reserve: '',
+  });
+  subject.useMove('charger', 'lunge');
+  const events: ReturnType<typeof subject.update> = [];
+  for (
+    let iteration = 0;
+    iteration < 80 && !events.some(({ type }) => type === 'blocked');
+    iteration += 1
+  )
+    events.push(...subject.update(0.05, { charger: { x: 0.5, y: 0.5 } }));
+  expect(events).toContainEqual(expect.objectContaining({ type: 'blocked', attacker: 'charger' }));
+  expect(subject.state().party[0]).toMatchObject({ approaching: false, blockedAt: null });
+});
+
+it("sends the enemy's charge into cover and lets it walk around for a Strike instead", () => {
+  const subject = setup({
+    party: [
+      fighter('owned', [move('Strike')], {
+        temperament: 'Steady',
+        stats: { vigor: 100_000, power: 3, speed: 4, focus: 0 },
+      }),
+    ],
+    enemy: fighter('heavy', [move('Strike'), move('Lunge')], {
+      temperament: 'Bold',
+      stats: { vigor: 200, power: 5, speed: 4, focus: 55 },
+    }),
+    partyTiles: { owned: { x: 0.5, y: 6.5 } },
+    enemyTile: { x: 0.5, y: 0.5 },
+    player: { x: 0.5, y: 9.5 },
+    grid: { isWalkable: (x, y) => !(x === 0 && y === 3) },
+    reserve: '',
+  });
+  const events = advance(subject, 20, { owned: { x: 0.5, y: 6.5 } });
+  const blockedIndex = events.findIndex(
+    (event) => event.type === 'blocked' && event.attacker === 'heavy' && event.move === 'lunge',
+  );
+  const nextLungeIndex = events.findIndex(
+    (event, index) =>
+      index > blockedIndex &&
+      event.type === 'executed' &&
+      event.attacker === 'heavy' &&
+      event.move === 'lunge',
+  );
+  expect(blockedIndex).toBeGreaterThanOrEqual(0);
+  expect(
+    events
+      .slice(0, nextLungeIndex < 0 ? undefined : nextLungeIndex)
+      .some(
+        (event) => event.type === 'hit' && event.attacker === 'heavy' && event.move === 'lunge',
+      ),
+  ).toBe(false);
+  expect(
+    events
+      .slice(blockedIndex + 1)
+      .some(
+        (event) => event.type === 'hit' && event.attacker === 'heavy' && event.move === 'strike',
+      ),
+  ).toBe(true);
+}, 5_000);
 
 describe('authority', () => {
   it("hears every order within two tiles and none beyond the temperament's reach", () => {

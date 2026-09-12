@@ -95,6 +95,7 @@ const combatState = (party = [creature('a')]): CombatState => {
     desiredTile: null,
     threat: 0,
     lineToEnemy: true,
+    blockedAt: null,
     reachTiles: 1.25,
     grace: 0,
   });
@@ -248,6 +249,7 @@ describe('thumb HUD', () => {
       desiredTile: null,
       threat: 0,
       lineToEnemy: true,
+      blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
     };
@@ -298,6 +300,7 @@ describe('thumb HUD', () => {
       desiredTile: null,
       threat: 0,
       lineToEnemy: true,
+      blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
     });
@@ -356,6 +359,7 @@ describe('thumb HUD', () => {
       desiredTile: null,
       threat: 0,
       lineToEnemy: true,
+      blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
     });
@@ -399,6 +403,7 @@ describe('thumb HUD', () => {
       desiredTile: null,
       threat: 0,
       lineToEnemy: true,
+      blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
     });
@@ -439,6 +444,7 @@ describe('thumb HUD', () => {
       desiredTile: null,
       threat: 0,
       lineToEnemy: true,
+      blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
     });
@@ -503,6 +509,7 @@ describe('thumb HUD', () => {
       desiredTile: null,
       threat: 0,
       lineToEnemy: true,
+      blockedAt: null,
       grace: 0,
     });
     const combat: CombatState = {
@@ -571,6 +578,7 @@ describe('thumb HUD', () => {
       desiredTile: null,
       threat: 0,
       lineToEnemy: true,
+      blockedAt: null,
       grace: 0,
     });
     const hud = createHud(false, document.body, {

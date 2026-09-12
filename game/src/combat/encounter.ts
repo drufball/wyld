@@ -9,7 +9,7 @@ import { MIN_SEPARATION_TILES, separate } from './spacing.js';
 import { formation, TAP_OVERRIDE_SECONDS, type Wander } from './formation.js';
 import { authority, hears, moveTapAuthority } from './authority.js';
 import { pickTarget, pruneHits, threatOf, type ThreatHit } from './threat.js';
-import { lineClear } from './line.js';
+import { lineClear, nearSideOf } from './line.js';
 import {
   ARENA_BALANCE,
   scaledEnemyDamage,
@@ -45,6 +45,7 @@ type Combatant = {
   desiredTile: Point | null;
   threat: number;
   lineToEnemy: boolean;
+  blockedAt: Point | null;
   approaching?: boolean;
   overrideRemaining?: number;
   grace: number;
@@ -69,7 +70,7 @@ type CombatState = {
   flashes: Flash[];
 };
 type CombatEvent = {
-  type: 'hit' | 'miss' | 'executed' | 'downed' | 'win' | 'driven-off' | 'auto-deploy';
+  type: 'hit' | 'miss' | 'executed' | 'blocked' | 'downed' | 'win' | 'driven-off' | 'auto-deploy';
   attacker?: string;
   target?: string;
   out?: string;
@@ -90,10 +91,10 @@ type EncounterOptions = {
   reserve?: string;
   balance?: ArenaBalance;
 };
-type Internal = Omit<Combatant, 'lineToEnemy'> & {
+type Internal = Omit<Combatant, 'lineToEnemy' | 'blockedAt'> & {
   individual: Individual;
   pending: { move: Move; target: Point; targetId: string; elapsed: number; total: number } | null;
-  approach: { move: Move; targetId: string; elapsed: number } | null;
+  approach: { move: Move; targetId: string; elapsed: number; blockedAt: Point | null } | null;
   hold: number;
   strafe: number;
   strafeDirection: number;
@@ -240,11 +241,18 @@ const createEncounter = ({
     }
   };
   const launch = (a: Internal, target: Internal, move: Move): void => {
-    events.push({ type: 'executed', attacker: a.id, target: target.id, move: move.id });
     if (move.delivery === 'Lunge') {
+      const blockedAt = nearSideOf(a.tile, target.tile, (tx, ty) => grid.isWalkable(tx, ty));
+      if (blockedAt) {
+        a.desiredTile = copy(blockedAt);
+        a.approach = { move, targetId: target.id, elapsed: 0, blockedAt: copy(blockedAt) };
+        return;
+      }
+      events.push({ type: 'executed', attacker: a.id, target: target.id, move: move.id });
       hit(a, target, move);
       return;
     }
+    events.push({ type: 'executed', attacker: a.id, target: target.id, move: move.id });
     if (move.delivery === 'Strike') {
       hit(a, target, move);
       return;
@@ -335,6 +343,18 @@ const createEncounter = ({
       return false;
     if (distance(a.tile, target.tile) > rangeTilesFor(move)) {
       if (!['Strike', 'Lunge'].includes(move.delivery)) return false;
+      const blockedAt =
+        move.delivery === 'Lunge'
+          ? nearSideOf(a.tile, target.tile, (tx, ty) => grid.isWalkable(tx, ty))
+          : null;
+      if (blockedAt) {
+        a.focus -= deliveries.Lunge.focus;
+        a.cooldowns[move.id] = { remaining: cooldownFor(move), total: cooldownFor(move) };
+        a.desiredTile = copy(blockedAt);
+        a.approach = { move, targetId: target.id, elapsed: 0, blockedAt: copy(blockedAt) };
+        face(a, target.tile);
+        return true;
+      }
       const d = distance(a.tile, target.tile),
         // Controllers stop at tile centres, so aim slightly inside the exact range boundary.
         travel = Math.max(0, d - rangeTilesFor(move) + 0.25),
@@ -344,7 +364,7 @@ const createEncounter = ({
         move.delivery === 'Lunge'
           ? copy(target.tile)
           : { x: a.tile.x + dx * travel, y: a.tile.y + dy * travel };
-      a.approach = { move, targetId: target.id, elapsed: 0 };
+      a.approach = { move, targetId: target.id, elapsed: 0, blockedAt: null };
       return true;
     }
     if (
@@ -411,7 +431,13 @@ const createEncounter = ({
         grid,
         { tx: Math.floor(foe.tile.x), ty: Math.floor(foe.tile.y) },
         { tx: Math.floor(target.x), ty: Math.floor(target.y) },
-        { minTx: 0, maxTx: 999, minTy: 0, maxTy: 999, diagonals: true },
+        {
+          minTx: 0,
+          maxTx: 999,
+          minTy: 0,
+          maxTy: 999,
+          diagonals: true,
+        },
       );
       const waypoint = path?.[0];
       if (waypoint) {
@@ -467,8 +493,22 @@ const createEncounter = ({
     }
     for (const c of all()) {
       if (!c.approach || c.benched) continue;
+      c.approach.elapsed += dt;
       const target = byId(c.approach.targetId);
-      if (!target || target.downed || target.benched) {
+      const blockedFinished =
+        c.approach.blockedAt !== null &&
+        (distance(c.tile, c.approach.blockedAt) <= 0.3 ||
+          c.approach.elapsed >= APPROACH_TIMEOUT_SECONDS);
+      if (c.approach.blockedAt && (!target || target.downed || target.benched || blockedFinished)) {
+        events.push({
+          type: 'blocked',
+          attacker: c.id,
+          target: c.approach.targetId,
+          move: c.approach.move.id,
+        });
+        c.approach = null;
+        c.desiredTile = null;
+      } else if (!target || target.downed || target.benched) {
         c.approach = null;
         c.desiredTile = null;
       } else if (
@@ -478,7 +518,6 @@ const createEncounter = ({
       ) {
         beginMove(c, target, c.approach.move);
       } else {
-        c.approach.elapsed += dt;
         if (c.approach.elapsed >= APPROACH_TIMEOUT_SECONDS) {
           c.approach = null;
           c.desiredTile = null;
@@ -578,13 +617,17 @@ const createEncounter = ({
         if (foe.approach) {
           const approachTarget = byId(foe.approach.targetId);
           if (approachTarget && !approachTarget.downed) {
-            const requiredRange =
-              foe.approach.move.delivery === 'Lunge'
-                ? LUNGE_CONTACT_TILES
-                : rangeTilesFor(foe.approach.move);
-            moveEnemy(dt, approachTarget.tile, requiredRange);
-            if (distance(foe.tile, approachTarget.tile) <= requiredRange + 0.05)
-              beginMove(foe, approachTarget, foe.approach.move);
+            if (foe.approach.blockedAt) {
+              moveEnemy(dt, foe.approach.blockedAt, 0);
+            } else {
+              const requiredRange =
+                foe.approach.move.delivery === 'Lunge'
+                  ? LUNGE_CONTACT_TILES
+                  : rangeTilesFor(foe.approach.move);
+              moveEnemy(dt, approachTarget.tile, requiredRange);
+              if (distance(foe.tile, approachTarget.tile) <= requiredRange + 0.05)
+                beginMove(foe, approachTarget, foe.approach.move);
+            }
           }
         } else {
           moveEnemy(dt, enemyTarget.tile);
@@ -675,6 +718,7 @@ const createEncounter = ({
       c.benched || c.downed
         ? true
         : lineClear(c.tile, foe.tile, (tx, ty) => grid.isWalkable(tx, ty)),
+    blockedAt: c.approach?.blockedAt ? copy(c.approach.blockedAt) : null,
     grace: c.grace,
   });
   const state = (): CombatState => ({
@@ -692,6 +736,7 @@ const createEncounter = ({
       downed: foe.downed,
       desiredTile: foe.desiredTile ? copy(foe.desiredTile) : null,
       approaching: foe.approach !== null,
+      blockedAt: foe.approach?.blockedAt ? copy(foe.approach.blockedAt) : null,
       targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? threatTarget()?.id ?? null,
       reachTiles: foeReach,
       grace: foe.grace,
