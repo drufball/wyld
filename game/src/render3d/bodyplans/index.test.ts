@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BODY_PLANS, bodyPlanPainters } from '@wyld/sprites';
 import { describe, expect, it, vi } from 'vitest';
 import { species, speciesById } from '../../creatures/species.js';
 import { TIER_LENGTH_TILES, bodyPlanBuilders, buildBodyPlan } from './index.js';
@@ -22,6 +23,16 @@ const triangles = (group: THREE.Group): number => {
 };
 
 describe('body plans', () => {
+  it('keeps the body-plan ids identical between the sprite painters and the mesh builders', () => {
+    const painterIds = Object.keys(bodyPlanPainters).sort();
+    const builderIds = Object.keys(bodyPlanBuilders).sort();
+    const bodyPlanIds = [...BODY_PLANS].sort();
+
+    expect(painterIds).toEqual(builderIds);
+    expect(painterIds).toEqual(bodyPlanIds);
+    expect(builderIds).toEqual(bodyPlanIds);
+    expect(bodyPlanIds).toHaveLength(8);
+  });
   it('maps every species through exactly eight builders', () => {
     expect(Object.keys(bodyPlanBuilders).sort()).toEqual(
       [

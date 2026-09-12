@@ -324,3 +324,9 @@ A CDP screenshot was captured 5.0 s into the fight (played).
 - **Before (`simulated`):** 3 blit implementations (`blit.ts`, `creature-sprite.ts`, `sprite-canvas.ts`). **After:** 1 (`packages/sprites/src/blit.ts` + `blit-canvas.ts`).
 - **PASS (`simulated`):** 13 species × 3 facings × 4 frames × 2 flip values × 3 old drawer paths = 936 pixel-buffer comparisons ran in commit 1; all were byte-for-byte equal.
 - **PASS (`simulated`):** 13 stored pixel hashes were produced by the new code after the pixel comparison passed.
+
+## Body-plan parity
+
+- **Before (`simulated`):** The pixel painters and mesh builders were two independent lists with no runtime check.
+- **After (`simulated`):** 8 painters = 8 builders = 8 `BODY_PLANS`, asserted by `keeps the body-plan ids identical between the sprite painters and the mesh builders`.
+- **Control (`simulated`):** Added a fake `'phantom'` id to the mesh-builder record, ran `pnpm --filter @wyld/game test`, watched the new test fail, then removed it: `AssertionError: expected [ 'amphibious', 'avian', …(6) ] to deeply equal [ 'amphibious', 'avian', …(7) ]`.

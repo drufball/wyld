@@ -9,6 +9,7 @@ import { build as lightQuadruped } from './light-quadruped.js';
 import { build as serpentine } from './serpentine.js';
 import { build as shelled } from './shelled.js';
 import type { BodyPlanBuilder, CreatureModel } from './types.js';
+// Body plans are listed twice on purpose: mesh builders here, pixel painters in packages/sprites/src/index.ts — adding a body plan means touching both (parity test: ./index.test.ts).
 const bodyPlanBuilders: Record<BodyPlanId, BodyPlanBuilder> = {
   'heavy-quadruped': heavyQuadruped,
   'light-quadruped': lightQuadruped,
