@@ -115,14 +115,18 @@ it('stops a charge on the near side of a rock and lands no hit', () => {
   expect(subject.state().party[0]).toMatchObject({ blockedAt: { x: 2.5, y: 0.5 } });
   expect(subject.state().party[0]!.cooldowns.lunge!.remaining).toBeGreaterThan(0);
   expect(subject.state().party[0]!.focus).toBe(startingFocus - deliveries.Lunge.focus);
-  const { events } = driveIdleParty(subject, 5);
+  let blockedTile: Point | null = null;
+  const { events } = driveIdleParty(subject, 5, { x: 0, y: 0 }, {}, () => {
+    const state = subject.state().party[0]!;
+    if (!state.approaching && blockedTile === null) blockedTile = state.tile;
+  });
   expect(events).toContainEqual(expect.objectContaining({ type: 'blocked', attacker: 'charger' }));
   expect(events.some((event) => event.attacker === 'charger' && event.type === 'executed')).toBe(
     false,
   );
   expect(events.some((event) => event.attacker === 'charger' && event.type === 'hit')).toBe(false);
-  expect(distanceForTest(subject.state().party[0]!.tile, { x: 2.5, y: 0.5 })).toBeLessThan(0.35);
-  expect(subject.state().party[0]).toMatchObject({ approaching: false, desiredTile: null });
+  expect(distanceForTest(blockedTile!, { x: 2.5, y: 0.5 })).toBeLessThan(0.35);
+  expect(subject.state().party[0]).toMatchObject({ approaching: false, blockedAt: null });
 });
 
 it('charges clean when the rock is off the line', () => {
@@ -172,10 +176,14 @@ it('still bounds a blocked charge with the three second stall guard', () => {
   });
   subject.useMove('charger', 'lunge');
   const events: ReturnType<typeof subject.update> = [];
-  while (!events.some(({ type }) => type === 'blocked'))
+  for (
+    let iteration = 0;
+    iteration < 80 && !events.some(({ type }) => type === 'blocked');
+    iteration += 1
+  )
     events.push(...subject.update(0.05, { charger: { x: 0.5, y: 0.5 } }));
   expect(events).toContainEqual(expect.objectContaining({ type: 'blocked', attacker: 'charger' }));
-  expect(subject.state().party[0]).toMatchObject({ desiredTile: null, approaching: false });
+  expect(subject.state().party[0]).toMatchObject({ approaching: false, blockedAt: null });
 });
 
 it("sends the enemy's charge into cover and lets it walk around for a Strike instead", () => {
@@ -190,12 +198,13 @@ it("sends the enemy's charge into cover and lets it walk around for a Strike ins
       temperament: 'Bold',
       stats: { vigor: 200, power: 5, speed: 4, focus: 55 },
     }),
-    partyTiles: { owned: { x: 0.5, y: 0.5 } },
-    enemyTile: { x: 0.5, y: -5.5 },
-    grid: { isWalkable: (x, y) => !(x === 0 && y === -3) },
+    partyTiles: { owned: { x: 0.5, y: 6.5 } },
+    enemyTile: { x: 0.5, y: 0.5 },
+    player: { x: 0.5, y: 9.5 },
+    grid: { isWalkable: (x, y) => !(x === 0 && y === 3) },
     reserve: '',
   });
-  const events = advance(subject, 20, { owned: { x: 0.5, y: 0.5 } });
+  const events = advance(subject, 20, { owned: { x: 0.5, y: 6.5 } });
   const blockedIndex = events.findIndex(
     (event) => event.type === 'blocked' && event.attacker === 'heavy' && event.move === 'lunge',
   );

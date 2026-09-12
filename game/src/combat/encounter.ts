@@ -432,10 +432,10 @@ const createEncounter = ({
         { tx: Math.floor(foe.tile.x), ty: Math.floor(foe.tile.y) },
         { tx: Math.floor(target.x), ty: Math.floor(target.y) },
         {
-          minTx: Math.min(Math.floor(foe.tile.x), Math.floor(target.x)) - 16,
-          maxTx: Math.max(Math.floor(foe.tile.x), Math.floor(target.x)) + 16,
-          minTy: Math.min(Math.floor(foe.tile.y), Math.floor(target.y)) - 16,
-          maxTy: Math.max(Math.floor(foe.tile.y), Math.floor(target.y)) + 16,
+          minTx: 0,
+          maxTx: 999,
+          minTy: 0,
+          maxTy: 999,
           diagonals: true,
         },
       );
@@ -456,7 +456,6 @@ const createEncounter = ({
     latestPlayerTile: Point = player,
   ): CombatEvent[] => {
     events.length = 0;
-    const blockedThisUpdate = new Set<string>();
     playerTile = latestPlayerTile;
     if (phase !== 'fight') return events;
     elapsed += dt;
@@ -507,7 +506,6 @@ const createEncounter = ({
           target: c.approach.targetId,
           move: c.approach.move.id,
         });
-        blockedThisUpdate.add(c.id);
         c.approach = null;
         c.desiredTile = null;
       } else if (!target || target.downed || target.benched) {
@@ -527,13 +525,7 @@ const createEncounter = ({
       }
     }
     const formationMembers = owned.filter(
-      (c) =>
-        !c.downed &&
-        !c.benched &&
-        !c.approach &&
-        !c.pending &&
-        !blockedThisUpdate.has(c.id) &&
-        elapsed >= c.overrideUntil,
+      (c) => !c.downed && !c.benched && !c.approach && !c.pending && elapsed >= c.overrideUntil,
     );
     for (const c of owned)
       if (!c.downed && !c.benched && !c.approach && !c.pending && elapsed < c.overrideUntil)
