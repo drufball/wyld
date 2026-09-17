@@ -39,9 +39,21 @@ const updateDetectionTarget = (
 };
 const traySizing = (scale: number): { controlPx: number; font: string; detailFont: string } => {
   const sizes: Record<number, { controlPx: number; font: string; detailFont: string }> = {
-    2: { controlPx: 44, font: '11px/14px ui-monospace,monospace', detailFont: '11px/13px' },
-    3: { controlPx: 56, font: '13px/16px ui-monospace,monospace', detailFont: '11px/13px' },
-    4: { controlPx: 64, font: '15px/18px ui-monospace,monospace', detailFont: '12px/14px' },
+    2: {
+      controlPx: 44,
+      font: '11px/14px ui-monospace,monospace',
+      detailFont: '9px/10px ui-monospace,monospace',
+    },
+    3: {
+      controlPx: 56,
+      font: '13px/16px ui-monospace,monospace',
+      detailFont: '10px/12px ui-monospace,monospace',
+    },
+    4: {
+      controlPx: 64,
+      font: '15px/18px ui-monospace,monospace',
+      detailFont: '11px/13px ui-monospace,monospace',
+    },
   };
   return sizes[scale] ?? sizes[3]!;
 };

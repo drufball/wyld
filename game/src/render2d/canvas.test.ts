@@ -39,7 +39,7 @@ describe('2D viewport', () => {
       [414, 896],
     ]) {
       const scale = pixelScale(width!, height!);
-      expect(screenCols(width!, scale) * 16 * scale).toBeLessThanOrEqual(width);
+      expect(screenCols(width!, scale) * 16 * scale).toBeLessThanOrEqual(width!);
     }
   });
   it('maps a tile to its screen index', () =>

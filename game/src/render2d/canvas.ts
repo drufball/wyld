@@ -95,8 +95,8 @@ export {
   createCanvas,
   crossedScreen,
   pixelScale,
+  scaleFromQuery,
   screenCols,
   screenOf,
   screenRows,
-  scaleFromQuery,
 };
