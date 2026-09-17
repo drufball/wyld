@@ -113,9 +113,30 @@ arena speed, plus a quarter tile, floored at 1.25 tiles. The Antlerback (speed 4
 `arenaSpeedTilesPerSecond` = (3 + 0.6·speed)/2 × 0.5 = 1.35–1.5 t/s) closes 0.85–0.95 tiles
 during a signature Bolt's windup for a speed-7 kiter (`windup` in `resolve.ts`:
 0.9 × (1.2 − 7×0.06) × (1 − 1×0.1) = 0.63 s); + 0.25 = 1.10–1.20, floored to **1.25**.
-The shot therefore releases at `reach + 1.25`, approximately 2.5 tiles from the Antlerback with
-Strike reach 1.25. An Arc (1.2 s base) computes to 1.39–1.51 and is not covered by the floor; that
-is a follow-up if a kiter ever carries an Arc, rather than making the margin per-delivery here.
+The shot therefore releases at `reach + 1.25`: about 2.5 tiles for a Strike-only enemy like the one
+in `orders.test.ts`. The arena Antlerback owns Rake (Sweep, 4 m), and `createEncounter` takes
+`foeReach` as the maximum of its Strike and Sweep ranges, so its `reachTiles` is 2.0 and its release
+line is **3.25 tiles**. Pip's Needle uses move-speed 3, making its windup 0.49 s and the Antlerback's
+closure 0.66 tiles; like the move-speed-1 Bolt calculation above, this remains below the conservative
+1.25-tile floor. An Arc (1.2 s base) computes to 1.39–1.51 and is not covered by the floor; that is a
+follow-up if a kiter ever carries an Arc, rather than making the margin per-delivery here.
+
+**Simulated:** measured over seeds 0–20 on an idle 12-core Mac at load 1.3 (≈0.11/core), using the
+`balance.test.ts` harness:
+
+| preset / party / policy           | `main`                                                             | this branch                                                                    |
+| --------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| fast / uninformed / none          | driven-off 21/21, 12.95–19.72 s (mean 17.0; worst seed 7 at 19.72) | driven-off 21/21, 12.67–25.08 s (mean 17.4; 20/21 under 20 s; seed 4 at 25.08) |
+| fast / informed / armed           | win 7.60 s every seed                                              | identical, win 7.60 s every seed                                               |
+| fast / informed / none            | win 7.60 / 8.68 s                                                  | identical                                                                      |
+| trade / informed / armed and none | win 41.05 s every seed                                             | identical                                                                      |
+| trade / uninformed / none         | driven-off, 32.23–49.07 s                                          | driven-off, 30.30–51.28 s                                                      |
+
+**Simulated:** in the seed-4 trace, 19 ticks (0.32 s) were suppressed by the new hold while Pip's
+Needle was off cooldown, in range, and had line; 595 ticks (9.9 s) were suppressed by the existing
+Skittish chooser rule once Pip was the enemy's target. The FAST uninformed bound was therefore
+re-shaped to require every seed under 30 s and at least four of five under 20 s because of the
+two-branch measurement, not merely because of the failing run.
 
 ## Diorama
 
