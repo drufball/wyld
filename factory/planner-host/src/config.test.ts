@@ -9,10 +9,20 @@ describe('readConfig', () => {
       port: 8789,
       heartbeatSeconds: 120,
       model: 'claude-fable-5-1',
+      modelRetryMs: 1800000,
       pollMs: 2000,
       idleTimeoutMs: 900000,
     });
     expect(config.sessionFilePath).toBe(`${config.repoRoot}/.factory/planner-session.json`);
+  });
+  it('accepts fallback model and primary retry overrides', () => {
+    expect(
+      readConfig({
+        WAKE_SECRET: 'x'.repeat(16),
+        PLANNER_HOST_FALLBACK_MODEL: 'claude-opus-4-6',
+        PLANNER_HOST_MODEL_RETRY_MS: '60000',
+      }),
+    ).toMatchObject({ fallbackModel: 'claude-opus-4-6', modelRetryMs: 60000 });
   });
   it.each([
     ['30', 30],

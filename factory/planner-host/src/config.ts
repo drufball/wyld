@@ -33,6 +33,11 @@ const Environment = z.object({
     emptyStringAsUndefined,
     z.string().min(1).default('claude-fable-5-1'),
   ),
+  PLANNER_HOST_FALLBACK_MODEL: z.preprocess(emptyStringAsUndefined, z.string().min(1).optional()),
+  PLANNER_HOST_MODEL_RETRY_MS: z.preprocess(
+    emptyStringAsUndefined,
+    z.coerce.number().int().positive().default(1_800_000),
+  ),
   PLANNER_HOST_POLL_MS: z.preprocess(
     emptyStringAsUndefined,
     z.coerce.number().int().positive().default(2_000),
@@ -54,6 +59,8 @@ export type Config = {
   port: number;
   heartbeatSeconds: number;
   model: string;
+  fallbackModel?: string;
+  modelRetryMs: number;
   pollMs: number;
   idleTimeoutMs: number;
   maxTurns?: number;
@@ -76,6 +83,8 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     port: d.PLANNER_HOST_PORT,
     heartbeatSeconds: d.PLANNER_HOST_HEARTBEAT_SECONDS,
     model: d.PLANNER_HOST_MODEL,
+    fallbackModel: d.PLANNER_HOST_FALLBACK_MODEL,
+    modelRetryMs: d.PLANNER_HOST_MODEL_RETRY_MS,
     pollMs: d.PLANNER_HOST_POLL_MS,
     idleTimeoutMs: d.PLANNER_HOST_IDLE_TIMEOUT_MS,
     maxTurns: d.PLANNER_HOST_MAX_TURNS,

@@ -4,6 +4,7 @@ import {
   CiState,
   HealthReport,
   HealthSnapshot,
+  ModelLimited,
   OpsReport,
   PauseLane,
   PlannerState,
@@ -18,6 +19,20 @@ describe('health schemas', () => {
       wakeQueueDepth: 0,
     });
     expect(HealthReport.safeParse({ plannerState: 'idle', extra: true }).success).toBe(false);
+    const modelLimited = {
+      since: '2026-09-12T08:32:00.000Z',
+      until: '2026-09-17T19:00:00.000Z',
+      primary: 'claude-fable-5-1',
+    };
+    expect(ModelLimited.parse(modelLimited)).toEqual(modelLimited);
+    expect(
+      HealthReport.safeParse({
+        plannerState: 'working',
+        model: 'claude-opus-4-6',
+        lastTurnAt: '2026-09-12T08:27:00.000Z',
+        modelLimited,
+      }).success,
+    ).toBe(true);
   });
 
   it('validates strict ops reports and non-negative counts', () => {
@@ -36,7 +51,15 @@ describe('health schemas', () => {
     expect(
       HealthSnapshot.safeParse({
         ts: '2026-01-01T00:00:00.000Z',
-        planner: { state: 'down' },
+        planner: {
+          state: 'down',
+          model: 'claude-fable-5-1',
+          lastTurnAt: '2026-01-01T00:00:00.000Z',
+          modelLimited: {
+            since: '2026-01-01T00:00:00.000Z',
+            primary: 'claude-fable-5-1',
+          },
+        },
         server: { ok: true, db: 'ok', uptimeSeconds: 1, version: '1.0.0', eventsToday: 0 },
         wake: { reachable: false },
         github: {

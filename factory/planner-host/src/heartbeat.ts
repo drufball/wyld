@@ -1,6 +1,22 @@
-import type { Logger } from '@wyld/shared';
+import type { Logger, ModelLimited } from '@wyld/shared';
 
-export type HeartbeatState = { turnInFlight: boolean; lastTurnAt: string | null };
+export type HeartbeatState = {
+  turnInFlight: boolean;
+  lastTurnAt: string | null;
+  model: string;
+  modelLimited?: ModelLimited;
+};
+
+export function formatUntil(until: string): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'short',
+  }).formatToParts(new Date(until));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value ?? '';
+  return `${part('hour')}:${part('minute')} ${part('weekday')}`;
+}
 
 type Timer = ReturnType<typeof setTimeout>;
 
@@ -21,8 +37,8 @@ export function createHeartbeat(options: {
   let timer: Timer | undefined;
 
   const beat = async (): Promise<void> => {
-    const { turnInFlight, lastTurnAt } = options.state();
-    const currentTask = turnInFlight
+    const { turnInFlight, lastTurnAt, model, modelLimited } = options.state();
+    const normalTask = turnInFlight
       ? 'Handling events'
       : lastTurnAt === null
         ? 'Waiting for events — no turn yet'
@@ -30,14 +46,29 @@ export function createHeartbeat(options: {
             hour: '2-digit',
             minute: '2-digit',
           })}`;
+    const limitedSuffix =
+      modelLimited?.until === undefined ? '' : ` until ${formatUntil(modelLimited.until)}`;
+    const fallbackWorking = modelLimited !== undefined && model !== modelLimited.primary;
+    const paused = modelLimited !== undefined && model === modelLimited.primary;
+    const currentTask = (
+      fallbackWorking
+        ? `Model limit on ${modelLimited.primary} — running on ${model}${limitedSuffix}`
+        : paused
+          ? `Model limit — retrying${limitedSuffix}`
+          : normalTask
+    ).slice(0, 200);
     try {
       const response = await request(new URL('/api/health/report', options.pakUrl), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         signal: AbortSignal.timeout(2_000),
         body: JSON.stringify({
-          plannerState: turnInFlight ? 'working' : 'idle',
+          plannerState: paused ? 'paused' : turnInFlight ? 'working' : 'idle',
           currentTask,
+          model,
+          ...(lastTurnAt === null ? {} : { lastTurnAt }),
+          ...(modelLimited === undefined ? {} : { modelLimited }),
+          ...(paused ? { pausedReason: `model limit${limitedSuffix}` } : {}),
         }),
       });
       if (!response.ok)

@@ -553,6 +553,13 @@ export function createApp(dependencies: AppDependencies) {
         state: stale ? 'down' : latest?.plannerState,
         ...(!stale && latest?.currentTask !== null ? { currentTask: latest?.currentTask } : {}),
         ...(latest === undefined ? {} : { lastReportAt: latest.ts }),
+        ...(latest?.model === null || latest?.model === undefined ? {} : { model: latest.model }),
+        ...(latest?.lastTurnAt === null || latest?.lastTurnAt === undefined
+          ? {}
+          : { lastTurnAt: latest.lastTurnAt }),
+        ...(latest?.modelLimited === null || latest?.modelLimited === undefined
+          ? {}
+          : { modelLimited: latest.modelLimited }),
       },
       server: { ...serverHealth(), eventsToday },
       wake,

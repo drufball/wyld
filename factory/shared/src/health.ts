@@ -9,6 +9,15 @@ export type CiState = z.infer<typeof CiState>;
 export const PauseLane = z.enum(['codex', 'github', 'planner', 'all']);
 export type PauseLane = z.infer<typeof PauseLane>;
 
+export const ModelLimited = z
+  .object({
+    since: z.iso.datetime(),
+    until: z.iso.datetime().optional(),
+    primary: z.string().min(1),
+  })
+  .strict();
+export type ModelLimited = z.infer<typeof ModelLimited>;
+
 export const HealthReport = z
   .object({
     plannerState: PlannerState,
@@ -19,6 +28,9 @@ export const HealthReport = z
     costToday: z.number().min(0).optional(),
     codexPrsOpen: z.number().int().min(0).optional(),
     pausedReason: z.string().max(280).optional(),
+    model: z.string().min(1).optional(),
+    lastTurnAt: z.iso.datetime().optional(),
+    modelLimited: ModelLimited.optional(),
   })
   .strict();
 export type HealthReport = z.infer<typeof HealthReport>;
@@ -42,6 +54,9 @@ export const HealthSnapshot = z
       state: PlannerState,
       currentTask: z.string().optional(),
       lastReportAt: z.iso.datetime().optional(),
+      model: z.string().min(1).optional(),
+      lastTurnAt: z.iso.datetime().optional(),
+      modelLimited: ModelLimited.optional(),
     }),
     server: z.object({
       ok: z.boolean(),

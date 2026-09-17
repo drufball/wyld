@@ -13,6 +13,7 @@ describe('health server', () => {
         lastTurnAt: null,
         queueDepthSeen: 2,
         restarts: 1,
+        model: 'claude-fable-5-1',
       }),
       vi.fn(),
     );
@@ -39,6 +40,7 @@ describe('health server', () => {
       lastTurnAt: null,
       queueDepthSeen: 2,
       restarts: 1,
+      model: 'claude-fable-5-1',
     });
     expect((await get('/nope')).status).toBe(404);
   });
@@ -52,7 +54,13 @@ describe('health server', () => {
     const exit = vi.fn();
     const server = startHealthServer(
       address.port,
-      () => ({ sessionId: null, lastTurnAt: null, queueDepthSeen: 0, restarts: 0 }),
+      () => ({
+        sessionId: null,
+        lastTurnAt: null,
+        queueDepthSeen: 0,
+        restarts: 0,
+        model: 'claude-fable-5-1',
+      }),
       log,
       exit,
     );
