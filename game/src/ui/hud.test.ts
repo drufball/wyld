@@ -122,10 +122,11 @@ describe('thumb HUD', () => {
       expect(traySizing(scale).font).toMatch(/ui-monospace,monospace$/);
       expect(traySizing(scale).detailFont).toMatch(/ui-monospace,monospace$/);
     }
-    expect(traySizing(2)).toMatchObject({
-      font: '11px/14px ui-monospace,monospace',
-      detailFont: '9px/10px ui-monospace,monospace',
-    });
+    expect([2, 3, 4].map((scale) => traySizing(scale).detailFont)).toEqual([
+      '9px/10px ui-monospace,monospace',
+      '9px/11px ui-monospace,monospace',
+      '10px/12px ui-monospace,monospace',
+    ]);
     expect(traySizing(99)).toEqual(traySizing(3));
   });
   it('a second update with the same state makes no DOM mutations', () => {

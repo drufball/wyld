@@ -47,12 +47,12 @@ const traySizing = (scale: number): { controlPx: number; font: string; detailFon
     3: {
       controlPx: 56,
       font: '13px/16px ui-monospace,monospace',
-      detailFont: '10px/12px ui-monospace,monospace',
+      detailFont: '9px/11px ui-monospace,monospace',
     },
     4: {
       controlPx: 64,
       font: '15px/18px ui-monospace,monospace',
-      detailFont: '11px/13px ui-monospace,monospace',
+      detailFont: '10px/12px ui-monospace,monospace',
     },
   };
   return sizes[scale] ?? sizes[3]!;
