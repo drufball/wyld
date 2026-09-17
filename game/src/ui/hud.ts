@@ -2,8 +2,6 @@ import type { TimeState } from '../world/time.js';
 import type { Individual } from '../creatures/individual.js';
 import type { CombatState } from '../combat/encounter.js';
 import { deliveries } from '../combat/resolve.js';
-import { shrugsOffLine } from '../combat/hides.js';
-import { speciesById } from '../creatures/species.js';
 
 type HudState = TimeState & {
   regionName: string | null;
@@ -226,11 +224,11 @@ const createHud = (
             ? () => undefined
             : () => actions.selectCreature?.(individual.id);
         const button = entry.button;
-        let label = standingReserve
-          ? `Tap to bring ${name} in`
+        const label = standingReserve
+          ? name
           : `${name}\n${combatant?.downed ? 'Down' : individual.temperament}`;
         property(button, 'title', individual.speciesId);
-        write(button.style, 'flex', '1 1 0');
+        write(button.style, 'flex', standingReserve ? '1 1 0px' : '2 1 0px');
         write(button.style, 'minWidth', standingReserve ? '44px' : '0px');
         attribute(button, 'aria-pressed', String(state.selection === individual.id));
         attribute(button, 'data-party-id', individual.id);
@@ -257,9 +255,10 @@ const createHud = (
           detail =
             state.combat!.autoDeployIn !== null
               ? `Coming in… ${Math.ceil(state.combat!.autoDeployIn)}`
-              : `${individual.temperament} · ${shrugsOffLine(speciesById(individual.speciesId)!.hide)}`;
+              : swapState === 'cooldown'
+                ? `◷${Math.ceil(state.combat!.swapCooldown.remaining)}`
+                : 'reserve · tap to swap';
           if (swapState === 'cooldown') {
-            label += ` ◷${Math.ceil(state.combat!.swapCooldown.remaining)}`;
             write(
               button.style,
               'background',

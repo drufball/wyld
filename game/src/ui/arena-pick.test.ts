@@ -28,14 +28,21 @@ describe('arena pick UI', () => {
     picker.dispose();
   });
 
-  it('marks the third pick as the reserve', () => {
+  it('marks the second and third picks as reserves', () => {
     const picker = createArenaPick(createNotebook(), vi.fn());
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
     for (const key of ['1', '2', '3']) window.dispatchEvent(new KeyboardEvent('keydown', { key }));
-    const reserve = document.querySelector('[data-reserve-badge]');
-    expect(reserve?.closest('button')?.textContent).toContain('Pip');
-    expect(reserve?.textContent).toBe('Reserve');
-    expect(document.body.textContent).toContain('2 out, 1 in reserve');
+    const reserves = [...document.querySelectorAll('[data-reserve-badge]')];
+    expect(reserves.map((badge) => badge.closest('button')?.textContent)).toEqual([
+      expect.stringContaining('Quill'),
+      expect.stringContaining('Pip'),
+    ]);
+    expect(reserves.map((badge) => badge.textContent)).toEqual(['Reserve', 'Reserve']);
+    const barrow = [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Barrow'),
+    );
+    expect(barrow?.querySelector('[data-reserve-badge]')).toBeNull();
+    expect(document.body.textContent).toContain('1 out, 2 in reserve');
     picker.dispose();
   });
 

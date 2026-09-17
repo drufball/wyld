@@ -709,7 +709,7 @@ const swapSelected = (reserveId: string): boolean => {
     };
     return false;
   }
-  if (!encounter.swap(outcome.outId)) return false;
+  if (!encounter.swap(outcome.outId, reserveId)) return false;
   bringIn(reserveId, outcome.outId);
   return true;
 };
