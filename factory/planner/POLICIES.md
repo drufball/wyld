@@ -44,3 +44,12 @@ changes, update this copy in the same commit.
 
 ### Session budget (2026-09-11)
 The Anthropic account's session limit is shared by the Planner and every lead; it cut a lead at 11:47 and the whole host from 14:31 to 18:00. Run at most one game lead and one factory lead at a time; prefer sequential units over parallel leads; when a 429 "session limit" appears, resume the cut lead after the stated reset and record the cut in STATE and the retro. Never spawn a third concurrent lead to "catch up".
+
+## Weekly model budget (2026-09-17)
+
+The account's usage limit for the host's model is **weekly**, shared by the host and every lead. On 2026-09-12 it refused the host itself mid-fix and the factory was dark for five days while the Pak said "idle".
+
+- The host's model is the one budget that must never run out. Leads run on **Opus** by default; leads run on the host's model only when Dru says so on a Rumble, and then only one at a time.
+- Pace the leads to the week, not the day: after a 429 on any lead, no new lead that day; two 429s in a week means leads drop to Opus for the rest of the week regardless of the Rumble.
+- A 429 on the host is an outage, not an idle state: the Pak must say "paused — model limit" and push to Dru's phone (quest `host-survives-limits`); until that lands, the first turn back writes Dru a plain account of the gap before anything else moves.
+- A finished lead is not resumed by message — spawn a new lead with the old one's report as its brief.
