@@ -66,7 +66,11 @@ type DioramaFrame = {
   selection: string;
   combat: { projectiles: readonly ProjectileEntry[]; flashes: readonly FlashEntry[] } | null;
 };
-const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement[]) => {
+const createDiorama = (
+  grid: TileGrid,
+  trackPlacements: readonly TracksPlacement[],
+  options: { scale?: number | null } = {},
+) => {
   const canvas = document.createElement('canvas');
   canvas.style.cssText = 'position:fixed;inset:0;z-index:0';
   document.body.append(canvas);
@@ -110,7 +114,7 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
     canvasRect: DOMRect;
   const times: number[] = [];
   const resize = () => {
-    scale = pixelScale(innerWidth, innerHeight);
+    scale = pixelScale(innerWidth, innerHeight, options.scale);
     cols = screenCols(innerWidth, scale);
     rows = screenRows(innerHeight, scale);
     renderer.setSize(innerWidth, innerHeight);

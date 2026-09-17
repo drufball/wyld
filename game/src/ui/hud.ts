@@ -37,12 +37,21 @@ const updateDetectionTarget = (
   elements.fill.setAttribute('data-detection-fill', detection.toFixed(3));
   elements.outline.setAttribute('stroke', detection >= 1 ? '#292b25' : '#777566');
 };
+const traySizing = (scale: number): { controlPx: number; font: string; detailFont: string } => {
+  const sizes: Record<number, { controlPx: number; font: string; detailFont: string }> = {
+    2: { controlPx: 44, font: '11px/14px ui-monospace,monospace', detailFont: '11px/13px' },
+    3: { controlPx: 56, font: '13px/16px ui-monospace,monospace', detailFont: '11px/13px' },
+    4: { controlPx: 64, font: '15px/18px ui-monospace,monospace', detailFont: '12px/14px' },
+  };
+  return sizes[scale] ?? sizes[3]!;
+};
 const createHud = (
   showRegion: boolean,
   toastRoot: HTMLElement,
   actions: HudActions = {},
-  { showMap = true }: { showMap?: boolean } = {},
+  { showMap = true, scale = 3 }: { showMap?: boolean; scale?: number } = {},
 ) => {
+  const { controlPx, font, detailFont } = traySizing(scale);
   const root = document.createElement('aside');
   root.setAttribute('aria-live', 'polite');
   root.setAttribute('aria-label', 'Time and place');
@@ -94,8 +103,7 @@ const createHud = (
   toastRoot.append(targetBar);
   const tray = document.createElement('nav');
   tray.setAttribute('aria-label', 'Party and tools');
-  tray.style.cssText =
-    'position:fixed;z-index:5;left:8px;right:8px;bottom:8px;display:flex;flex-direction:column;gap:4px;pointer-events:auto;font:11px/14px ui-monospace,monospace';
+  tray.style.cssText = `position:fixed;z-index:5;left:8px;right:8px;bottom:8px;display:flex;flex-direction:column;gap:4px;pointer-events:auto;font:${font}`;
   const partyCards = document.createElement('div');
   partyCards.dataset.trayRow = 'party';
   partyCards.style.cssText = 'display:flex;flex:1;min-width:0;gap:4px;align-items:end';
@@ -110,12 +118,11 @@ const createHud = (
   const control = (label: string, action?: () => void): HTMLButtonElement => {
     const button = document.createElement('button');
     button.textContent = label;
-    button.style.cssText =
-      'box-sizing:border-box;min-width:44px;height:44px;padding:4px;border:1px solid #777566;background:#f4efd9ee;color:#292b25;font:inherit;cursor:pointer';
+    button.style.cssText = `box-sizing:border-box;min-width:${controlPx}px;height:${controlPx}px;padding:4px;border:1px solid #777566;background:#f4efd9ee;color:#292b25;font:inherit;cursor:pointer`;
     // Set touch-target dimensions separately because older CSSOM implementations reject
     // the entire declaration block when they cannot parse the translucent paper color.
-    button.style.minWidth = '44px';
-    button.style.height = '44px';
+    button.style.minWidth = `${controlPx}px`;
+    button.style.height = `${controlPx}px`;
     if (action) button.addEventListener('click', action);
     return button;
   };
@@ -176,7 +183,7 @@ const createHud = (
     const button = control('');
     const label = document.createTextNode('');
     const detail = document.createElement('small');
-    detail.style.cssText = 'display:block;font-size:9px;line-height:10px';
+    detail.style.cssText = `display:block;font:${detailFont}`;
     const bars = document.createElement('span');
     bars.style.cssText = 'display:block;width:52px;height:5px;background:#292b25';
     const hp = document.createElement('i');
@@ -229,7 +236,7 @@ const createHud = (
           : `${name}\n${combatant?.downed ? 'Down' : individual.temperament}`;
         property(button, 'title', individual.speciesId);
         write(button.style, 'flex', standingReserve ? '1 1 0px' : '2 1 0px');
-        write(button.style, 'minWidth', standingReserve ? '44px' : '0px');
+        write(button.style, 'minWidth', standingReserve ? `${controlPx}px` : '0px');
         attribute(button, 'aria-pressed', String(state.selection === individual.id));
         attribute(button, 'data-party-id', individual.id);
         write(
@@ -371,5 +378,5 @@ const createHud = (
   };
 };
 
-export { createHud, updateDetectionTarget };
+export { createHud, traySizing, updateDetectionTarget };
 export type { DetectionTargetElements, HudActions, HudState };

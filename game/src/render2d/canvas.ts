@@ -2,9 +2,18 @@ import { TILES_PER_SIDE } from '../world/tiles.js';
 import { clamp } from './clamp.js';
 import { pickSpriteAt, type PickSprite } from './placement.js';
 
-const pixelScale = (vw: number, vh: number) => clamp(Math.floor(Math.min(vw, vh) / 200), 2, 4);
-const screenCols = (vw: number, scale: number) => clamp(Math.floor(vw / (16 * scale)), 8, 20);
+const pixelScale = (vw: number, vh: number, forced?: number | null) =>
+  forced === 2 || forced === 3 || forced === 4
+    ? forced
+    : clamp(Math.floor(Math.min(vw, vh) / 125), 2, 4);
+// Five columns lets 375px screens fit scale 3 (7 columns) and forced scale 4 (5 columns)
+// without the old eight-column floor making the canvas wider than the viewport.
+const screenCols = (vw: number, scale: number) => clamp(Math.floor(vw / (16 * scale)), 5, 20);
 const screenRows = (vh: number, scale: number) => clamp(Math.floor(vh / (16 * scale)), 8, 22);
+const scaleFromQuery = (search: string): 2 | 3 | 4 | null => {
+  const scale = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search).get('scale');
+  return scale === '2' || scale === '3' || scale === '4' ? (Number(scale) as 2 | 3 | 4) : null;
+};
 const screenOf = (tx: number, ty: number, cols: number, rows: number) => ({
   sx: Math.floor(tx / cols),
   sy: Math.floor(ty / rows),
@@ -28,7 +37,11 @@ const crossedScreen = (
   return screenOf(tx, ty, cols, rows);
 };
 const createCanvas = (
-  options: { screen?: () => { sx: number; sy: number }; resized?: (rect: DOMRect) => void } = {},
+  options: {
+    screen?: () => { sx: number; sy: number };
+    resized?: (rect: DOMRect) => void;
+    scale?: number | null;
+  } = {},
 ) => {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -37,7 +50,7 @@ const createCanvas = (
     cols = 8,
     rows = 8;
   const resize = () => {
-    scale = pixelScale(innerWidth, innerHeight);
+    scale = pixelScale(innerWidth, innerHeight, options.scale);
     cols = screenCols(innerWidth, scale);
     rows = screenRows(innerHeight, scale);
     canvas.width = cols * 16;
@@ -85,4 +98,5 @@ export {
   screenCols,
   screenOf,
   screenRows,
+  scaleFromQuery,
 };

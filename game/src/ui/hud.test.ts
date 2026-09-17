@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CombatState } from '../combat/encounter.js';
 import type { Individual } from '../creatures/individual.js';
-import { createHud, updateDetectionTarget, type HudState } from './hud.js';
+import { createHud, traySizing, updateDetectionTarget, type HudState } from './hud.js';
 
 const elements = () => {
   const attributes = new Map<string, string>();
@@ -116,6 +116,10 @@ afterEach(() => {
   document.head.replaceChildren();
 });
 describe('thumb HUD', () => {
+  it('uses the published tray sizing table', () => {
+    expect([2, 3, 4].map((scale) => traySizing(scale).controlPx)).toEqual([44, 56, 64]);
+    expect(traySizing(99)).toEqual(traySizing(3));
+  });
   it('a second update with the same state makes no DOM mutations', () => {
     const hud = createHud(false, document.body);
     const current = state(undefined, 'a');
@@ -276,7 +280,10 @@ describe('thumb HUD', () => {
     createHud(false, document.body);
     expect(document.querySelector('[aria-label="Console"]')).toBeNull();
   });
-  it('keeps three party cards, three moves, and all tools inside a 375px tray', () => {
+  it.each([
+    { scale: 2, controlPx: 44 },
+    { scale: 3, controlPx: 56 },
+  ])('keeps the one-out tray inside 375px at scale $scale', ({ scale, controlPx }) => {
     const selected = creature('Barrow');
     selected.individual.repertoire = [
       ...selected.individual.repertoire,
@@ -308,14 +315,14 @@ describe('thumb HUD', () => {
       phase: 'fight',
       elapsed: 1,
       enemy: combatant(creature('enemy')),
-      party: party.map(combatant),
-      reserveId: null,
+      party: party.map((member, index) => ({ ...combatant(member), benched: index > 0 })),
+      reserveId: 'Quill',
       autoDeployIn: null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
       flashes: [],
     };
-    const hud = createHud(true, document.body);
+    const hud = createHud(true, document.body, {}, { scale });
     hud.update({ ...state(party, 'Barrow'), combat } satisfies HudState);
 
     const innerWidth = 375 - 16;
@@ -326,19 +333,24 @@ describe('thumb HUD', () => {
     ];
     const cards = [...document.querySelectorAll<HTMLButtonElement>('[data-party-id]')];
     const moveWidth = (innerWidth - gap * (moves.length - 1)) / moves.length;
-    const toolWidth = 44;
+    const toolWidth = controlPx;
     const cardArea = innerWidth - tools.length * toolWidth - gap * tools.length;
-    const cardWidth = (cardArea - gap * (cards.length - 1)) / cards.length;
+    const cardSpace = cardArea - gap * (cards.length - 1);
+    const reserveWidth = Math.max(controlPx, cardSpace / 4);
+    const cardWidths = [cardSpace - 2 * reserveWidth, reserveWidth, reserveWidth];
     const rightEdges = [
       ...moves.map((_, index) => 8 + (index + 1) * moveWidth + index * gap),
-      ...cards.map((_, index) => 8 + (index + 1) * cardWidth + index * gap),
+      ...cardWidths.map(
+        (_, index) =>
+          8 + cardWidths.slice(0, index + 1).reduce((sum, width) => sum + width, 0) + index * gap,
+      ),
       ...tools.map((_, index) => 8 + cardArea + gap + (index + 1) * toolWidth + index * gap),
     ];
 
     expect(moves).toHaveLength(3);
     expect(rightEdges.every((edge) => edge <= 375 - 8)).toBe(true);
     expect([...moves, ...cards, ...tools].map((button) => button.style.height)).toEqual(
-      Array.from({ length: moves.length + cards.length + tools.length }, () => '44px'),
+      Array.from({ length: moves.length + cards.length + tools.length }, () => `${controlPx}px`),
     );
   });
   it('shows one out card and two reserve cards, in party order', () => {
