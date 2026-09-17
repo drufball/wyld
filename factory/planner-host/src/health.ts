@@ -1,11 +1,14 @@
 import http, { type Server } from 'node:http';
 import type { Logger } from '@wyld/shared';
+import type { ModelLimited } from '@wyld/shared';
 
 export type HealthState = {
   sessionId: string | null;
   lastTurnAt: string | null;
   queueDepthSeen: number;
   restarts: number;
+  model: string;
+  modelLimited?: ModelLimited;
 };
 
 export function startHealthServer(

@@ -59,6 +59,32 @@ describe('Pak server', () => {
     });
   }
 
+  it('persists optional planner model health and accepts legacy reports', async () => {
+    expect((await postHealth({ plannerState: 'idle' })).status).toBe(201);
+    const modelLimited = {
+      since: '2026-09-12T08:32:00.000Z',
+      until: '2026-09-17T19:00:00.000Z',
+      primary: 'claude-fable-5-1',
+    };
+    expect(
+      (
+        await postHealth({
+          plannerState: 'working',
+          model: 'claude-opus-4-6',
+          lastTurnAt: '2026-09-12T08:27:00.000Z',
+          modelLimited,
+        })
+      ).status,
+    ).toBe(201);
+    expect(await (await app.request('/api/health/snapshot')).json()).toMatchObject({
+      planner: {
+        model: 'claude-opus-4-6',
+        lastTurnAt: '2026-09-12T08:27:00.000Z',
+        modelLimited,
+      },
+    });
+  });
+
   it('serves the api and the pak build with a permissive CORS header', async () => {
     const pakDist = path.join(directory, 'pak');
     fs.mkdirSync(pakDist);

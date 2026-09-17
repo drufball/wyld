@@ -155,6 +155,13 @@
       "when": 1789074067603,
       "tag": "0021_free_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1789672903994,
+      "tag": "0022_brave_wallflower",
+      "breakpoints": true
     }
   ]
 }

@@ -19,7 +19,8 @@ function setup(
   const heartbeat = createHeartbeat({
     pakUrl: 'http://pak.example/base/',
     intervalSeconds: overrides.intervalSeconds ?? 30,
-    state: () => overrides.state ?? { turnInFlight: true, lastTurnAt: null },
+    state: () =>
+      overrides.state ?? { turnInFlight: true, lastTurnAt: null, model: 'claude-fable-5-1' },
     log,
     fetch,
     setTimeout: ((callback: () => void, delay: number) => {
@@ -49,19 +50,23 @@ describe('planner host heartbeat', () => {
     });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
     const body = postedBody(fetch as ReturnType<typeof vi.fn>);
-    expect(body).toEqual({ plannerState: 'working', currentTask: 'Handling events' });
-    expect(Object.keys(body)).toEqual(['plannerState', 'currentTask']);
+    expect(body).toEqual({
+      plannerState: 'working',
+      currentTask: 'Handling events',
+      model: 'claude-fable-5-1',
+    });
     expect(HealthReport.safeParse(body).success).toBe(true);
   });
 
   it('describes an idle host before its first turn', async () => {
     const { heartbeat, fetch } = setup({
-      state: { turnInFlight: false, lastTurnAt: null },
+      state: { turnInFlight: false, lastTurnAt: null, model: 'claude-fable-5-1' },
     });
     await heartbeat.beat();
     expect(postedBody(fetch as ReturnType<typeof vi.fn>)).toEqual({
       plannerState: 'idle',
       currentTask: 'Waiting for events — no turn yet',
+      model: 'claude-fable-5-1',
     });
   });
 
@@ -72,12 +77,68 @@ describe('planner host heartbeat', () => {
       minute: '2-digit',
     });
     const { heartbeat, fetch } = setup({
-      state: { turnInFlight: false, lastTurnAt },
+      state: { turnInFlight: false, lastTurnAt, model: 'claude-fable-5-1' },
     });
     await heartbeat.beat();
     expect(postedBody(fetch as ReturnType<typeof vi.fn>)).toEqual({
       plannerState: 'idle',
       currentTask: `Waiting for events — last turn ${expected}`,
+      model: 'claude-fable-5-1',
+      lastTurnAt,
+    });
+  });
+
+  it('reports the fallback model as working, not paused', async () => {
+    process.env.TZ = 'Europe/London';
+    const modelLimited = {
+      since: '2026-09-12T08:32:00.000Z',
+      until: '2026-09-17T19:00:00.000Z',
+      primary: 'claude-fable-5-1',
+    };
+    const { heartbeat, fetch } = setup({
+      state: { turnInFlight: true, lastTurnAt: null, model: 'claude-opus-4-6', modelLimited },
+    });
+    await heartbeat.beat();
+    expect(postedBody(fetch as ReturnType<typeof vi.fn>)).toEqual({
+      plannerState: 'working',
+      currentTask: 'Model limit on claude-fable-5-1 — running on claude-opus-4-6 until 20:00 Thu',
+      model: 'claude-opus-4-6',
+      modelLimited,
+    });
+  });
+
+  it('reports paused with the reset time when every model is refused', async () => {
+    process.env.TZ = 'Europe/London';
+    const modelLimited = {
+      since: '2026-09-12T08:32:00.000Z',
+      until: '2026-09-17T19:00:00.000Z',
+      primary: 'claude-fable-5-1',
+    };
+    const { heartbeat, fetch } = setup({
+      state: { turnInFlight: false, lastTurnAt: null, model: modelLimited.primary, modelLimited },
+    });
+    await heartbeat.beat();
+    expect(postedBody(fetch as ReturnType<typeof vi.fn>)).toEqual({
+      plannerState: 'paused',
+      pausedReason: 'model limit until 20:00 Thu',
+      currentTask: 'Model limit — retrying until 20:00 Thu',
+      model: modelLimited.primary,
+      modelLimited,
+    });
+  });
+
+  it('reports paused without a reset time when the limit names none', async () => {
+    const modelLimited = { since: '2026-09-12T08:32:00.000Z', primary: 'primary' };
+    const { heartbeat, fetch } = setup({
+      state: { turnInFlight: false, lastTurnAt: null, model: 'primary', modelLimited },
+    });
+    await heartbeat.beat();
+    expect(postedBody(fetch as ReturnType<typeof vi.fn>)).toEqual({
+      plannerState: 'paused',
+      pausedReason: 'model limit',
+      currentTask: 'Model limit — retrying',
+      model: 'primary',
+      modelLimited,
     });
   });
 

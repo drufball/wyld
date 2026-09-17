@@ -56,13 +56,20 @@ describe('planner host', () => {
     });
     host.start();
     await vi.waitFor(() => expect(onSessionReady).toHaveBeenCalledOnce());
-    expect(host.heartbeatState()).toEqual({ turnInFlight: true, lastTurnAt: null });
+    expect(host.heartbeatState()).toEqual({
+      turnInFlight: true,
+      lastTurnAt: null,
+      model: 'claude-fable-5-1',
+      modelLimited: undefined,
+    });
     clock += 60_000;
     release.resolve();
     await vi.waitFor(() =>
       expect(host.heartbeatState()).toEqual({
         turnInFlight: false,
         lastTurnAt: '2026-09-06T12:01:00.000Z',
+        model: 'claude-fable-5-1',
+        modelLimited: undefined,
       }),
     );
     host.stop();
@@ -457,6 +464,214 @@ describe('planner host', () => {
     expect(ack).not.toHaveBeenCalledWith([8]);
     currentResult.resolve();
     await vi.waitFor(() => expect(ack).toHaveBeenCalledWith([8]));
+    host.stop();
+  });
+});
+
+describe('planner host model limits', () => {
+  function limitedHost(
+    streams: Array<'event' | 'throw' | 'success' | 'pending'>,
+    fallbackModel: string | null = 'fallback',
+  ) {
+    let clock = Date.parse('2026-09-12T08:32:00.000Z');
+    const models: string[] = [];
+    const timers: Array<{ callback: () => void; delay: number; cleared?: boolean }> = [];
+    const query = (({ options }: { options: { model: string } }) => {
+      models.push(options.model);
+      const kind = streams.shift() ?? 'pending';
+      return (async function* () {
+        if (kind === 'event') {
+          yield {
+            type: 'rate_limit_event',
+            rate_limit_info: { status: 'rejected', resetsAt: 1_799_949_600 },
+          } as unknown as SDKMessage;
+          return;
+        }
+        if (kind === 'throw')
+          throw new Error(
+            `API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"You've reached your Fable limit. Switch to another model or try again later."}}`,
+          );
+        if (kind === 'success') {
+          yield {
+            type: 'system',
+            subtype: 'init',
+            session_id: 'session',
+            tools: [],
+            mcp_servers: [{ name: 'wake', status: 'connected' }],
+          } as unknown as SDKMessage;
+          yield {
+            type: 'result',
+            subtype: 'success',
+            is_error: false,
+            num_turns: 1,
+          } as unknown as SDKMessage;
+        }
+        await new Promise(() => undefined);
+      })() as Query;
+    }) as never;
+    const claim = vi.fn().mockResolvedValue({ messages: [], dropped: [] });
+    const host = createHost({
+      config: {
+        ...readConfig({
+          WAKE_SECRET: 'x'.repeat(16),
+          ...(fallbackModel === null ? {} : { PLANNER_HOST_FALLBACK_MODEL: fallbackModel }),
+          PLANNER_HOST_MODEL_RETRY_MS: '60000',
+        }),
+        pollMs: 999_999,
+      },
+      queue: { claim, ack: vi.fn() },
+      log: vi.fn(),
+      query,
+      readSession: () => 'session',
+      adapterExists: () => true,
+      now: () => clock,
+      setTimeout: ((callback: () => void, delay: number) => {
+        timers.push({ callback, delay });
+        return timers.length;
+      }) as never,
+      clearTimeout: ((id: number) => {
+        if (timers[id - 1]) timers[id - 1]!.cleared = true;
+      }) as never,
+    });
+    host.start();
+    const fire = (delay: number, occurrence = 0) => {
+      const timer = timers.filter((item) => item.delay === delay && !item.cleared)[occurrence];
+      expect(timer).toBeDefined();
+      timer!.cleared = true;
+      timer!.callback();
+    };
+    return { host, models, timers, fire, claim, setClock: (value: number) => (clock = value) };
+  }
+
+  it('falls back to the second model within one restart when the primary is rate limited', async () => {
+    const { host, models, timers, fire } = limitedHost(['event', 'pending']);
+    await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
+    fire(0);
+    await vi.waitFor(() => expect(models).toEqual(['claude-fable-5-1', 'fallback']));
+    expect(host.health()).toMatchObject({
+      restarts: 1,
+      model: 'fallback',
+      modelLimited: {
+        since: '2026-09-12T08:32:00.000Z',
+        until: '2027-01-14T18:00:00.000Z',
+        primary: 'claude-fable-5-1',
+      },
+    });
+    host.stop();
+  });
+
+  it('falls back when the primary is refused as a thrown 429 rather than an event', async () => {
+    const { host, models, timers, fire } = limitedHost(['throw', 'pending']);
+    await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
+    fire(0);
+    await vi.waitFor(() => expect(models.at(-1)).toBe('fallback'));
+    expect(host.health()).toMatchObject({ restarts: 1, model: 'fallback' });
+    host.stop();
+  });
+
+  it('backs off with the existing exponential backoff when the fallback is rate limited too', async () => {
+    const expected = [
+      1_000, 2_000, 4_000, 8_000, 16_000, 32_000, 64_000, 128_000, 256_000, 300_000,
+    ];
+    const streams: Array<'event' | 'pending'> = Array.from(
+      { length: expected.length + 1 },
+      () => 'event' as const,
+    );
+    const { host, timers, fire } = limitedHost(streams);
+    await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
+    fire(0);
+    for (const delay of expected) {
+      await vi.waitFor(() =>
+        expect(timers.some((timer) => timer.delay === delay && !timer.cleared)).toBe(true),
+      );
+      if (delay !== 300_000) fire(delay);
+    }
+    expect(host.health().model).toBe('fallback');
+    expect(
+      timers.filter((timer) => expected.includes(timer.delay)).map((timer) => timer.delay),
+    ).toEqual(expected);
+    host.stop();
+  });
+
+  it('retries the primary at the configured cadence and switches back when a turn completes', async () => {
+    const { host, models, timers, fire, claim } = limitedHost(['event', 'pending', 'success']);
+    await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
+    fire(0);
+    await vi.waitFor(() => expect(models.at(-1)).toBe('fallback'));
+    claim.mockResolvedValueOnce({ messages: [row(10)], dropped: [] });
+    fire(999_999);
+    await vi.waitFor(() => expect(host.health().queueDepthSeen).toBe(1));
+    fire(60_000);
+    await vi.waitFor(() =>
+      expect(timers.filter((timer) => timer.delay === 0 && !timer.cleared)).toHaveLength(1),
+    );
+    fire(0);
+    await vi.waitFor(() => expect(host.health().modelLimited).toBeUndefined());
+    expect(host.health().model).toBe('claude-fable-5-1');
+    host.stop();
+  });
+
+  it('returns to the fallback when the primary probe is refused again', async () => {
+    const { host, models, timers, fire, claim } = limitedHost([
+      'event',
+      'pending',
+      'event',
+      'pending',
+    ]);
+    await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
+    fire(0);
+    await vi.waitFor(() => expect(models.at(-1)).toBe('fallback'));
+    claim.mockResolvedValueOnce({ messages: [row(11)], dropped: [] });
+    fire(999_999);
+    await vi.waitFor(() => expect(host.health().queueDepthSeen).toBe(1));
+    fire(60_000);
+    await vi.waitFor(() =>
+      expect(timers.filter((timer) => timer.delay === 0 && !timer.cleared)).toHaveLength(1),
+    );
+    fire(0);
+    await vi.waitFor(() => expect(host.health().model).toBe('fallback'));
+    expect(timers.some((timer) => timer.delay === 60_000 && !timer.cleared)).toBe(true);
+    expect(host.health().modelLimited).toBeDefined();
+    host.stop();
+  });
+
+  it('does not probe the primary while there is nothing for it to do', async () => {
+    const { host, models, timers, fire } = limitedHost(['event', 'pending']);
+    await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
+    fire(0);
+    await vi.waitFor(() => expect(models.at(-1)).toBe('fallback'));
+
+    fire(60_000);
+
+    expect(host.health()).toMatchObject({
+      model: 'fallback',
+      modelLimited: {
+        since: '2026-09-12T08:32:00.000Z',
+        primary: 'claude-fable-5-1',
+      },
+    });
+    expect(timers.some((timer) => timer.delay === 60_000 && !timer.cleared)).toBe(true);
+    expect(models).toEqual(['claude-fable-5-1', 'fallback']);
+    host.stop();
+  });
+
+  it('does not report a model limit when the primary has never been refused', async () => {
+    const { host } = limitedHost(['success']);
+    await vi.waitFor(() => expect(host.health().lastTurnAt).not.toBeNull());
+    expect(host.health()).toMatchObject({ model: 'claude-fable-5-1', modelLimited: undefined });
+    host.stop();
+  });
+
+  it('keeps backing off with no fallback configured, and still reports the limit', async () => {
+    const { host, timers } = limitedHost(['event'], null);
+    await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 1000)).toBe(true));
+    expect(host.health()).toMatchObject({
+      model: 'claude-fable-5-1',
+      modelLimited: {
+        since: '2026-09-12T08:32:00.000Z',
+        primary: 'claude-fable-5-1',
+      },
+    });
     host.stop();
   });
 });

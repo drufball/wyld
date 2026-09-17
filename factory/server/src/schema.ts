@@ -2,6 +2,7 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-or
 import {
   ARTIFACT_KINDS,
   type ChainAnchor,
+  type ModelLimited,
   type SleepAlarm,
   type SleepPhaseEntry,
 } from '@wyld/shared';
@@ -83,6 +84,9 @@ export const healthReports = sqliteTable(
     costToday: real('cost_today'),
     codexPrsOpen: integer('codex_prs_open'),
     pausedReason: text('paused_reason'),
+    model: text('model'),
+    lastTurnAt: text('last_turn_at'),
+    modelLimited: text('model_limited', { mode: 'json' }).$type<ModelLimited>(),
   },
   (table) => [index('health_ts_idx').on(table.ts)],
 );

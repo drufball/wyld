@@ -13,6 +13,7 @@ import type { Config } from './config.js';
 import { renderBatch } from './framing.js';
 import type { HeartbeatState } from './heartbeat.js';
 import { createInputQueue } from './input-queue.js';
+import { modelLimitFromError, modelLimitFromMessage, type ModelLimit } from './model-limit.js';
 import type { Logger } from '@wyld/shared';
 import type { QueuedMessage, QueueClient } from './queue.js';
 
@@ -90,6 +91,11 @@ export function createHost(deps: HostDependencies) {
   let stopped = false;
   let restarting = false;
   let generation = 0;
+  let currentModel = deps.config.model;
+  let modelLimited: { since: string; until?: string; primary: string } | undefined;
+  let probing = false;
+  let limitSeenThisGeneration = false;
+  let probeTimer: Timer | undefined;
 
   const compose = () => {
     if (turnInFlight || pending.length === 0) return;
@@ -131,7 +137,8 @@ export function createHost(deps: HostDependencies) {
       throw new Error(`Wake adapter not found at ${adapter}; run pnpm --filter @wyld/wake build`);
     const result: Options = {
       cwd: deps.config.repoRoot,
-      model: deps.config.model,
+      // The host owns fallback switching (rather than the SDK) so health is truthful and testable.
+      model: currentModel,
       settingSources: ['project'],
       permissionMode: 'bypassPermissions',
       allowedTools: [
@@ -171,7 +178,10 @@ export function createHost(deps: HostDependencies) {
     };
     return result;
   };
-  const restart = async (reason: string) => {
+  const restart = async (
+    reason: string,
+    restartOptions: { delayMs?: number; countBackoff?: boolean } = {},
+  ) => {
     if (stopped || restarting) return;
     restarting = true;
     generation++;
@@ -181,8 +191,8 @@ export function createHost(deps: HostDependencies) {
     inFlight = [];
     turnInFlight = false;
     restarts++;
-    const delay = backoffMs;
-    backoffMs = Math.min(backoffMs * 2, 300_000);
+    const delay = restartOptions.delayMs ?? backoffMs;
+    if (restartOptions.countBackoff !== false) backoffMs = Math.min(backoffMs * 2, 300_000);
     deps.log('warn', 'planner query restarting', { reason, retryMs: delay, restarts });
     await new Promise<void>((resolve) => schedule(resolve, delay));
     if (!stopped) {
@@ -190,12 +200,74 @@ export function createHost(deps: HostDependencies) {
       startQuery();
     }
   };
+  const scheduleProbe = () => {
+    if (probeTimer !== undefined) unschedule(probeTimer);
+    probeTimer = schedule(() => {
+      probeTimer = undefined;
+      if (modelLimited === undefined || currentModel === deps.config.model) return;
+      // An idle query cannot exercise the primary, so probing now would prove nothing and leave
+      // health reporting the refused model until another queue event happened to arrive.
+      if (pending.length === 0 && !turnInFlight) {
+        scheduleProbe();
+        return;
+      }
+      currentModel = deps.config.model;
+      probing = true;
+      deps.log('info', 'planner retrying the primary model', { model: currentModel });
+      void restart('probing primary model', { delayMs: 0, countBackoff: false });
+    }, deps.config.modelRetryMs);
+  };
+  const noteModelLimit = (limit: ModelLimit) => {
+    if (limitSeenThisGeneration) return;
+    limitSeenThisGeneration = true;
+    if (modelLimited === undefined)
+      modelLimited = {
+        since: new Date(now()).toISOString(),
+        primary: deps.config.model,
+        ...(limit.until === undefined ? {} : { until: limit.until }),
+      };
+    else if (limit.until !== undefined) modelLimited.until = limit.until;
+
+    if (deps.config.fallbackModel !== undefined && currentModel === deps.config.model && !probing) {
+      const from = currentModel;
+      currentModel = deps.config.fallbackModel;
+      probing = false;
+      deps.log('warn', 'planner model limited; switching to the fallback model', {
+        from,
+        to: currentModel,
+        until: modelLimited.until,
+      });
+      scheduleProbe();
+      void restart('primary model limited', { delayMs: 0, countBackoff: false });
+      return;
+    }
+    if (probing && deps.config.fallbackModel !== undefined) {
+      currentModel = deps.config.fallbackModel;
+      probing = false;
+      scheduleProbe();
+    }
+    deps.log('warn', 'planner model limited on every model; backing off', {
+      model: currentModel,
+      retryMs: backoffMs,
+      until: modelLimited.until,
+    });
+    void restart('model limited');
+  };
   const consume = async (stream: Query, resumed: boolean, streamGeneration: number) => {
     let sawInit = false;
     try {
       for await (const raw of stream) {
         if (streamGeneration !== generation) return;
+        const limit = modelLimitFromMessage(raw);
+        if (limit !== null) noteModelLimit(limit);
         const message = raw as SDKMessage;
+        if (message.type === 'result' && message.is_error) {
+          const resultLimit = modelLimitFromError((raw as unknown as { result?: unknown }).result);
+          if (resultLimit !== null) {
+            noteModelLimit(resultLimit);
+            continue;
+          }
+        }
         lastMessageAt = now();
         if (message.type === 'system' && message.subtype === 'init') {
           sawInit = true;
@@ -237,6 +309,17 @@ export function createHost(deps: HostDependencies) {
           turnInFlight = false;
           lastTurnAt = new Date(now()).toISOString();
           backoffMs = 1_000;
+          if (
+            modelLimited !== undefined &&
+            currentModel === deps.config.model &&
+            !limitSeenThisGeneration
+          ) {
+            modelLimited = undefined;
+            probing = false;
+            if (probeTimer !== undefined) unschedule(probeTimer);
+            probeTimer = undefined;
+            deps.log('info', 'planner model limit cleared', { model: currentModel });
+          }
           deps.log('info', 'planner turn completed', {
             subtype: message.subtype,
             isError: message.is_error,
@@ -245,13 +328,19 @@ export function createHost(deps: HostDependencies) {
           compose();
         }
       }
-      if (streamGeneration === generation && !stopped && !restarting) await restart('query ended');
+      if (streamGeneration === generation && !stopped && !restarting) {
+        await restart('query ended');
+      }
     } catch (error) {
-      if (streamGeneration === generation && !stopped && !restarting)
-        await restart(`query failed: ${String(error)}`);
+      if (streamGeneration === generation && !stopped && !restarting) {
+        const limit = modelLimitFromError(error);
+        if (limit !== null) noteModelLimit(limit);
+        else await restart(`query failed: ${String(error)}`);
+      }
     }
   };
   const startQuery = () => {
+    limitSeenThisGeneration = false;
     const streamGeneration = ++generation;
     input = createInputQueue();
     abort = new AbortController();
@@ -286,12 +375,13 @@ export function createHost(deps: HostDependencies) {
       input.close();
       if (claimTimer) unschedule(claimTimer);
       if (watchdogTimer) unschedule(watchdogTimer);
+      if (probeTimer) unschedule(probeTimer);
     },
     health() {
-      return { sessionId, lastTurnAt, queueDepthSeen, restarts };
+      return { sessionId, lastTurnAt, queueDepthSeen, restarts, model: currentModel, modelLimited };
     },
     heartbeatState(): HeartbeatState {
-      return { turnInFlight, lastTurnAt };
+      return { turnInFlight, lastTurnAt, model: currentModel, modelLimited };
     },
     tick: claimTick,
   };
