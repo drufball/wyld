@@ -341,7 +341,7 @@ describe('thumb HUD', () => {
       Array.from({ length: moves.length + cards.length + tools.length }, () => '44px'),
     );
   });
-  it('makes the reserve card the swap control reading Tap to bring name in', () => {
+  it('shows one out card and two reserve cards, in party order', () => {
     const party = [creature('Barrow'), creature('Quill'), creature('Pip')];
     const combatant = (member: (typeof party)[number], benched = false) => ({
       id: member.individual.id,
@@ -367,8 +367,8 @@ describe('thumb HUD', () => {
       phase: 'fight',
       elapsed: 0,
       enemy: combatant(creature('enemy')),
-      party: [combatant(party[0]!), combatant(party[1]!), combatant(party[2]!, true)],
-      reserveId: 'Pip',
+      party: [combatant(party[0]!), combatant(party[1]!, true), combatant(party[2]!, true)],
+      reserveId: 'Quill',
       autoDeployIn: null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
@@ -377,11 +377,13 @@ describe('thumb HUD', () => {
     const swapped: string[] = [];
     const hud = createHud(false, document.body, { swapIn: (id) => swapped.push(id) });
     hud.update({ ...state(party), combat });
-    const button = document.querySelector('[data-reserve]') as HTMLButtonElement;
-    expect(button.textContent).toContain('Tap to bring Pip in');
-    expect(button.style.minWidth).toBe('44px');
-    expect(button.style.height).toBe('44px');
-    button.click();
+    const cards = [...document.querySelectorAll<HTMLButtonElement>('[data-party-id]')];
+    expect(cards.map((card) => card.dataset.partyId)).toEqual(['Barrow', 'Quill', 'Pip']);
+    expect(cards.map((card) => card.style.flex)).toEqual(['2 1 0px', '1 1 0px', '1 1 0px']);
+    expect(cards.map((card) => card.hasAttribute('data-reserve'))).toEqual([false, true, true]);
+    expect(cards[1]!.textContent).toContain('Quillreserve · tap to swap');
+    expect(cards[2]!.textContent).toContain('Pipreserve · tap to swap');
+    cards[2]!.click();
     expect(swapped).toEqual(['Pip']);
   });
 

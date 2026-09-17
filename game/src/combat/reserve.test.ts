@@ -52,6 +52,15 @@ describe('reserve', () => {
     expect(
       swapTapOutcome({ phase: 'fight', selection: 'b', party, swapCooldownRemaining: 0 }),
     ).toEqual({ outId: 'b' }));
+  it('swaps out the only creature that is out when the player is selected', () =>
+    expect(
+      swapTapOutcome({
+        phase: 'fight',
+        selection: 'player',
+        party: party.map((c) => (c.id === 'b' ? { ...c, benched: true } : c)),
+        swapCooldownRemaining: 0,
+      }),
+    ).toEqual({ outId: 'a' }));
   it('swaps out the downed creature when the player is selected', () =>
     expect(
       swapTapOutcome({

@@ -629,10 +629,11 @@ describe('combat encounter', () => {
       party,
       partyTiles: { one: { x: 8, y: 8 }, two: { x: 2, y: 2 }, three: { x: 20, y: 20 } },
     });
-    subject.swap('one');
+    subject.swap('one', 'three');
+    const entry = subject.state().party.find(({ id }) => id === 'three')!.tile;
     subject.update(0.01, {}, { x: 0, y: 0 });
     const target = subject.state().party.find(({ id }) => id === 'three')!.desiredTile!;
-    expect(distanceForTest(target, { x: 8, y: 8 })).toBeLessThanOrEqual(4);
+    expect(distanceForTest(target, entry)).toBeLessThanOrEqual(4);
   });
   const reserveParty = () => [
     fighter('one', [move('Strike')]),
@@ -654,12 +655,7 @@ describe('combat encounter', () => {
     let downed = false;
     while (!downed) downed = subject.update(0.05).some(({ type }) => type === 'downed');
     subject.update(0);
-    expect(
-      subject
-        .state()
-        .party.slice(0, 2)
-        .every(({ downed }) => downed),
-    ).toBe(true);
+    expect(subject.state().party.find(({ id }) => id === 'one')?.downed).toBe(true);
     return subject;
   };
 
@@ -691,10 +687,10 @@ describe('combat encounter', () => {
     );
   });
 
-  it('starts with the third pick benched', () => {
+  it('starts a three-creature party with one out and two benched', () => {
     const state = setup({ party: reserveParty() }).state();
-    expect(state.party.map(({ benched }) => benched)).toEqual([false, false, true]);
-    expect(state.reserveId).toBe('three');
+    expect(state.party.map(({ benched }) => benched)).toEqual([false, true, true]);
+    expect(state.reserveId).toBe('two');
     expect(state.swapCooldown).toEqual({ remaining: 0, total: 6 });
   });
 
@@ -705,7 +701,7 @@ describe('combat encounter', () => {
     });
     expect(subject.swap('one')).toBe(true);
     const state = subject.state();
-    const incoming = state.party.find(({ id }) => id === 'three')!;
+    const incoming = state.party.find(({ id }) => id === 'two')!;
     expect(incoming.benched).toBe(false);
     expect(incoming.tile.x % 1).toBe(0.5);
     expect(incoming.tile.y % 1).toBe(0.5);
@@ -713,6 +709,16 @@ describe('combat encounter', () => {
       distanceForTest({ x: 2, y: 3 }, state.enemy.tile),
     );
     expect(state.reserveId).toBe('one');
+  });
+
+  it('swaps in the reserve that was tapped, not the first one', () => {
+    const subject = setup({ party: reserveParty() });
+    expect(subject.swap('one', 'three')).toBe(true);
+    expect(subject.state().party.map(({ id, benched }) => [id, benched])).toEqual([
+      ['one', true],
+      ['two', true],
+      ['three', false],
+    ]);
   });
 
   it('enters one tile away from the enemy on an auto-deploy', () => {
@@ -731,7 +737,7 @@ describe('combat encounter', () => {
     const fallen = subject.state().party.find(({ id }) => id === 'one')!;
     expect(fallen.downed).toBe(true);
     advance(subject, 2.05, { one: { x: 5.5, y: 9.5 } });
-    expect(subject.state().party.find(({ id }) => id === 'three')).toMatchObject({
+    expect(subject.state().party.find(({ id }) => id === 'two')).toMatchObject({
       benched: false,
       tile: { x: 5.5, y: 10.5 },
     });
@@ -756,7 +762,7 @@ describe('combat encounter', () => {
   it('still holds the swap cooldown for a standing creature', () => {
     const subject = setup({ party: reserveParty() });
     expect(subject.swap('one')).toBe(true);
-    expect(subject.swap('three')).toBe(false);
+    expect(subject.swap('two')).toBe(false);
     expect(subject.state().reserveId).toBe('one');
   });
 
@@ -764,7 +770,7 @@ describe('combat encounter', () => {
     const subject = setup({ party: reserveParty() });
     subject.swap('one');
     subject.update(6);
-    expect(subject.swap('three')).toBe(true);
+    expect(subject.swap('two')).toBe(true);
   });
 
   it('swaps a downed creature out for the standing reserve', () => {
@@ -781,7 +787,7 @@ describe('combat encounter', () => {
     advance(subject, 3);
     expect(subject.state().party.find(({ id }) => id === 'one')?.downed).toBe(true);
     expect(subject.swap('one')).toBe(true);
-    expect(subject.state().party.find(({ id }) => id === 'three')).toMatchObject({
+    expect(subject.state().party.find(({ id }) => id === 'two')).toMatchObject({
       benched: false,
       downed: false,
     });
@@ -801,11 +807,11 @@ describe('combat encounter', () => {
       enemyTile: { x: 1, y: 0 },
     });
     subject.swap('one');
-    subject.useMove('enemy', strike.id, 'three');
+    subject.useMove('enemy', strike.id, 'two');
     const during = advance(subject, 0.9);
-    expect(during.some(({ type, target }) => type === 'hit' && target === 'three')).toBe(false);
+    expect(during.some(({ type, target }) => type === 'hit' && target === 'two')).toBe(false);
     const after = advance(subject, 3);
-    expect(after.some(({ type, target }) => type === 'hit' && target === 'three')).toBe(true);
+    expect(after.some(({ type, target }) => type === 'hit' && target === 'two')).toBe(true);
   });
 
   it('drops the countdown when the player swaps first', () => {
@@ -819,10 +825,10 @@ describe('combat encounter', () => {
     const subject = downActiveParty();
     advance(subject, 2.1);
     expect(subject.state().autoDeployIn).toBeNull();
-    expect(subject.state().party.filter(({ benched }) => benched)).toHaveLength(1);
+    expect(subject.state().party.filter(({ benched }) => benched)).toHaveLength(2);
   });
 
-  it('keeps both slots filled while a reserve exists', () => {
+  it('keeps one slot filled while a reserve exists', () => {
     const strike = { ...move('Strike'), power: 30 };
     const party = reserveParty().map((individual) => ({
       ...individual,
@@ -833,7 +839,7 @@ describe('combat encounter', () => {
     advance(subject, 1);
     advance(subject, 3);
     expect(subject.state().party.filter(({ benched, downed }) => !benched && !downed)).toHaveLength(
-      2,
+      1,
     );
   });
 
@@ -844,9 +850,9 @@ describe('combat encounter', () => {
       enemyTile: { x: 0, y: 0 },
     });
     subject.swap('one');
-    expect(subject.state().enemy.targetId).toBe('two');
+    expect(subject.state().enemy.targetId).toBeNull();
     subject.update(1.01);
-    expect(subject.state().enemy.targetId).toBe('three');
+    expect(subject.state().enemy.targetId).toBe('two');
   });
 
   it('never targets the benched creature', () => {
@@ -854,38 +860,49 @@ describe('combat encounter', () => {
       party: reserveParty(),
       partyTiles: { one: { x: 0, y: 0 }, two: { x: 1, y: 0 }, three: { x: 4.9, y: 0 } },
     });
-    expect(subject.nearestTarget()).toBe('two');
+    expect(subject.nearestTarget()).toBe('one');
     expect(subject.useMove('enemy', 'strike', 'three')).toBe(false);
   });
 
-  it('does not count two down and one benched as a wipe', () => {
+  it('keeps fighting while a benched creature is still standing', () => {
     const subject = downActiveParty();
     advance(subject, 3.1);
     expect(subject.state().phase).toBe('fight');
   });
 
-  it('deploys the reserve two seconds after the first active falls', () => {
+  it('auto-deploys the first benched creature when the one out goes down', () => {
     const subject = downActiveParty();
     advance(subject, 1.9, {}, { x: 20, y: 20 });
-    expect(subject.state().party.find(({ id }) => id === 'three')?.benched).toBe(true);
+    expect(subject.state().party.find(({ id }) => id === 'two')?.benched).toBe(true);
     expect(Math.abs(subject.state().autoDeployIn! - 0.1)).toBeLessThanOrEqual(0.06);
 
     const events = advance(subject, 0.15, {}, { x: 20, y: 20 });
-    expect(subject.state().party.find(({ id }) => id === 'three')?.benched).toBe(false);
+    expect(subject.state().party.find(({ id }) => id === 'two')?.benched).toBe(false);
     expect(subject.state().party.find(({ id }) => id === 'one')?.benched).toBe(true);
-    expect(events).toContainEqual({ type: 'auto-deploy', target: 'three', out: 'one' });
+    expect(events).toContainEqual({ type: 'auto-deploy', target: 'two', out: 'one' });
     expect(subject.state().autoDeployIn).toBeNull();
   });
 
-  it('asks for the reserve once when both active creatures are down', () => {
+  it('asks for the reserve once when the active creature is down', () => {
     const state = downActiveParty().state();
     expect(shouldAskForReserve(state, false)).toBe(true);
     expect(shouldAskForReserve(state, true)).toBe(false);
   });
 
   it('loses only when all three are down', () => {
-    const subject = downActiveParty();
-    advance(subject, 10, {}, subject.state().enemy.tile);
+    const sweep = { ...move('Sweep'), power: 30 };
+    const party = reserveParty().map((individual) => ({
+      ...individual,
+      stats: { ...individual.stats, vigor: 1 },
+    }));
+    const subject = setup({
+      party,
+      enemy: fighter('enemy', [sweep]),
+      grid: { isWalkable: () => false },
+      partyTiles: { one: { x: 0, y: 0 }, two: { x: 0, y: 0 }, three: { x: 0, y: 0 } },
+      enemyTile: { x: 0, y: 0 },
+    });
+    advance(subject, 20);
     expect(subject.state().party.every(({ downed }) => downed)).toBe(true);
     expect(subject.state().phase).toBe('driven-off');
   });
@@ -897,7 +914,9 @@ describe('combat encounter', () => {
       enemyTile: { x: 4, y: 4 },
     });
     for (let frame = 0; frame < 120; frame++) subject.update(1 / 60);
-    const standing = [...subject.state().party, subject.state().enemy].filter((c) => !c.downed);
+    const standing = [...subject.state().party, subject.state().enemy].filter(
+      (c) => !c.downed && !('benched' in c && c.benched),
+    );
     for (let i = 0; i < standing.length; i++)
       for (let j = i + 1; j < standing.length; j++)
         expect(
@@ -1093,6 +1112,7 @@ describe('combat encounter', () => {
     const subject = setup({
       party: [fighter('far', [move('Strike')]), fighter('near', [move('Strike')])],
       partyTiles: { far: { x: 0, y: 0 }, near: { x: 4, y: 0 } },
+      out: 'near',
     });
     expect(subject.nearestTarget()).toBe('near');
   });
@@ -1129,24 +1149,20 @@ describe('combat encounter', () => {
       }),
       partyTiles: { one: { x: 1, y: 0 }, two: { x: 1.5, y: 0.5 }, three: { x: 0.5, y: 0.5 } },
       enemyTile: { x: 0, y: 0 },
+      out: 'three',
       reserve: 'one',
     });
 
     subject.useMove('three', impact.id);
-    expect(subject.useMove('enemy', knockout.id, 'two')).toBe(true);
     expect(
       advance(subject, 1).some(({ type, attacker }) => type === 'hit' && attacker === 'three'),
     ).toBe(true);
     expect(subject.state().party.find(({ id }) => id === 'three')!.threat).toBeGreaterThan(0);
     expect(subject.swap('three')).toBe(true);
-    advance(subject, 2);
-    expect(subject.state().party.find(({ id }) => id === 'one')!.downed).toBe(true);
-    expect(subject.swap('one')).toBe(true);
-
-    expect(subject.state().party.find(({ id }) => id === 'three')!.grace).toBeGreaterThan(0);
-    expect(subject.state().enemy.targetId).toBe('two');
+    expect(subject.state().party.find(({ id }) => id === 'one')!.grace).toBeGreaterThan(0);
+    expect(subject.state().enemy.targetId).toBeNull();
     subject.update(1.01);
-    expect(subject.state().enemy.targetId).toBe('three');
+    expect(subject.state().enemy.targetId).toBe('one');
   });
 
   it('makes a shove a taunt: a small Impact hit outdraws a bigger Cut hit', () => {

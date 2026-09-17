@@ -63,9 +63,11 @@ const swapTapOutcome = (input: {
 }): SwapTapOutcome => {
   if (input.phase !== 'fight') return { reason: 'The fight is over' };
   if (!input.party.some((c) => c.benched && !c.downed)) return { reason: 'Nobody in reserve' };
+  const deployed = input.party.filter((c) => !c.benched);
   const outgoing =
-    input.party.find((c) => c.id === input.selection && !c.benched) ??
-    input.party.find((c) => !c.benched && c.downed);
+    deployed.find((c) => c.id === input.selection) ??
+    (deployed.length === 1 ? deployed[0] : undefined) ??
+    deployed.find((c) => c.downed);
   if (!outgoing) return { reason: 'Pick who to swap out' };
   if (!outgoing.downed && input.swapCooldownRemaining > 0)
     return { reason: `Swap ready in ${Math.ceil(input.swapCooldownRemaining)} s` };

@@ -88,6 +88,7 @@ type EncounterOptions = {
   player?: Point;
   partyTiles?: Record<string, Point>;
   enemyTile?: Point;
+  out?: string;
   reserve?: string;
   balance?: ArenaBalance;
 };
@@ -168,11 +169,17 @@ const createEncounter = ({
   player = { x: 0, y: 0 },
   partyTiles = {},
   enemyTile = { x: 0, y: -6 },
-  reserve = party[2]?.id,
+  out = party[0]?.id,
+  reserve,
   balance = ARENA_BALANCE,
 }: EncounterOptions) => {
+  const outId = out === reserve ? party.find((member) => member.id !== reserve)?.id : out;
   const owned = party.map((p, i) =>
-    make(p, partyTiles[p.id] ?? { x: i - 1, y: 1 }, p.id === reserve),
+    make(
+      p,
+      partyTiles[p.id] ?? { x: i - 1, y: 1 },
+      reserve === '' ? false : p.id !== outId || p.id === reserve,
+    ),
   );
   const foe = make(enemy, enemyTile);
   foe.hp = foe.maxHp = scaledEnemyHealth(enemy.stats.vigor, balance);
@@ -652,9 +659,11 @@ const createEncounter = ({
     }
     return events.map((e) => ({ ...e }));
   };
-  const swap = (outId: string): boolean => {
+  const swap = (outId: string, incomingId?: string): boolean => {
     const outgoing = owned.find((c) => c.id === outId && !c.benched),
-      incoming = owned.find((c) => c.benched && !c.downed);
+      incoming = owned.find(
+        (c) => c.benched && !c.downed && (incomingId === undefined || c.id === incomingId),
+      );
     if (
       phase !== 'fight' ||
       !outgoing ||
@@ -742,7 +751,7 @@ const createEncounter = ({
       grace: foe.grace,
     },
     party: owned.map(publicCombatant),
-    reserveId: owned.find((c) => c.benched)?.id ?? null,
+    reserveId: owned.find((c) => c.benched && !c.downed)?.id ?? null,
     swapCooldown: { remaining: swapCooldownRemaining, total: swapCooldownTotal },
     autoDeployIn: autoDeployRemaining === null ? null : Math.max(0, autoDeployRemaining),
     projectiles: flights.map((p) => ({

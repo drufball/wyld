@@ -54,7 +54,6 @@ const playFight = ({
     player: { x: 5.5, y: 11.5 },
     partyTiles: positions,
     enemyTile: { x: 5.5, y: 5.5 },
-    reserve: ids[2],
     balance: ARENA_BALANCE_PRESETS[preset],
   });
   const autopilot = createAutopilot();
@@ -82,6 +81,7 @@ const playFight = ({
   const stepMs = 1000 / 60;
   let accumulator = 0;
   let frame = 0;
+  let swaps = 0;
 
   while (encounter.state().phase === 'fight' && encounter.state().elapsed < 120) {
     const frameMs =
@@ -93,6 +93,27 @@ const playFight = ({
     for (let tick = 0; tick < advanced.steps; tick += 1) {
       if (encounter.state().phase !== 'fight' || encounter.state().elapsed >= 120) break;
       const before = encounter.state();
+      const outgoing = before.party.find((member) => !member.benched && !member.downed);
+      const incoming = before.party.find(
+        (member) =>
+          member.benched &&
+          !member.downed &&
+          outgoing !== undefined &&
+          member.hp > outgoing.hp &&
+          outgoing.hp / outgoing.maxHp < 0.3,
+      );
+      if (
+        outgoing &&
+        incoming &&
+        before.swapCooldown.remaining === 0 &&
+        encounter.swap(outgoing.id, incoming.id)
+      ) {
+        swaps += 1;
+        controllers.get(outgoing.id)?.clearPath();
+        const deployed = encounter.state().party.find(({ id }) => id === incoming.id)!;
+        const destination = tileToWorld(deployed.tile.x - 0.5, deployed.tile.y - 0.5);
+        controllers.get(incoming.id)?.teleport(destination.x, destination.z);
+      }
       if (policy === 'armed' && !tapped && before.elapsed >= 1) {
         const moves =
           knowledge === 'informed'
@@ -156,6 +177,7 @@ const playFight = ({
     elapsed: state.elapsed,
     enemyHp: state.enemy.hp,
     enemyMaxHp: state.enemy.maxHp,
+    swaps,
   };
 };
 
@@ -227,7 +249,7 @@ describe('arena balance', () => {
     ).toBeGreaterThanOrEqual(4);
   }, 60_000);
   it("scales only the arena enemy's health", () => {
-    expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.trade)).toBe(650);
+    expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.trade)).toBe(450);
     expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.fast)).toBe(200);
     const party = individual('loamox');
     const subject = createEncounter({
@@ -236,7 +258,7 @@ describe('arena balance', () => {
       grid: buildArena(11, 22),
       rng: createRng(1),
     });
-    expect(subject.state().enemy.maxHp).toBe(650);
+    expect(subject.state().enemy.maxHp).toBe(450);
     expect(subject.state().party[0]!.maxHp).toBe(party.stats.vigor);
   }, 60_000);
   it("scales only the arena enemy's damage", () => {

@@ -68,6 +68,21 @@ This unit resolves §6.1's “inside the camera frustum” as **“on the same s
 
 ## Arena — learn, lose, repeat
 
+### Arena — one out, two in reserve
+
+**Simulated:** measured over seeds 1–5 on an idle 12-core Mac at load 1.5 (≈0.13/core).
+The harness swaps when the one creature out is below 30% health and a healthier reserve is
+standing, subject to the swap cooldown.
+
+| deployment / TRADE dial       | informed / armed             | informed / none                                              | uninformed / none                   |
+| ----------------------------- | ---------------------------- | ------------------------------------------------------------ | ----------------------------------- |
+| two out / hp ×3.25, dmg ×0.42 | win 41.05 s ×5               | win 41.05 s ×5                                               | driven off 32.23–44.87 s ×5         |
+| one out / hp ×3.25, dmg ×0.42 | win 55.3–59.4 s / 4 swaps ×5 | win 54.5–57.8 s / 4 swaps ×4; driven off 59.2 s / 4 swaps ×1 | driven off 35.8–36.4 s / 3 swaps ×5 |
+| one out / hp ×2.25, dmg ×0.42 | win 35.7 s / 2 swaps ×5      | win 35.7 s / 2 swaps ×5                                      | driven off 35.8–36.4 s / 3 swaps ×5 |
+
+The dial moved because having one creature out concentrates the party's damage output, not because
+an assertion bound failed.
+
 ### Arena enemy balance harness (simulated)
 
 The 60 Hz unit harness used the 11 × 22 forest arena and seeds 1–5. These are simulated results
