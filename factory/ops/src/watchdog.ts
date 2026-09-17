@@ -14,6 +14,7 @@ export type WatchdogInput = {
   plannerModel?: string;
   plannerLastTurnAt?: string;
   wakeQueueDepth?: number;
+  wakeOldestPendingTs?: string;
   activePause?: { lane: string; reason: string };
   activePausedLanes: string[];
   now: Date;
@@ -70,17 +71,23 @@ export function decideWatchdogActions(
   }
 
   const plannerPaused = input.activePausedLanes.includes('planner');
-  const fullyModelLimited =
-    input.plannerModelLimited !== undefined &&
-    input.plannerModel === input.plannerModelLimited.primary;
+  const limited = input.plannerModelLimited;
+  const fullyModelLimited = limited !== undefined && input.plannerModel === limited.primary;
   const turnElapsedMinutes = input.plannerLastTurnAt
     ? (input.now.getTime() - new Date(input.plannerLastTurnAt).getTime()) / 60_000
     : undefined;
-  // Taking queued work while continuing to heartbeat, but completing no turn for this long, means
-  // the host's queries are being refused. This backs up hosts unable to report modelLimited.
-  const noTurn =
-    (input.wakeQueueDepth ?? 0) > 0 &&
-    (turnElapsedMinutes === undefined || turnElapsedMinutes > config.plannerNoTurnMinutes);
+  const oldestPendingMinutes = input.wakeOldestPendingTs
+    ? (input.now.getTime() - new Date(input.wakeOldestPendingTs).getTime()) / 60_000
+    : undefined;
+  // Never fire on an unknown lastTurnAt alone: a restarted host has no lastTurnAt until its first
+  // turn completes, and pausing then would be a false alarm on every respawn. What matters is that
+  // real work has gone unanswered — wake keeps a message pending until the host acks a completed
+  // turn, so oldestPendingTs is the age of the oldest unanswered event.
+  const turnStale =
+    turnElapsedMinutes === undefined || turnElapsedMinutes > config.plannerNoTurnMinutes;
+  const workStale =
+    oldestPendingMinutes !== undefined && oldestPendingMinutes > config.plannerNoTurnMinutes;
+  const noTurn = (input.wakeQueueDepth ?? 0) > 0 && workStale && turnStale;
   const modelLimitTriggered = fullyModelLimited || noTurn;
   const activePlannerReason =
     input.activePause?.lane === 'planner' ? input.activePause.reason : undefined;
@@ -90,9 +97,7 @@ export function decideWatchdogActions(
     actions.push({
       action: 'pause',
       lane: 'planner',
-      reason: fullyModelLimited
-        ? modelLimitReason(input.plannerModelLimited!, input.now)
-        : 'model limit',
+      reason: fullyModelLimited ? modelLimitReason(limited, input.now) : 'model limit',
       fix: fullyModelLimited
         ? "It clears when the account's model limit resets"
         : 'Nothing is lost; the queued events are still waiting',
@@ -145,6 +150,7 @@ export async function runWatchdog(
       plannerModel: snapshot.planner.model,
       plannerLastTurnAt: snapshot.planner.lastTurnAt,
       wakeQueueDepth: snapshot.wake.queueDepth,
+      wakeOldestPendingTs: snapshot.wake.oldestPendingTs,
       activePause: snapshot.paused,
       activePausedLanes,
       now,

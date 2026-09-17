@@ -133,7 +133,13 @@ describe('decideWatchdogActions', () => {
   });
 
   it('pauses when the wake queue is non-empty and no turn has completed for two hours', () => {
-    expect(decide({ wakeQueueDepth: 1, plannerLastTurnAt: undefined })).toEqual([
+    expect(
+      decide({
+        wakeQueueDepth: 1,
+        wakeOldestPendingTs: '2026-09-06T09:59:00.000Z',
+        plannerLastTurnAt: undefined,
+      }),
+    ).toEqual([
       {
         action: 'pause',
         lane: 'planner',
@@ -141,9 +147,40 @@ describe('decideWatchdogActions', () => {
         fix: 'Nothing is lost; the queued events are still waiting',
       },
     ]);
-    expect(decide({ wakeQueueDepth: 1, plannerLastTurnAt: '2026-09-06T10:01:00.000Z' })).toEqual(
-      [],
-    );
+    expect(
+      decide({
+        wakeQueueDepth: 1,
+        wakeOldestPendingTs: '2026-09-06T09:59:00.000Z',
+        plannerLastTurnAt: '2026-09-06T10:01:00.000Z',
+      }),
+    ).toEqual([]);
+  });
+
+  it('does not pause a restarted planner that has completed no turn yet', () => {
+    expect(
+      decide({
+        wakeQueueDepth: 1,
+        plannerLastTurnAt: undefined,
+        wakeOldestPendingTs: '2026-09-06T11:59:00.000Z',
+      }),
+    ).toEqual([]);
+  });
+
+  it('pauses when an event has waited two hours with nothing answering it', () => {
+    expect(
+      decide({
+        wakeQueueDepth: 1,
+        wakeOldestPendingTs: '2026-09-06T09:59:00.000Z',
+        plannerLastTurnAt: '2026-09-06T09:59:00.000Z',
+      }),
+    ).toEqual([
+      {
+        action: 'pause',
+        lane: 'planner',
+        reason: 'model limit',
+        fix: 'Nothing is lost; the queued events are still waiting',
+      },
+    ]);
   });
 
   it('does not pause for a stale turn when the wake queue is empty', () => {
