@@ -27,6 +27,10 @@ const Environment = z.object({
     emptyStringAsUndefined,
     z.coerce.number().positive().default(15),
   ),
+  OPS_PLANNER_NO_TURN_MINUTES: z.preprocess(
+    emptyStringAsUndefined,
+    z.coerce.number().positive().default(120),
+  ),
   OPS_WATCHDOG: z.preprocess(
     emptyStringAsUndefined,
     z
@@ -44,6 +48,7 @@ export type Config = {
   ghRatePauseBelow: number;
   ghRateResumeAbove: number;
   plannerStaleMinutes: number;
+  plannerNoTurnMinutes: number;
   watchdogEnabled: boolean;
 };
 
@@ -59,6 +64,7 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env): Config
     ghRatePauseBelow: result.data.OPS_GH_RATE_PAUSE_BELOW,
     ghRateResumeAbove: result.data.OPS_GH_RATE_RESUME_ABOVE,
     plannerStaleMinutes: result.data.OPS_PLANNER_STALE_MINUTES,
+    plannerNoTurnMinutes: result.data.OPS_PLANNER_NO_TURN_MINUTES,
     watchdogEnabled: result.data.OPS_WATCHDOG,
     usageDir:
       result.data.OPS_USAGE_DIR ??

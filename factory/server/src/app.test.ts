@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import { createApp } from './app.js';
 import { openDatabase, type AppDatabase } from './database.js';
-import { chains, events, healthReports, questNotes } from './schema.js';
+import { chains, events, healthReports, pauses, questNotes } from './schema.js';
 
 const migrationsFolder = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
 const silentLogger = () => undefined;
@@ -82,6 +82,57 @@ describe('Pak server', () => {
         lastTurnAt: '2026-09-12T08:27:00.000Z',
         modelLimited,
       },
+    });
+  });
+
+  it('reports the planner as paused while a planner-lane pause is active', async () => {
+    const now = new Date('2026-09-17T18:00:00.000Z');
+    app = createApp({
+      database,
+      demosDir: directory,
+      feedbackDir: directory,
+      now: () => now,
+      logger: silentLogger,
+    });
+    await postHealth({ plannerState: 'idle', currentTask: 'Nothing in flight' });
+    database.db
+      .insert(pauses)
+      .values({ lane: 'planner', reason: 'model limit', since: now.toISOString() })
+      .run();
+    const snapshot = HealthSnapshot.parse(await (await app.request('/api/health/snapshot')).json());
+    expect(snapshot.planner.state).toBe('paused');
+    expect(snapshot.planner.currentTask).toBe('Nothing in flight');
+  });
+
+  it('falls back to the pause reason for the current task when the planner has gone quiet', async () => {
+    const reportTime = new Date('2026-09-17T17:00:00.000Z');
+    app = createApp({
+      database,
+      demosDir: directory,
+      feedbackDir: directory,
+      now: () => reportTime,
+      logger: silentLogger,
+    });
+    await postHealth({ plannerState: 'idle', currentTask: 'Nothing in flight' });
+    database.db
+      .insert(pauses)
+      .values({
+        lane: 'planner',
+        reason: 'model limit until 20:00 Thu',
+        since: reportTime.toISOString(),
+      })
+      .run();
+    app = createApp({
+      database,
+      demosDir: directory,
+      feedbackDir: directory,
+      now: () => new Date('2026-09-17T18:00:01.000Z'),
+      logger: silentLogger,
+    });
+    const snapshot = HealthSnapshot.parse(await (await app.request('/api/health/snapshot')).json());
+    expect(snapshot.planner).toMatchObject({
+      state: 'paused',
+      currentTask: 'model limit until 20:00 Thu',
     });
   });
 

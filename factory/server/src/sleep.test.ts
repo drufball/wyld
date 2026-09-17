@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Retro, SleepRun, type NewEvent } from '@wyld/shared';
 import { createApp } from './app.js';
 import { openDatabase, type AppDatabase } from './database.js';
-import { events, presence, retros, sleepRuns } from './schema.js';
+import { events, pauses, presence, retros, sleepRuns } from './schema.js';
 import { createSleepScheduler, createSleepService, type SleepConfig } from './sleep.js';
 
 const migrations = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../drizzle');
@@ -287,6 +287,55 @@ describe('sleep scheduler', () => {
     await subject.tick();
     await subject.tick();
     expect(runs()[0]?.outcome).toBe('timed_out');
+  });
+
+  it('says the night was paused when no phase ran under an active pause', async () => {
+    now = new Date('2026-09-06T01:00:00.000Z');
+    await createSleepService({ database, now: () => now, storeEvent, config }).start('human');
+    database.db
+      .insert(pauses)
+      .values({ lane: 'planner', reason: 'model limit', since: now.toISOString() })
+      .run();
+    const subject = scheduler();
+    now = new Date('2026-09-06T08:01:00.000Z');
+    await subject.tick();
+    await subject.tick();
+    expect(database.db.select().from(presence).get()).toMatchObject({
+      nextActionText: 'The factory was paused overnight (model limit) — nothing ran',
+      nextActionLink: '/',
+    });
+  });
+
+  it('still says good morning when the night was merely quiet', async () => {
+    now = new Date('2026-09-06T01:00:00.000Z');
+    await createSleepService({ database, now: () => now, storeEvent, config }).start('human');
+    const subject = scheduler();
+    now = new Date('2026-09-06T08:01:00.000Z');
+    await subject.tick();
+    await subject.tick();
+    expect(database.db.select().from(presence).get()).toMatchObject({
+      nextActionText: 'Good morning — nothing needs you yet',
+      nextActionLink: '/',
+    });
+  });
+
+  it('says good morning when a paused night still ran its phases', async () => {
+    now = new Date('2026-09-06T01:00:00.000Z');
+    const service = createSleepService({ database, now: () => now, storeEvent, config });
+    const run = await service.start('human');
+    await service.phase(run!, { phase: 'drain' });
+    database.db
+      .insert(pauses)
+      .values({ lane: 'planner', reason: 'model limit', since: now.toISOString() })
+      .run();
+    const subject = scheduler();
+    now = new Date('2026-09-06T08:01:00.000Z');
+    await subject.tick();
+    await subject.tick();
+    expect(database.db.select().from(presence).get()).toMatchObject({
+      nextActionText: 'Good morning — nothing needs you yet',
+      nextActionLink: '/',
+    });
   });
 
   it('ends a run that reached reset as clean', async () => {
