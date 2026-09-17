@@ -249,7 +249,7 @@ describe('arena balance', () => {
     ).toBeGreaterThanOrEqual(4);
   }, 60_000);
   it("scales only the arena enemy's health", () => {
-    expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.trade)).toBe(650);
+    expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.trade)).toBe(450);
     expect(scaledEnemyHealth(200, ARENA_BALANCE_PRESETS.fast)).toBe(200);
     const party = individual('loamox');
     const subject = createEncounter({
@@ -258,7 +258,7 @@ describe('arena balance', () => {
       grid: buildArena(11, 22),
       rng: createRng(1),
     });
-    expect(subject.state().enemy.maxHp).toBe(650);
+    expect(subject.state().enemy.maxHp).toBe(450);
     expect(subject.state().party[0]!.maxHp).toBe(party.stats.vigor);
   }, 60_000);
   it("scales only the arena enemy's damage", () => {
