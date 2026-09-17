@@ -40,8 +40,13 @@ import { placeTracks } from './world/tracks.js';
 import { species, type Temperament } from './creatures/species.js';
 import { createPlayerController } from './player/controller.js';
 import { ARENA_PACE, arenaSpeedTilesPerSecond, worldSpeedTilesPerSecond } from './combat/pace.js';
-import { createCanvas } from './render2d/canvas.js';
-import { pixelScale, screenCols, screenRows } from './render2d/canvas.js';
+import {
+  createCanvas,
+  pixelScale,
+  scaleFromQuery,
+  screenCols,
+  screenRows,
+} from './render2d/canvas.js';
 import { lookFromQuery } from './render3d/look.js';
 import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
@@ -58,6 +63,7 @@ import { createStatsPanel } from './ui/stats.js';
 import { createArenaPick } from './ui/arena-pick.js';
 import { buildArenaIndividual, enemy, rosterMember } from './arena/roster.js';
 import { createPick, chooseEnemy, toggleMember, startFight, type PickState } from './arena/pick.js';
+import { arenaPlacement } from './arena/placement.js';
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
 import { createAutopilot } from './combat/autopilot.js';
@@ -92,6 +98,7 @@ document.body.style.cssText =
   'height:100%;margin:0;overflow:hidden;display:grid;place-items:center;background:#19212d';
 const scenario = scenarioFromQuery(location.search);
 const look = lookFromQuery(location.search);
+const forcedScale = scaleFromQuery(location.search);
 const render3dLoading = look === 'diorama' ? import('./render3d/diorama.js') : null;
 const synthetic = scenario?.synthetic === true;
 const seed = resolveSeed(),
@@ -107,7 +114,7 @@ const propPlacements = placeProps({
   densities: worldData.props,
   bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 },
 });
-const initialScale = pixelScale(innerWidth, innerHeight),
+const initialScale = pixelScale(innerWidth, innerHeight, forcedScale),
   initialCols = screenCols(innerWidth, initialScale),
   initialRows = screenRows(innerHeight, initialScale);
 const grid = synthetic
@@ -128,12 +135,13 @@ let activeFlatScreen = { sx: 0, sy: 0 };
 let flatRect: DOMRect;
 const render3d = render3dLoading ? await render3dLoading : null;
 const dioramaView = render3d
-  ? render3d.createDiorama(grid, synthetic ? [] : trackPlacements)
+  ? render3d.createDiorama(grid, synthetic ? [] : trackPlacements, { scale: forcedScale })
   : null;
 const vignette = render3d ? render3d.createVignette() : null;
 const flatView =
   look === 'flat'
     ? createCanvas({
+        scale: forcedScale,
         screen: () => activeFlatScreen,
         resized: (rect) => {
           flatRect = rect;
@@ -153,7 +161,10 @@ const debugConsole = createDebugConsole({ seed }),
   tellOverlay = createCombatTellOverlay(),
   arenaStorage = safeStorage(),
   hudActions: Parameters<typeof createHud>[2] = {},
-  hud = createHud(debugConsole.available, toasts.root, hudActions, { showMap: !synthetic }),
+  hud = createHud(debugConsole.available, toasts.root, hudActions, {
+    showMap: !synthetic,
+    scale: view.scale,
+  }),
   arenaProgress = synthetic ? loadArenaProgress(arenaStorage) : null,
   notebook = arenaProgress?.notebook ?? createNotebook(),
   observer = createObserver({ notebook }),
@@ -545,37 +556,24 @@ const beginArena = (state: PickState): void => {
   tiles = createTileRenderer(grid, []);
   registry.clear();
   partyControllers.clear();
-  const centre = { tx: Math.floor(view.cols / 2), ty: Math.floor(view.rows / 2) };
+  const {
+    centre,
+    party: partyTiles,
+    enemy: enemyTile,
+  } = arenaPlacement(view.cols, view.rows, grid.isWalkable);
   player.teleport(tileToWorld(centre.tx, centre.ty).x, tileToWorld(centre.tx, centre.ty).z);
-  const offsets = [
-    { tx: 0, ty: 1 },
-    { tx: -1, ty: 1 },
-    { tx: 1, ty: 1 },
-  ];
   const members = state.party.map((id, index) => {
     const entry = rosterMember(id)!;
     return {
       individual: buildArenaIndividual(entry),
       name: entry.name,
-      tile: { tx: centre.tx + offsets[index]!.tx, ty: centre.ty + offsets[index]!.ty },
+      tile: partyTiles[index]!,
       path: [],
     };
   });
   partyState = createParty(members);
   for (const member of members)
     partyControllers.set(member.individual.id, createPartyController(member));
-  let enemyTile = { tx: centre.tx, ty: Math.max(0, centre.ty - 6) };
-  if (!grid.isWalkable(enemyTile.tx, enemyTile.ty)) {
-    for (let radius = 1; radius < view.cols; radius++) {
-      const found = [-radius, radius]
-        .map((dx) => ({ tx: centre.tx + dx, ty: enemyTile.ty }))
-        .find((p) => grid.isWalkable(p.tx, p.ty));
-      if (found) {
-        enemyTile = found;
-        break;
-      }
-    }
-  }
   const at = tileToWorld(enemyTile.tx, enemyTile.ty);
   registry.add(buildArenaIndividual(foe), at.x, at.z, 0);
   fightRng = createRng(seed);
