@@ -5,6 +5,7 @@ import {
   cameraTarget,
   ELEVATION,
   orthoFrustum,
+  pickBodyFromNdc,
   pickTileFromNdc,
   projectTile,
   screenCentre,
@@ -104,5 +105,31 @@ describe('camera maths', () => {
       expect(shadowCameraHalfExtent(cols!, rows!)).toBeGreaterThanOrEqual(
         Math.hypot(cols!, rows!) / 2,
       );
+  });
+  it('a tap on the top of a tall body picks the body, not the tile behind it', () => {
+    const f = orthoFrustum(20, 15),
+      t = { x: 10, z: 7.5 },
+      body = { key: 'tall', tileX: 5.5, tileY: 5.5, heightTiles: 1.6, widthTiles: 1 },
+      point = projectTile(body.tileX, body.tileY, 1.4, t, f);
+    expect(pickTileFromNdc(point.ndcX, point.ndcY, t, f).ty).toBeLessThan(5);
+    expect(pickBodyFromNdc(point.ndcX, point.ndcY, [body], t, f, { x: 0, y: 0 })).toBe('tall');
+  });
+  it('a tap on empty ground picks no body', () => {
+    expect(
+      pickBodyFromNdc(0.9, 0.9, [], { x: 10, z: 7.5 }, orthoFrustum(20, 15), {
+        x: 0,
+        y: 0,
+      }),
+    ).toBeNull();
+  });
+  it('the nearer body wins when two overlap', () => {
+    const f = orthoFrustum(20, 15),
+      t = { x: 10, z: 7.5 },
+      bodies = [
+        { key: 'far', tileX: 5.5, tileY: 5, heightTiles: 2, widthTiles: 1 },
+        { key: 'near', tileX: 5.5, tileY: 6, heightTiles: 2, widthTiles: 1 },
+      ],
+      point = projectTile(5.5, 6, 0.5, t, f);
+    expect(pickBodyFromNdc(point.ndcX, point.ndcY, bodies, t, f, { x: 0, y: 0 })).toBe('near');
   });
 });

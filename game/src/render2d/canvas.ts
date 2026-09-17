@@ -1,5 +1,6 @@
 import { TILES_PER_SIDE } from '../world/tiles.js';
 import { clamp } from './clamp.js';
+import { pickSpriteAt, type PickSprite } from './placement.js';
 
 const pixelScale = (vw: number, vh: number) => clamp(Math.floor(Math.min(vw, vh) / 200), 2, 4);
 const screenCols = (vw: number, scale: number) => clamp(Math.floor(vw / (16 * scale)), 8, 20);
@@ -67,6 +68,12 @@ const createCanvas = (
       const py = ((clientY - rect.top) * canvas.height) / rect.height;
       const screen = options.screen?.() ?? { sx: 0, sy: 0 };
       return canvasPixelToTile(px, py, screen.sx, screen.sy, cols, rows);
+    },
+    pickBody(clientX: number, clientY: number, bodies: readonly PickSprite[]) {
+      const rect = canvas.getBoundingClientRect();
+      const px = ((clientX - rect.left) * canvas.width) / rect.width;
+      const py = ((clientY - rect.top) * canvas.height) / rect.height;
+      return pickSpriteAt(px, py, bodies, 4);
     },
   };
 };

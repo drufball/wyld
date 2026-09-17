@@ -46,6 +46,7 @@ import { lookFromQuery } from './render3d/look.js';
 import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
 import { spriteOrigin } from './render2d/placement.js';
+import { drawSelectionRing } from './render2d/selection-ring.js';
 import { combatBarOrigin } from './render2d/combat-bar.js';
 import { createTileRenderer } from './render2d/tiles.js';
 import { buildState } from './state.js';
@@ -835,6 +836,8 @@ const render = (alpha = 1) => {
     frame = player.moving ? ((Math.floor(elapsedSeconds * 8) % 2) as 0 | 1) : 'idle';
   const playerSpriteFacing = spriteFacingFromCardinal(player.facing);
   const sprite = playerSprite(playerSpriteFacing.facing, frame);
+  if (partyState.selection === 'player')
+    drawSelectionRing(flat.context, localTileX, localTileY, '#6d7f5c');
   const calls =
     1 +
     blitSprite(flat.context, sprite, sprite.palette, {
@@ -860,11 +863,7 @@ const render = (alpha = 1) => {
     const combatant = combat?.party.find((c) => c.id === member.individual.id);
     if (combatant?.benched) continue;
     if (partyState.selection === member.individual.id && !combatant?.downed) {
-      flat.context.strokeStyle = definition.palette.accent ?? '#bd7132';
-      flat.context.lineWidth = 1;
-      flat.context.beginPath();
-      flat.context.ellipse(Math.round(tx * 16), Math.round(ty * 16 + 4), 7, 3, 0, 0, Math.PI * 2);
-      flat.context.stroke();
+      drawSelectionRing(flat.context, tx, ty, definition.palette.accent ?? '#bd7132');
     }
     if (combatant?.downed) flat.context.globalAlpha = 0.3;
     const memberSpriteFacing = spriteFacingFromCardinal(controller.facing);
@@ -1123,6 +1122,79 @@ const loop = createLoop({
     }
     for (const tap of input.taps()) {
       activeFlatScreen = { sx: player.screen.x, sy: player.screen.y };
+      const combatState = combat ?? encounter?.state();
+      const partyBodies = partyState.party.flatMap(({ individual }) => {
+        const combatant = combatState?.party.find(({ id }) => id === individual.id);
+        if (combatant?.benched || combatant?.downed) return [];
+        const tile = partyControllers.get(individual.id)!.tile;
+        if (!tileOnScreen(tile.x, tile.y, 0)) return [];
+        const definition = speciesById(individual.speciesId)!;
+        return [{ key: individual.id, tileX: tile.x, tileY: tile.y, definition }];
+      });
+      const wildBodies = registry.list().flatMap((creature) => {
+        if (!onScreen(creature.position.x, creature.position.z)) return [];
+        return [
+          {
+            key: creature.id,
+            tileX: (creature.position.x + 400) / TILE_METRES,
+            tileY: (creature.position.z + 400) / TILE_METRES,
+            definition: speciesById(creature.speciesId)!,
+          },
+        ];
+      });
+      const bodyHit =
+        look === 'diorama'
+          ? dioramaView!.pickBody(tap.clientX, tap.clientY, [
+              ...partyBodies.map(({ definition, ...body }) => ({
+                ...body,
+                heightTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
+                widthTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
+              })),
+              {
+                key: 'player',
+                tileX: player.tile.x,
+                tileY: player.tile.y,
+                heightTiles: 1,
+                widthTiles: 0.6,
+              },
+              ...wildBodies.map(({ definition, ...body }) => ({
+                ...body,
+                heightTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
+                widthTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
+              })),
+            ])
+          : flatView!.pickBody(tap.clientX, tap.clientY, [
+              ...partyBodies.map(({ definition, ...body }) => ({
+                ...body,
+                tileX: body.tileX - player.screen.x * view.cols,
+                tileY: body.tileY - player.screen.y * view.rows,
+                sizePx: definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
+              })),
+              {
+                key: 'player',
+                tileX: player.tile.x - player.screen.x * view.cols,
+                tileY: player.tile.y - player.screen.y * view.rows,
+                sizePx: 24,
+              },
+              ...wildBodies.map(({ definition, ...body }) => ({
+                ...body,
+                tileX: body.tileX - player.screen.x * view.cols,
+                tileY: body.tileY - player.screen.y * view.rows,
+                sizePx: definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
+              })),
+            ]);
+      if (bodyHit) {
+        const partyHit = partyState.party.find(({ individual }) => individual.id === bodyHit);
+        const wildHit = registry.list().find(({ id }) => id === bodyHit);
+        if (partyHit) partyState = selectCreature(partyState, bodyHit);
+        else if (bodyHit === 'player') partyState = selectPlayer(partyState);
+        else if (wildHit)
+          partyState = targetWildCreature(partyState, {
+            id: wildHit.id,
+            speciesId: wildHit.speciesId,
+          });
+        continue;
+      }
       const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
       const partyHit = partyState.party.find(({ individual }) => {
         if (combat?.party.find((member) => member.id === individual.id)?.benched) return false;

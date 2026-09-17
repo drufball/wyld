@@ -10,9 +10,11 @@ import {
   cameraOffset,
   cameraTarget,
   orthoFrustum,
+  pickBodyFromNdc,
   pickTileFromNdc,
   shadowCameraHalfExtent,
 } from './camera.js';
+import type { PickBody } from './camera.js';
 import { createCover } from './cover.js';
 import { TIER_LENGTH_TILES } from './bodyplans/index.js';
 import { createCombatOverlay, type BarValue } from './combat-overlay.js';
@@ -210,8 +212,17 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
       frame.combat?.flashes ?? [],
       frame.elapsedSeconds,
     );
+    const selected = frame.party.find(({ key, downed }) => key === frame.selection && !downed);
     selection.sync(
-      frame.party.find(({ key, downed }) => key === frame.selection && !downed) ?? null,
+      frame.selection === 'player'
+        ? { tileX: frame.player.tileX, tileY: frame.player.tileY, colour: '#6d7f5c' }
+        : selected
+          ? {
+              tileX: selected.tileX,
+              tileY: selected.tileY,
+              colour: speciesById(selected.speciesId)?.palette.accent ?? '#bd7132',
+            }
+          : null,
     );
     renderer.render(scene, camera);
     const elapsed = performance.now() - started;
@@ -252,6 +263,17 @@ const createDiorama = (grid: TileGrid, trackPlacements: readonly TracksPlacement
         1 - ((clientY - rect.top) / rect.height) * 2,
         target,
         frustum,
+      );
+    },
+    pickBody(clientX: number, clientY: number, bodies: readonly PickBody[]) {
+      const rect = canvasRect;
+      return pickBodyFromNdc(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        1 - ((clientY - rect.top) / rect.height) * 2,
+        bodies,
+        target,
+        frustum,
+        { x: (6 / rect.width) * 2, y: (6 / rect.height) * 2 },
       );
     },
     dispose() {
