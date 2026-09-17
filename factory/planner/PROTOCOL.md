@@ -389,3 +389,7 @@ Short playbooks for the four things you do most. Read the one that matches befor
 | `skills/review-pr.md` | `github.pr_opened` or `github.pr_synced`. |
 | `skills/merge-and-ship.md` | `github.ci_completed` green on a reviewed PR. |
 | `skills/write-catchup.md` | Dru is about to come back after a while away — after a batch of merges, or at the end of Sleep Mode. |
+
+## Working files live in `.factory/planner/` (2026-09-17)
+
+macOS purges `/tmp` files untouched for three days; during the five-day outage every lead brief and every explainer source under `/tmp/wyld-leads/` was lost. Briefs live in `.factory/planner/leads/`, explainer sources in `.factory/planner/artifacts/` (published with `.factory/planner/publish.mjs <slug>`), and leads' captures are copied there from `/tmp` when their report lands. `/tmp/wyld-leads/` is scratch for leads only.
