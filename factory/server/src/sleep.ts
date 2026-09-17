@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lt } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import {
   NewRetro,
@@ -13,7 +13,7 @@ import {
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
-import { events, retros, sleepRuns } from './schema.js';
+import { events, pauses, retros, sleepRuns } from './schema.js';
 import { formatIssues } from '@wyld/shared';
 
 export type SleepConfig = {
@@ -340,7 +340,17 @@ export function createSleepScheduler(dependencies: SchedulerDependencies) {
         .onConflictDoNothing()
         .run();
     }
-    await dependencies.setNextAction('Good morning — nothing needs you yet', '/');
+    const pause = dependencies.database.db
+      .select()
+      .from(pauses)
+      .where(and(isNull(pauses.resolvedAt), inArray(pauses.lane, ['planner', 'all'])))
+      .orderBy(sql`case when ${pauses.lane} = 'all' then 0 else 1 end`, pauses.since)
+      .get();
+    const nextAction =
+      current.phases.length === 0 && pause
+        ? `The factory was paused overnight (${pause.reason}) — nothing ran`
+        : 'Good morning — nothing needs you yet';
+    await dependencies.setNextAction(nextAction, '/');
   };
   const tick = async () => {
     if (!dependencies.config.enabled) return;

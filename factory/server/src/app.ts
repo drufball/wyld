@@ -527,6 +527,8 @@ export function createApp(dependencies: AppDependencies) {
     const stale =
       latest === undefined ||
       current.getTime() - new Date(latest.ts).getTime() > PLANNER_STALE_SECONDS * 1000;
+    const plannerPause =
+      activePause?.lane === 'planner' || activePause?.lane === 'all' ? activePause : undefined;
     let wake: z.infer<typeof HealthSnapshot>['wake'] = { reachable: false };
     if (dependencies.wakeUrl !== undefined) {
       try {
@@ -550,8 +552,12 @@ export function createApp(dependencies: AppDependencies) {
     const snapshot = HealthSnapshot.parse({
       ts: current.toISOString(),
       planner: {
-        state: stale ? 'down' : latest?.plannerState,
-        ...(!stale && latest?.currentTask !== null ? { currentTask: latest?.currentTask } : {}),
+        state: plannerPause ? 'paused' : stale ? 'down' : latest?.plannerState,
+        ...(!stale && latest?.currentTask !== null
+          ? { currentTask: latest?.currentTask }
+          : plannerPause
+            ? { currentTask: plannerPause.reason }
+            : {}),
         ...(latest === undefined ? {} : { lastReportAt: latest.ts }),
         ...(latest?.model === null || latest?.model === undefined ? {} : { model: latest.model }),
         ...(latest?.lastTurnAt === null || latest?.lastTurnAt === undefined

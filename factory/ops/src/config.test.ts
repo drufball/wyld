@@ -19,6 +19,7 @@ describe('readConfig', () => {
       ghRatePauseBelow: 200,
       ghRateResumeAbove: 500,
       plannerStaleMinutes: 15,
+      plannerNoTurnMinutes: 120,
       watchdogEnabled: true,
     });
     expect(config.usageDir).toBe(
@@ -40,6 +41,7 @@ describe('readConfig', () => {
         OPS_GH_RATE_PAUSE_BELOW: '100',
         OPS_GH_RATE_RESUME_ABOVE: '600',
         OPS_PLANNER_STALE_MINUTES: '20',
+        OPS_PLANNER_NO_TURN_MINUTES: '90',
         OPS_WATCHDOG: 'false',
       }),
     ).toEqual({
@@ -50,6 +52,7 @@ describe('readConfig', () => {
       ghRatePauseBelow: 100,
       ghRateResumeAbove: 600,
       plannerStaleMinutes: 20,
+      plannerNoTurnMinutes: 90,
       watchdogEnabled: false,
     });
     expect(() => readConfig({ OPS_INTERVAL_SECONDS: '29' })).toThrow('Invalid ops configuration');
