@@ -205,6 +205,12 @@ export function createHost(deps: HostDependencies) {
     probeTimer = schedule(() => {
       probeTimer = undefined;
       if (modelLimited === undefined || currentModel === deps.config.model) return;
+      // An idle query cannot exercise the primary, so probing now would prove nothing and leave
+      // health reporting the refused model until another queue event happened to arrive.
+      if (pending.length === 0 && !turnInFlight) {
+        scheduleProbe();
+        return;
+      }
       currentModel = deps.config.model;
       probing = true;
       deps.log('info', 'planner retrying the primary model', { model: currentModel });
@@ -323,9 +329,7 @@ export function createHost(deps: HostDependencies) {
         }
       }
       if (streamGeneration === generation && !stopped && !restarting) {
-        const limit = modelLimitFromError('query ended');
-        if (limit !== null) noteModelLimit(limit);
-        else await restart('query ended');
+        await restart('query ended');
       }
     } catch (error) {
       if (streamGeneration === generation && !stopped && !restarting) {

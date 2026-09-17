@@ -509,6 +509,7 @@ describe('planner host model limits', () => {
         await new Promise(() => undefined);
       })() as Query;
     }) as never;
+    const claim = vi.fn().mockResolvedValue({ messages: [], dropped: [] });
     const host = createHost({
       config: {
         ...readConfig({
@@ -518,7 +519,7 @@ describe('planner host model limits', () => {
         }),
         pollMs: 999_999,
       },
-      queue: { claim: vi.fn().mockResolvedValue({ messages: [], dropped: [] }), ack: vi.fn() },
+      queue: { claim, ack: vi.fn() },
       log: vi.fn(),
       query,
       readSession: () => 'session',
@@ -539,7 +540,7 @@ describe('planner host model limits', () => {
       timer!.cleared = true;
       timer!.callback();
     };
-    return { host, models, timers, fire, setClock: (value: number) => (clock = value) };
+    return { host, models, timers, fire, claim, setClock: (value: number) => (clock = value) };
   }
 
   it('falls back to the second model within one restart when the primary is rate limited', async () => {
@@ -593,10 +594,13 @@ describe('planner host model limits', () => {
   });
 
   it('retries the primary at the configured cadence and switches back when a turn completes', async () => {
-    const { host, models, timers, fire } = limitedHost(['event', 'pending', 'success']);
+    const { host, models, timers, fire, claim } = limitedHost(['event', 'pending', 'success']);
     await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
     fire(0);
     await vi.waitFor(() => expect(models.at(-1)).toBe('fallback'));
+    claim.mockResolvedValueOnce({ messages: [row(10)], dropped: [] });
+    fire(999_999);
+    await vi.waitFor(() => expect(host.health().queueDepthSeen).toBe(1));
     fire(60_000);
     await vi.waitFor(() =>
       expect(timers.filter((timer) => timer.delay === 0 && !timer.cleared)).toHaveLength(1),
@@ -608,10 +612,18 @@ describe('planner host model limits', () => {
   });
 
   it('returns to the fallback when the primary probe is refused again', async () => {
-    const { host, models, timers, fire } = limitedHost(['event', 'pending', 'event', 'pending']);
+    const { host, models, timers, fire, claim } = limitedHost([
+      'event',
+      'pending',
+      'event',
+      'pending',
+    ]);
     await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
     fire(0);
     await vi.waitFor(() => expect(models.at(-1)).toBe('fallback'));
+    claim.mockResolvedValueOnce({ messages: [row(11)], dropped: [] });
+    fire(999_999);
+    await vi.waitFor(() => expect(host.health().queueDepthSeen).toBe(1));
     fire(60_000);
     await vi.waitFor(() =>
       expect(timers.filter((timer) => timer.delay === 0 && !timer.cleared)).toHaveLength(1),
@@ -620,6 +632,26 @@ describe('planner host model limits', () => {
     await vi.waitFor(() => expect(host.health().model).toBe('fallback'));
     expect(timers.some((timer) => timer.delay === 60_000 && !timer.cleared)).toBe(true);
     expect(host.health().modelLimited).toBeDefined();
+    host.stop();
+  });
+
+  it('does not probe the primary while there is nothing for it to do', async () => {
+    const { host, models, timers, fire } = limitedHost(['event', 'pending']);
+    await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 0)).toBe(true));
+    fire(0);
+    await vi.waitFor(() => expect(models.at(-1)).toBe('fallback'));
+
+    fire(60_000);
+
+    expect(host.health()).toMatchObject({
+      model: 'fallback',
+      modelLimited: {
+        since: '2026-09-12T08:32:00.000Z',
+        primary: 'claude-fable-5-1',
+      },
+    });
+    expect(timers.some((timer) => timer.delay === 60_000 && !timer.cleared)).toBe(true);
+    expect(models).toEqual(['claude-fable-5-1', 'fallback']);
     host.stop();
   });
 
@@ -633,7 +665,13 @@ describe('planner host model limits', () => {
   it('keeps backing off with no fallback configured, and still reports the limit', async () => {
     const { host, timers } = limitedHost(['event'], null);
     await vi.waitFor(() => expect(timers.some((timer) => timer.delay === 1000)).toBe(true));
-    expect(host.health()).toMatchObject({ model: 'claude-fable-5-1', modelLimited: {} });
+    expect(host.health()).toMatchObject({
+      model: 'claude-fable-5-1',
+      modelLimited: {
+        since: '2026-09-12T08:32:00.000Z',
+        primary: 'claude-fable-5-1',
+      },
+    });
     host.stop();
   });
 });

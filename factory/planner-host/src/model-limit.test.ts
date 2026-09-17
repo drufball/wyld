@@ -10,6 +10,27 @@ describe('model limit detection', () => {
       }),
     ).toEqual({ until: '2027-01-14T18:00:00.000Z' });
   });
+  it('reads rejected events and epoch-millisecond reset times', () => {
+    expect(
+      modelLimitFromMessage({
+        type: 'rate_limit_event',
+        rate_limit_info: { status: 'rejected', resetsAt: 1_799_949_600_000 },
+      }),
+    ).toEqual({ until: '2027-01-14T18:00:00.000Z' });
+  });
+  it('treats a rejected event without a reset time as limited', () => {
+    expect(
+      modelLimitFromMessage({
+        type: 'rate_limit_event',
+        rate_limit_info: { status: 'rejected' },
+      }),
+    ).toEqual({});
+  });
+  it.each(['allowed', 'allowed_warning'])('ignores %s rate-limit events', (status) => {
+    expect(
+      modelLimitFromMessage({ type: 'rate_limit_event', rate_limit_info: { status } }),
+    ).toBeNull();
+  });
   it('matches the literal incident error', () => {
     expect(
       modelLimitFromError(
