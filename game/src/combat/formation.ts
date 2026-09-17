@@ -5,6 +5,16 @@ import { lineClear } from './line.js';
 const TAP_OVERRIDE_SECONDS = 4;
 // One tile of buffer plus the ground a heavy covers during a Bolt windup.
 const KITE_MARGIN_TILES = 2.25;
+// The margin is the ground the heavy covers during the kiter's Bolt windup at the heavy's arena
+// speed, plus a quarter tile, floored at 1.25 tiles. An Antlerback (speed 4–5) travels at
+// (3 + 0.6·speed)/2 × 0.5 = 1.35–1.5 t/s and closes 0.85–0.95 tiles during a speed-7
+// kiter's signature Bolt windup: 0.9 × (1.2 − 7×0.06) × (1 − 1×0.1) = 0.63 s.
+// Adding 0.25 gives 1.10–1.20, floored to 1.25, so release is at reach + 1.25 (about
+// 2.5 tiles for an enemy whose only reach is a 2.5 m Strike; 3.25 tiles for the arena
+// Antlerback, whose Rake (Sweep, 4 m) puts its reachTiles at 2.0). An Arc's 1.2 s base
+// computes to 1.39–1.51 and is not covered by the floor; if a kiter ever carries an Arc,
+// that is a follow-up rather than making this margin per-delivery here.
+const SHOT_RELEASE_MARGIN_TILES = 1.25;
 const KITE_STEP_TILES = 1;
 type Point = { x: number; y: number };
 type Wander = { target: Point; remaining: number } | null;
@@ -30,6 +40,10 @@ type FormationInput = {
 type FormationOutput = { id: string; tile: Point; wander: Wander }[];
 
 const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
+const kiteHolds = (distanceTiles: number, enemyReach: number): boolean =>
+  distanceTiles <= enemyReach + KITE_MARGIN_TILES;
+const shotHolds = (distanceTiles: number, enemyReach: number): boolean =>
+  distanceTiles < enemyReach + SHOT_RELEASE_MARGIN_TILES;
 const centre = (p: Point): Point => ({ x: Math.floor(p.x) + 0.5, y: Math.floor(p.y) + 0.5 });
 const unit = (from: Point, to: Point, fallback = { x: 0, y: -1 }): Point => {
   const dx = to.x - from.x,
@@ -46,7 +60,7 @@ const kiteFrom = (
 ): Point | null => {
   const ranged = creature.moves.filter((move) => move.ranged);
   const currentDistance = distance(creature.tile, enemy);
-  if (ranged.length === 0 || currentDistance > enemyReach + KITE_MARGIN_TILES) return null;
+  if (ranged.length === 0 || !kiteHolds(currentDistance, enemyReach)) return null;
   const away = unit(enemy, creature.tile);
   for (const angle of [0, Math.PI / 4, -Math.PI / 4]) {
     const cos = Math.cos(angle);
@@ -165,5 +179,14 @@ const formation = (input: FormationInput): FormationOutput => {
   });
 };
 
-export { formation, kiteFrom, KITE_MARGIN_TILES, KITE_STEP_TILES, TAP_OVERRIDE_SECONDS };
+export {
+  formation,
+  kiteFrom,
+  kiteHolds,
+  KITE_MARGIN_TILES,
+  KITE_STEP_TILES,
+  shotHolds,
+  SHOT_RELEASE_MARGIN_TILES,
+  TAP_OVERRIDE_SECONDS,
+};
 export type { FormationCreature, FormationInput, FormationOutput, Point, Wander };
