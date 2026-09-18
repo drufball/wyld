@@ -1,4 +1,5 @@
 import type { CombatEvent } from '../combat/encounter.js';
+import { RESISTANCE_MULTIPLIER, WEAKNESS_MULTIPLIER } from '../combat/hides.js';
 import type { Force, Move } from '../combat/moves.js';
 import type { HideType, Temperament } from '../creatures/species.js';
 import type { Notebook } from '../guide/notebook.js';
@@ -55,12 +56,12 @@ const learnFromCombat = (options: LearningOptions): LearnedFact[] => {
         value: options.hide,
       });
       const force = options.moves.find((move) => move.id === event.move)?.force;
-      if (force && event.hideMult === 1.6)
+      if (force && event.hideMult === WEAKNESS_MULTIPLIER)
         add(options.notebook.recordWeakness(options.enemySpeciesId, force), {
           kind: 'weakness',
           value: force,
         });
-      if (force && event.hideMult === 0.6)
+      if (force && event.hideMult === RESISTANCE_MULTIPLIER)
         add(options.notebook.recordResistance(options.enemySpeciesId, force), {
           kind: 'resistance',
           value: force,

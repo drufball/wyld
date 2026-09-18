@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { hideLine, hideMultiplier, resistance, shrugsOffLine, weakness } from './hides.js';
+import {
+  hideLine,
+  hideMultiplier,
+  resistance,
+  RESISTANCE_MULTIPLIER,
+  shrugsOffLine,
+  weakness,
+  WEAKNESS_MULTIPLIER,
+} from './hides.js';
 import type { Force } from './moves.js';
 describe('hide table', () => {
+  it('pins the hide multipliers at 1.6 and 0.6', () => {
+    expect(WEAKNESS_MULTIPLIER).toBe(1.6);
+    expect(RESISTANCE_MULTIPLIER).toBe(0.6);
+  });
+
   it('writes a hide line naming what it shrugs off and what it fears', () => {
     expect(hideLine('Stone')).toBe('Stone hide — shrugs off Impact, fears Surge');
     expect(hideLine('Hide')).toBe('Hide — shrugs off Surge, fears Cut');
