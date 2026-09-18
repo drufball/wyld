@@ -40,18 +40,15 @@ exit 1
 EOF
 chmod +x "$tmp_dir/bin/gh" "$tmp_dir/bin/tailscale"
 
-PATH="$tmp_dir/bin:$PATH" FACTORY_DIR="$tmp_dir/factory" \
-  ./scripts/factory-doctor.sh >"$tmp_dir/out" 2>"$tmp_dir/err" || true
-if grep -Fq 'tmux window server is missing' "$tmp_dir/out"; then
-  echo 'doctor reported a listed tmux window missing' >&2
-  cat "$tmp_dir/out" >&2
-  exit 1
-fi
-grep -Fq 'ok: tmux window server is alive' "$tmp_dir/out"
-
-for _ in {1..50}; do
-  running_window_names="$(PATH="$tmp_dir/bin:$PATH" tmux list-windows -t wyld -F '#{window_name}')"
-  grep -Fxq server <<<"$running_window_names"
+for _ in {1..20}; do
+  PATH="$tmp_dir/bin:$PATH" FACTORY_DIR="$tmp_dir/factory" \
+    ./scripts/factory-doctor.sh >"$tmp_dir/out" 2>"$tmp_dir/err" || true
+  if grep -Fq 'tmux window server is missing' "$tmp_dir/out"; then
+    echo 'doctor reported a listed tmux window missing' >&2
+    cat "$tmp_dir/out" >&2
+    exit 1
+  fi
+  grep -Fq 'ok: tmux window server is alive' "$tmp_dir/out"
 done
 
 echo 'doctor captures the tmux window list once before membership checks'

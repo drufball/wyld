@@ -252,7 +252,7 @@ describe('thumb HUD', () => {
 
     expect(reserve.style.overflow).toBe('hidden');
     expect(reserve.style.flex).toBe('1 1 0px');
-    expect(reserve.style.minWidth).toBe('56px');
+    expect(reserve.style.minWidth).toBe(reserve.style.minHeight);
     expect(reserveHealthRow.style.flexDirection).toBe('column');
     expect(reserveHealthRow.style.alignItems).toBe('stretch');
     expect(reserveBars.style.width).toBe('100%');

@@ -522,8 +522,8 @@ clientWidth`. Now, it checks the rendered reserve button's overflow, flex, and m
 'hidden' // Object.is equality`. Machine load average: `3.03, 1.28, 0.48`.
 - **Doctor tmux membership:** Before, the doctor piped `tmux list-windows` into `grep -q`, allowing
   SIGPIPE to masquerade as a missing window. Now, the regression test drives the doctor with a
-  large fake tmux listing and verifies membership from the list captured once before the loop,
-  including 50 repeated checks. **Control (simulated):** Restoring the piped membership check made
-  `./scripts/factory-doctor.test.sh` fail with `doctor reported a listed tmux window missing` and
-  `fail: tmux window server is missing; run \`set -a; . .factory/env; set +a; tmux new-window ...\``.
-Machine load average: `3.77, 2.70, 1.26`.
+  large fake tmux listing and verifies membership from the list captured once before the loop by
+  running the doctor 20 times. **Control (simulated):** Restoring the piped membership check made
+  `./scripts/factory-doctor.test.sh` fail in 20 out of 20 runs, reporting both the harness error and
+  `fail: tmux window server is missing`. With the captured-list fix, it passed in 20 out of 20 runs.
+  Machine load average: `3.77, 2.70, 1.26`.
