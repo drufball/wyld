@@ -502,3 +502,28 @@ harness production code changed; rerunning the deterministic cases produced the 
 | trade / informed / armed  | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          |
 | trade / informed / none   | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          |
 | trade / uninformed / none | driven-off / 38.983 / 304 | driven-off / 40.900 / 304 | driven-off / 38.983 / 304 | driven-off / 41.183 / 299 | driven-off / 38.983 / 304 |
+
+## Tests that couldn't fail
+
+- **Kiting release distance:** Before, the test checked that every windup began beyond a literal
+  2.5-tile bound in a scenario that never approached it. Now, a faster heavy makes the kiter
+  exercise the hold and the test checks every windup against the encounter enemy's `reachTiles`
+  plus `SHOT_RELEASE_MARGIN_TILES`, while retaining the shot-count and no-hit assertions.
+  **Control (simulated):** With `shotHolds` returning `false`, `pnpm --filter @wyld/game exec
+vitest run src/combat/orders.test.ts -t "keeps a kiting" --reporter=verbose` failed with
+  `AssertionError: expected false to be true // Object.is equality` at the `every` assertion.
+  Machine load average recorded during the control session: `3.03, 1.28, 0.48`.
+- **Reserve-card constraint:** Before, the test asserted jsdom's always-zero `scrollWidth <=
+clientWidth`. Now, it checks the rendered reserve button's overflow, flex, and minimum width,
+  its stacked/stretching health row, and its full-width shrinkable bars, contrasted with an active
+  card's flex, minimum width, and row direction. **Control (simulated):** With reserve overflow
+  changed to `visible`, `pnpm --filter @wyld/game exec vitest run src/ui/hud.test.ts -t
+"constrained-width" --reporter=verbose` failed with `AssertionError: expected 'visible' to be
+'hidden' // Object.is equality`. Machine load average: `3.03, 1.28, 0.48`.
+- **Doctor tmux membership:** Before, the doctor piped `tmux list-windows` into `grep -q`, allowing
+  SIGPIPE to masquerade as a missing window. Now, the regression test drives the doctor with a
+  large fake tmux listing and verifies membership from the list captured once before the loop,
+  including 50 repeated checks. **Control (simulated):** Restoring the piped membership check made
+  `./scripts/factory-doctor.test.sh` fail with `doctor reported a listed tmux window missing` and
+  `fail: tmux window server is missing; run \`set -a; . .factory/env; set +a; tmux new-window ...\``.
+Machine load average: `3.77, 2.70, 1.26`.

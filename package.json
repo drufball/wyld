@@ -9,8 +9,8 @@
   "scripts": {
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "test": "pnpm -r --if-present test && ./scripts/factory-windows.test.sh && ./scripts/factory-restart.test.sh",
-    "test:scripts": "./scripts/factory-windows.test.sh && ./scripts/factory-restart.test.sh",
+    "test": "pnpm -r --if-present test && ./scripts/factory-windows.test.sh && ./scripts/factory-restart.test.sh && ./scripts/factory-doctor.test.sh",
+    "test:scripts": "./scripts/factory-windows.test.sh && ./scripts/factory-restart.test.sh && ./scripts/factory-doctor.test.sh",
     "build": "pnpm -r --if-present build",
     "smoke": "pnpm --filter @wyld/pak smoke",
     "factory:up": "./scripts/factory-up.sh",

@@ -35,7 +35,8 @@ for tool in tmux gh claude node pnpm; do
   fi
 done
 
-if command -v gh >/dev/null 2>&1 && gh extension list 2>/dev/null | grep -Eq '(^|[[:space:]])cli/gh-webhook([[:space:]]|$)'; then
+gh_extensions="$(gh extension list 2>/dev/null || true)"
+if command -v gh >/dev/null 2>&1 && grep -Eq '(^|[[:space:]])cli/gh-webhook([[:space:]]|$)' <<<"$gh_extensions"; then
   ok 'gh webhook extension is installed'
 else
   fail 'gh webhook extension is not installed; run `gh extension install cli/gh-webhook`'
@@ -185,10 +186,10 @@ fi
 cli_running=false
 if command -v tmux >/dev/null 2>&1; then
   # claude rewrites its process title to its version, so the launch flags are not in any command line.
+  planner_panes="$(tmux list-panes -t wyld:planner -F '#{pane_dead} #{pane_start_command}' 2>/dev/null || true)"
+  live_planner_commands="$(awk '$1 == 0' <<<"$planner_panes")"
   if tmux has-session -t wyld 2>/dev/null \
-    && tmux list-panes -t wyld:planner -F '#{pane_dead} #{pane_start_command}' 2>/dev/null \
-      | awk '$1 == 0' \
-      | grep -q 'dangerously-load-development-channels'; then
+    && grep -q 'dangerously-load-development-channels' <<<"$live_planner_commands"; then
     cli_running=true
   fi
 else
@@ -245,7 +246,7 @@ else
   if [[ -n "$serve_pak_host" && -n "$public_host" && "$serve_pak_host" != "$public_host" ]]; then
     warn "PAK_PUBLIC_URL names $public_host but Tailscale Serve publishes the Pak as $serve_pak_host; edit .factory/env"
   fi
-  if printf '%s\n' "$serve_status" | grep -Eq '(^|[^0-9])8443([^0-9]|$)'; then
+  if grep -Eq '(^|[^0-9])8443([^0-9]|$)' <<<"$serve_status"; then
     ok 'Tailscale Serve is configured on port 8443'
   else
     fail 'Tailscale Serve is not configured on port 8443; run `tailscale serve --bg --https=8443 8790`'
@@ -253,14 +254,15 @@ else
 fi
 
 if command -v tmux >/dev/null 2>&1 && tmux has-session -t wyld 2>/dev/null; then
-  windows="$(tmux list-windows -t wyld -F '#{window_name}' | paste -sd, -)"
+  running_window_names="$(tmux list-windows -t wyld -F '#{window_name}')"
+  windows="$(paste -sd, - <<<"$running_window_names")"
   dead="$(tmux list-panes -t wyld -a -F '#{session_name}:#{window_name} #{pane_dead}' | awk '$1 ~ /^wyld:/ && $2 == 1 {sub(/^wyld:/, "", $1); print $1}' | paste -sd, -)"
   ok "tmux session wyld is running with windows: $windows"
   if [[ -n "$dead" ]]; then
     fail "tmux session wyld has exited windows ($dead); run pnpm factory:down && pnpm factory:up"
   fi
   while IFS= read -r window_name; do
-    if ! tmux list-windows -t wyld -F '#{window_name}' | grep -Fxq "$window_name"; then
+    if ! grep -Fxq "$window_name" <<<"$running_window_names"; then
       window_command="$(printf '%q' "$(factory_window_command "$window_name")")"
       fail "tmux window $window_name is missing; run \`set -a; . .factory/env; set +a; tmux new-window -d -t wyld -n $window_name -c \"\$PWD\" $window_command\`"
       continue
@@ -275,7 +277,8 @@ else
 fi
 
 if [[ "$(uname -s)" == Darwin ]]; then
-  if pmset -g batt 2>/dev/null | grep -q "AC Power"; then
+  power_status="$(pmset -g batt 2>/dev/null || true)"
+  if grep -q "AC Power" <<<"$power_status"; then
     ok 'macOS host is on AC power'
   else
     warn 'macOS host is not on AC power; connect it to AC power'
