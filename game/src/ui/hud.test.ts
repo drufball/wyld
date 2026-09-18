@@ -184,6 +184,9 @@ describe('thumb HUD', () => {
     expect(document.querySelector<HTMLElement>('[data-move-fill]')!.style.transform).toBe(
       'scaleY(0.5)',
     );
+    const button = document.querySelector<HTMLElement>('[data-move-id]')!;
+    expect(button.style.flexDirection).toBe('column');
+    expect(button.style.opacity).toBe('1');
   });
 
   it('flashes ready exactly once when a cooldown ends', () => {
@@ -211,7 +214,7 @@ describe('thumb HUD', () => {
   it('has no ready animation under reduced motion', () => {
     createHud(false, document.body);
     expect(document.head.textContent).toMatch(
-      /prefers-reduced-motion: reduce[^}]*\[data-ready\]\{animation:none;border:2px solid #4e7a3c/,
+      /prefers-reduced-motion: reduce[^}]*button\[data-ready\]\{animation:none;border:2px solid #6fbf3f/,
     );
   });
 
@@ -234,6 +237,15 @@ describe('thumb HUD', () => {
       buttonFill.style.transform,
     );
     expect(document.querySelectorAll('[data-party-id="reserve"] [data-move-strip]').length).toBe(2);
+  });
+
+  it('keeps a reserve card within its available width during a fight', () => {
+    const party = [creature('a'), creature('b'), creature('reserve')];
+    const combat = combatState(party);
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party, 'a'), combat });
+    const reserve = document.querySelector<HTMLElement>('[data-reserve]')!;
+    expect(reserve.scrollWidth).toBeLessThanOrEqual(reserve.clientWidth);
   });
 
   it('a party member going down updates its card in place', () => {

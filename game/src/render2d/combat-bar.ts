@@ -23,7 +23,7 @@ const creatureBarWidth = (tier: 1 | 2 | 3): number => ({ 1: 16, 2: 24, 3: 32 })[
 
 const healthColour = (value: number, max: number): string => {
   const fraction = Math.max(0, Math.min(1, max > 0 ? value / max : 0));
-  return fraction < 0.25 ? '#b3261e' : fraction < 0.5 ? '#bd7132' : '#4e7a3c';
+  return fraction < 0.25 ? '#d6453a' : fraction < 0.5 ? '#e2963a' : '#6fbf3f';
 };
 
 const combatFootBarOrigin = (

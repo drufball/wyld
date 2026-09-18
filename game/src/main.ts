@@ -792,6 +792,14 @@ const render = (alpha = 1) => {
                 : ('idle' as const),
             phaseOffset: index,
             downed: combatant?.downed,
+            hp:
+              combatant && !combatant.downed
+                ? { value: combatant.hp, max: combatant.maxHp }
+                : undefined,
+            focus:
+              combatant && !combatant.downed
+                ? { value: combatant.focus, max: combatant.maxFocus }
+                : undefined,
             windup: combatant?.windup?.progress,
           },
         ];

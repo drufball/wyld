@@ -113,7 +113,7 @@ const createHud = (
   document.body.append(root);
   const responsive = document.createElement('style');
   responsive.textContent =
-    '@keyframes wyld-ready-flash{from{box-shadow:inset 0 0 0 3px #4e7a3c;background:#4e7a3c}to{box-shadow:inset 0 0 0 0 #4e7a3c00}}[data-ready]{animation:wyld-ready-flash .6s ease-out 1}@keyframes wyld-swap-pulse{from{box-shadow:0 0 0 0 #bd7132}to{box-shadow:0 0 0 8px #bd713200}}[data-swap-state="urgent"]{animation:wyld-swap-pulse .8s infinite}[data-swap-state="ready"]{font-weight:700;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}@media(prefers-reduced-motion: reduce){[data-ready]{animation:none;border:2px solid #4e7a3c}[data-swap-state="urgent"]{animation:none;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}}@media(max-width:479px){[aria-label="Time and place"]{top:8px!important;left:8px!important;width:134px!important;padding:7px 9px!important;font-size:10px!important;line-height:16px!important}[data-hud-heading]{gap:6px!important;font-size:13px!important}[data-hud-heading] svg{width:32px;height:18px}[aria-label="Time and place"] div:nth-child(3){margin-top:3px!important;font-size:9px!important}}';
+    '@keyframes wyld-ready-flash{from{box-shadow:inset 0 0 0 3px #6fbf3f;background:#6fbf3f}to{box-shadow:inset 0 0 0 0 #6fbf3f00}}button[data-ready]{animation:wyld-ready-flash .6s ease-out 1}[data-move-strip][data-ready]>i{background-color:#6fbf3f}@keyframes wyld-swap-pulse{from{box-shadow:0 0 0 0 #bd7132}to{box-shadow:0 0 0 8px #bd713200}}[data-swap-state="urgent"]{animation:wyld-swap-pulse .8s infinite}[data-swap-state="ready"]{font-weight:700;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}@media(prefers-reduced-motion: reduce){button[data-ready]{animation:none;border:2px solid #6fbf3f}[data-swap-state="urgent"]{animation:none;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}}@media(max-width:479px){[aria-label="Time and place"]{top:8px!important;left:8px!important;width:134px!important;padding:7px 9px!important;font-size:10px!important;line-height:16px!important}[data-hud-heading]{gap:6px!important;font-size:13px!important}[data-hud-heading] svg{width:32px;height:18px}[aria-label="Time and place"] div:nth-child(3){margin-top:3px!important;font-size:9px!important}}';
   document.head.append(responsive);
   const controlsHint = document.createElement('div');
   controlsHint.textContent = '? — controls';
@@ -273,6 +273,11 @@ const createHud = (
     name.dataset.moveName = '';
     name.style.cssText = `position:relative;z-index:1;font:${nameFont}`;
     write(entry.button.style, 'position', 'relative');
+    write(entry.button.style, 'display', 'flex');
+    write(entry.button.style, 'flexDirection', 'column');
+    write(entry.button.style, 'alignItems', 'center');
+    write(entry.button.style, 'justifyContent', 'center');
+    write(entry.button.style, 'gap', '2px');
     entry.button.replaceChildren(fill, seconds, name);
     entry.moveFill = fill;
     entry.moveSeconds = seconds;
@@ -316,6 +321,7 @@ const createHud = (
         const button = entry.button;
         write(button.style, 'height', '');
         write(button.style, 'minHeight', `${controlPx}px`);
+        write(button.style, 'overflow', 'hidden');
         const label = standingReserve
           ? name
           : `${name}\n${combatant?.downed ? 'Down' : individual.temperament}`;
@@ -333,6 +339,13 @@ const createHud = (
         attribute(button, 'data-reserve', standingReserve ? '' : undefined);
         attribute(button, 'data-swap-state');
         write(button.style, 'background', '#f4efd9ee');
+        write(entry.healthRow.style, 'flexDirection', standingReserve ? 'column' : 'row');
+        write(entry.healthRow.style, 'alignItems', standingReserve ? 'stretch' : 'center');
+        write(entry.healthRow.style, 'gap', standingReserve ? '1px' : '4px');
+        write(entry.bars.style, 'width', standingReserve ? '100%' : '');
+        write(entry.bars.style, 'minWidth', '0px');
+        write(entry.healthText.style, 'font', standingReserve ? nameFont : font);
+        write(entry.healthText.style, 'textAlign', standingReserve ? 'center' : '');
         let detail: string | undefined;
         if (standingReserve) {
           const urgent =
@@ -381,7 +394,7 @@ const createHud = (
             const ready =
               cooldown && cooldown.total > 0 ? 1 - cooldown.remaining / cooldown.total : 1;
             write(fill.style, 'transform', `scaleX(${ready})`);
-            write(fill.style, 'backgroundColor', ready === 1 ? '#4e7a3c' : '#f4efd9');
+            write(fill.style, 'backgroundColor', ready === 1 ? '' : '#f4efd9');
             attribute(fill.parentElement!, 'data-ready', ready === 1 ? '' : undefined);
           }
           const tracks = repertoire.map(({ id }) => entry!.stripFills.get(id)!.parentElement!);
@@ -456,11 +469,10 @@ const createHud = (
         attribute(button, 'data-move-id', move.id);
         write(button.style, 'flex', '1 1 0');
         write(button.style, 'minWidth', '0px');
-        const unavailable = Boolean(
-          combatant && (combatant.focus < cost || (cooldown?.remaining ?? 0) > 0),
-        );
+        const cannotAfford = Boolean(combatant && combatant.focus < cost);
+        const unavailable = cannotAfford || cooling;
         property(button, 'disabled', !state.combat && unavailable);
-        write(button.style, 'opacity', unavailable ? '0.45' : '1');
+        write(button.style, 'opacity', cannotAfford ? '0.45' : '1');
         attribute(button, 'aria-pressed', String(armed));
         attribute(
           button,

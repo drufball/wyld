@@ -37,12 +37,12 @@ describe('combat foot bars', () => {
 
   it('colours health at the exact thresholds', () => {
     expect([1, 0.51, 0.5, 0.26, 0.24, 0].map((value) => healthColour(value, 1))).toEqual([
-      '#4e7a3c',
-      '#4e7a3c',
-      '#4e7a3c',
-      '#bd7132',
-      '#b3261e',
-      '#b3261e',
+      '#6fbf3f',
+      '#6fbf3f',
+      '#6fbf3f',
+      '#e2963a',
+      '#d6453a',
+      '#d6453a',
     ]);
   });
 });

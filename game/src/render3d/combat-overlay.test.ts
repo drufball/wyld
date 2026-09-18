@@ -53,9 +53,9 @@ describe('createCombatOverlay', () => {
     const overlay = createCombatOverlay();
     overlay.sync([entry({ hp: { value: 24, max: 100 } })], target, frustum, rect);
     const fill = document.body.firstElementChild!.children[0]!.firstElementChild as HTMLDivElement;
-    expect(fill.style.backgroundColor).toBe('rgb(179, 38, 30)');
+    expect(fill.style.backgroundColor).toBe('rgb(214, 69, 58)');
     overlay.sync([entry({ hp: { value: 50, max: 100 } })], target, frustum, rect);
-    expect(fill.style.backgroundColor).toBe('rgb(78, 122, 60)');
+    expect(fill.style.backgroundColor).toBe('rgb(111, 191, 63)');
     overlay.dispose();
   });
 
