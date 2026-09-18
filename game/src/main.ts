@@ -2,7 +2,7 @@ import worldData from './data/world.json';
 import { createInput } from './engine/input.js';
 import { installEmbedBridge } from './ui/embed-bridge.js';
 import { createEventBus } from './engine/events.js';
-import { createLoop } from './engine/loop.js';
+import { createLoop, fixedStepFromQuery } from './engine/loop.js';
 import { createRng, resolveSeed } from './engine/rng.js';
 import { createNotebook, stubTitle } from './guide/notebook.js';
 import { createObserver } from './guide/observe.js';
@@ -103,6 +103,7 @@ document.body.style.cssText =
   'height:100%;margin:0;overflow:hidden;display:grid;place-items:center;background:#19212d';
 const scenario = scenarioFromQuery(location.search);
 const look = lookFromQuery(location.search);
+const fixedStep = fixedStepFromQuery(location.search);
 const forcedScale = scaleFromQuery(location.search);
 const render3dLoading = look === 'diorama' ? import('./render3d/diorama.js') : null;
 const synthetic = scenario?.synthetic === true;
@@ -1014,6 +1015,7 @@ const render = (alpha = 1) => {
   }
 };
 const loop = createLoop({
+  manual: fixedStep,
   update: (dt) => {
     setElapsedSeconds(elapsedSeconds + dt);
     tellStack.update(dt);
@@ -1480,6 +1482,7 @@ hudActions.openBook = () => guide.open('index');
 hudActions.openMap = () => guide.open('map');
 hudActions.openConsole = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: '`' }));
 window.__wyld = {
+  ...(fixedStep ? { stepTo: (frame: number) => loop.stepTo(frame) } : {}),
   anim: () =>
     animations.list().map((lunge) => ({
       attacker: lunge.attacker,

@@ -17,19 +17,24 @@ type LoopOptions = {
   update(dtSeconds: number): void;
   render(alpha: number): void;
   step?: number;
+  manual?: boolean;
 };
 
-const createLoop = ({ update, render, step = DEFAULT_STEP_MS }: LoopOptions) => {
+const createLoop = ({ update, render, step = DEFAULT_STEP_MS, manual = false }: LoopOptions) => {
   let accumulator = 0;
   let previousTime: number | undefined;
   let requestId: number | undefined;
+  let stepCount = 0;
 
   const frame = (time: number): void => {
     const frameMs = previousTime === undefined ? 0 : time - previousTime;
     previousTime = time;
     const result = advance({ accumulator }, frameMs, step);
     accumulator = result.accumulator;
-    for (let index = 0; index < result.steps; index += 1) update(step / 1000);
+    for (let index = 0; index < result.steps; index += 1) {
+      update(step / 1000);
+      stepCount += 1;
+    }
     render(accumulator / step);
     requestId = window.requestAnimationFrame(frame);
   };
@@ -37,7 +42,7 @@ const createLoop = ({ update, render, step = DEFAULT_STEP_MS }: LoopOptions) => 
   return {
     stepMs: step,
     start(): void {
-      if (requestId !== undefined) return;
+      if (manual || requestId !== undefined) return;
       previousTime = undefined;
       requestId = window.requestAnimationFrame(frame);
     },
@@ -48,8 +53,24 @@ const createLoop = ({ update, render, step = DEFAULT_STEP_MS }: LoopOptions) => 
       previousTime = undefined;
       accumulator = 0;
     },
+    stepTo(targetFrame: number): number {
+      if (targetFrame <= stepCount) return stepCount;
+      while (stepCount < targetFrame) {
+        update(step / 1000);
+        stepCount += 1;
+      }
+      render(0);
+      return stepCount;
+    },
   };
 };
 
-export { MAX_FRAME_MS, advance, createLoop };
+const fixedStepFromQuery = (search: string): boolean => {
+  const value = new URLSearchParams(search.startsWith('?') ? search : `?${search}`).get(
+    'fixedstep',
+  );
+  return value === '1';
+};
+
+export { MAX_FRAME_MS, advance, createLoop, fixedStepFromQuery };
 export type { AccumulatorState, LoopOptions };

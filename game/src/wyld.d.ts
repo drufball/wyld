@@ -60,6 +60,7 @@ type WyldGameState = {
 };
 
 interface WyldGameApi {
+  stepTo?(frame: number): number;
   anim(): {
     attacker: string;
     moveId: string;
