@@ -123,3 +123,7 @@ The always-on Mac ran at load 35 for a day and a half: six `for j in 1..6; do (w
 
 ### Disc builds want the full commit id (2026-09-09)
 `pak_build_disc` / `pak_register_demo` with an abbreviated sha fails inside the builder (`couldn't find remote ref`) and leaves the disc `failed` — all three discs went red one night before anyone noticed. Always pass the 40-character sha (`git rev-parse HEAD`), keep each disc's deep link (fw-arena `/?scenario=arena`, fw-diorama `/?look=diorama`), and read `/api/demos` afterwards until `ready`.
+
+## A subpath export is a new package too (2026-09-18)
+
+An existing workspace package gaining a subpath export (`@wyld/sprites/workshop`) has the same deploy hazard as a new package: the server's watcher restarts on the pulled source before `packages/<pkg>/dist/<subpath>.js` exists and the live server goes dark until the package is rebuilt. Rebuild every package whose `exports` changed BEFORE pulling into the live checkout, then the server dist, then smoke.
