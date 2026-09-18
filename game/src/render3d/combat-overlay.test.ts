@@ -11,6 +11,8 @@ const entry = (overrides: Partial<BarEntry> = {}): BarEntry => ({
   tileX: 5,
   tileY: 5,
   headHeight: 1,
+  widthPx: 48,
+  heightPx: 6,
   windup: 0.5,
   ...overrides,
 });
@@ -30,18 +32,30 @@ describe('createCombatOverlay', () => {
     const overlay = createCombatOverlay();
     overlay.sync([entry({ hp: { value: 5, max: 10 }, windup: 0.25 })], target, frustum, rect);
     const root = document.body.firstElementChild as HTMLDivElement;
-    expect((root.children[0]!.firstElementChild as HTMLDivElement).style.width).toBe('17px');
-    expect((root.children[2]!.firstElementChild as HTMLDivElement).style.width).toBe('8.5px');
+    expect((root.children[0] as HTMLDivElement).style.width).toBe('48px');
+    expect((root.children[0] as HTMLDivElement).style.height).toBe('6px');
+    expect((root.children[0]!.firstElementChild as HTMLDivElement).style.width).toBe('24px');
+    expect((root.children[2]!.firstElementChild as HTMLDivElement).style.width).toBe('12px');
     overlay.dispose();
   });
 
-  it('anchors a bar above the head anchor', () => {
+  it('anchors a bar just below the ground anchor', () => {
     const overlay = createCombatOverlay();
     overlay.sync([entry()], target, frustum, rect);
     const root = document.body.firstElementChild as HTMLDivElement;
-    expect(Number.parseFloat(root.style.top)).toBeLessThan(
-      anchorFor(5, 5, 1, target, frustum, rect).top,
+    expect(Number.parseFloat(root.style.top)).toBe(
+      anchorFor(5, 5, 0, target, frustum, rect).top + 2,
     );
+    overlay.dispose();
+  });
+
+  it('uses health threshold colours', () => {
+    const overlay = createCombatOverlay();
+    overlay.sync([entry({ hp: { value: 24, max: 100 } })], target, frustum, rect);
+    const fill = document.body.firstElementChild!.children[0]!.firstElementChild as HTMLDivElement;
+    expect(fill.style.backgroundColor).toBe('rgb(179, 38, 30)');
+    overlay.sync([entry({ hp: { value: 50, max: 100 } })], target, frustum, rect);
+    expect(fill.style.backgroundColor).toBe('rgb(78, 122, 60)');
     overlay.dispose();
   });
 

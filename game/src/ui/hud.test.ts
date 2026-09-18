@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CombatState } from '../combat/encounter.js';
 import type { Individual } from '../creatures/individual.js';
@@ -129,9 +129,10 @@ describe('thumb HUD', () => {
     ]);
     expect(traySizing(99)).toEqual(traySizing(3));
   });
-  it('a second update with the same state makes no DOM mutations', () => {
+  it('a repeated combat frame makes no DOM mutations', () => {
+    const party = [creature('a')];
     const hud = createHud(false, document.body);
-    const current = state(undefined, 'a');
+    const current = { ...state(party, 'a'), combat: combatState(party) };
     hud.update(current);
     const observer = new MutationObserver(() => undefined);
     observer.observe(hud.tray, {
@@ -163,9 +164,76 @@ describe('thumb HUD', () => {
     hud.update({ ...state(party, 'a'), combat: changed });
     expect(document.querySelector('[data-move-id]')).toBe(button);
     const records = observer.takeRecords();
-    expect(records).toHaveLength(2);
-    expect(records.map(({ target }) => target)).toEqual([button.firstChild, button]);
+    expect(records).toHaveLength(3);
     observer.disconnect();
+  });
+
+  it('shows the seconds left as the largest text on a cooling move button', () => {
+    const party = [creature('a')];
+    const combat = combatState(party);
+    combat.party[0]!.cooldowns['loamox:move'] = { remaining: 3, total: 6 };
+    const hud = createHud(false, document.body, {}, { scale: 3 });
+    hud.update({ ...state(party, 'a'), combat });
+    const seconds = document.querySelector<HTMLElement>('[data-move-seconds]')!;
+    const name = document.querySelector<HTMLElement>('[data-move-name]')!;
+    expect(seconds.textContent).toBe('3');
+    expect(Number.parseFloat(seconds.style.fontSize)).toBeGreaterThan(
+      Number.parseFloat(name.style.fontSize),
+    );
+    expect(Number.parseFloat(seconds.style.fontSize)).toBeGreaterThanOrEqual(18);
+    expect(document.querySelector<HTMLElement>('[data-move-fill]')!.style.transform).toBe(
+      'scaleY(0.5)',
+    );
+  });
+
+  it('flashes ready exactly once when a cooldown ends', () => {
+    vi.useFakeTimers();
+    const party = [creature('a')];
+    const combat = combatState(party);
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party, 'a'), combat });
+    const button = document.querySelector<HTMLElement>('[data-move-id]')!;
+    combat.party[0]!.cooldowns['loamox:move']!.remaining = 0;
+    hud.update({ ...state(party, 'a'), combat });
+    expect(button.hasAttribute('data-ready')).toBe(true);
+    vi.advanceTimersByTime(600);
+    expect(button.hasAttribute('data-ready')).toBe(false);
+    hud.update({ ...state(party, 'a'), combat });
+    expect(button.hasAttribute('data-ready')).toBe(false);
+    combat.party[0]!.cooldowns['loamox:move']!.remaining = 1;
+    hud.update({ ...state(party, 'a'), combat });
+    combat.party[0]!.cooldowns['loamox:move']!.remaining = 0;
+    hud.update({ ...state(party, 'a'), combat });
+    expect(button.hasAttribute('data-ready')).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('has no ready animation under reduced motion', () => {
+    createHud(false, document.body);
+    expect(document.head.textContent).toMatch(
+      /prefers-reduced-motion: reduce[^}]*\[data-ready\]\{animation:none;border:2px solid #4e7a3c/,
+    );
+  });
+
+  it('card strips mirror the move buttons', () => {
+    const party = [creature('a'), creature('reserve')];
+    party[1]!.individual.repertoire.push({
+      ...party[1]!.individual.repertoire[0]!,
+      id: 'loamox:second',
+      name: 'Second',
+    });
+    const combat = combatState(party);
+    combat.party[1]!.cooldowns['loamox:second'] = { remaining: 0, total: 4 };
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party, 'a'), combat });
+    const buttonFill = document.querySelector<HTMLElement>('[data-move-fill]')!;
+    const selectedStrip = document.querySelector<HTMLElement>(
+      '[data-party-id="a"] [data-move-strip="loamox:move"] > i',
+    )!;
+    expect(selectedStrip.style.transform.replace('scaleX', 'scaleY')).toBe(
+      buttonFill.style.transform,
+    );
+    expect(document.querySelectorAll('[data-party-id="reserve"] [data-move-strip]').length).toBe(2);
   });
 
   it('a party member going down updates its card in place', () => {
@@ -358,8 +426,11 @@ describe('thumb HUD', () => {
 
     expect(moves).toHaveLength(3);
     expect(rightEdges.every((edge) => edge <= 375 - 8)).toBe(true);
-    expect([...moves, ...cards, ...tools].map((button) => button.style.height)).toEqual(
-      Array.from({ length: moves.length + cards.length + tools.length }, () => `${controlPx}px`),
+    expect([...moves, ...tools].map((button) => button.style.height)).toEqual(
+      Array.from({ length: moves.length + tools.length }, () => `${controlPx}px`),
+    );
+    expect(cards.map((button) => button.style.minHeight)).toEqual(
+      Array.from({ length: cards.length }, () => `${controlPx}px`),
     );
   });
   it('shows one out card and two reserve cards, in party order', () => {

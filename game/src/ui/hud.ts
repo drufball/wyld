@@ -2,6 +2,7 @@ import type { TimeState } from '../world/time.js';
 import type { Individual } from '../creatures/individual.js';
 import type { CombatState } from '../combat/encounter.js';
 import { deliveries } from '../combat/resolve.js';
+import { healthColour } from '../render2d/combat-bar.js';
 
 type HudState = TimeState & {
   regionName: string | null;
@@ -37,22 +38,45 @@ const updateDetectionTarget = (
   elements.fill.setAttribute('data-detection-fill', detection.toFixed(3));
   elements.outline.setAttribute('stroke', detection >= 1 ? '#292b25' : '#777566');
 };
-const traySizing = (scale: number): { controlPx: number; font: string; detailFont: string } => {
-  const sizes: Record<number, { controlPx: number; font: string; detailFont: string }> = {
+const traySizing = (
+  scale: number,
+): {
+  controlPx: number;
+  font: string;
+  detailFont: string;
+  secondsFont: string;
+  nameFont: string;
+} => {
+  const sizes: Record<
+    number,
+    {
+      controlPx: number;
+      font: string;
+      detailFont: string;
+      secondsFont: string;
+      nameFont: string;
+    }
+  > = {
     2: {
       controlPx: 44,
       font: '11px/14px ui-monospace,monospace',
       detailFont: '9px/10px ui-monospace,monospace',
+      secondsFont: '16px/18px ui-monospace,monospace',
+      nameFont: '10px/12px ui-monospace,monospace',
     },
     3: {
       controlPx: 56,
       font: '13px/16px ui-monospace,monospace',
       detailFont: '9px/11px ui-monospace,monospace',
+      secondsFont: '20px/22px ui-monospace,monospace',
+      nameFont: '11px/13px ui-monospace,monospace',
     },
     4: {
       controlPx: 64,
       font: '15px/18px ui-monospace,monospace',
       detailFont: '10px/12px ui-monospace,monospace',
+      secondsFont: '24px/26px ui-monospace,monospace',
+      nameFont: '13px/15px ui-monospace,monospace',
     },
   };
   return sizes[scale] ?? sizes[3]!;
@@ -63,7 +87,7 @@ const createHud = (
   actions: HudActions = {},
   { showMap = true, scale = 3 }: { showMap?: boolean; scale?: number } = {},
 ) => {
-  const { controlPx, font, detailFont } = traySizing(scale);
+  const { controlPx, font, detailFont, secondsFont, nameFont } = traySizing(scale);
   const root = document.createElement('aside');
   root.setAttribute('aria-live', 'polite');
   root.setAttribute('aria-label', 'Time and place');
@@ -89,7 +113,7 @@ const createHud = (
   document.body.append(root);
   const responsive = document.createElement('style');
   responsive.textContent =
-    '@keyframes wyld-swap-pulse{from{box-shadow:0 0 0 0 #bd7132}to{box-shadow:0 0 0 8px #bd713200}}[data-swap-state="urgent"]{animation:wyld-swap-pulse .8s infinite}[data-swap-state="ready"]{font-weight:700;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}@media(prefers-reduced-motion:reduce){[data-swap-state="urgent"]{animation:none;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}}@media(max-width:479px){[aria-label="Time and place"]{top:8px!important;left:8px!important;width:134px!important;padding:7px 9px!important;font-size:10px!important;line-height:16px!important}[data-hud-heading]{gap:6px!important;font-size:13px!important}[data-hud-heading] svg{width:32px;height:18px}[aria-label="Time and place"] div:nth-child(3){margin-top:3px!important;font-size:9px!important}}';
+    '@keyframes wyld-ready-flash{from{box-shadow:inset 0 0 0 3px #4e7a3c;background:#4e7a3c}to{box-shadow:inset 0 0 0 0 #4e7a3c00}}[data-ready]{animation:wyld-ready-flash .6s ease-out 1}@keyframes wyld-swap-pulse{from{box-shadow:0 0 0 0 #bd7132}to{box-shadow:0 0 0 8px #bd713200}}[data-swap-state="urgent"]{animation:wyld-swap-pulse .8s infinite}[data-swap-state="ready"]{font-weight:700;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}@media(prefers-reduced-motion: reduce){[data-ready]{animation:none;border:2px solid #4e7a3c}[data-swap-state="urgent"]{animation:none;box-shadow:0 0 0 2px #bd7132,0 0 10px #bd7132aa}}@media(max-width:479px){[aria-label="Time and place"]{top:8px!important;left:8px!important;width:134px!important;padding:7px 9px!important;font-size:10px!important;line-height:16px!important}[data-hud-heading]{gap:6px!important;font-size:13px!important}[data-hud-heading] svg{width:32px;height:18px}[aria-label="Time and place"] div:nth-child(3){margin-top:3px!important;font-size:9px!important}}';
   document.head.append(responsive);
   const controlsHint = document.createElement('div');
   controlsHint.textContent = '? — controls';
@@ -168,6 +192,15 @@ const createHud = (
     hp: HTMLElement;
     focus: HTMLElement;
     action: () => void;
+    healthText: HTMLElement;
+    healthRow: HTMLElement;
+    strips: HTMLElement;
+    stripFills: Map<string, HTMLElement>;
+    moveFill?: HTMLElement;
+    moveSeconds?: HTMLElement;
+    moveName?: HTMLElement;
+    cooling?: boolean;
+    readyTimer?: ReturnType<typeof setTimeout>;
   };
   const partyControls = new Map<string, CachedControl>();
   const moveControls = new Map<string, CachedControl>();
@@ -197,15 +230,53 @@ const createHud = (
     const detail = document.createElement('small');
     detail.style.cssText = `display:block;font:${detailFont}`;
     const bars = document.createElement('span');
-    bars.style.cssText = 'display:block;width:52px;height:5px;background:#292b25';
+    bars.style.cssText = 'display:block;flex:1;background:#292b25';
     const hp = document.createElement('i');
-    hp.style.cssText = 'display:block;width:0%;height:2px;background:#bd7132';
+    hp.style.cssText = `display:block;width:0%;height:${2 * scale}px;background:#bd7132`;
     const focus = document.createElement('i');
-    focus.style.cssText = 'display:block;width:0%;height:2px;background:#4e8292';
+    focus.style.cssText = `display:block;width:0%;height:${Math.max(1, scale)}px;background:#4e8292`;
     bars.append(hp, focus);
+    const healthText = document.createElement('span');
+    healthText.style.cssText = `font:${font};white-space:nowrap`;
+    const strips = document.createElement('span');
+    strips.style.cssText = 'display:flex;gap:2px;width:100%';
+    const healthRow = document.createElement('span');
+    healthRow.style.cssText = 'display:flex;align-items:center;gap:4px;width:100%';
+    healthRow.append(bars, healthText);
     button.replaceChildren(label);
-    const entry = { button, label, detail, bars, hp, focus, action };
+    const entry = {
+      button,
+      label,
+      detail,
+      bars,
+      hp,
+      focus,
+      healthText,
+      healthRow,
+      strips,
+      stripFills: new Map<string, HTMLElement>(),
+      action,
+    };
     button.addEventListener('click', () => entry.action());
+    return entry;
+  };
+  const moveControl = (action: () => void): CachedControl => {
+    const entry = cachedControl(action);
+    const fill = document.createElement('span');
+    fill.dataset.moveFill = '';
+    fill.style.cssText =
+      'position:absolute;inset:0;z-index:0;pointer-events:none;transform-origin:bottom;background:#f4efd9';
+    const seconds = document.createElement('span');
+    seconds.dataset.moveSeconds = '';
+    seconds.style.cssText = `position:relative;z-index:1;display:none;font:${secondsFont}`;
+    const name = document.createElement('span');
+    name.dataset.moveName = '';
+    name.style.cssText = `position:relative;z-index:1;font:${nameFont}`;
+    write(entry.button.style, 'position', 'relative');
+    entry.button.replaceChildren(fill, seconds, name);
+    entry.moveFill = fill;
+    entry.moveSeconds = seconds;
+    entry.moveName = name;
     return entry;
   };
   const applyNotice = (entry: CachedControl, id: string, notice: HudState['notice']): boolean => {
@@ -243,6 +314,8 @@ const createHud = (
             ? () => undefined
             : () => actions.selectCreature?.(individual.id);
         const button = entry.button;
+        write(button.style, 'height', '');
+        write(button.style, 'minHeight', `${controlPx}px`);
         const label = standingReserve
           ? name
           : `${name}\n${combatant?.downed ? 'Down' : individual.temperament}`;
@@ -287,7 +360,36 @@ const createHud = (
         }
         if (combatant) {
           write(entry.hp.style, 'width', `${(combatant.hp / combatant.maxHp) * 100}%`);
+          write(entry.hp.style, 'backgroundColor', healthColour(combatant.hp, combatant.maxHp));
           write(entry.focus.style, 'width', `${(combatant.focus / combatant.maxFocus) * 100}%`);
+          text(entry.healthText, `${combatant.hp} / ${combatant.maxHp}`);
+          const repertoire = individual.repertoire;
+          for (const key of entry.stripFills.keys())
+            if (!repertoire.some(({ id }) => id === key)) entry.stripFills.delete(key);
+          for (const move of repertoire) {
+            let fill = entry.stripFills.get(move.id);
+            if (!fill) {
+              const track = document.createElement('i');
+              track.dataset.moveStrip = move.id;
+              track.style.cssText = `display:block;flex:1 1 0;height:${Math.max(3, scale + 1)}px;background:#292b25`;
+              fill = document.createElement('i');
+              fill.style.cssText = 'display:block;width:100%;height:100%;transform-origin:left';
+              track.append(fill);
+              entry.stripFills.set(move.id, fill);
+            }
+            const cooldown = combatant.cooldowns[move.id];
+            const ready =
+              cooldown && cooldown.total > 0 ? 1 - cooldown.remaining / cooldown.total : 1;
+            write(fill.style, 'transform', `scaleX(${ready})`);
+            write(fill.style, 'backgroundColor', ready === 1 ? '#4e7a3c' : '#f4efd9');
+            attribute(fill.parentElement!, 'data-ready', ready === 1 ? '' : undefined);
+          }
+          const tracks = repertoire.map(({ id }) => entry!.stripFills.get(id)!.parentElement!);
+          if (
+            tracks.some((track, index) => entry!.strips.childNodes[index] !== track) ||
+            entry.strips.childNodes.length !== tracks.length
+          )
+            entry.strips.replaceChildren(...tracks);
         }
         const notice = applyNotice(entry, individual.id, state.notice);
         text(entry.label, label);
@@ -295,7 +397,7 @@ const createHud = (
         if (detail !== undefined) text(entry.detail, detail);
         const children: Node[] = [entry.label];
         if (detail !== undefined && !notice) children.push(entry.detail);
-        if (combatant) children.push(entry.bars);
+        if (combatant) children.push(entry.healthRow, entry.strips);
         if (notice) children.push(entry.detail);
         if (
           children.some((child, index) => button.childNodes[index] !== child) ||
@@ -322,7 +424,12 @@ const createHud = (
       }
       const selected = state.party?.find(({ individual }) => individual.id === state.selection);
       const moveKeys = (selected?.individual.repertoire ?? []).map(({ id }) => id);
-      for (const key of moveControls.keys()) if (!moveKeys.includes(key)) moveControls.delete(key);
+      for (const key of moveControls.keys())
+        if (!moveKeys.includes(key)) {
+          const entry = moveControls.get(key)!;
+          if (entry.readyTimer) clearTimeout(entry.readyTimer);
+          moveControls.delete(key);
+        }
       for (const move of selected?.individual.repertoire ?? []) {
         const combatant = state.combat?.party.find((c) => c.id === selected?.individual.id);
         const cooldown = combatant?.cooldowns[move.id];
@@ -330,14 +437,22 @@ const createHud = (
         const armed = state.autopilotMoveId === move.id;
         let entry = moveControls.get(move.id);
         if (!entry) {
-          entry = cachedControl(() => actions.useMove?.(move.id));
+          entry = moveControl(() => actions.useMove?.(move.id));
           moveControls.set(move.id, entry);
         }
         const button = entry.button;
-        text(
-          entry.label,
-          `${move.name}${armed ? ' ↻' : ''}${cooldown?.remaining ? ` ◷${Math.ceil(cooldown.remaining)}` : ''}`,
-        );
+        const cooling = (cooldown?.remaining ?? 0) > 0;
+        const ready = cooldown && cooldown.total > 0 ? 1 - cooldown.remaining / cooldown.total : 1;
+        text(entry.moveName!, `${move.name}${armed ? ' ↻' : ''}`);
+        text(entry.moveSeconds!, cooling ? String(Math.ceil(cooldown!.remaining)) : '');
+        write(entry.moveSeconds!.style, 'display', cooling ? '' : 'none');
+        write(entry.moveFill!.style, 'transform', `scaleY(${ready})`);
+        if (entry.cooling === true && !cooling) {
+          attribute(button, 'data-ready', '');
+          if (entry.readyTimer) clearTimeout(entry.readyTimer);
+          entry.readyTimer = setTimeout(() => attribute(button, 'data-ready'), 600);
+        }
+        entry.cooling = cooling;
         attribute(button, 'data-move-id', move.id);
         write(button.style, 'flex', '1 1 0');
         write(button.style, 'minWidth', '0px');
@@ -364,20 +479,14 @@ const createHud = (
                 : '2px solid #bd7132'
               : '',
         );
-        const children: Node[] = [entry.label];
+        const children: Node[] = [entry.moveFill!, entry.moveSeconds!, entry.moveName!];
         if (notice) children.push(entry.detail);
         if (
           children.some((child, index) => button.childNodes[index] !== child) ||
           button.childNodes.length !== children.length
         )
           button.replaceChildren(...children);
-        write(
-          button.style,
-          'background',
-          cooldown?.remaining
-            ? `linear-gradient(to top,#aaa ${(cooldown.remaining / cooldown.total) * 100}%,#f4efd9ee 0)`
-            : '#f4efd9ee',
-        );
+        write(button.style, 'background', cooling ? '#bab5a0' : '#f4efd9ee');
       }
       const nextMoveOrder = moveKeys.join('\0');
       if (moveOrder !== nextMoveOrder) {
