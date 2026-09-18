@@ -312,6 +312,7 @@ type AiState = { meter: number; behaviour: Behaviour; fleeUntil: number };
 const aiStates = new Map<string, AiState>();
 let arenaState: PickState | null = synthetic ? createPick() : null;
 let encounter: ReturnType<typeof createEncounter> | null = null;
+let swapCursor = 0;
 const autopilot = createAutopilot();
 const orders = createOrderLog();
 const refusal = createRefusalFeedback();
@@ -596,6 +597,7 @@ const beginArena = (state: PickState): void => {
     ),
     enemyTile: { x: enemyTile.tx + 0.5, y: enemyTile.ty + 0.5 },
   });
+  swapCursor = 0;
 };
 let arenaPick: ReturnType<typeof createArenaPick> | null = null;
 if (synthetic)
@@ -699,7 +701,6 @@ const swapSelected = (reserveId: string): boolean => {
   const combat = encounter.state();
   const outcome = swapTapOutcome({
     phase: combat.phase,
-    selection: partyState.selection,
     party: combat.party,
     swapCooldownRemaining: combat.swapCooldown.remaining,
   });
@@ -720,8 +721,9 @@ hudActions.swapIn = (reserveId) => void swapSelected(reserveId);
 window.addEventListener('keydown', (event) => {
   if (shouldIgnoreArenaKey(event, debugConsole.isOpen, guide?.isOpen ?? false)) return;
   if (event.key.toLowerCase() === 's' && encounter) {
-    const reserveId = encounter.state().reserveId;
-    if (reserveId) swapSelected(reserveId);
+    const ids = encounter.state().reserveIds;
+    if (ids.length === 0) return;
+    if (swapSelected(ids[swapCursor % ids.length]!)) swapCursor += 1;
   }
 });
 const render = (alpha = 1) => {
@@ -1054,7 +1056,7 @@ const loop = createLoop({
       }
       if (shouldAskForReserve(combat, reservePrompted)) {
         const reserve = partyState.party.find(
-          ({ individual }) => individual.id === postUpdateCombat.reserveId,
+          ({ individual }) => individual.id === postUpdateCombat.reserveIds[0],
         );
         const reserveName = reserve ? rosterMember(reserve.individual.id)?.name : null;
         if (reserveName) {

@@ -63,7 +63,7 @@ type CombatState = {
     reachTiles: number;
   };
   party: Combatant[];
-  reserveId: string | null;
+  reserveIds: readonly string[];
   swapCooldown: { remaining: number; total: number };
   autoDeployIn: number | null;
   projectiles: Projectile[];
@@ -113,8 +113,9 @@ type Flight = Projectile & {
 };
 
 const shouldAskForReserve = (state: CombatState, alreadyAsked: boolean): boolean => {
-  if (alreadyAsked || state.phase !== 'fight' || !state.reserveId) return false;
-  const reserve = state.party.find(({ id }) => id === state.reserveId);
+  const firstReserve = state.reserveIds[0];
+  if (alreadyAsked || state.phase !== 'fight' || !firstReserve) return false;
+  const reserve = state.party.find(({ id }) => id === firstReserve);
   return Boolean(
     reserve &&
     !reserve.downed &&
@@ -780,7 +781,7 @@ const createEncounter = ({
       party: owned.map((combatant) =>
         publicCombatant(combatant, currentDerived.lineToEnemy.get(combatant.id)!),
       ),
-      reserveId: owned.find((c) => c.benched && !c.downed)?.id ?? null,
+      reserveIds: owned.filter((c) => c.benched && !c.downed).map((c) => c.id),
       swapCooldown: { remaining: swapCooldownRemaining, total: swapCooldownTotal },
       autoDeployIn: autoDeployRemaining === null ? null : Math.max(0, autoDeployRemaining),
       projectiles: flights.map((p) => ({

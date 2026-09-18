@@ -104,7 +104,7 @@ const combatState = (party = [creature('a')]): CombatState => {
     elapsed: 1,
     enemy: member(creature('enemy')),
     party: party.map((entry, index) => member(entry, index === 2)),
-    reserveId: party[2]?.individual.id ?? null,
+    reserveIds: party[2] ? [party[2].individual.id] : [],
     autoDeployIn: null,
     swapCooldown: { remaining: 0, total: 6 },
     projectiles: [],
@@ -365,7 +365,7 @@ describe('thumb HUD', () => {
       elapsed: 1,
       enemy: combatant,
       party: [combatant],
-      reserveId: null,
+      reserveIds: [],
       autoDeployIn: null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
@@ -419,7 +419,7 @@ describe('thumb HUD', () => {
       elapsed: 1,
       enemy: combatant(creature('enemy')),
       party: party.map((member, index) => ({ ...combatant(member), benched: index > 0 })),
-      reserveId: 'Quill',
+      reserveIds: ['Quill', 'Pip'],
       autoDeployIn: null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
@@ -486,7 +486,7 @@ describe('thumb HUD', () => {
       elapsed: 0,
       enemy: combatant(creature('enemy')),
       party: [combatant(party[0]!), combatant(party[1]!, true), combatant(party[2]!, true)],
-      reserveId: 'Quill',
+      reserveIds: ['Quill', 'Pip'],
       autoDeployIn: null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
@@ -535,7 +535,7 @@ describe('thumb HUD', () => {
         elapsed: 0,
         enemy: member(creature('enemy')),
         party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
-        reserveId: 'Pip',
+        reserveIds: ['Pip'],
         autoDeployIn: null,
         swapCooldown: { remaining: 0, total: 6 },
         projectiles: [],
@@ -575,7 +575,7 @@ describe('thumb HUD', () => {
         elapsed: 0,
         enemy: member(creature('enemy')),
         party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
-        reserveId: 'reserve',
+        reserveIds: ['reserve'],
         autoDeployIn: null,
         swapCooldown: { remaining: 4.2, total: 6 },
         projectiles: [],
@@ -637,7 +637,7 @@ describe('thumb HUD', () => {
       elapsed: 1,
       enemy: { ...member(creature('enemy')), reachTiles: 1.25 },
       party: [member(party[0]!), member(party[1]!), member(party[2]!, true)],
-      reserveId: 'reserve',
+      reserveIds: ['reserve'],
       autoDeployIn: options.autoDeployIn ?? null,
       swapCooldown: { remaining: 0, total: 6 },
       projectiles: [],
@@ -658,9 +658,9 @@ describe('thumb HUD', () => {
     expect(document.querySelector('[data-reserve] small')?.textContent).toBe('Coming in… 2');
   });
   it('shows a reason on the card that was tapped', () => {
-    reserveHud({ notice: { id: 'reserve', text: 'Pick who to swap out', refused: false } });
+    reserveHud({ notice: { id: 'reserve', text: 'Nobody in reserve', refused: false } });
     expect(document.querySelector('[data-reserve]')?.getAttribute('data-notice')).toBe(
-      'Pick who to swap out',
+      'Nobody in reserve',
     );
   });
   it('flashes a dashed outline and reason on a refused move', () => {
@@ -712,7 +712,7 @@ describe('thumb HUD', () => {
         elapsed: 1,
         enemy: { ...combatant(creature('enemy')), reachTiles: 1.25 },
         party: [combatant(party[0]!), combatant(party[1]!), combatant(party[2]!, true)],
-        reserveId: 'reserve',
+        reserveIds: ['reserve'],
         autoDeployIn: null,
         swapCooldown: { remaining: 0, total: 6 },
         projectiles: [],
