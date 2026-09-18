@@ -8,6 +8,8 @@ const table: Record<HideType, readonly [Force, Force]> = {
   Hide: ['Cut', 'Surge'],
   Stone: ['Surge', 'Impact'],
 };
+const WEAKNESS_MULTIPLIER = 1.6;
+const RESISTANCE_MULTIPLIER = 0.6;
 const weakness = (hide: HideType): Force => table[hide][0];
 const resistance = (hide: HideType): Force => table[hide][1];
 const shrugsOffLine = (hide: HideType): string => `shrugs off ${resistance(hide)}`;
@@ -16,5 +18,17 @@ const shrugsOffLine = (hide: HideType): string => `shrugs off ${resistance(hide)
 const hideLine = (hide: HideType): string =>
   `${hide === 'Hide' ? 'Hide' : `${hide} hide`} — ${shrugsOffLine(hide)}, fears ${weakness(hide)}`;
 const hideMultiplier = (hide: HideType, force: Force): number =>
-  force === weakness(hide) ? 1.6 : force === resistance(hide) ? 0.6 : 1;
-export { hideLine, hideMultiplier, resistance, shrugsOffLine, weakness };
+  force === weakness(hide)
+    ? WEAKNESS_MULTIPLIER
+    : force === resistance(hide)
+      ? RESISTANCE_MULTIPLIER
+      : 1;
+export {
+  hideLine,
+  hideMultiplier,
+  resistance,
+  RESISTANCE_MULTIPLIER,
+  shrugsOffLine,
+  weakness,
+  WEAKNESS_MULTIPLIER,
+};

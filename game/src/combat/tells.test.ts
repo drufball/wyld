@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CombatEvent } from './encounter.js';
+import { hideMultiplier, resistance, weakness } from './hides.js';
+import type { Force } from './moves.js';
 import { createTellStack, tellsFromEvents } from './tells.js';
 
 const hit = (hideMult: number): CombatEvent => ({
@@ -18,6 +20,20 @@ const enemyHit = (hideMult: number): CombatEvent => ({
 });
 
 describe('combat tells', () => {
+  it("shows a tell for every hide's weakness and resistance", () => {
+    const hides = ['Bark', 'Shell', 'Scale', 'Hide', 'Stone'] as const;
+    const forces: Force[] = ['Impact', 'Cut', 'Heat', 'Surge'];
+    for (const hide of hides) {
+      expect(read(hideMultiplier(hide, weakness(hide)))[0]?.kind).toBe('heavy');
+      expect(read(hideMultiplier(hide, resistance(hide)))[0]?.kind).toBe('glance');
+      const neutral = forces.find(
+        (force) => force !== weakness(hide) && force !== resistance(hide),
+      );
+      expect(neutral).toBeDefined();
+      expect(read(hideMultiplier(hide, neutral!))).toEqual([]);
+    }
+  });
+
   it('raises a glance tell when a resisted move hits', () =>
     expect(read(0.6)).toEqual([{ kind: 'glance', text: 'Glances off', targetId: 'enemy' }]));
   it('raises a heavy-damage tell when a weak force lands', () =>

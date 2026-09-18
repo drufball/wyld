@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CombatEvent } from '../combat/encounter.js';
-import type { Move } from '../combat/moves.js';
+import { hideMultiplier, resistance, weakness } from '../combat/hides.js';
+import type { Force, Move } from '../combat/moves.js';
 import { createEmptyNotebook } from '../guide/notebook.js';
 import { learnFromCombat } from './learning.js';
 
@@ -19,6 +20,8 @@ const heat: Move = {
 };
 const cut: Move = { ...heat, id: 'thornwren:cut', name: 'Cut', force: 'Cut' };
 const rush: Move = { ...heat, id: 'antlerback:bull-rush', name: 'Bull Rush', force: 'Impact' };
+const surge: Move = { ...heat, id: 'rillfin:surge', name: 'Surge', force: 'Surge' };
+const moves = [heat, cut, rush, surge];
 const run = (events: CombatEvent[], notebook = createEmptyNotebook(), extra = {}) => ({
   notebook,
   facts: learnFromCombat({
@@ -26,7 +29,7 @@ const run = (events: CombatEvent[], notebook = createEmptyNotebook(), extra = {}
     events,
     enemySpeciesId: 'antlerback',
     enemyId: 'antlerback',
-    moves: [heat, cut, rush],
+    moves,
     ownedIds: ['emberjack', 'thornwren'],
     hide: 'Bark',
     temperament: 'Bold',
@@ -35,6 +38,68 @@ const run = (events: CombatEvent[], notebook = createEmptyNotebook(), extra = {}
 });
 
 describe('arena learning', () => {
+  it('records a weakness and a resistance straight off the hide table', () => {
+    const hides = ['Bark', 'Shell', 'Scale', 'Hide', 'Stone'] as const;
+    const forces: Force[] = ['Impact', 'Cut', 'Heat', 'Surge'];
+    const moveFor = (force: Force): Move => moves.find((move) => move.force === force)!;
+    for (const hide of hides) {
+      const weakForce = weakness(hide);
+      const weakMove = moveFor(weakForce);
+      expect(
+        run(
+          [
+            {
+              type: 'hit',
+              attacker: 'emberjack',
+              target: 'antlerback',
+              move: weakMove.id,
+              hideMult: hideMultiplier(hide, weakForce),
+            },
+          ],
+          createEmptyNotebook(),
+          { hide },
+        ).notebook.page('antlerback')?.weakness,
+      ).toBe(weakForce);
+
+      const resistedForce = resistance(hide);
+      const resistedMove = moveFor(resistedForce);
+      expect(
+        run(
+          [
+            {
+              type: 'hit',
+              attacker: 'emberjack',
+              target: 'antlerback',
+              move: resistedMove.id,
+              hideMult: hideMultiplier(hide, resistedForce),
+            },
+          ],
+          createEmptyNotebook(),
+          { hide },
+        ).notebook.page('antlerback')?.resistance,
+      ).toBe(resistedForce);
+
+      const neutralForce = forces.find((force) => force !== weakForce && force !== resistedForce);
+      expect(neutralForce).toBeDefined();
+      const neutralMove = moveFor(neutralForce!);
+      const page = run(
+        [
+          {
+            type: 'hit',
+            attacker: 'emberjack',
+            target: 'antlerback',
+            move: neutralMove.id,
+            hideMult: hideMultiplier(hide, neutralForce!),
+          },
+        ],
+        createEmptyNotebook(),
+        { hide },
+      ).notebook.page('antlerback');
+      expect(page?.weakness).toBeNull();
+      expect(page?.resistance).toBeNull();
+    }
+  });
+
   it('records the hide on the first landed hit', () =>
     expect(
       run([

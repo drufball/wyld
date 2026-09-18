@@ -1,4 +1,5 @@
 import type { CombatEvent } from './encounter.js';
+import { RESISTANCE_MULTIPLIER, WEAKNESS_MULTIPLIER } from './hides.js';
 
 type CombatTell = {
   kind: 'glance' | 'heavy' | 'ignored';
@@ -19,9 +20,9 @@ const tellsFromEvents = (
     const enemyHitParty =
       event.attacker === options.enemyId && options.ownedIds.includes(event.target);
     if (!partyHitEnemy && !enemyHitParty) return [];
-    if (event.hideMult === 0.6)
+    if (event.hideMult === RESISTANCE_MULTIPLIER)
       return [{ kind: 'glance', text: 'Glances off', targetId: event.target }];
-    if (event.hideMult === 1.6)
+    if (event.hideMult === WEAKNESS_MULTIPLIER)
       return [{ kind: 'heavy', text: 'Heavy damage', targetId: event.target }];
     return [];
   });
