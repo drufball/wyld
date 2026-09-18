@@ -431,3 +431,74 @@ A CDP screenshot was captured 5.0 s into the fight (played).
 - **Before (`simulated`):** The pixel painters and mesh builders were two independent lists with no runtime check.
 - **After (`simulated`):** 8 painters = 8 builders = 8 `BODY_PLANS`, asserted by `keeps the body-plan ids identical between the sprite painters and the mesh builders`.
 - **Control (`simulated`):** Added a fake `'phantom'` id to the mesh-builder record, ran `pnpm --filter @wyld/game test`, watched the new test fail, then removed it: `AssertionError: expected [ 'amphibious', 'avian', …(6) ] to deeply equal [ 'amphibious', 'avian', …(7) ]`.
+
+## Harness speed parity
+
+All results in this section are **simulated**. Pace samples were recorded at machine load average
+`0.20, 0.47, 0.32` (`uptime`, 2026-09-18 UTC). The straight approach covers eight tiles (the
+nearest whole-tile walk long enough to keep the controller's absolute final-arrival snap below 2%
+of the sample). “Ratio” divides the measured speed by the rule.
+
+| Driver (simulated) | Speed | Rule (tiles/s) | Rule/tick | Distance | Ticks | Moving | Stalled | Median non-zero/tick | Max/tick | Whole-walk tiles/s | Whole ratio | Moving tiles/s | Moving ratio | Load average     |
+| ------------------ | ----: | -------------: | --------: | -------: | ----: | -----: | ------: | -------------------: | -------: | -----------------: | ----------: | -------------: | -----------: | ---------------- |
+| controller-only    |     4 |       1.350000 |  0.022500 | 8.000000 |   350 |    350 |       0 |             0.022500 | 0.235000 |           1.371429 |    1.015873 |       1.371429 |     1.015873 | 0.20, 0.47, 0.32 |
+| harness-shaped     |     4 |       1.350000 |  0.022500 | 8.000000 |   360 |    360 |       0 |             0.022500 | 0.022500 |           1.333333 |    0.987654 |       1.333333 |     0.987654 | 0.20, 0.47, 0.32 |
+| controller-only    |     7 |       1.800000 |  0.030000 | 8.000000 |   265 |    265 |       0 |             0.030000 | 0.220000 |           1.811321 |    1.006289 |       1.811321 |     1.006289 | 0.20, 0.47, 0.32 |
+| harness-shaped     |     7 |       1.800000 |  0.030000 | 8.000000 |   272 |    272 |       0 |             0.030000 | 0.030000 |           1.764706 |    0.980392 |       1.764706 |     0.980392 | 0.20, 0.47, 0.32 |
+
+The controller-only and game/harness-shaped drivers therefore both execute ordinary moving ticks at
+the rule displacement (their medians are exactly 0.0225 and 0.03 tiles). The shaped driver's small
+whole-sample deficit comes from continuously flooring formation destinations to tile centres; the
+controller-only surplus comes from the absolute final-leg snap. This uninterrupted sample has no
+stalled ticks. It does not reproduce 1.35 tiles/s at speed 7: that figure folds kite reversals,
+wind-ups, and arrival/re-path intervals into an uptime average rather than measuring walking pace.
+The harness-shaped speed-7 whole-sample ratio is only 0.0004 above the 2% floor because the desired
+tile is `Math.floor`-ed, so that deliberately thin aggregate band is paired with the per-tick invariant.
+
+**Played (measured by the project lead on the factory host, not in CI):** the built game from
+`game/dist` served over HTTP and driven in headless Chromium at 375 × 812,
+`?scenario=arena&look=flat&debug=1`, fight started with
+`__wyld.debug('fight antlerback thornwren,emberjack,loamox')`, `__wyld.getState()` sampled every
+animation frame for 900 samples = 449 fixed steps = 7.483 s. Machine load average
+`1.41, 1.29, 1.30` (12 cores). Thornwren (speed 7, rule 1.8 t/s) travelled 8.4142 tiles; 229 of
+449 ticks moved and 220 were stalled; median moving displacement 0.0299999999999994 tiles/tick,
+exactly `arenaSpeedTilesPerSecond(7) / 60`; maximum 0.244213 tiles/tick, the
+`Math.max(step, 0.25)` arrival snap; mean 1.1244 t/s over wall clock and 2.2046 t/s over moving
+ticks. Emberjack and Loamox never moved — arena combat has been one-out, two-reserve since #375,
+so only the active creature is driven.
+
+Together, the played game and harness execute the identical per-tick displacement, while the played
+game has the same 49% stalled-tick duty cycle: 1.35 t/s is an averaging property of a kite in either,
+not a harness defect.
+
+**Control (simulated)** — load average `0.20, 0.47, 0.32`: temporarily multiplying the controller
+step by `0.9` made the named test fail on the measurement path with
+`AssertionError: {"driver":"controller-only","speed":4,"rule":1.35,"rulePerTick":0.022500000000000003,"distance":8,"ticks":389,"movingTicks":389,"stalledTicks":0,"medianMovingDisplacement":0.020250000000000767,"maxDisplacement":0.23049999999998327,"meanSpeed":1.2339331619537275,"meanSpeedRatio":0.9140245644101684,"movingMeanSpeed":1.2339331619537275,"movingMeanSpeedRatio":0.9140245644101684}: expected 0.020250000000000767 to be close to 0.022500000000000003, received difference is 0.0022499999999992353, but expected 5e-10`.
+`controller.ts` was then restored exactly.
+
+### Balance table before (main)
+
+Simulated at load average `2.43, 0.95, 0.36`. Each cell is `phase / elapsed seconds / enemy HP`.
+
+| Preset / party / policy   | Seed 1                    | Seed 2                    | Seed 3                    | Seed 4                    | Seed 5                    |
+| ------------------------- | ------------------------- | ------------------------- | ------------------------- | ------------------------- | ------------------------- |
+| fast / informed / armed   | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          |
+| fast / informed / none    | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          |
+| fast / uninformed / none  | driven-off / 24.850 / 124 | driven-off / 24.850 / 124 | driven-off / 24.850 / 124 | driven-off / 24.817 / 124 | driven-off / 24.850 / 124 |
+| trade / informed / armed  | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          |
+| trade / informed / none   | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          |
+| trade / uninformed / none | driven-off / 38.983 / 304 | driven-off / 40.900 / 304 | driven-off / 38.983 / 304 | driven-off / 41.183 / 299 | driven-off / 38.983 / 304 |
+
+### Balance table after (branch)
+
+Simulated at load average `0.13, 0.38, 0.30`. Since parity testing found no harness defect, no
+harness production code changed; rerunning the deterministic cases produced the same table.
+
+| Preset / party / policy   | Seed 1                    | Seed 2                    | Seed 3                    | Seed 4                    | Seed 5                    |
+| ------------------------- | ------------------------- | ------------------------- | ------------------------- | ------------------------- | ------------------------- |
+| fast / informed / armed   | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          |
+| fast / informed / none    | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          | win / 14.033 / 0          |
+| fast / uninformed / none  | driven-off / 24.850 / 124 | driven-off / 24.850 / 124 | driven-off / 24.850 / 124 | driven-off / 24.817 / 124 | driven-off / 24.850 / 124 |
+| trade / informed / armed  | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          |
+| trade / informed / none   | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          | win / 35.667 / 0          |
+| trade / uninformed / none | driven-off / 38.983 / 304 | driven-off / 40.900 / 304 | driven-off / 38.983 / 304 | driven-off / 41.183 / 299 | driven-off / 38.983 / 304 |
