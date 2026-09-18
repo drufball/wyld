@@ -25,7 +25,13 @@ type FormationCreature = {
   home: Point;
   hp: number;
   maxHp: number;
-  moves: readonly { rangeTiles: number; power: number; ready: boolean; ranged: boolean }[];
+  moves: readonly {
+    rangeTiles: number;
+    power: number;
+    cooldownTotal: number;
+    ready: boolean;
+    ranged: boolean;
+  }[];
   wander: Wander;
 };
 type FormationInput = {
@@ -52,15 +58,46 @@ const unit = (from: Point, to: Point, fallback = { x: 0, y: -1 }): Point => {
   return d ? { x: dx / d, y: dy / d } : fallback;
 };
 
-const kiteFrom = (
+const bestMoveFor = (temperament: Temperament, moves: FormationCreature['moves']) => {
+  const pool = [...moves];
+  if (temperament === 'Skittish')
+    pool.sort((a, b) => b.rangeTiles - a.rangeTiles || b.power - a.power);
+  else if (temperament === 'Steady')
+    pool.sort((a, b) => a.cooldownTotal - b.cooldownTotal || a.power - b.power);
+  else pool.sort((a, b) => b.power - a.power || b.rangeTiles - a.rangeTiles);
+  return pool[0];
+};
+
+const ringFor = (
+  temperament: Temperament,
+  moves: FormationCreature['moves'],
+  opposingReach: number,
+): number | null => {
+  const best = bestMoveFor(temperament, moves);
+  if (!best?.ranged) return null;
+  // The ring is the kite line, one tile outside the hold-the-shot release line, so a shooter can
+  // finish its windup before the heavy arrives. It is 3.5 tiles against the explainer's Strike-only
+  // heavy (reachTiles 1.25), and 4.25 against the arena Antlerback (foeReach 2.0 from its 4 m Rake
+  // Sweep): the difference is the enemy's reach, not the move's. The move's own reach binds only
+  // when shorter, hence Math.min; a ring below the release line cannot support ranged formation.
+  const ring = Math.min(best.rangeTiles - 0.5, opposingReach + KITE_MARGIN_TILES);
+  return ring < opposingReach + SHOT_RELEASE_MARGIN_TILES ? null : ring;
+};
+
+const ringTolerances: Record<Temperament, { outer: number; inner: number }> = {
+  Skittish: { outer: 0.3, inner: 0.6 },
+  Erratic: { outer: 0.3, inner: 0.6 },
+  Steady: { outer: 0.6, inner: 1.2 },
+  Bold: { outer: 0.6, inner: 1.2 },
+};
+
+const stepAway = (
   creature: FormationCreature,
   enemy: Point,
-  enemyReach: number,
+  maximumDistance: number,
   isWalkable: (tx: number, ty: number) => boolean,
-): Point | null => {
-  const ranged = creature.moves.filter((move) => move.ranged);
+): Point => {
   const currentDistance = distance(creature.tile, enemy);
-  if (ranged.length === 0 || !kiteHolds(currentDistance, enemyReach)) return null;
   const away = unit(enemy, creature.tile);
   for (const angle of [0, Math.PI / 4, -Math.PI / 4]) {
     const cos = Math.cos(angle);
@@ -74,10 +111,52 @@ const kiteFrom = (
     if (
       isWalkable(Math.floor(candidate.x), Math.floor(candidate.y)) &&
       candidateDistance > currentDistance &&
-      candidateDistance <= Math.max(...ranged.map((move) => move.rangeTiles)) &&
+      candidateDistance <= maximumDistance &&
       lineClear(candidate, enemy, isWalkable)
     )
       return candidate;
+  }
+  return centre(creature.tile);
+};
+
+const kiteFrom = (
+  creature: FormationCreature,
+  enemy: Point,
+  enemyReach: number,
+  isWalkable: (tx: number, ty: number) => boolean,
+): Point | null => {
+  const ranged = creature.moves.filter((move) => move.ranged);
+  const currentDistance = distance(creature.tile, enemy);
+  if (ranged.length === 0 || !kiteHolds(currentDistance, enemyReach)) return null;
+  return stepAway(creature, enemy, Math.max(...ranged.map((move) => move.rangeTiles)), isWalkable);
+};
+
+const ringTarget = (
+  creature: FormationCreature,
+  enemy: Point,
+  enemyReach: number,
+  isWalkable: (tx: number, ty: number) => boolean,
+): Point | null => {
+  if (creature.temperament === 'Erratic' && (creature.wander?.remaining ?? 0) > 0) return null;
+  const ring = ringFor(creature.temperament, creature.moves, enemyReach);
+  if (ring === null) return null;
+  const currentDistance = distance(creature.tile, enemy);
+  const tolerance = ringTolerances[creature.temperament];
+  if (currentDistance < ring - tolerance.outer || kiteHolds(currentDistance, enemyReach)) {
+    return (
+      kiteFrom(creature, enemy, enemyReach, isWalkable) ??
+      stepAway(creature, enemy, ring + 0.5, isWalkable)
+    );
+  }
+  if (currentDistance > ring + tolerance.inner && !kiteHolds(currentDistance, enemyReach)) {
+    const toward = unit(creature.tile, enemy);
+    const candidate = centre({
+      x: creature.tile.x + toward.x * KITE_STEP_TILES,
+      y: creature.tile.y + toward.y * KITE_STEP_TILES,
+    });
+    return isWalkable(Math.floor(candidate.x), Math.floor(candidate.y))
+      ? candidate
+      : centre(creature.tile);
   }
   return centre(creature.tile);
 };
@@ -88,7 +167,9 @@ const formation = (input: FormationInput): FormationOutput => {
   const desired = input.creatures.map((creature): FormationOutput[number] => {
     let target: Point;
     let wander = creature.wander;
-    if (creature.temperament === 'Skittish') {
+    const ring = ringTarget(creature, input.enemy, input.enemyReach, input.isWalkable);
+    if (ring) target = ring;
+    else if (creature.temperament === 'Skittish') {
       const kite = kiteFrom(creature, input.enemy, input.enemyReach, input.isWalkable);
       const holds =
         distance(creature.tile, input.player) <= 2 &&
@@ -185,6 +266,9 @@ export {
   kiteHolds,
   KITE_MARGIN_TILES,
   KITE_STEP_TILES,
+  bestMoveFor,
+  ringFor,
+  ringTarget,
   shotHolds,
   SHOT_RELEASE_MARGIN_TILES,
   TAP_OVERRIDE_SECONDS,

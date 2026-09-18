@@ -363,6 +363,31 @@ describe('combat encounter', () => {
     expect(makeSubject(1).state().enemy.reachTiles).toBe(1.25);
   });
 
+  it('settles a lone Skittish shooter within its ring instead of running to the map edge', () => {
+    const start = { x: 0.5, y: 8.5 };
+    const heavyStart = { x: 0.5, y: -0.5 };
+    const kiter = fighter('kiter', [move('Bolt')], {
+      temperament: 'Skittish',
+      stats: { vigor: 45, power: 3, speed: 7, focus: 45 },
+    });
+    const subject = setup({
+      party: [kiter],
+      enemy: fighter('heavy', [move('Strike')], {
+        temperament: 'Bold',
+        stats: { vigor: 200, power: 5, speed: 4, focus: 55 },
+      }),
+      partyTiles: { kiter: start },
+      enemyTile: heavyStart,
+      player: { x: 0.5, y: 1.5 },
+      rng: createRng(339),
+      reserve: '',
+    });
+    driveIdleParty(subject, 10, { x: 0.5, y: 1.5 }, { kiter: 7 });
+    const separation = distanceForTest(subject.state().party[0]!.tile, subject.state().enemy.tile);
+    expect(separation).toBeGreaterThanOrEqual(3.2);
+    expect(separation).toBeLessThanOrEqual(4.1);
+  });
+
   it('keeps a heavy off a kiting Bolt-holder for ten seconds while the kiter lands three Bolts', () => {
     const start = { x: 0.5, y: 3.5 };
     const heavyStart = { x: 0.5, y: -0.5 };
@@ -411,6 +436,23 @@ describe('combat encounter', () => {
     expect(
       driveIdleParty(subject, 10).events.some(
         (event) => event.type === 'hit' && event.attacker === 'enemy',
+      ),
+    ).toBe(true);
+  });
+
+  it('lets the Antlerback approach an idle party from fight-start distance and land a hit', () => {
+    const foe = antlerback();
+    const subject = setup({
+      party: [fighter('owned', [move('Strike')], { temperament: 'Steady' })],
+      enemy: foe,
+      partyTiles: { owned: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 0.5, y: -5.5 },
+      player: { x: 0.5, y: 3.5 },
+      reserve: '',
+    });
+    expect(
+      driveIdleParty(subject, 10).events.some(
+        (event) => event.type === 'hit' && event.attacker === foe.id,
       ),
     ).toBe(true);
   });
@@ -530,7 +572,7 @@ describe('combat encounter', () => {
       partyTiles: {
         loamox: { x: -5, y: 5 },
         bramblehog: { x: 5, y: 5 },
-        thornwren: { x: 0, y: -3 },
+        thornwren: { x: 0, y: 3 },
       },
     });
     const paths = Object.fromEntries(party.map(({ id }) => [id, 0]));
@@ -545,7 +587,7 @@ describe('combat encounter', () => {
         }
       },
     );
-    // Simulated at 60 Hz: Barrow 8.12, Quill 17.84, Pip 3.06 tiles; resolved in 20.05 s.
+    // Simulated at 60 Hz: Barrow 7.98, Quill 24.13, Pip 13.98 tiles; resolved in 45.78 s.
     expect(Object.values(paths).every((path) => path >= 3)).toBe(true);
     expect(subject.state().phase).not.toBe('fight');
     expect(ticks / 60).toBeLessThan(60);

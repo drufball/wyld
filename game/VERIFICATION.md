@@ -153,6 +153,37 @@ Skittish chooser rule once Pip was the enemy's target. The FAST uninformed bound
 re-shaped to require every seed under 30 s and at least four of five under 20 s because of the
 two-branch measurement, not merely because of the failing run.
 
+### Arena — ranged creatures keep their range
+
+**Simulated:** measured at 60 Hz over seeds 1–5 on this 12-core runner at load 0.58
+(≈0.05/core), using the `balance.test.ts` harness. The ring is derived from the kite line, capped
+by the move's own reach, and is null when that cap falls below the hold-the-shot release line.
+Put plainly, **the ring is the kite line**: against a Strike-only heavy (`reachTiles` 1.25, the
+heavy drawn by the explainer's mockup) it is **3.5 tiles**; against the arena Antlerback, whose
+Rake is a Sweep with 4 m range and therefore gives `foeReach` 2.0, it is **4.25 tiles**. That
+difference comes from the enemy's reach, not the shooter's move. The move's own reach binds only
+when it is shorter, which is why the cap is a `Math.min`.
+
+Two measurements determined the design:
+
+- “Best-scoring move” considers the creature's whole repertoire, not only moves ready on this
+  tick. The ready filter made Bold Grit become a ranged ring-keeper whenever Mandible was cooling
+  and took FAST informed from **7.60 s to 17.92 s**.
+- The kite-line ring is capped by the move's own reach. Using literal `reach − 0.5` parked a Bolt
+  user 9.5 tiles away across the 11 × 22 arena and took TRADE informed from **35.67 s to 60.02 s**.
+
+The “before” column is the reviewed branch before these corrections; “after” is this branch with
+the whole-repertoire choice and capped kite-line ring. Durations are the range across five seeds.
+
+| preset / party / policy | before (reviewed branch) | after (this branch)      |
+| ----------------------- | ------------------------ | ------------------------ |
+| FAST informed armed     | win 17.92 s              | win 7.60 s               |
+| FAST informed none      | win 17.92 s              | win 7.60 s               |
+| FAST uninformed         | driven off 14.70–14.73 s | driven off 14.70–14.73 s |
+| TRADE informed armed    | win 34.97 s / 3 swaps    | win 35.67 s / 2 swaps    |
+| TRADE informed none     | win 34.63 s / 3 swaps    | win 35.67 s / 2 swaps    |
+| TRADE uninformed        | driven off 35.85–36.37 s | driven off 35.85–36.37 s |
+
 ## Diorama
 
 - **PASS (`simulated`) — HUD writes on change:** jsdom mutation tests verified an identical update makes no tray mutations, cooldown and downed-state changes preserve button identity, and reserve-state changes preserve the other party cards.
