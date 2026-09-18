@@ -1,11 +1,23 @@
 # shellcheck shell=bash
-# Sourced by factory-up.sh and factory-doctor.sh after .factory/env is loaded.
-# Expects WAKE_PORT and PLANNER_MODE to be set.
+# Shared by the factory lifecycle scripts.
+# Expects WAKE_PORT and PLANNER_MODE to be set before commands or preparation run.
 
 factory_window_names() {
   printf '%s\n' server wake pak ops webhook planner
   if [[ "$(uname -s)" == Darwin ]]; then
     printf '%s\n' caffeinate
+  fi
+}
+
+factory_window_prepare() {
+  if [[ "$1" != planner ]]; then
+    return 0
+  fi
+
+  if [[ "$PLANNER_MODE" == host ]]; then
+    pnpm --filter @wyld/wake... --filter @wyld/planner-host... build
+  else
+    pnpm --filter @wyld/wake... build
   fi
 }
 

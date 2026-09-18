@@ -15,6 +15,12 @@ GitHub webhook forwarder (`webhook`), Planner (`planner`), and macOS sleep preve
 to run it directly in Claude Code instead. Attach with `tmux attach -t wyld`.
 
 Run `pnpm factory:doctor` to diagnose dependencies, credentials, services, ports, and tmux windows.
+Restart exactly one window with the command `factory-up.sh` would use by running
+`pnpm factory:restart <window>`; valid names are `server`, `wake`, `pak`, `ops`, `webhook`, and
+`planner` (plus `caffeinate` on macOS). Pass `--dry-run` to preview the preparation and respawn
+commands without running them. Restarting `planner` also takes down Wake, so no leads may be
+running; the planner window is rebuilt before it is respawned. The `ops` process now runs under
+`tsx watch` in development, so merged ops changes are picked up without a restart.
 Stop every factory window with `pnpm factory:down`.
 
 The Planner uses the channels research-preview development flag required for the local Wake MCP

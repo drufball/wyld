@@ -64,7 +64,7 @@ tmux new-window -d -t wyld -n webhook -c "$PWD" "$(factory_window_command webhoo
 started+=(webhook)
 
 if [[ "$PLANNER_MODE" == host ]]; then
-  if pnpm --filter @wyld/wake... --filter @wyld/planner-host... build; then
+  if factory_window_prepare planner; then
     tmux new-window -d -t wyld -n planner -c "$PWD" "$(factory_window_command planner)"
     started+=(planner)
   else
@@ -72,7 +72,7 @@ if [[ "$PLANNER_MODE" == host ]]; then
     skipped+=('planner (@wyld/wake or @wyld/planner-host build failed)')
   fi
 else
-  if pnpm --filter @wyld/wake... build; then
+  if factory_window_prepare planner; then
     tmux new-window -d -t wyld -n planner -c "$PWD" "$(factory_window_command planner)"
     started+=(planner)
   else
