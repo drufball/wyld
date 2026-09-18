@@ -12,6 +12,7 @@ import {
 import { canAfford, damage, deliveries } from './resolve.js';
 import { arenaSpeedTilesPerSecond } from './pace.js';
 import { MIN_SEPARATION_TILES } from './spacing.js';
+import { TAP_OVERRIDE_SECONDS } from './formation.js';
 import { choiceInputFrom, createChooser } from './choice.js';
 import { createRng } from '../engine/rng.js';
 import { ARENA_BALANCE_PRESETS } from './balance.js';
@@ -361,6 +362,105 @@ describe('combat encounter', () => {
     expect(makeSubject(0).state().party[0]!.lineToEnemy).toBe(false);
     expect(makeSubject(1).state().party[0]!.lineToEnemy).toBe(true);
     expect(makeSubject(1).state().enemy.reachTiles).toBe(1.25);
+  });
+
+  it('derives line of sight and the threat target once per tick', () => {
+    let walkabilityChecks = 0;
+    const subject = setup({
+      grid: {
+        isWalkable: () => {
+          walkabilityChecks += 1;
+          return true;
+        },
+      },
+      reserve: '',
+    });
+    subject.update(1 / 60);
+    walkabilityChecks = 0;
+
+    for (let call = 0; call < 10; call += 1) subject.state();
+
+    expect(walkabilityChecks).toBeLessThanOrEqual(20);
+  });
+
+  it('hands out an independent snapshot on every call', () => {
+    const subject = setup({ enemyTile: { x: 1, y: 0 }, reserve: '' });
+    expect(subject.useMove('owned', 'strike')).toBe(true);
+    subject.update(10);
+    const first = subject.state();
+    const second = subject.state();
+
+    expect(first).toEqual(second);
+    expect(first).not.toBe(second);
+    expect(first.party[0]).not.toBe(second.party[0]);
+    expect(first.party[0]!.tile).not.toBe(second.party[0]!.tile);
+    expect(first.party[0]!.cooldowns).not.toBe(second.party[0]!.cooldowns);
+    expect(first.flashes[0]).not.toBe(second.flashes[0]);
+    first.party[0]!.tile.x = 999;
+    first.party[0]!.cooldowns.strike!.remaining = 999;
+    first.flashes[0]!.remaining = 999;
+
+    expect(subject.state()).toEqual(second);
+  });
+
+  it('invalidates derived state after swap', () => {
+    const subject = setup({
+      party: [fighter('outgoing', [move('Strike')]), fighter('incoming', [move('Strike')])],
+      partyTiles: { outgoing: { x: 0.5, y: 0.5 }, incoming: { x: 9.5, y: 9.5 } },
+      enemyTile: { x: 6.5, y: 0.5 },
+      grid: { isWalkable: (x, y) => !(x === 3 && y === 0) },
+      out: 'outgoing',
+      reserve: 'incoming',
+    });
+    subject.state();
+
+    expect(subject.swap('outgoing', 'incoming')).toBe(true);
+    expect(subject.state().party.find(({ id }) => id === 'incoming')).toMatchObject({
+      tile: { x: -0.5, y: 0.5 },
+      lineToEnemy: false,
+    });
+  });
+
+  it('invalidates derived state after useMove, override, and heal', () => {
+    const subject = setup({ enemyTile: { x: 1, y: 0 }, reserve: '' });
+    subject.state();
+    expect(subject.useMove('owned', 'strike')).toBe(true);
+    expect(subject.state().party[0]).toMatchObject({
+      windup: { moveId: 'strike', progress: 0 },
+      approaching: false,
+    });
+
+    const overrideSubject = setup({ reserve: '' });
+    overrideSubject.state();
+    overrideSubject.override('owned');
+    expect(overrideSubject.state().party[0]!.overrideRemaining).toBe(TAP_OVERRIDE_SECONDS);
+
+    const healSubject = setup({
+      enemy: fighter('enemy', [move('Strike')], {
+        stats: { vigor: 70, power: 3, speed: 4, focus: 40 },
+      }),
+      enemyTile: { x: 1, y: 0 },
+      reserve: '',
+    });
+    expect(healSubject.useMove('enemy', 'strike', 'owned')).toBe(true);
+    healSubject.update(10);
+    expect(healSubject.state().party[0]!.hp).toBeLessThan(healSubject.state().party[0]!.maxHp);
+    healSubject.heal();
+    expect(healSubject.state().party[0]!.hp).toBe(healSubject.state().party[0]!.maxHp);
+  });
+
+  it('recomputes line of sight when the fight moves', () => {
+    const subject = setup({
+      partyTiles: { owned: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 6.5, y: 0.5 },
+      grid: { isWalkable: (x, y) => !(x === 3 && y === 0) },
+      reserve: '',
+    });
+    expect(subject.state().party[0]!.lineToEnemy).toBe(false);
+
+    subject.update(1 / 60, { owned: { x: 4.5, y: 0.5 } });
+
+    expect(subject.state().party[0]!.lineToEnemy).toBe(true);
   });
 
   it('settles a lone Skittish shooter within its ring instead of running to the map edge', () => {

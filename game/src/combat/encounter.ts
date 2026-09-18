@@ -201,6 +201,11 @@ const createEncounter = ({
     flashes: Flash[] = [];
   const events: CombatEvent[] = [];
   const threatHits: ThreatHit[] = [];
+  let derived: { threatTarget: Internal | undefined; lineToEnemy: Map<string, boolean> } | null =
+    null;
+  const invalidateDerived = (): void => {
+    derived = null;
+  };
   const all = (): Internal[] => [...owned, foe];
   const byId = (id: string): Internal | undefined => all().find((c) => c.id === id);
   const hide = (c: Internal): HideType => speciesById(c.speciesId)?.hide ?? 'Hide';
@@ -319,6 +324,21 @@ const createEncounter = ({
     );
     return id ? byId(id) : undefined;
   };
+  const derivedValues = (): NonNullable<typeof derived> => {
+    if (derived) return derived;
+    derived = {
+      threatTarget: threatTarget(),
+      lineToEnemy: new Map(
+        owned.map((combatant) => [
+          combatant.id,
+          combatant.benched || combatant.downed
+            ? true
+            : lineClear(combatant.tile, foe.tile, (tx, ty) => grid.isWalkable(tx, ty)),
+        ]),
+      ),
+    };
+    return derived;
+  };
   const beginMove = (a: Internal, target: Internal, move: Move): void => {
     a.desiredTile = null;
     a.approach = null;
@@ -330,6 +350,7 @@ const createEncounter = ({
     face(a, target.tile);
   };
   const useMove = (attackerId: string, moveId: string, targetId?: string): boolean => {
+    invalidateDerived();
     if (phase !== 'fight') return false;
     const a = byId(attackerId),
       target = targetId ? byId(targetId) : a === foe ? threatTarget() : foe;
@@ -462,6 +483,7 @@ const createEncounter = ({
     positions: Positions = {},
     latestPlayerTile: Point = player,
   ): CombatEvent[] => {
+    invalidateDerived();
     events.length = 0;
     playerTile = latestPlayerTile;
     if (phase !== 'fight') return events;
@@ -661,6 +683,7 @@ const createEncounter = ({
     return events.map((e) => ({ ...e }));
   };
   const swap = (outId: string, incomingId?: string): boolean => {
+    invalidateDerived();
     const outgoing = owned.find((c) => c.id === outId && !c.benched),
       incoming = owned.find(
         (c) => c.benched && !c.downed && (incomingId === undefined || c.id === incomingId),
@@ -707,7 +730,7 @@ const createEncounter = ({
     autoDeployRemaining = null;
     return true;
   };
-  const publicCombatant = (c: Internal): Combatant => ({
+  const publicCombatant = (c: Internal, lineToEnemy: boolean): Combatant => ({
     id: c.id,
     speciesId: c.speciesId,
     hp: c.hp,
@@ -724,47 +747,54 @@ const createEncounter = ({
     threat: threatOf(threatHits, c.id, elapsed),
     approaching: c.approach !== null,
     overrideRemaining: Math.max(0, c.overrideUntil - elapsed),
-    lineToEnemy:
-      c.benched || c.downed
-        ? true
-        : lineClear(c.tile, foe.tile, (tx, ty) => grid.isWalkable(tx, ty)),
+    lineToEnemy,
     blockedAt: c.approach?.blockedAt ? copy(c.approach.blockedAt) : null,
     grace: c.grace,
   });
-  const state = (): CombatState => ({
-    phase,
-    elapsed,
-    enemy: {
-      speciesId: foe.speciesId,
-      hp: foe.hp,
-      maxHp: foe.maxHp,
-      focus: foe.focus,
-      maxFocus: foe.maxFocus,
-      tile: copy(foe.tile),
-      facing: foe.facing,
-      windup: foe.windup ? { ...foe.windup } : null,
-      downed: foe.downed,
-      desiredTile: foe.desiredTile ? copy(foe.desiredTile) : null,
-      approaching: foe.approach !== null,
-      blockedAt: foe.approach?.blockedAt ? copy(foe.approach.blockedAt) : null,
-      targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? threatTarget()?.id ?? null,
-      reachTiles: foeReach,
-      grace: foe.grace,
-    },
-    party: owned.map(publicCombatant),
-    reserveId: owned.find((c) => c.benched && !c.downed)?.id ?? null,
-    swapCooldown: { remaining: swapCooldownRemaining, total: swapCooldownTotal },
-    autoDeployIn: autoDeployRemaining === null ? null : Math.max(0, autoDeployRemaining),
-    projectiles: flights.map((p) => ({
-      id: p.id,
-      moveId: p.moveId,
-      owner: p.owner,
-      position: copy(p.position),
-      target: copy(p.target),
-    })),
-    flashes: flashes.map((f) => structuredClone(f)),
-  });
+  const state = (): CombatState => {
+    const currentDerived = derivedValues();
+    return {
+      phase,
+      elapsed,
+      enemy: {
+        speciesId: foe.speciesId,
+        hp: foe.hp,
+        maxHp: foe.maxHp,
+        focus: foe.focus,
+        maxFocus: foe.maxFocus,
+        tile: copy(foe.tile),
+        facing: foe.facing,
+        windup: foe.windup ? { ...foe.windup } : null,
+        downed: foe.downed,
+        desiredTile: foe.desiredTile ? copy(foe.desiredTile) : null,
+        approaching: foe.approach !== null,
+        blockedAt: foe.approach?.blockedAt ? copy(foe.approach.blockedAt) : null,
+        targetId:
+          foe.pending?.targetId ??
+          foe.approach?.targetId ??
+          currentDerived.threatTarget?.id ??
+          null,
+        reachTiles: foeReach,
+        grace: foe.grace,
+      },
+      party: owned.map((combatant) =>
+        publicCombatant(combatant, currentDerived.lineToEnemy.get(combatant.id)!),
+      ),
+      reserveId: owned.find((c) => c.benched && !c.downed)?.id ?? null,
+      swapCooldown: { remaining: swapCooldownRemaining, total: swapCooldownTotal },
+      autoDeployIn: autoDeployRemaining === null ? null : Math.max(0, autoDeployRemaining),
+      projectiles: flights.map((p) => ({
+        id: p.id,
+        moveId: p.moveId,
+        owner: p.owner,
+        position: copy(p.position),
+        target: copy(p.target),
+      })),
+      flashes: flashes.map((f) => structuredClone(f)),
+    };
+  };
   const heal = (): void => {
+    invalidateDerived();
     for (const c of all()) {
       c.hp = c.maxHp;
       c.focus = c.maxFocus;
@@ -772,6 +802,7 @@ const createEncounter = ({
     }
   };
   const override = (creatureId: string): void => {
+    invalidateDerived();
     if (phase !== 'fight') return;
     const creature = owned.find(
       (candidate) => candidate.id === creatureId && !candidate.downed && !candidate.benched,
