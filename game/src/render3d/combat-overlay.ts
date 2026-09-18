@@ -6,7 +6,6 @@ type BarEntry = {
   key: string;
   tileX: number;
   tileY: number;
-  headHeight: number;
   widthPx: number;
   heightPx: number;
   hp?: BarValue;
@@ -47,6 +46,10 @@ const writeStyle = (
 ) => {
   if (element.style[property] !== value) element.style[property] = value;
 };
+const syncTrack = (track: Bar['hp'], value: number | undefined, widthPx: number) => {
+  writeStyle(track.track, 'display', value === undefined ? 'none' : '');
+  if (value !== undefined) writeStyle(track.fill, 'width', `${value * widthPx}px`);
+};
 const createCombatOverlay = () => {
   const bars = new Map<string, Bar>();
   return {
@@ -56,12 +59,18 @@ const createCombatOverlay = () => {
       frustum: { halfWidth: number; halfHeight: number },
       rect: AnchorRect,
     ) {
-      const present = new Set(entries.map(({ key }) => key));
-      for (const [key, bar] of bars)
-        if (!present.has(key)) {
+      for (const [key, bar] of bars) {
+        let present = false;
+        for (const entry of entries)
+          if (entry.key === key) {
+            present = true;
+            break;
+          }
+        if (!present) {
           bar.root.remove();
           bars.delete(key);
         }
+      }
       for (const entry of entries) {
         const bar = bars.get(entry.key) ?? createBar();
         bars.set(entry.key, bar);
@@ -77,14 +86,17 @@ const createCombatOverlay = () => {
         writeStyle(bar.windup.track, 'height', smallHeight);
         if (entry.hp)
           writeStyle(bar.hp.fill, 'backgroundColor', healthColour(entry.hp.value, entry.hp.max));
-        for (const [element, value] of [
-          [bar.hp, entry.hp && fraction(entry.hp.value, entry.hp.max)],
-          [bar.focus, entry.focus && fraction(entry.focus.value, entry.focus.max)],
-          [bar.windup, entry.windup === undefined ? undefined : fraction(entry.windup)],
-        ] as const) {
-          writeStyle(element.track, 'display', value === undefined ? 'none' : '');
-          if (value !== undefined) writeStyle(element.fill, 'width', `${value * entry.widthPx}px`);
-        }
+        syncTrack(bar.hp, entry.hp && fraction(entry.hp.value, entry.hp.max), entry.widthPx);
+        syncTrack(
+          bar.focus,
+          entry.focus && fraction(entry.focus.value, entry.focus.max),
+          entry.widthPx,
+        );
+        syncTrack(
+          bar.windup,
+          entry.windup === undefined ? undefined : fraction(entry.windup),
+          entry.widthPx,
+        );
       }
     },
     dispose() {
