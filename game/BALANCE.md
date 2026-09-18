@@ -17,7 +17,7 @@ obstacles but no longer block sight.
 ## Arena enemy scale
 
 The arena has two named enemy-only presets: **fast** keeps health and damage at ×1, while
-**trade** uses health ×3.25 and damage ×0.42. Trade is active: it is the founder's chosen dial for
+**trade** uses health ×2.25 and damage ×0.42. Trade is active: it is the founder's chosen dial for
 bringing the encounter into §7's 30–90 s fight band without changing party stats, move data, or
 combat rules.
 
