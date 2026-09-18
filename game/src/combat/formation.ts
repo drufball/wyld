@@ -241,17 +241,23 @@ const formation = (input: FormationInput): FormationOutput => {
     let tx = Math.floor(output.tile.x),
       ty = Math.floor(output.tile.y);
     if (!free(tx, ty)) {
+      const wanted = distance(output.tile, input.enemy);
       let found: Point | undefined;
+      let fallback: Point | undefined;
       for (let radius = 1; radius <= 3 && !found; radius += 1)
         for (const [dx, dy] of directions) {
           const x = tx + dx * radius,
             y = ty + dy * radius;
           if (free(x, y)) {
-            found = { x: x + 0.5, y: y + 0.5 };
-            break;
+            const candidate = { x: x + 0.5, y: y + 0.5 };
+            fallback ??= candidate;
+            if (distance(candidate, input.enemy) >= wanted - 0.5) {
+              found = candidate;
+              break;
+            }
           }
         }
-      output.tile = found ?? centre(input.creatures[index]!.tile);
+      output.tile = found ?? fallback ?? centre(input.creatures[index]!.tile);
       tx = Math.floor(output.tile.x);
       ty = Math.floor(output.tile.y);
     }

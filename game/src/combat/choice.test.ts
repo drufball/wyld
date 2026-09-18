@@ -61,18 +61,20 @@ describe('temperament move choice', () => {
     expect(chooser.choose(input(owned, 1))).toHaveLength(1);
   });
 
-  it('suppresses a targeted Skittish creature inside the enemy reach', () => {
+  it('lets a Skittish creature strike only while the enemy targets someone else', () => {
     const chooser = createChooser(() => 0);
     const owned = creature({
       temperament: 'Skittish',
-      tile: { x: 1.5, y: 0 },
-      moves: [move('Bolt', { rangeTiles: 10, needsLine: true })],
+      moves: [move('near'), move('far', { rangeTiles: 5 })],
     });
     const focused = input(owned);
-    focused.enemy.tile.x = 0;
     focused.creatures = [owned, creature({ id: 'reserve', benched: true })];
     focused.enemy.targetId = owned.id;
     expect(chooser.choose(focused)).toEqual([]);
+    focused.enemy.targetId = 'other';
+    expect(chooser.choose(focused)).toEqual([{ creatureId: 'owned', moveId: 'far' }]);
+    focused.enemy.targetId = null;
+    expect(chooser.choose(focused)).toHaveLength(1);
   });
 
   it('lets a targeted Skittish creature on its ring pick its Bolt', () => {
