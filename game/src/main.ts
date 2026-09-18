@@ -71,6 +71,7 @@ import { createPick, chooseEnemy, toggleMember, startFight, type PickState } fro
 import { arenaPlacement } from './arena/placement.js';
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
+import { reserveEntryNotice } from './combat/reserve.js';
 import { createAutopilot } from './combat/autopilot.js';
 import { createChooser } from './combat/choice.js';
 import { autopilotHolds } from './combat/authority.js';
@@ -1057,13 +1058,14 @@ const loop = createLoop({
         chooser.clearAll();
       }
       if (shouldAskForReserve(combat, reservePrompted)) {
-        const reserve = partyState.party.find(
-          ({ individual }) => individual.id === postUpdateCombat.reserveIds[0],
-        );
-        const reserveName = reserve ? rosterMember(reserve.individual.id)?.name : null;
-        if (reserveName) {
+        const notice = reserveEntryNotice({
+          party: postUpdateCombat.party,
+          reserveIds: postUpdateCombat.reserveIds,
+          nameOf: (id) => rosterMember(id)?.name ?? null,
+        });
+        if (notice) {
           reservePrompted = true;
-          toasts.note(`Both are down — ${reserveName} is coming in.`);
+          toasts.note(notice);
         }
       }
       for (const member of combat.party)
