@@ -12,14 +12,26 @@ expected_names=$'server\nwake\npak\nops\nwebhook\nplanner'
 if [[ "$(uname -s)" == Darwin ]]; then
   expected_names+=$'\ncaffeinate'
 fi
-[[ "$(factory_window_names)" == "$expected_names" ]]
+if [[ "$(factory_window_names)" != "$expected_names" ]]; then
+  echo 'factory_window_names returned unexpected names' >&2
+  exit 1
+fi
 
 webhook_command="$(factory_window_command webhook)"
-[[ "$webhook_command" == *'http://localhost:8788/gh'* ]]
-[[ "$webhook_command" == *'$GH_WEBHOOK_SECRET'* ]]
+if [[ "$webhook_command" != *'http://localhost:8788/gh'* ]]; then
+  echo 'webhook command has the wrong forwarding URL' >&2
+  exit 1
+fi
+if [[ "$webhook_command" != *'$GH_WEBHOOK_SECRET'* ]]; then
+  echo 'webhook command does not pass the webhook secret' >&2
+  exit 1
+fi
 
 PLANNER_MODE=cli
-[[ "$(factory_window_command planner)" == claude\ --dangerously-load-development-channels* ]]
+if [[ "$(factory_window_command planner)" != claude\ --dangerously-load-development-channels* ]]; then
+  echo 'CLI planner command does not load the Wake channel' >&2
+  exit 1
+fi
 
 if factory_window_command unknown; then
   echo 'factory_window_command unexpectedly accepted an unknown window' >&2

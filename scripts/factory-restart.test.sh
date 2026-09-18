@@ -32,6 +32,11 @@ grep -q 'pnpm --filter @wyld/ops dev' "$tmp_dir/out"
 grep -q 'respawn-window' "$tmp_dir/out"
 grep -q 'wyld:ops' "$tmp_dir/out"
 
+echo 'repeated dry runs accept a valid window'
+for _ in {1..50}; do
+  ./scripts/factory-restart.sh ops --dry-run >/dev/null 2>&1
+done
+
 echo 'webhook --dry-run'
 ./scripts/factory-restart.sh webhook --dry-run >"$tmp_dir/out" 2>"$tmp_dir/err"
 grep -q 'gh webhook forward' "$tmp_dir/out"
@@ -52,7 +57,10 @@ exit 1
 EOF
 chmod +x "$tmp_dir/bin/tmux"
 PATH="$tmp_dir/bin:$PATH" ./scripts/factory-restart.sh ops --dry-run >/dev/null 2>&1
-[[ ! -e "$tmp_dir/tmux-ran" ]]
+if [[ -e "$tmp_dir/tmux-ran" ]]; then
+  echo 'dry run executed tmux' >&2
+  exit 1
+fi
 
 echo 'no duplicated window commands'
 if grep -q 'pnpm --filter @wyld/ops dev' scripts/factory-restart.sh; then

@@ -44,7 +44,8 @@ if [[ -z "$window" ]]; then
   exit 2
 fi
 
-if ! factory_window_names | grep -Fxq "$window"; then
+window_names="$(factory_window_names)"
+if ! grep -Fxq "$window" <<<"$window_names"; then
   echo "error: unknown window '$window'; valid windows: $valid_names" >&2
   exit 2
 fi
@@ -74,13 +75,7 @@ fi
 
 command="$(factory_window_command "$window")"
 if [[ "$dry_run" == true ]]; then
-  if [[ "$window" == planner ]]; then
-    if [[ "$PLANNER_MODE" == host ]]; then
-      echo 'Would prepare: pnpm --filter @wyld/wake... --filter @wyld/planner-host... build'
-    else
-      echo 'Would prepare: pnpm --filter @wyld/wake... build'
-    fi
-  fi
+  factory_window_prepare "$window" --dry-run
   printf 'Would run: tmux respawn-window -k -t "wyld:%s" -c "%s" "%s"\n' "$window" "$PWD" "$command"
   exit 0
 fi
@@ -93,7 +88,8 @@ if ! tmux has-session -t wyld 2>/dev/null; then
   echo 'error: tmux session wyld is not running; run pnpm factory:up' >&2
   exit 1
 fi
-if ! tmux list-windows -t wyld -F '#{window_name}' | grep -Fxq "$window"; then
+running_window_names="$(tmux list-windows -t wyld -F '#{window_name}')"
+if ! grep -Fxq "$window" <<<"$running_window_names"; then
   echo "error: window '$window' is not running in session wyld; run pnpm factory:doctor" >&2
   exit 1
 fi

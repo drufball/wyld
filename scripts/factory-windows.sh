@@ -10,15 +10,20 @@ factory_window_names() {
 }
 
 factory_window_prepare() {
-  if [[ "$1" != planner ]]; then
+  local window="$1" mode="${2:-}"
+  if [[ "$window" != planner ]]; then
     return 0
   fi
 
+  local -a build=(pnpm --filter @wyld/wake... build)
   if [[ "$PLANNER_MODE" == host ]]; then
-    pnpm --filter @wyld/wake... --filter @wyld/planner-host... build
-  else
-    pnpm --filter @wyld/wake... build
+    build=(pnpm --filter @wyld/wake... --filter @wyld/planner-host... build)
   fi
+  if [[ "$mode" == --dry-run ]]; then
+    printf 'Would prepare: %s\n' "${build[*]}"
+    return 0
+  fi
+  "${build[@]}"
 }
 
 factory_window_command() {
