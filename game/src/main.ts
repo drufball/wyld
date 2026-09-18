@@ -52,7 +52,12 @@ import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
 import { spriteOrigin } from './render2d/placement.js';
 import { drawSelectionRing } from './render2d/selection-ring.js';
-import { combatBarOrigin } from './render2d/combat-bar.js';
+import {
+  combatBarOrigin,
+  combatFootBarOrigin,
+  creatureBarWidth,
+  healthColour,
+} from './render2d/combat-bar.js';
 import { createTileRenderer } from './render2d/tiles.js';
 import { buildState } from './state.js';
 import { createControlsCard, shouldIgnoreArenaKey } from './ui/controls.js';
@@ -787,6 +792,14 @@ const render = (alpha = 1) => {
                 : ('idle' as const),
             phaseOffset: index,
             downed: combatant?.downed,
+            hp:
+              combatant && !combatant.downed
+                ? { value: combatant.hp, max: combatant.maxHp }
+                : undefined,
+            focus:
+              combatant && !combatant.downed
+                ? { value: combatant.focus, max: combatant.maxFocus }
+                : undefined,
             windup: combatant?.windup?.progress,
           },
         ];
@@ -875,6 +888,18 @@ const render = (alpha = 1) => {
       memberSpriteFacing.flip,
     );
     flat.context.globalAlpha = 1;
+    if (combatant && !combatant.downed) {
+      const width = creatureBarWidth(definition.tier);
+      const foot = combatFootBarOrigin(combatant.tile, screen, view.cols, view.rows, width);
+      flat.context.fillStyle = '#292b25';
+      flat.context.fillRect(foot.x, foot.y, width, 2);
+      flat.context.fillStyle = healthColour(combatant.hp, combatant.maxHp);
+      flat.context.fillRect(foot.x, foot.y, (width * combatant.hp) / combatant.maxHp, 2);
+      flat.context.fillStyle = '#292b25';
+      flat.context.fillRect(foot.x, foot.y + 2, width, 1);
+      flat.context.fillStyle = '#4e8292';
+      flat.context.fillRect(foot.x, foot.y + 2, (width * combatant.focus) / combatant.maxFocus, 1);
+    }
     if (combatant?.windup) {
       flat.context.fillStyle = '#292b25';
       flat.context.fillRect(origin.x, origin.y - 4, size, 3);
@@ -920,9 +945,9 @@ const render = (alpha = 1) => {
   }
   if (combat) {
     const definition = speciesById(combat.enemy.speciesId)!;
-    const size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32;
+    const size = creatureBarWidth(definition.tier);
     const bar = (hp: number, maxHp: number, focus: number, maxFocus: number) => {
-      const { x: bx, y: by } = combatBarOrigin(
+      const { x: bx, y: by } = combatFootBarOrigin(
         combat.enemy.tile,
         screen,
         view.cols,
@@ -930,9 +955,11 @@ const render = (alpha = 1) => {
         size,
       );
       flat.context.fillStyle = '#292b25';
-      flat.context.fillRect(bx, by, size, 3);
-      flat.context.fillStyle = '#bd7132';
-      flat.context.fillRect(bx, by, (size * hp) / maxHp, 1);
+      flat.context.fillRect(bx, by, size, 2);
+      flat.context.fillStyle = healthColour(hp, maxHp);
+      flat.context.fillRect(bx, by, (size * hp) / maxHp, 2);
+      flat.context.fillStyle = '#292b25';
+      flat.context.fillRect(bx, by + 2, size, 1);
       flat.context.fillStyle = '#4e8292';
       flat.context.fillRect(bx, by + 2, (size * focus) / maxFocus, 1);
     };

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { speciesById } from '../creatures/species.js';
 import { pixelScale, screenCols, screenRows } from '../render2d/canvas.js';
+import { creatureBarWidth } from '../render2d/combat-bar.js';
 import type { Palette } from '../render2d/palette.js';
 import type { Facing } from '../player/controller.js';
 import type { TileGrid } from '../world/tiles.js';
@@ -199,6 +200,8 @@ const createDiorama = (
       bodies
         .filter(({ hp, focus, windup }) => hp || focus || windup !== undefined)
         .map((entry) => ({
+          widthPx: creatureBarWidth(speciesById(entry.speciesId)!.tier) * scale,
+          heightPx: 2 * scale,
           key: entry.key,
           tileX: entry.tileX,
           tileY: entry.tileY,
