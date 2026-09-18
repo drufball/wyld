@@ -89,6 +89,7 @@ const measureHarnessShaped = (speed: number): Measurement => {
   const grid = buildArena(11, 22, 'forest');
   const member = individualAtSpeed(speed);
   const foeBase = buildArenaIndividual(enemy('antlerback')!);
+  // Enemy pace is `(3 + 0.6 * speed) / 2 * ARENA_PACE`, so -5 makes this foe stationary.
   const foe = { ...foeBase, stats: { ...foeBase.stats, speed: -5 } };
   const positions: Record<string, Point> = { [member.id]: { ...start } };
   const encounter = createEncounter({
@@ -101,6 +102,7 @@ const measureHarnessShaped = (speed: number): Measurement => {
     enemyTile: { x: 5.5, y: 1.5 },
     reserve: '',
   });
+  const foeStart = { ...encounter.state().enemy.tile };
   const subject = createPlayerController({
     grid,
     canvas: {} as HTMLCanvasElement,
@@ -130,6 +132,7 @@ const measureHarnessShaped = (speed: number): Measurement => {
     positions[member.id] = subject.tile;
   }
   if (travelled < 8) throw new Error('Harness-shaped driver did not complete the plain approach');
+  expect(encounter.state().enemy.tile).toEqual(foeStart);
   return summarize('harness-shaped', speed, displacements);
 };
 
@@ -139,11 +142,12 @@ const measure = (driver: Driver, speed: number): Measurement =>
 describe('arena pace parity', () => {
   it("keeps the harness's walking speed within 2% of the game's speed rule at speed 4 and speed 7", () => {
     for (const speed of [4, 7]) {
-      expect(arenaSpeedTilesPerSecond(speed), `speed-${speed} arena rule changed`).toBe(
-        speed === 4 ? 1.35 : 1.8,
-      );
       for (const driver of ['controller-only', 'harness-shaped'] as const) {
         const result = measure(driver, speed);
+        expect(result.medianMovingDisplacement, JSON.stringify(result)).toBeCloseTo(
+          arenaSpeedTilesPerSecond(speed) / 60,
+          9,
+        );
         expect(result.movingMeanSpeedRatio, JSON.stringify(result)).toBeGreaterThanOrEqual(0.98);
         expect(result.movingMeanSpeedRatio, JSON.stringify(result)).toBeLessThanOrEqual(1.02);
       }
