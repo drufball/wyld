@@ -35,24 +35,31 @@ const fighter = (id: string, moves: Move[], overrides: Partial<Individual> = {})
   repertoire: moves,
   ...overrides,
 });
-const setup = (individual: Individual, enemyTile: Point = { x: 1, y: 0 }) =>
+const setup = (
+  individual: Individual,
+  enemyTile: Point = { x: 1, y: 0 },
+  roster: Individual[] = [individual],
+) =>
   createEncounter({
-    party: [individual],
+    party: roster,
     enemy: fighter('enemy', [move('enemy-strike', 1)], {
       stats: { vigor: 100_000, power: 1, speed: 1, focus: 0 },
     }),
     grid: { isWalkable: () => true },
     rng: createRng(7),
-    partyTiles: { [individual.id]: { x: 0, y: 0 } },
+    partyTiles: Object.fromEntries(
+      roster.map(({ id }, index) => [id, index === 0 ? { x: 0, y: 0 } : { x: -6, y: -6 }]),
+    ),
     enemyTile,
     player: { x: 0, y: 0 },
-    reserve: '',
+    ...(roster.length === 1 ? { reserve: '' } : { out: individual.id }),
   });
 const advance = (
   subject: ReturnType<typeof setup>,
   individual: Individual,
   autopilot: ReturnType<typeof createAutopilot>,
   seconds: number,
+  roster: Individual[] = [individual],
 ) => {
   const chooser = createChooser(createRng(7).next);
   const fired = [];
@@ -61,7 +68,7 @@ const advance = (
     fired.push(
       ...fireOrders({
         combat: subject.state(),
-        party: [individual],
+        party: roster,
         autopilot,
         chooser,
         authorityOf: () => 1,
@@ -287,14 +294,43 @@ describe('orders', () => {
     expect(executedAt).toBeLessThan(60);
   });
 
+  it("fires an armed Bolt for a lone Skittish survivor inside the heavy's reach", () => {
+    const bolt = move('bolt', 4, 'Bolt');
+    const survivor = fighter('survivor', [bolt], { temperament: 'Skittish' });
+    const fallen = fighter('fallen', [move('strike', 1)]);
+    const reserve = fighter('reserve', [move('strike', 1)]);
+    const roster = [survivor, fallen, reserve];
+    const subject = setup(survivor, { x: 2, y: 0 }, roster);
+    const autopilot = createAutopilot();
+    autopilot.tap(survivor.id, bolt.id, 0);
+    autopilot.settle(survivor.id);
+    const combat = subject.state();
+    combat.party.find(({ id }) => id === fallen.id)!.downed = true;
+    combat.party.find(({ id }) => id === reserve.id)!.downed = true;
+    const run = () =>
+      fireOrders({
+        combat,
+        party: roster,
+        autopilot,
+        chooser: { choose: () => [] },
+        authorityOf: () => 1,
+        useMove: () => true,
+      });
+
+    expect(run()).toEqual([{ creatureId: survivor.id, moveId: bolt.id, source: 'autopilot' }]);
+    combat.party.find(({ id }) => id === reserve.id)!.downed = false;
+    expect(run()).toEqual([]);
+  });
+
   it("holds the autopilot re-fire while a Skittish kiter is inside the heavy's reach and margin", () => {
     const bolt = move('bolt', 4, 'Bolt');
     const individual = fighter('kiter', [bolt], { temperament: 'Skittish' });
-    const subject = setup(individual, { x: 2, y: 0 });
+    const mate = fighter('mate', [move('strike', 1)]);
+    const subject = setup(individual, { x: 2, y: 0 }, [individual, mate]);
     const autopilot = createAutopilot();
     autopilot.tap('kiter', 'bolt', 0);
 
-    const { fired } = advance(subject, individual, autopilot, 8);
+    const { fired } = advance(subject, individual, autopilot, 8, [individual, mate]);
     expect(fired.filter(({ moveId }) => moveId === 'bolt')).toHaveLength(1);
     expect(
       Math.hypot(subject.state().party[0]!.tile.x - 2, subject.state().party[0]!.tile.y),
@@ -369,16 +405,17 @@ describe('orders', () => {
       temperament: 'Bold',
       stats: { vigor: 200, power: 5, speed: 12, focus: 55 },
     });
+    const mate = fighter('mate', [move('strike', 1)]);
     const player = { x: 0.5, y: 1.5 };
     const subject = createEncounter({
-      party: [kiter],
+      party: [kiter, mate],
       enemy: heavy,
       grid: { isWalkable: () => true },
       rng: createRng(339),
-      partyTiles: { kiter: { x: 0.5, y: 3.5 } },
+      partyTiles: { kiter: { x: 0.5, y: 3.5 }, mate: { x: -6, y: -6 } },
       enemyTile: { x: 0.5, y: -2.5 },
       player,
-      reserve: '',
+      out: 'kiter',
     });
     const autopilot = createAutopilot();
     const chooser = createChooser(createRng(339).next);
@@ -413,7 +450,7 @@ describe('orders', () => {
       );
       fireOrders({
         combat: current,
-        party: [kiter],
+        party: [kiter, mate],
         autopilot,
         chooser,
         authorityOf: () => 1,

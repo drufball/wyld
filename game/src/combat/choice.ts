@@ -1,6 +1,7 @@
 import type { Individual } from '../creatures/individual.js';
 import type { Temperament } from '../creatures/species.js';
 import { shotHolds } from './formation.js';
+import { shotHeld } from './hold.js';
 import { canAfford, cooldownFor, rangeTilesFor } from './resolve.js';
 
 const STEADY_BEAT_SECONDS = 1;
@@ -122,19 +123,32 @@ const createChooser = (rng: () => number) => {
         )[0];
         nextAllowedAt.set(creature.id, input.now + STEADY_BEAT_SECONDS);
       } else if (creature.temperament === 'Skittish') {
-        const cornered = shotHolds(
-          Math.hypot(creature.tile.x - input.enemy.tile.x, creature.tile.y - input.enemy.tile.y),
-          input.enemy.reachTiles,
+        const distanceTiles = Math.hypot(
+          creature.tile.x - input.enemy.tile.x,
+          creature.tile.y - input.enemy.tile.y,
         );
+        const targeted = input.enemy.targetId === creature.id;
+        const cornered = shotHolds(distanceTiles, input.enemy.reachTiles);
         const lastStanding = input.creatures.every(
           (other) => other.id === creature.id || other.downed,
         );
-        // A targeted creature inside reach plus the release margin still runs instead of picking.
-        // On its ring (or while the enemy is blocked or held), it picks normally; when it is the
-        // last one standing, the rule is off entirely and a cornered creature fights.
-        if (input.enemy.targetId === creature.id && cornered && !lastStanding) continue;
-        if (input.enemy.targetId === creature.id && cornered && lastStanding)
-          reachable = reachable.filter((move) => !move.needsLine);
+        // A targeted creature inside reach plus the release margin still runs instead of picking;
+        // otherwise held shots stay unavailable, except when the last one out fights with anything.
+        if (targeted && cornered && !lastStanding) continue;
+        reachable = reachable.filter(
+          (move) =>
+            !shotHeld({
+              temperament: creature.temperament,
+              needsLine: move.needsLine,
+              lastStanding,
+              distanceTiles,
+              enemyReachTiles: input.enemy.reachTiles,
+            }),
+        );
+        if (targeted && cornered && lastStanding) {
+          const closeIn = reachable.filter((move) => !move.needsLine);
+          if (closeIn.length > 0) reachable = closeIn;
+        }
         if (reachable.length === 0) continue;
         selected = [...reachable].sort(
           (a, b) => b.rangeTiles - a.rangeTiles || b.power - a.power,
