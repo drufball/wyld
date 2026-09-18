@@ -63,5 +63,5 @@ const createAnimations = () => {
   };
 };
 
-export { LUNGE_OUT_FRACTION, LUNGE_PEAK_TILES, LUNGE_SECONDS, createAnimations, lungeCurve };
+export { LUNGE_OUT_FRACTION, LUNGE_PEAK_TILES, LUNGE_SECONDS, createAnimations };
 export type { Lunge, Point };
