@@ -367,7 +367,7 @@ describe('orders', () => {
     });
     const heavy = fighter('heavy', [move('strike', 5)], {
       temperament: 'Bold',
-      stats: { vigor: 200, power: 5, speed: 4, focus: 55 },
+      stats: { vigor: 200, power: 5, speed: 12, focus: 55 },
     });
     const player = { x: 0.5, y: 1.5 };
     const subject = createEncounter({
@@ -423,7 +423,8 @@ describe('orders', () => {
       if (started) windupDistances.push(shotDistance);
     }
     expect(windupDistances.length).toBeGreaterThanOrEqual(2);
-    expect(windupDistances.every((d) => d > 1.25 + SHOT_RELEASE_MARGIN_TILES)).toBe(true);
+    const releaseDistance = subject.state().enemy.reachTiles + SHOT_RELEASE_MARGIN_TILES;
+    expect(windupDistances.every((d) => d >= releaseDistance)).toBe(true);
     expect(heavyHitDuringWindup).toBe(false);
   }, 5_000);
 });

@@ -239,13 +239,27 @@ describe('thumb HUD', () => {
     expect(document.querySelectorAll('[data-party-id="reserve"] [data-move-strip]').length).toBe(2);
   });
 
-  it('keeps a reserve card within its available width during a fight', () => {
+  it('applies the constrained-width style contract to a reserve card during a fight', () => {
     const party = [creature('a'), creature('b'), creature('reserve')];
     const combat = combatState(party);
     const hud = createHud(false, document.body);
     hud.update({ ...state(party, 'a'), combat });
     const reserve = document.querySelector<HTMLElement>('[data-reserve]')!;
-    expect(reserve.scrollWidth).toBeLessThanOrEqual(reserve.clientWidth);
+    const active = document.querySelector<HTMLElement>('[data-party-id="a"]')!;
+    const reserveHealthRow = reserve.querySelector<HTMLElement>('span')!;
+    const reserveBars = reserveHealthRow.querySelector<HTMLElement>('span')!;
+    const activeHealthRow = active.querySelector<HTMLElement>('span')!;
+
+    expect(reserve.style.overflow).toBe('hidden');
+    expect(reserve.style.flex).toBe('1 1 0px');
+    expect(reserve.style.minWidth).toBe(reserve.style.minHeight);
+    expect(reserveHealthRow.style.flexDirection).toBe('column');
+    expect(reserveHealthRow.style.alignItems).toBe('stretch');
+    expect(reserveBars.style.width).toBe('100%');
+    expect(reserveBars.style.minWidth).toBe('0px');
+    expect(active.style.flex).toBe('2 1 0px');
+    expect(active.style.minWidth).toBe('0px');
+    expect(activeHealthRow.style.flexDirection).toBe('row');
   });
 
   it('a party member going down updates its card in place', () => {
