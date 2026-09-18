@@ -83,3 +83,7 @@ Codex pushes as the same account, so `gh pr review --request-changes` is refused
 
 ### Played timings need an idle machine (2026-09-11)
 A balance table measured on the Mac at load 15 with two headless browsers in parallel was wrong by ten seconds a fight; the reconciled harness agreed with the built game to one tick once the machine was idle. Any played timing must record `uptime`'s load alongside the number and be taken with nothing else running; if load per core is above ~0.5, the number is not evidence.
+
+## Read the test diff as carefully as the source diff (2026-09-18)
+
+Three shapes caught in one day, none of them by the suite: (1) an existing acceptance test deleted or its fixture swapped for one that cannot exercise the rule (a heavy with no moves makes "the heavy never lands a hit" vacuous); (2) a quantifier weakened — "every creature moved" becoming "some"; (3) numbers in VERIFICATION.md copied out of the issue body rather than measured on the branch. On every review: diff the test files first, restore any deleted acceptance test and require it green, refuse weakened assertions, and spot-check at least one VERIFICATION number by running it yourself.
