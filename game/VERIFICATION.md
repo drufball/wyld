@@ -184,6 +184,28 @@ the whole-repertoire choice and capped kite-line ring. Durations are the range a
 | TRADE informed none     | win 34.63 s / 3 swaps    | win 35.67 s / 2 swaps    |
 | TRADE uninformed        | driven off 35.85–36.37 s | driven off 35.85–36.37 s |
 
+### Arena — a lone Skittish survivor still fights
+
+**Simulated:** measured at 60 Hz over seeds 1–5 on this 12-core runner at load 1.67
+(≈0.14/core), using the `balance.test.ts` harness. The before measurement used the chooser from
+`main`; the after measurement used this branch. Durations are the range across five seeds. The
+party-scale outcomes and durations are unchanged; the extra Skittish shots only reduce the enemy's
+remaining health in the uninformed fights.
+
+| preset / party / policy | before (`main`)          | after (this branch)      |
+| ----------------------- | ------------------------ | ------------------------ |
+| FAST informed armed     | win 14.03 s / 1 swap     | win 14.03 s / 1 swap     |
+| FAST informed none      | win 14.03 s / 1 swap     | win 14.03 s / 1 swap     |
+| FAST uninformed         | driven off 14.70–14.73 s | driven off 14.70–14.73 s |
+| TRADE informed armed    | win 35.67 s / 2 swaps    | win 35.67 s / 2 swaps    |
+| TRADE informed none     | win 35.67 s / 2 swaps    | win 35.67 s / 2 swaps    |
+| TRADE uninformed        | driven off 35.85–36.37 s | driven off 35.85–36.37 s |
+
+**Simulated lone-Pip trace:** Pip was sent out alone against the forest Antlerback with the TRADE
+preset, idle movement, no taps, and five seeds. On `main` she was driven off after **8.35 s**, fired
+**0 Needles**, landed **0**, and never produced a first shot. With this branch she was driven off
+after **15.98 s**, fired **3 Needles**, landed **3**, and first fired at **0.50 s**.
+
 ## Diorama
 
 - **PASS (`simulated`) — HUD writes on change:** jsdom mutation tests verified an identical update makes no tray mutations, cooldown and downed-state changes preserve button identity, and reserve-state changes preserve the other party cards.
