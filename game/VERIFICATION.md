@@ -527,3 +527,43 @@ clientWidth`. Now, it checks the rendered reserve button's overflow, flex, and m
   `./scripts/factory-doctor.test.sh` fail in 20 out of 20 runs, reporting both the harness error and
   `fail: tmux window server is missing`. With the captured-list fix, it passed in 20 out of 20 runs.
   Machine load average: `3.77, 2.70, 1.26`.
+
+## zod out of the game's entry
+
+**Simulated:** measured on this runner with Node 22.23.2 and pnpm 11.25.0. The `main` build ran at
+load average **2.18, 0.56, 0.19**; the changed build ran at **0.94, 0.54, 0.21** (`uptime`, one,
+five, and fifteen minutes respectively).
+
+`pnpm --filter "@wyld/game..." build` emitted these JavaScript chunks (raw and gzip sizes are the
+build's decimal kB values):
+
+| build       | emitted chunk         |       raw |      gzip |
+| ----------- | --------------------- | --------: | --------: |
+| `main`      | `index-BLXImTMN.js`   | 135.43 kB |  49.40 kB |
+| `main`      | `time-D0zxzGR9.js`    | 124.52 kB |  36.70 kB |
+| `main`      | `diorama-DAnniIKO.js` | 509.64 kB | 131.48 kB |
+| this branch | `index-Co4shOfd.js`   | 135.43 kB |  49.40 kB |
+| this branch | `time-Dycz1JNS.js`    |  30.15 kB |  10.45 kB |
+| this branch | `diorama-y--tCz7G.js` | 509.64 kB | 131.48 kB |
+
+The flat look's entry plus its one static import fell from **259,951 bytes** to **165,582 bytes**,
+a **36.30% decrease**. The number of `node_modules/**/zod/**` module ids in those flat chunks fell
+from **18** to **0**. Rollup printed the zod annotation warning before the split and did **not**
+print it afterward.
+
+**Played (measured by the project lead on the factory host, not on the CI runner):** each `dist`
+served over HTTP and loaded in headless Chromium at 375 × 812 at `?scenario=arena&look=flat`,
+seven loads per build, medians reported, the two builds measured back to back on an idle machine
+at load average `1.15, 1.35, 1.35` rising to `1.22, 1.36, 1.35` (12 cores). Before: 219.9 ms and
+216.2 ms to `window.__wyld`, 221.6 ms and 222.0 ms to the first animation frame, 220 ms to first
+contentful paint. After: 206.2 ms and 202.0 ms to `window.__wyld`, 206.4 ms and 205.3 ms to the
+first animation frame, 204 ms to first contentful paint. That is roughly **15 ms, about 7%, off
+the first frame**, consistent across two interleaved rounds. Script bytes fetched by the page
+confirmed the build numbers: 259,951 before, 165,582 after.
+
+**Played (measured by the project lead):** the built flat look was driven in headless Chromium at
+375 × 812 from both builds, the same arena fight started with
+`__wyld.debug('fight antlerback thornwren,emberjack,loamox')`, and at 3 s of fight time
+`__wyld.screenshot()` returned a byte-identical image from both — SHA-256
+`d32561d26e7fc70f7dece7e3ce8e833715a3531d84f623cfb633fa321b50400f`, 4103 characters — with all
+three creature tiles equal to four decimal places and no page errors from either build.

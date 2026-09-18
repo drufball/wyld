@@ -1,4 +1,5 @@
-import { Species, SpeciesDraft, TEMPERAMENTS, type SpeciesData } from './species.js';
+import { TEMPERAMENTS } from './species.js';
+import { Species, SpeciesDraft, type SpeciesData } from './schemas.js';
 
 export type ShipSummary = {
   added: string[];
