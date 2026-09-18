@@ -57,18 +57,13 @@ const entryTile = (input: {
 
 const swapTapOutcome = (input: {
   phase: 'fight' | 'win' | 'driven-off';
-  selection: string;
   party: readonly { id: string; downed: boolean; benched: boolean }[];
   swapCooldownRemaining: number;
 }): SwapTapOutcome => {
   if (input.phase !== 'fight') return { reason: 'The fight is over' };
   if (!input.party.some((c) => c.benched && !c.downed)) return { reason: 'Nobody in reserve' };
-  const deployed = input.party.filter((c) => !c.benched);
-  const outgoing =
-    deployed.find((c) => c.id === input.selection) ??
-    (deployed.length === 1 ? deployed[0] : undefined) ??
-    deployed.find((c) => c.downed);
-  if (!outgoing) return { reason: 'Pick who to swap out' };
+  const outgoing = input.party.find((c) => !c.benched);
+  if (!outgoing) return { reason: 'The fight is over' };
   if (!outgoing.downed && input.swapCooldownRemaining > 0)
     return { reason: `Swap ready in ${Math.ceil(input.swapCooldownRemaining)} s` };
   return { outId: outgoing.id };

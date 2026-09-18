@@ -45,44 +45,45 @@ describe('reserve', () => {
     ).toEqual({ x: 2.5, y: 2.5 }));
   const party = [
     { id: 'a', downed: false, benched: false },
-    { id: 'b', downed: false, benched: false },
     { id: 'r', downed: false, benched: true },
+    { id: 'q', downed: false, benched: true },
   ];
-  it('swaps out the selected creature', () =>
-    expect(
-      swapTapOutcome({ phase: 'fight', selection: 'b', party, swapCooldownRemaining: 0 }),
-    ).toEqual({ outId: 'b' }));
-  it('swaps out the only creature that is out when the player is selected', () =>
-    expect(
-      swapTapOutcome({
-        phase: 'fight',
-        selection: 'player',
-        party: party.map((c) => (c.id === 'b' ? { ...c, benched: true } : c)),
-        swapCooldownRemaining: 0,
-      }),
-    ).toEqual({ outId: 'a' }));
-  it('swaps out the downed creature when the player is selected', () =>
+  it('swaps out the one creature that is out', () =>
+    expect(swapTapOutcome({ phase: 'fight', party, swapCooldownRemaining: 0 })).toEqual({
+      outId: 'a',
+    }));
+  it('finds the creature that is out wherever it sits in the party', () =>
     expect(
       swapTapOutcome({
         phase: 'fight',
-        selection: 'player',
-        party: party.map((c) => (c.id === 'a' ? { ...c, downed: true } : c)),
+        party: [
+          { id: 'r', downed: false, benched: true },
+          { id: 'a', downed: false, benched: false },
+          { id: 'q', downed: false, benched: true },
+        ],
         swapCooldownRemaining: 0,
       }),
     ).toEqual({ outId: 'a' }));
-  it('asks who to swap out when nobody is selected or down', () =>
+  it('says nobody is in reserve when both reserves are down', () =>
     expect(
-      swapTapOutcome({ phase: 'fight', selection: 'player', party, swapCooldownRemaining: 0 }),
-    ).toEqual({ reason: 'Pick who to swap out' }));
+      swapTapOutcome({
+        phase: 'fight',
+        party: party.map((c) => (c.benched ? { ...c, downed: true } : c)),
+        swapCooldownRemaining: 0,
+      }),
+    ).toEqual({ reason: 'Nobody in reserve' }));
+  it('says the fight is over outside a fight', () =>
+    expect(swapTapOutcome({ phase: 'win', party, swapCooldownRemaining: 0 })).toEqual({
+      reason: 'The fight is over',
+    }));
   it('says when the swap will be ready during the cooldown', () =>
-    expect(
-      swapTapOutcome({ phase: 'fight', selection: 'a', party, swapCooldownRemaining: 2.1 }),
-    ).toEqual({ reason: 'Swap ready in 3 s' }));
+    expect(swapTapOutcome({ phase: 'fight', party, swapCooldownRemaining: 2.1 })).toEqual({
+      reason: 'Swap ready in 3 s',
+    }));
   it('lets a downed creature out during the cooldown', () =>
     expect(
       swapTapOutcome({
         phase: 'fight',
-        selection: 'a',
         party: party.map((c) => (c.id === 'a' ? { ...c, downed: true } : c)),
         swapCooldownRemaining: 5,
       }),

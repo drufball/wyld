@@ -853,7 +853,7 @@ describe('combat encounter', () => {
   it('starts a three-creature party with one out and two benched', () => {
     const state = setup({ party: reserveParty() }).state();
     expect(state.party.map(({ benched }) => benched)).toEqual([false, true, true]);
-    expect(state.reserveId).toBe('two');
+    expect(state.reserveIds).toEqual(['two', 'three']);
     expect(state.swapCooldown).toEqual({ remaining: 0, total: 6 });
   });
 
@@ -871,7 +871,7 @@ describe('combat encounter', () => {
     expect(distanceForTest(incoming.tile, state.enemy.tile)).toBeGreaterThan(
       distanceForTest({ x: 2, y: 3 }, state.enemy.tile),
     );
-    expect(state.reserveId).toBe('one');
+    expect(state.reserveIds).toEqual(['one', 'three']);
   });
 
   it('swaps in the reserve that was tapped, not the first one', () => {
@@ -926,7 +926,7 @@ describe('combat encounter', () => {
     const subject = setup({ party: reserveParty() });
     expect(subject.swap('one')).toBe(true);
     expect(subject.swap('two')).toBe(false);
-    expect(subject.state().reserveId).toBe('one');
+    expect(subject.state().reserveIds).toEqual(['one', 'three']);
   });
 
   it('allows a swap once the six second cooldown has run down', () => {
