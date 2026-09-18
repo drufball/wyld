@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formation, type FormationCreature, type FormationInput } from './formation.js';
+import {
+  formation,
+  ringFor,
+  ringTarget,
+  shotHolds,
+  type FormationCreature,
+  type FormationInput,
+} from './formation.js';
 
 const creature = (overrides: Partial<FormationCreature> = {}): FormationCreature => ({
   id: 'one',
@@ -8,7 +15,7 @@ const creature = (overrides: Partial<FormationCreature> = {}): FormationCreature
   home: { x: 5.5, y: 5.5 },
   hp: 10,
   maxHp: 10,
-  moves: [{ rangeTiles: 2, power: 1, ready: true, ranged: false }],
+  moves: [{ rangeTiles: 2, power: 1, cooldownTotal: 1, ready: true, ranged: false }],
   wander: null,
   ...overrides,
 });
@@ -27,6 +34,65 @@ const d = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.hypot(a.x - b.x, a.y - b.y);
 
 describe('formation', () => {
+  const bolt = { rangeTiles: 10, power: 1, cooldownTotal: 1, ready: true, ranged: true };
+
+  it('walks a Bold shooter out to its ring', () => {
+    const enemy = { x: 0.5, y: 0.5 };
+    let c = creature({ temperament: 'Bold', tile: { x: 0.5, y: 2 }, moves: [bolt] });
+    const initial = d(c.tile, enemy);
+    for (let i = 0; i < 20; i += 1) {
+      const tile = run([c], { enemy })[0]!.tile;
+      c = { ...c, tile };
+    }
+    const ring = ringFor('Bold', [bolt], 2);
+    expect(ring).toBe(3.5);
+    expect(d(c.tile, enemy)).toBeGreaterThanOrEqual(ring! - 0.6);
+    expect(d(c.tile, enemy)).toBeLessThanOrEqual(ring! + 1.2);
+    expect(d(c.tile, enemy)).toBeGreaterThan(initial);
+  });
+
+  it('walks a Bold shooter in to its ring', () => {
+    const enemy = { x: 0.5, y: 0.5 };
+    let c = creature({ temperament: 'Bold', tile: { x: 0.5, y: 6.5 }, moves: [bolt] });
+    const initial = d(c.tile, enemy);
+    for (let i = 0; i < 20; i += 1) {
+      const tile = run([c], { enemy })[0]!.tile;
+      c = { ...c, tile };
+    }
+    expect(d(c.tile, enemy)).toBeGreaterThanOrEqual(3.5 - 0.6);
+    expect(d(c.tile, enemy)).toBeLessThanOrEqual(3.5 + 1.2);
+    expect(d(c.tile, enemy)).toBeLessThan(initial);
+  });
+
+  it('gives a Steady creature with only Strikes no ring', () => {
+    const c = creature({ tile: { x: 0.5, y: -2.5 } });
+    expect(ringFor(c.temperament, c.moves, 2)).toBeNull();
+    expect(run([c])[0]!.tile).toEqual({ x: 0.5, y: -2.5 });
+  });
+
+  it('gives a Bold tank with a Strike and an Arc no ring', () => {
+    const moves = [
+      { rangeTiles: 1.25, power: 5, cooldownTotal: 1, ready: true, ranged: false },
+      { rangeTiles: 7.5, power: 4, cooldownTotal: 1, ready: true, ranged: true },
+    ];
+    expect(ringFor('Bold', moves, 2)).toBeNull();
+  });
+
+  it('holds a Skittish shooter that is already on its ring', () => {
+    const c = creature({
+      temperament: 'Skittish',
+      tile: { x: 0.5, y: 4.5 },
+      moves: [bolt],
+    });
+    expect(ringTarget(c, { x: 0.5, y: 0.5 }, 2, () => true)).toEqual(c.tile);
+  });
+
+  it('puts the ring outside the hold-the-shot release line', () => {
+    for (const reach of [0, 1.25, 2, 3, 4]) {
+      const ring = ringFor('Skittish', [bolt], reach);
+      expect(ring === null || shotHolds(ring, reach)).toBe(false);
+    }
+  });
   it('keeps a Skittish creature within two tiles of the player on the far side from the enemy', () => {
     const tile = run([creature({ temperament: 'Skittish' })])[0]!.tile;
     expect(d(tile, { x: 0.5, y: 0.5 })).toBe(2);
@@ -46,8 +112,8 @@ describe('formation', () => {
         temperament: 'Bold',
         tile: { x: 0.5, y: 0.5 },
         moves: [
-          { rangeTiles: 5, power: 9, ready: true, ranged: false },
-          { rangeTiles: 2, power: 10, ready: false, ranged: false },
+          { rangeTiles: 5, power: 9, cooldownTotal: 1, ready: true, ranged: false },
+          { rangeTiles: 2, power: 10, cooldownTotal: 1, ready: false, ranged: false },
         ],
       }),
     ])[0]!.tile;
@@ -105,7 +171,7 @@ describe('formation', () => {
           creature({
             temperament: 'Skittish',
             tile: { x: 0.5, y: 0.5 },
-            moves: [{ rangeTiles: 10, power: 1, ready: true, ranged: true }],
+            moves: [{ rangeTiles: 10, power: 1, cooldownTotal: 1, ready: true, ranged: true }],
           }),
         ],
         { enemy: { x: 0.5, y: -1.5 }, player: { x: 5.5, y: 5.5 } },
@@ -119,7 +185,7 @@ describe('formation', () => {
           creature({
             temperament: 'Skittish',
             tile: { x: 0.5, y: 0.5 },
-            moves: [{ rangeTiles: 2.2, power: 1, ready: true, ranged: true }],
+            moves: [{ rangeTiles: 2.2, power: 1, cooldownTotal: 1, ready: true, ranged: true }],
           }),
         ],
         { enemy: { x: 0.5, y: -1.5 }, player: { x: 0.5, y: 1.5 } },
@@ -132,7 +198,7 @@ describe('formation', () => {
         creature({
           temperament: 'Skittish',
           tile: { x: 0.5, y: 0.5 },
-          moves: [{ rangeTiles: 10, power: 1, ready: true, ranged: true }],
+          moves: [{ rangeTiles: 10, power: 1, cooldownTotal: 1, ready: true, ranged: true }],
         }),
       ],
       {
@@ -151,18 +217,26 @@ describe('formation', () => {
       })[0]!.tile,
     ).toEqual({ x: 0.5, y: 3.5 });
   });
-  it('does not kite while the enemy is out of reach', () => {
+  it('walks a Skittish shooter toward its ring while the enemy is out of reach', () => {
     expect(
       run(
         [
           creature({
             temperament: 'Skittish',
             tile: { x: 0.5, y: 0.5 },
-            moves: [{ rangeTiles: 10, power: 1, ready: true, ranged: true }],
+            moves: [{ rangeTiles: 10, power: 1, cooldownTotal: 1, ready: true, ranged: true }],
           }),
         ],
         { enemy: { x: 0.5, y: -8.5 }, player: { x: 0.5, y: 1.5 } },
       )[0]!.tile,
+    ).toEqual({ x: 0.5, y: -0.5 });
+  });
+  it('keeps a Skittish creature with no ranged move behind the player', () => {
+    expect(
+      run([creature({ temperament: 'Skittish', tile: { x: 0.5, y: 0.5 } })], {
+        enemy: { x: 0.5, y: -8.5 },
+        player: { x: 0.5, y: 1.5 },
+      })[0]!.tile,
     ).toEqual({ x: 0.5, y: 3.5 });
   });
   it("never gives two creatures the same tile, nor the player's, the enemy's or a rock", () => {

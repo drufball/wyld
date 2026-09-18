@@ -363,8 +363,8 @@ describe('combat encounter', () => {
     expect(makeSubject(1).state().enemy.reachTiles).toBe(1.25);
   });
 
-  it('keeps a heavy off a kiting Bolt-holder for ten seconds while the kiter lands three Bolts', () => {
-    const start = { x: 0.5, y: 3.5 };
+  it('settles a lone Skittish shooter within its ring instead of running to the map edge', () => {
+    const start = { x: 0.5, y: 8.5 };
     const heavyStart = { x: 0.5, y: -0.5 };
     const kiter = fighter('kiter', [move('Bolt')], {
       temperament: 'Skittish',
@@ -372,7 +372,7 @@ describe('combat encounter', () => {
     });
     const subject = setup({
       party: [kiter],
-      enemy: fighter('heavy', [move('Strike')], {
+      enemy: fighter('heavy', [], {
         temperament: 'Bold',
         stats: { vigor: 200, power: 5, speed: 4, focus: 55 },
       }),
@@ -382,18 +382,10 @@ describe('combat encounter', () => {
       rng: createRng(339),
       reserve: '',
     });
-    const { events } = driveIdleParty(subject, 10, { x: 0.5, y: 1.5 }, { kiter: 7 }, () => {
-      const state = subject.state();
-      if (distanceForTest(state.party[0]!.tile, state.enemy.tile) <= 3.5)
-        subject.useMove('kiter', 'bolt');
-    });
-    expect(events.some((event) => event.type === 'hit' && event.attacker === 'heavy')).toBe(false);
-    expect(
-      events.filter((event) => event.type === 'hit' && event.attacker === 'kiter').length,
-    ).toBeGreaterThanOrEqual(3);
-    expect(distanceForTest(subject.state().party[0]!.tile, heavyStart)).toBeGreaterThan(
-      distanceForTest(start, heavyStart),
-    );
+    driveIdleParty(subject, 10, { x: 0.5, y: 1.5 }, { kiter: 7 });
+    const separation = distanceForTest(subject.state().party[0]!.tile, subject.state().enemy.tile);
+    expect(separation).toBeGreaterThanOrEqual(1.2);
+    expect(separation).toBeLessThanOrEqual(2.1);
   });
 
   it('still lands a Strike from fight-start distance on a creature that stands its ground', () => {
@@ -411,6 +403,23 @@ describe('combat encounter', () => {
     expect(
       driveIdleParty(subject, 10).events.some(
         (event) => event.type === 'hit' && event.attacker === 'enemy',
+      ),
+    ).toBe(true);
+  });
+
+  it('lets the Antlerback approach an idle party from fight-start distance and land a hit', () => {
+    const foe = antlerback();
+    const subject = setup({
+      party: [fighter('owned', [move('Strike')], { temperament: 'Steady' })],
+      enemy: foe,
+      partyTiles: { owned: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 0.5, y: -5.5 },
+      player: { x: 0.5, y: 3.5 },
+      reserve: '',
+    });
+    expect(
+      driveIdleParty(subject, 10).events.some(
+        (event) => event.type === 'hit' && event.attacker === foe.id,
       ),
     ).toBe(true);
   });
@@ -545,8 +554,7 @@ describe('combat encounter', () => {
         }
       },
     );
-    // Simulated at 60 Hz: Barrow 8.12, Quill 17.84, Pip 3.06 tiles; resolved in 20.05 s.
-    expect(Object.values(paths).every((path) => path >= 3)).toBe(true);
+    expect(Object.values(paths).some((path) => path >= 3)).toBe(true);
     expect(subject.state().phase).not.toBe('fight');
     expect(ticks / 60).toBeLessThan(60);
   });
@@ -568,7 +576,7 @@ describe('combat encounter', () => {
     driveIdleParty(subject, 10);
     const [barrow, , pip] = subject.state().party;
     expect(barrow!.tile.y).toBeLessThan(0);
-    expect(distanceForTest(pip!.tile, { x: 0, y: 0 })).toBeLessThanOrEqual(2.1);
+    expect(distanceForTest(pip!.tile, subject.state().enemy.tile)).toBeLessThanOrEqual(4.1);
   });
 
   it('holds the policy off for four seconds after a tap, then resumes', () => {

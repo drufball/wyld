@@ -551,6 +551,7 @@ const createEncounter = ({
         moves: c.individual.repertoire.map((move) => ({
           rangeTiles: rangeTilesFor(move),
           power: move.power,
+          cooldownTotal: cooldownFor(move),
           ready: c.cooldowns[move.id]!.remaining <= 0 && canAfford(c.focus, move),
           ranged: move.delivery === 'Bolt' || move.delivery === 'Arc',
         })),

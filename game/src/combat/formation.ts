@@ -16,6 +16,7 @@ const KITE_MARGIN_TILES = 2.25;
 // that is a follow-up rather than making this margin per-delivery here.
 const SHOT_RELEASE_MARGIN_TILES = 1.25;
 const KITE_STEP_TILES = 1;
+const RING_STANDOFF_TILES = 0.25;
 type Point = { x: number; y: number };
 type Wander = { target: Point; remaining: number } | null;
 type FormationCreature = {
@@ -25,7 +26,13 @@ type FormationCreature = {
   home: Point;
   hp: number;
   maxHp: number;
-  moves: readonly { rangeTiles: number; power: number; ready: boolean; ranged: boolean }[];
+  moves: readonly {
+    rangeTiles: number;
+    power: number;
+    cooldownTotal: number;
+    ready: boolean;
+    ranged: boolean;
+  }[];
   wander: Wander;
 };
 type FormationInput = {
@@ -52,15 +59,75 @@ const unit = (from: Point, to: Point, fallback = { x: 0, y: -1 }): Point => {
   return d ? { x: dx / d, y: dy / d } : fallback;
 };
 
-const kiteFrom = (
+const bestMoveFor = (temperament: Temperament, moves: FormationCreature['moves']) => {
+  const ready = moves.filter((move) => move.ready);
+  const pool = [...(ready.length > 0 ? ready : moves)];
+  if (temperament === 'Skittish')
+    pool.sort((a, b) => b.rangeTiles - a.rangeTiles || b.power - a.power);
+  else if (temperament === 'Steady')
+    pool.sort((a, b) => a.cooldownTotal - b.cooldownTotal || a.power - b.power);
+  else pool.sort((a, b) => b.power - a.power || b.rangeTiles - a.rangeTiles);
+  return pool[0];
+};
+
+const ringFor = (
+  temperament: Temperament,
+  moves: FormationCreature['moves'],
+  opposingReach: number,
+): number | null => {
+  const best = bestMoveFor(temperament, moves);
+  if (!best?.ranged) return null;
+  // Capping the ring against opposing reach keeps it just outside the shot-release line; the
+  // standoff makes a shooter on its ring never hold its shot. A move too short to clear that line
+  // cannot support a ring at all and falls through to the temperament's usual formation behavior.
+  const ring = Math.min(
+    best.rangeTiles - 0.5,
+    opposingReach + SHOT_RELEASE_MARGIN_TILES + RING_STANDOFF_TILES,
+  );
+  return ring < opposingReach + SHOT_RELEASE_MARGIN_TILES ? null : ring;
+};
+
+const ringTolerances: Record<Temperament, { outer: number; inner: number }> = {
+  Skittish: { outer: 0.3, inner: 0.6 },
+  Erratic: { outer: 0.3, inner: 0.6 },
+  Steady: { outer: 0.6, inner: 1.2 },
+  Bold: { outer: 0.6, inner: 1.2 },
+};
+
+const ringTarget = (
   creature: FormationCreature,
   enemy: Point,
   enemyReach: number,
   isWalkable: (tx: number, ty: number) => boolean,
 ): Point | null => {
-  const ranged = creature.moves.filter((move) => move.ranged);
+  if (creature.temperament === 'Erratic' && (creature.wander?.remaining ?? 0) > 0) return null;
+  const ring = ringFor(creature.temperament, creature.moves, enemyReach);
+  if (ring === null) return null;
   const currentDistance = distance(creature.tile, enemy);
-  if (ranged.length === 0 || !kiteHolds(currentDistance, enemyReach)) return null;
+  const tolerance = ringTolerances[creature.temperament];
+  if (currentDistance < ring - tolerance.outer) {
+    return stepAway(creature, enemy, ring + 0.5, isWalkable);
+  }
+  if (currentDistance > ring + tolerance.inner) {
+    const toward = unit(creature.tile, enemy);
+    const candidate = centre({
+      x: creature.tile.x + toward.x * KITE_STEP_TILES,
+      y: creature.tile.y + toward.y * KITE_STEP_TILES,
+    });
+    return isWalkable(Math.floor(candidate.x), Math.floor(candidate.y))
+      ? candidate
+      : centre(creature.tile);
+  }
+  return centre(creature.tile);
+};
+
+const stepAway = (
+  creature: FormationCreature,
+  enemy: Point,
+  maximumDistance: number,
+  isWalkable: (tx: number, ty: number) => boolean,
+): Point => {
+  const currentDistance = distance(creature.tile, enemy);
   const away = unit(enemy, creature.tile);
   for (const angle of [0, Math.PI / 4, -Math.PI / 4]) {
     const cos = Math.cos(angle);
@@ -74,12 +141,24 @@ const kiteFrom = (
     if (
       isWalkable(Math.floor(candidate.x), Math.floor(candidate.y)) &&
       candidateDistance > currentDistance &&
-      candidateDistance <= Math.max(...ranged.map((move) => move.rangeTiles)) &&
+      candidateDistance <= maximumDistance &&
       lineClear(candidate, enemy, isWalkable)
     )
       return candidate;
   }
   return centre(creature.tile);
+};
+
+const kiteFrom = (
+  creature: FormationCreature,
+  enemy: Point,
+  enemyReach: number,
+  isWalkable: (tx: number, ty: number) => boolean,
+): Point | null => {
+  const ranged = creature.moves.filter((move) => move.ranged);
+  const currentDistance = distance(creature.tile, enemy);
+  if (ranged.length === 0 || !kiteHolds(currentDistance, enemyReach)) return null;
+  return stepAway(creature, enemy, Math.max(...ranged.map((move) => move.rangeTiles)), isWalkable);
 };
 
 const formation = (input: FormationInput): FormationOutput => {
@@ -88,7 +167,9 @@ const formation = (input: FormationInput): FormationOutput => {
   const desired = input.creatures.map((creature): FormationOutput[number] => {
     let target: Point;
     let wander = creature.wander;
-    if (creature.temperament === 'Skittish') {
+    const ring = ringTarget(creature, input.enemy, input.enemyReach, input.isWalkable);
+    if (ring) target = ring;
+    else if (creature.temperament === 'Skittish') {
       const kite = kiteFrom(creature, input.enemy, input.enemyReach, input.isWalkable);
       const holds =
         distance(creature.tile, input.player) <= 2 &&
@@ -185,6 +266,10 @@ export {
   kiteHolds,
   KITE_MARGIN_TILES,
   KITE_STEP_TILES,
+  bestMoveFor,
+  ringFor,
+  ringTarget,
+  RING_STANDOFF_TILES,
   shotHolds,
   SHOT_RELEASE_MARGIN_TILES,
   TAP_OVERRIDE_SECONDS,
