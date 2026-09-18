@@ -3,6 +3,7 @@ import {
   formation,
   ringFor,
   ringTarget,
+  SHOT_RELEASE_MARGIN_TILES,
   shotHolds,
   type FormationCreature,
   type FormationInput,
@@ -90,7 +91,12 @@ describe('formation', () => {
   it('puts the ring outside the hold-the-shot release line', () => {
     for (const reach of [0, 1.25, 2, 3, 4]) {
       const ring = ringFor('Skittish', [bolt], reach);
-      expect(ring === null ? true : !shotHolds(ring, reach)).toBe(true);
+      expect(ring).not.toBeNull();
+      expect(shotHolds(ring!, reach)).toBe(false);
+      if (reach === 2) {
+        expect(ring).toBe(4.25);
+        expect(ring!).toBeGreaterThan(reach + SHOT_RELEASE_MARGIN_TILES);
+      }
     }
   });
 
