@@ -52,12 +52,16 @@ describe('reserve', () => {
     expect(swapTapOutcome({ phase: 'fight', party, swapCooldownRemaining: 0 })).toEqual({
       outId: 'a',
     }));
-  it('swaps out the creature that is out even when it is downed, during the cooldown', () =>
+  it('finds the creature that is out wherever it sits in the party', () =>
     expect(
       swapTapOutcome({
         phase: 'fight',
-        party: party.map((c) => (c.id === 'a' ? { ...c, downed: true } : c)),
-        swapCooldownRemaining: 5,
+        party: [
+          { id: 'r', downed: false, benched: true },
+          { id: 'a', downed: false, benched: false },
+          { id: 'q', downed: false, benched: true },
+        ],
+        swapCooldownRemaining: 0,
       }),
     ).toEqual({ outId: 'a' }));
   it('says nobody is in reserve when both reserves are down', () =>
