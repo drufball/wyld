@@ -50,7 +50,7 @@ import {
 import { lookFromQuery } from './render3d/look.js';
 import { paletteAt, paletteKey } from './render2d/palette.js';
 import { playerSprite } from './render2d/player-sprite.js';
-import { spriteOrigin } from './render2d/placement.js';
+import { spriteOrigin, TILE_PX } from './render2d/placement.js';
 import { drawSelectionRing } from './render2d/selection-ring.js';
 import {
   combatBarOrigin,
@@ -870,7 +870,7 @@ const render = (alpha = 1) => {
       size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
       origin = spriteOrigin(tx, ty, size, size),
       offset = animations.offsetFor(member.individual.id),
-      bodyOrigin = { x: origin.x + offset.x * 16, y: origin.y + offset.y * 16 };
+      bodyOrigin = { x: origin.x + offset.x * TILE_PX, y: origin.y + offset.y * TILE_PX };
     const combatant = combat?.party.find((c) => c.id === member.individual.id);
     if (combatant?.benched) continue;
     if (partyState.selection === member.individual.id && !combatant?.downed) {
@@ -915,7 +915,7 @@ const render = (alpha = 1) => {
       size = definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
       origin = spriteOrigin(tx, ty, size, size),
       offset = animations.offsetFor(creature.id),
-      bodyOrigin = { x: origin.x + offset.x * 16, y: origin.y + offset.y * 16 };
+      bodyOrigin = { x: origin.x + offset.x * TILE_PX, y: origin.y + offset.y * TILE_PX };
     const spriteFacing = spriteFacingFromYaw(creature.facing);
     const frame =
       creature.state === 'walk'
@@ -934,7 +934,7 @@ const render = (alpha = 1) => {
     );
     const meter = aiStates.get(creature.id)?.meter ?? 0;
     if (meter > 0) {
-      const ex = Math.round(tx * 16 - 3),
+      const ex = Math.round(tx * TILE_PX - 3),
         ey = origin.y - 5;
       flat.context.fillStyle = '#292b25';
       flat.context.fillRect(ex, ey + 1, 7, 3);
@@ -967,8 +967,8 @@ const render = (alpha = 1) => {
     for (const p of combat.projectiles) {
       flat.context.fillStyle = '#f4efd9';
       flat.context.fillRect(
-        Math.round((p.position.x - screen.x * view.cols) * 16) - 2,
-        Math.round((p.position.y - screen.y * view.rows) * 16) - 2,
+        Math.round((p.position.x - screen.x * view.cols) * TILE_PX) - 2,
+        Math.round((p.position.y - screen.y * view.rows) * TILE_PX) - 2,
         4,
         4,
       );
@@ -976,8 +976,8 @@ const render = (alpha = 1) => {
     for (const flash of combat.flashes) {
       flat.context.fillStyle = '#ffffff99';
       flat.context.fillRect(
-        Math.round((flash.at.x - screen.x * view.cols) * 16) - 8,
-        Math.round((flash.at.y - screen.y * view.rows) * 16) - 12,
+        Math.round((flash.at.x - screen.x * view.cols) * TILE_PX) - 8,
+        Math.round((flash.at.y - screen.y * view.rows) * TILE_PX) - 12,
         16,
         16,
       );
