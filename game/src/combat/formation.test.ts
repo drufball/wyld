@@ -213,6 +213,18 @@ describe('formation', () => {
     )[0]!.tile;
     expect(tile).toEqual({ x: -0.5, y: 1.5 });
   });
+  it('does not settle for its own tile when the player blocks the retreat', () => {
+    const enemy = { x: 5.5, y: 9.5 };
+    const own = { x: 5.5, y: 10.5 };
+    const player = { x: 5.5, y: 11.5 };
+    const tile = run([creature({ temperament: 'Skittish', tile: own, moves: [bolt] })], {
+      enemy,
+      player,
+    })[0]!.tile;
+    expect(tile).not.toEqual(player);
+    expect(tile).not.toEqual(own);
+    expect(d(tile, enemy)).toBeGreaterThan(d(own, enemy));
+  });
   it('does not kite without a ranged move', () => {
     expect(
       run([creature({ temperament: 'Skittish', tile: { x: 0.5, y: 0.5 } })], {

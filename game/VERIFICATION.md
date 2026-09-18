@@ -184,6 +184,29 @@ the whole-repertoire choice and capped kite-line ring. Durations are the range a
 | TRADE informed none     | win 34.63 s / 3 swaps    | win 35.67 s / 2 swaps    |
 | TRADE uninformed        | driven off 35.85–36.37 s | driven off 35.85–36.37 s |
 
+### Arena — a lone Skittish survivor still fights
+
+**Simulated:** re-measured at 60 Hz over seeds 1–5 using the `balance.test.ts` harness after the
+blocked-retreat occupancy fix. The before measurement used the chooser from `main`; the after
+measurement used this branch. Durations are the range across five seeds. Informed outcomes and
+durations are unchanged; uninformed survivors now keep retreating instead of freezing against the
+player.
+
+| preset / party / policy | before (`main`)          | after (this branch)      |
+| ----------------------- | ------------------------ | ------------------------ |
+| FAST informed armed     | win 14.03 s / 1 swap     | win 14.03 s / 1 swap     |
+| FAST informed none      | win 14.03 s / 1 swap     | win 14.03 s / 1 swap     |
+| FAST uninformed         | driven off 14.70–14.73 s | driven off 24.82–24.85 s |
+| TRADE informed armed    | win 35.67 s / 2 swaps    | win 35.67 s / 2 swaps    |
+| TRADE informed none     | win 35.67 s / 2 swaps    | win 35.67 s / 2 swaps    |
+| TRADE uninformed        | driven off 35.85–36.37 s | driven off 38.98–41.18 s |
+
+**Simulated lone-Pip trace:** Pip was sent out alone against the forest Antlerback with the TRADE
+preset, idle movement, no taps, and five seeds. On `main` she was driven off after **8.35 s**, fired
+**0 Needles**, landed **0**, and never produced a first shot. Re-measured with this branch, she was
+driven off after **16.05 s**, fired **4 Needles**, landed **3**, first fired at **0.50 s**, and took
+**45 damage**.
+
 ## Diorama
 
 - **PASS (`simulated`) — HUD writes on change:** jsdom mutation tests verified an identical update makes no tray mutations, cooldown and downed-state changes preserve button identity, and reserve-state changes preserve the other party cards.

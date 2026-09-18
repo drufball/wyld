@@ -457,6 +457,27 @@ describe('combat encounter', () => {
     ).toBe(true);
   });
 
+  it('lets a lone Skittish shooter fire within two seconds', () => {
+    const pip = member('thornwren');
+    const bolt = pip.repertoire.find((candidate) => candidate.delivery === 'Bolt')!;
+    const subject = setup({
+      party: [pip],
+      enemy: antlerback(),
+      partyTiles: { [pip.id]: { x: 0.5, y: 0.5 } },
+      enemyTile: { x: 0.5, y: -5.5 },
+      player: { x: 0.5, y: 3.5 },
+      reserve: '',
+    });
+    const { events } = driveIdleParty(subject, 2, undefined, {}, () => undefined, {
+      chooser: createChooser(() => 0),
+      party: [pip],
+    });
+    // On main this setup never executes a Needle because targeting suppressed every choice.
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'executed', attacker: pip.id, move: bolt.id }),
+    );
+  });
+
   it('fires chosen moves without ever double-firing inside a cooldown', () => {
     const strike = move('Strike');
     const owned = fighter('owned', [strike], { temperament: 'Bold' });

@@ -1,5 +1,6 @@
 import type { Individual } from '../creatures/individual.js';
 import type { Temperament } from '../creatures/species.js';
+import { shotHolds } from './formation.js';
 import { canAfford, cooldownFor, rangeTilesFor } from './resolve.js';
 
 const STEADY_BEAT_SECONDS = 1;
@@ -29,14 +30,14 @@ type ChoiceCreature = {
 };
 type ChoiceInput = {
   now: number;
-  enemy: { tile: Point; targetId: string | null; downed: boolean };
+  enemy: { tile: Point; targetId: string | null; downed: boolean; reachTiles: number };
   creatures: readonly ChoiceCreature[];
 };
 type Choice = { creatureId: string; moveId: string };
 
 type ChoiceCombatState = {
   elapsed: number;
-  enemy: { tile: Point; targetId?: string | null; downed: boolean };
+  enemy: { tile: Point; targetId?: string | null; downed: boolean; reachTiles: number };
   party: readonly {
     id: string;
     tile: Point;
@@ -60,6 +61,7 @@ const choiceInputFrom = (
     tile: combat.enemy.tile,
     targetId: combat.enemy.targetId ?? null,
     downed: combat.enemy.downed,
+    reachTiles: combat.enemy.reachTiles,
   },
   creatures: combat.party.map((combatant) => {
     const individual = party.find(({ id }) => id === combatant.id);
@@ -100,7 +102,7 @@ const createChooser = (rng: () => number) => {
         input.now < (nextAllowedAt.get(creature.id) ?? 0)
       )
         continue;
-      const reachable = creature.moves.filter(
+      let reachable = creature.moves.filter(
         (move) =>
           move.cooldownRemaining <= 0 &&
           move.affordable &&
@@ -120,7 +122,20 @@ const createChooser = (rng: () => number) => {
         )[0];
         nextAllowedAt.set(creature.id, input.now + STEADY_BEAT_SECONDS);
       } else if (creature.temperament === 'Skittish') {
-        if (input.enemy.targetId === creature.id) continue;
+        const cornered = shotHolds(
+          Math.hypot(creature.tile.x - input.enemy.tile.x, creature.tile.y - input.enemy.tile.y),
+          input.enemy.reachTiles,
+        );
+        const lastStanding = input.creatures.every(
+          (other) => other.id === creature.id || other.downed,
+        );
+        // A targeted creature inside reach plus the release margin still runs instead of picking.
+        // On its ring (or while the enemy is blocked or held), it picks normally; when it is the
+        // last one standing, the rule is off entirely and a cornered creature fights.
+        if (input.enemy.targetId === creature.id && cornered && !lastStanding) continue;
+        if (input.enemy.targetId === creature.id && cornered && lastStanding)
+          reachable = reachable.filter((move) => !move.needsLine);
+        if (reachable.length === 0) continue;
         selected = [...reachable].sort(
           (a, b) => b.rangeTiles - a.rangeTiles || b.power - a.power,
         )[0];
