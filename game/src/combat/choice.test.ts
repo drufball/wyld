@@ -115,6 +115,21 @@ describe('temperament move choice', () => {
     ]);
   });
 
+  it('lets a cornered last survivor take the only shot it has', () => {
+    const owned = creature({
+      temperament: 'Skittish',
+      tile: { x: 1.5, y: 0 },
+      moves: [move('Bolt', { rangeTiles: 10, needsLine: true })],
+    });
+    const focused = input(owned);
+    focused.enemy.tile.x = 0;
+    focused.enemy.targetId = owned.id;
+    focused.creatures = [owned, creature({ id: 'fallen', downed: true })];
+    expect(createChooser(() => 0).choose(focused)).toEqual([
+      { creatureId: 'owned', moveId: 'Bolt' },
+    ]);
+  });
+
   it('still suppresses a targeted Skittish creature while a reserve is alive', () => {
     const owned = creature({ temperament: 'Skittish', tile: { x: 1.5, y: 0 } });
     const focused = input(owned);

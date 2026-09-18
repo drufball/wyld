@@ -2,7 +2,7 @@ import type { Individual } from '../creatures/individual.js';
 import { autopilotHolds } from './authority.js';
 import { choiceInputFrom, type Choice, type ChoiceInput } from './choice.js';
 import type { CombatState } from './encounter.js';
-import { shotHolds } from './formation.js';
+import { shotHeld } from './hold.js';
 import { canAfford } from './resolve.js';
 import type { CombatTell } from './tells.js';
 
@@ -77,11 +77,14 @@ const fireOrders = (input: {
   const held = (member: CombatState['party'][number], moveId: string): boolean => {
     const individual = input.party.find(({ id }) => id === member.id);
     const move = individual?.repertoire.find(({ id }) => id === moveId);
-    return (
-      individual?.temperament === 'Skittish' &&
-      (move?.delivery === 'Bolt' || move?.delivery === 'Arc') &&
-      shotHolds(distance(member.tile, input.combat.enemy.tile), input.combat.enemy.reachTiles)
-    );
+    if (!individual || !move) return false;
+    return shotHeld({
+      temperament: individual.temperament,
+      needsLine: move.delivery === 'Bolt' || move.delivery === 'Arc',
+      lastStanding: input.combat.party.every(({ id, downed }) => id === member.id || downed),
+      distanceTiles: distance(member.tile, input.combat.enemy.tile),
+      enemyReachTiles: input.combat.enemy.reachTiles,
+    });
   };
   const commanded = (id: string): boolean => {
     const armed = input.autopilot.armed(id);
