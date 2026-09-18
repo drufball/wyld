@@ -217,10 +217,10 @@ describe('formation', () => {
     const enemy = { x: 5.5, y: 9.5 };
     const own = { x: 5.5, y: 10.5 };
     const player = { x: 5.5, y: 11.5 };
-    const tile = run(
-      [creature({ temperament: 'Skittish', tile: own, moves: [bolt] })],
-      { enemy, player },
-    )[0]!.tile;
+    const tile = run([creature({ temperament: 'Skittish', tile: own, moves: [bolt] })], {
+      enemy,
+      player,
+    })[0]!.tile;
     expect(tile).not.toEqual(player);
     expect(tile).not.toEqual(own);
     expect(d(tile, enemy)).toBeGreaterThan(d(own, enemy));
