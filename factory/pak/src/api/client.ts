@@ -1,4 +1,4 @@
-import { ShipResult, SpeciesDraft, SpeciesLibrary, type SpeciesData } from '@wyld/sprites';
+import { ShipResult, SpeciesDraft, SpeciesLibrary, type SpeciesData } from '@wyld/sprites/workshop';
 import {
   type ArtifactKind,
   Achievement,

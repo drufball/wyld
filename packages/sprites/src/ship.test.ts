@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { Species, type SpeciesData, type SpeciesDraft } from './species.js';
+import { Species, type SpeciesData, type SpeciesDraft } from './schemas.js';
 import { applyDrafts, describeShip, serialiseSpecies, shipTitle, summariseShip } from './ship.js';
 
 const base: SpeciesData = {

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { asc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { validateHints, validateSpecies } from '@wyld/sprites';
 import {
   Species,
   SpeciesDraft,
@@ -13,9 +14,7 @@ import {
   serialiseSpecies,
   shipTitle,
   summariseShip,
-  validateHints,
-  validateSpecies,
-} from '@wyld/sprites';
+} from '@wyld/sprites/workshop';
 import { z } from 'zod';
 import type { AppDatabase } from './database.js';
 import { log, type Logger } from '@wyld/shared';

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { blitSprite, clearSpriteCache } from './blit-canvas.js';
 import { paintSprite, type PaintRect } from './blit.js';
 import { generateSprite } from './index.js';
-import type { SpeciesData } from './species.js';
+import type { SpeciesData } from './schemas.js';
 import type { PixelSprite, SpriteFacing, SpriteFrame } from './types.js';
 
 type SoftwareContext = {

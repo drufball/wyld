@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./workshop": {
+      "types": "./dist/workshop.d.ts",
+      "default": "./dist/workshop.js"
     }
   },
   "scripts": {

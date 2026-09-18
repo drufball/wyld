@@ -27,4 +27,4 @@ export { blitSprite, clearSpriteCache } from './blit-canvas.js';
 export type { PixelSprite, SpriteFacing, SpriteFrame, SpriteSpec } from './types.js';
 export * from './species.js';
 export * from './validate.js';
-export * from './ship.js';
+export type { Region, ShipResult, SpeciesData, SpeciesDraft, SpeciesLibrary } from './schemas.js';

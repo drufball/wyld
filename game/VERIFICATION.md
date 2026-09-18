@@ -1,5 +1,31 @@
 # M0 — Skeleton world verification (seed 194)
 
+## zod out of the game's entry
+
+**Simulated:** measured on this runner with Node 22.23.2 and pnpm 11.25.0. The `main` build ran at
+load average **2.18, 0.56, 0.19**; the changed build ran at **0.94, 0.54, 0.21** (`uptime`, one,
+five, and fifteen minutes respectively).
+
+`pnpm --filter "@wyld/game..." build` emitted these JavaScript chunks (raw and gzip sizes are the
+build's decimal kB values):
+
+| build       | emitted chunk         |       raw |      gzip |
+| ----------- | --------------------- | --------: | --------: |
+| `main`      | `index-BLXImTMN.js`   | 135.43 kB |  49.40 kB |
+| `main`      | `time-D0zxzGR9.js`    | 124.52 kB |  36.70 kB |
+| `main`      | `diorama-DAnniIKO.js` | 509.64 kB | 131.48 kB |
+| this branch | `index-Co4shOfd.js`   | 135.43 kB |  49.40 kB |
+| this branch | `time-Dycz1JNS.js`    |  30.15 kB |  10.45 kB |
+| this branch | `diorama-y--tCz7G.js` | 509.64 kB | 131.48 kB |
+
+The flat look's entry plus its one static import fell from **259,951 bytes** to **165,582 bytes**,
+a **36.30% decrease**. The number of `node_modules/**/zod/**` module ids in those flat chunks fell
+from **18** to **0**. Rollup printed the zod annotation warning before the split and did **not**
+print it afterward.
+
+No `played` time-to-first-frame number is recorded: this runner has no headless Chromium binary,
+so only the simulated bundle measurements were possible.
+
 - **PASS — seeded RNG:** `pnpm --filter @wyld/game exec vitest run src/engine/rng.test.ts` compared 20 draws from each of two RNGs seeded `1234`; all 20 were identical (2 tests passed).
 - **PASS — region lookup:** `pnpm --filter @wyld/game exec vitest run src/world/regions.test.ts` checked Hollow, Pond Hollow, Dunes, Crater Rim, and `(-390, 390)` outside every region; all 5 fixtures returned the expected result (6 tests passed including tie-breaking).
 - **PASS — traversal (Planner review, headless Chromium at 1280×720):** From Shore Camp on Near Island, sprinting in all four directions for six seconds each stopped the player at exactly 0.60 m water depth every time, without entering deeper water. Fern Chasm walls sampled at 56–64°, above the 45° limit, and blocked traversal. Terrain height under the player tracked continuously throughout.

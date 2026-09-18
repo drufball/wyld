@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { SpeciesData } from './species.js';
+import type { SpeciesData } from './schemas.js';
 import { validateHints, validateSpecies } from './validate.js';
 const shipped = JSON.parse(
   readFileSync(new URL('../../../game/src/data/species.json', import.meta.url), 'utf8'),

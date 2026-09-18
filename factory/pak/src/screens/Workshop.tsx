@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { SpriteFrame } from '@wyld/sprites';
 import {
   summariseShip,
   type SpeciesData,
   type SpeciesDraft,
   type SpeciesLibrary,
-  type SpriteFrame,
-} from '@wyld/sprites';
+} from '@wyld/sprites/workshop';
 import { deleteSpeciesDraft, listSpecies, putSpeciesDraft, shipSpecies } from '../api/client.js';
 import { SpeciesEditor } from '../components/SpeciesEditor.js';
 import { SpriteCanvas } from '../components/SpriteCanvas.js';

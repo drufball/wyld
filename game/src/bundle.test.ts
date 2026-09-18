@@ -41,6 +41,8 @@ describe('production bundle', () => {
       const flatChunks = [entry(), ...importedChunks];
 
       for (const chunk of flatChunks) {
+        expect(chunk.moduleIds.filter((id) => id.includes('/node_modules/zod/'))).toEqual([]);
+        expect(chunk.code).not.toContain('ZodError');
         expect(chunk.moduleIds.some((id) => id.includes('/node_modules/three/'))).toBe(false);
         expect(
           chunk.moduleIds.filter(
