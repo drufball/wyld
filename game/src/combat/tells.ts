@@ -1,8 +1,8 @@
 import type { CombatEvent } from './encounter.js';
 
 type CombatTell = {
-  kind: 'glance' | 'heavy' | 'ignored';
-  text: 'Glances off' | 'Heavy damage' | '…';
+  kind: 'glance' | 'heavy' | 'ignored' | 'slowed' | 'held';
+  text: 'Glances off' | 'Heavy damage' | '…' | 'Slowed' | 'Held';
   targetId: string;
 };
 type ActiveTell = CombatTell & { id: number };
@@ -10,21 +10,35 @@ type ActiveTell = CombatTell & { id: number };
 const tellsFromEvents = (
   events: readonly CombatEvent[],
   options: { enemyId: string; ownedIds: readonly string[] },
-): CombatTell[] =>
-  events.flatMap<CombatTell>((event) => {
-    if (event.type !== 'hit' || event.attacker === undefined || event.target === undefined)
-      return [];
+): CombatTell[] => {
+  const tells: CombatTell[] = [],
+    slowedTargets = new Set<string>();
+  for (const event of events) {
+    if (event.attacker === undefined || event.target === undefined) continue;
     const partyHitEnemy =
       event.target === options.enemyId && options.ownedIds.includes(event.attacker);
     const enemyHitParty =
       event.attacker === options.enemyId && options.ownedIds.includes(event.target);
-    if (!partyHitEnemy && !enemyHitParty) return [];
+    if (!partyHitEnemy && !enemyHitParty) continue;
+    if (event.type === 'slowed') {
+      if (!slowedTargets.has(event.target)) {
+        slowedTargets.add(event.target);
+        tells.push({ kind: 'slowed', text: 'Slowed', targetId: event.target });
+      }
+      continue;
+    }
+    if (event.type === 'held') {
+      tells.push({ kind: 'held', text: 'Held', targetId: event.target });
+      continue;
+    }
+    if (event.type !== 'hit') continue;
     if (event.hideMult === 0.6)
-      return [{ kind: 'glance', text: 'Glances off', targetId: event.target }];
+      tells.push({ kind: 'glance', text: 'Glances off', targetId: event.target });
     if (event.hideMult === 1.6)
-      return [{ kind: 'heavy', text: 'Heavy damage', targetId: event.target }];
-    return [];
-  });
+      tells.push({ kind: 'heavy', text: 'Heavy damage', targetId: event.target });
+  }
+  return tells;
+};
 
 const createTellStack = () => {
   let serial = 0;

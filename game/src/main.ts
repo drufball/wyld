@@ -38,6 +38,7 @@ import { TILE_METRES, tileToWorld, worldToTile } from './world/tiles.js';
 import { createCallAudio } from './audio/calls.js';
 import { placeTracks } from './world/tracks.js';
 import { species, type Temperament } from './creatures/species.js';
+import { gripScaleFromPublic } from './combat/grip.js';
 import { createPlayerController } from './player/controller.js';
 import { ARENA_PACE, arenaSpeedTilesPerSecond, worldSpeedTilesPerSecond } from './combat/pace.js';
 import {
@@ -1284,8 +1285,11 @@ const loop = createLoop({
           follower.moveTo(wanted);
       });
     }
-    for (const [id, controller] of partyControllers)
-      if (!combat?.party.find((member) => member.id === id)?.benched) controller.update(dt);
+    for (const [id, controller] of partyControllers) {
+      const combatant = combat?.party.find((member) => member.id === id);
+      if (!combatant?.benched)
+        controller.update(dt, combatant ? gripScaleFromPublic(combatant.grip) : undefined);
+    }
     if (partyState.selection !== 'player') {
       const leader = partyControllers.get(partyState.selection);
       if (leader && (leader.screen.x !== player.screen.x || leader.screen.y !== player.screen.y)) {

@@ -51,4 +51,16 @@ describe('combat tells', () => {
   it('still raises tells over the enemy for your own hits', () => {
     expect(read(1.6)).toEqual([{ kind: 'heavy', text: 'Heavy damage', targetId: 'enemy' }]);
   });
+  it('deduplicates slowed tells while always showing a held tell', () => {
+    const events: CombatEvent[] = [
+      { type: 'slowed', attacker: 'mine', target: 'enemy', move: 'bite' },
+      { type: 'slowed', attacker: 'mine', target: 'enemy', move: 'bite' },
+      { type: 'held', attacker: 'mine', target: 'enemy', move: 'bite' },
+      { type: 'slowed', attacker: 'mine', target: 'enemy', move: 'bite' },
+    ];
+    expect(tellsFromEvents(events, { enemyId: 'enemy', ownedIds: ['mine'] })).toEqual([
+      { kind: 'slowed', text: 'Slowed', targetId: 'enemy' },
+      { kind: 'held', text: 'Held', targetId: 'enemy' },
+    ]);
+  });
 });

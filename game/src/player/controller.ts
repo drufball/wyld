@@ -121,7 +121,7 @@ const createPlayerController = (o: ControllerOptions) => {
     );
     if (found) path = found;
   };
-  const update = (dt: number) => {
+  const update = (dt: number, speedScale = 1) => {
     previous = { x: tx, y: ty };
     const resizedScreen = screenOf(Math.floor(tx), Math.floor(ty), o.cols(), o.rows());
     if (!slide && (resizedScreen.sx !== screen.sx || resizedScreen.sy !== screen.sy))
@@ -141,7 +141,7 @@ const createPlayerController = (o: ControllerOptions) => {
       dx = gx - tx,
       dy = gy - ty,
       d = Math.hypot(dx, dy),
-      step = (o.speedTilesPerSecond ?? 2) * dt;
+      step = (o.speedTilesPerSecond ?? 2) * dt * speedScale;
     facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
     if (d <= (path.length === 1 ? Math.max(step, 0.25) : step)) {
       tx = gx;

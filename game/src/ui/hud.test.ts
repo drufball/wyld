@@ -98,6 +98,7 @@ const combatState = (party = [creature('a')]): CombatState => {
     blockedAt: null,
     reachTiles: 1.25,
     grace: 0,
+    grip: { pips: 0, held: false, immune: false },
   });
   return {
     phase: 'fight',
@@ -345,6 +346,7 @@ describe('thumb HUD', () => {
       blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
+      grip: { pips: 0, held: false, immune: false },
     };
     const combat: CombatState = {
       phase: 'fight',
@@ -399,6 +401,7 @@ describe('thumb HUD', () => {
       blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
+      grip: { pips: 0, held: false, immune: false },
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -466,6 +469,7 @@ describe('thumb HUD', () => {
       blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
+      grip: { pips: 0, held: false, immune: false },
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -512,6 +516,7 @@ describe('thumb HUD', () => {
       blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
+      grip: { pips: 0, held: false, immune: false },
     });
     const hud = createHud(false, document.body);
     hud.update({
@@ -553,6 +558,7 @@ describe('thumb HUD', () => {
       blockedAt: null,
       reachTiles: 1.25,
       grace: 0,
+      grip: { pips: 0, held: false, immune: false },
     });
     hud.update({
       ...state(party),
@@ -617,6 +623,7 @@ describe('thumb HUD', () => {
       lineToEnemy: true,
       blockedAt: null,
       grace: 0,
+      grip: { pips: 0, held: false, immune: false },
     });
     const combat: CombatState = {
       phase: 'fight',
@@ -686,6 +693,7 @@ describe('thumb HUD', () => {
       lineToEnemy: true,
       blockedAt: null,
       grace: 0,
+      grip: { pips: 0, held: false, immune: false },
     });
     const hud = createHud(false, document.body, {
       selectCreature: (id) => selected.push(id),

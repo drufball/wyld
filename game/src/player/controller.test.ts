@@ -118,4 +118,16 @@ describe('configured movement', () => {
     subject.update(0.2);
     expect(subject.tile.x).toBeCloseTo(2.1);
   });
+
+  it('scales locomotion without moving while held', () => {
+    const normal = controller(1);
+    const slowed = controller(1);
+    const held = controller(1);
+    for (const subject of [normal, slowed, held]) subject.moveTo({ tx: 4, ty: 1 });
+    normal.update(0.4);
+    slowed.update(0.4, 0.75);
+    held.update(0.4, 0);
+    expect(slowed.tile.x - 1.5).toBeCloseTo((normal.tile.x - 1.5) * 0.75);
+    expect(held.tile.x).toBe(1.5);
+  });
 });

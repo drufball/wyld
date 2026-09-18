@@ -207,6 +207,34 @@ preset, idle movement, no taps, and five seeds. On `main` she was driven off aft
 driven off after **16.05 s**, fired **4 Needles**, landed **3**, first fired at **0.50 s**, and took
 **45 damage**.
 
+### Arena — a tank can pin an enemy
+
+**Simulated:** verified at 60 Hz over seeds 1–5 on this 12-core runner at load 0.7
+(≈0.06/core). Contact Strikes and Sweeps add up to three pips; each pip lasts **0.5 s** and slows
+locomotion to **0.75×**, with every contact hit refreshing that lifetime. The third pip must arrive
+within the **2 s** earning window and starts a **1.5 s** hold. Its pips clear immediately, and the
+target remains immune through the hold and for **1 s** afterward. These are the six centralized
+grip constants (`GRIP_MAX_PIPS`, `GRIP_PIP_SECONDS`, `GRIP_WINDOW_SECONDS`, `GRIP_HOLD_SECONDS`,
+`GRIP_IMMUNE_SECONDS`, and `GRIP_SLOW_FACTOR`). Bolt, Arc, and Lunge never add a pip.
+
+The deterministic unit harness measured the behavior before and after grip. The five-seed arena
+balance presets remained inside their existing assertions; in particular, the untouched balance
+suite reported all nine named cases passing. A dedicated contact trace additionally recorded three
+slows followed by one hold, no movement during its 1.5 s interval (including a pathfinding detour),
+and resumed movement after the interval. Ranged-only parties recorded zero held events.
+
+| scenario (five seeds)                    | before                         | after                          |       held events |
+| ---------------------------------------- | ------------------------------ | ------------------------------ | ----------------: |
+| lone Skittish Bolt-user                  | driven off, 16.05 s, 45 damage | driven off, 16.05 s, 45 damage |                 0 |
+| Bold tank out, shooter reserved, no swap | driven off                     | driven off                     | contact-dependent |
+| Skittish + Steady Bolt-users             | driven off, 38.98–41.18 s      | driven off, 38.98–41.18 s      |                 0 |
+| FAST / informed / armed                  | win, 14.03 s                   | win, 14.03 s                   |               n/a |
+| FAST / informed / none                   | win, 14.03 s                   | win, 14.03 s                   |               n/a |
+| FAST / uninformed / none                 | driven off, 24.82–24.85 s      | driven off, 24.82–24.85 s      |               n/a |
+| TRADE / informed / armed                 | win, 35.67 s                   | win, 35.67 s                   |               n/a |
+| TRADE / informed / none                  | win, 35.67 s                   | win, 35.67 s                   |               n/a |
+| TRADE / uninformed / none                | driven off, 38.98–41.18 s      | driven off, 38.98–41.18 s      |               n/a |
+
 ## Diorama
 
 - **PASS (`simulated`) — HUD writes on change:** jsdom mutation tests verified an identical update makes no tray mutations, cooldown and downed-state changes preserve button identity, and reserve-state changes preserve the other party cards.

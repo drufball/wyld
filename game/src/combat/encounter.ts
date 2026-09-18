@@ -18,6 +18,15 @@ import {
 } from './balance.js';
 import { ENTRY_GRACE_SECONDS, RESERVE_AUTO_DEPLOY_SECONDS, entryTile } from './reserve.js';
 import {
+  applyGrip,
+  emptyGrip,
+  gripSpeedScale,
+  gripsFrom,
+  publicGrip,
+  type Grip,
+  type PublicGrip,
+} from './grip.js';
+import {
   canAfford,
   cooldownFor,
   damage,
@@ -49,6 +58,7 @@ type Combatant = {
   approaching?: boolean;
   overrideRemaining?: number;
   grace: number;
+  grip: PublicGrip;
 };
 type Projectile = { id: string; moveId: string; owner: string; position: Point; target: Point };
 type Flash = { id: string; at: Point; remaining: number };
@@ -70,7 +80,17 @@ type CombatState = {
   flashes: Flash[];
 };
 type CombatEvent = {
-  type: 'hit' | 'miss' | 'executed' | 'blocked' | 'downed' | 'win' | 'driven-off' | 'auto-deploy';
+  type:
+    | 'hit'
+    | 'miss'
+    | 'executed'
+    | 'blocked'
+    | 'downed'
+    | 'win'
+    | 'driven-off'
+    | 'auto-deploy'
+    | 'slowed'
+    | 'held';
   attacker?: string;
   target?: string;
   out?: string;
@@ -92,7 +112,7 @@ type EncounterOptions = {
   reserve?: string;
   balance?: ArenaBalance;
 };
-type Internal = Omit<Combatant, 'lineToEnemy' | 'blockedAt'> & {
+type Internal = Omit<Combatant, 'lineToEnemy' | 'blockedAt' | 'grip'> & {
   individual: Individual;
   pending: { move: Move; target: Point; targetId: string; elapsed: number; total: number } | null;
   approach: { move: Move; targetId: string; elapsed: number; blockedAt: Point | null } | null;
@@ -102,6 +122,7 @@ type Internal = Omit<Combatant, 'lineToEnemy' | 'blockedAt'> & {
   home: Point;
   wander: Wander;
   overrideUntil: number;
+  grip: Grip;
 };
 type Flight = Projectile & {
   from: Point;
@@ -157,6 +178,7 @@ const make = (individual: Individual, tile: Point, benched = false): Internal =>
   home: copy(tile),
   wander: null,
   overrideUntil: 0,
+  grip: emptyGrip(),
 });
 const random = (rng: EncounterOptions['rng']): number =>
   typeof rng === 'function' ? rng() : rng.next();
@@ -228,6 +250,14 @@ const createEncounter = ({
       hideMult: hideMultiplier(hide(target), move.force),
       final,
     });
+    if (target.hp > 0 && gripsFrom(move.delivery)) {
+      const result = applyGrip(target.grip, elapsed);
+      target.grip = result.grip;
+      if (result.slowed)
+        events.push({ type: 'slowed', attacker: attacker.id, target: target.id, move: move.id });
+      if (result.held)
+        events.push({ type: 'held', attacker: attacker.id, target: target.id, move: move.id });
+    }
     if (target.hp === 0) {
       target.downed = true;
       target.pending = null;
@@ -407,7 +437,8 @@ const createEncounter = ({
       d = distance(foe.tile, target),
       dx = (target.x - foe.tile.x) / (d || 1),
       dy = (target.y - foe.tile.y) / (d || 1),
-      speed = arenaSpeedTilesPerSecond(foe.individual.stats.speed);
+      speed =
+        arenaSpeedTilesPerSecond(foe.individual.stats.speed) * gripSpeedScale(foe.grip, elapsed);
     let step = 0;
     if (requiredRange !== undefined && d > requiredRange)
       step = Math.min(speed * dt, d - requiredRange);
@@ -483,6 +514,7 @@ const createEncounter = ({
       const p = pointFrom(positions, c.id);
       if (p && c !== foe && !c.benched && !c.pending) c.tile = copy(p);
     }
+    // Separation is an anti-overlap nudge, not locomotion; held combatants must not stack.
     const standing = all().filter((c) => !c.downed && !c.benched),
       separated = separate(
         standing.map((c) => ({
@@ -693,6 +725,7 @@ const createEncounter = ({
       combatant.windup = null;
       combatant.approach = null;
       combatant.desiredTile = null;
+      combatant.grip = emptyGrip();
     }
     if (foe.pending?.targetId === outgoing.id) {
       foe.pending = null;
@@ -730,6 +763,7 @@ const createEncounter = ({
         : lineClear(c.tile, foe.tile, (tx, ty) => grid.isWalkable(tx, ty)),
     blockedAt: c.approach?.blockedAt ? copy(c.approach.blockedAt) : null,
     grace: c.grace,
+    grip: publicGrip(c.grip, elapsed),
   });
   const state = (): CombatState => ({
     phase,
@@ -750,6 +784,7 @@ const createEncounter = ({
       targetId: foe.pending?.targetId ?? foe.approach?.targetId ?? threatTarget()?.id ?? null,
       reachTiles: foeReach,
       grace: foe.grace,
+      grip: publicGrip(foe.grip, elapsed),
     },
     party: owned.map(publicCombatant),
     reserveId: owned.find((c) => c.benched && !c.downed)?.id ?? null,
@@ -769,6 +804,7 @@ const createEncounter = ({
       c.hp = c.maxHp;
       c.focus = c.maxFocus;
       c.downed = false;
+      c.grip = emptyGrip();
     }
   };
   const override = (creatureId: string): void => {
