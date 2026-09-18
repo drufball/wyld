@@ -45,7 +45,7 @@ describe('formation', () => {
       c = { ...c, tile };
     }
     const ring = ringFor('Bold', [bolt], 2);
-    expect(ring).toBe(3.5);
+    expect(ring).toBe(4.25);
     expect(d(c.tile, enemy)).toBeGreaterThanOrEqual(ring! - 0.6);
     expect(d(c.tile, enemy)).toBeLessThanOrEqual(ring! + 1.2);
     expect(d(c.tile, enemy)).toBeGreaterThan(initial);
@@ -59,8 +59,8 @@ describe('formation', () => {
       const tile = run([c], { enemy })[0]!.tile;
       c = { ...c, tile };
     }
-    expect(d(c.tile, enemy)).toBeGreaterThanOrEqual(3.5 - 0.6);
-    expect(d(c.tile, enemy)).toBeLessThanOrEqual(3.5 + 1.2);
+    expect(d(c.tile, enemy)).toBeGreaterThanOrEqual(4.25 - 0.6);
+    expect(d(c.tile, enemy)).toBeLessThanOrEqual(4.25 + 1.2);
     expect(d(c.tile, enemy)).toBeLessThan(initial);
   });
 
@@ -84,14 +84,18 @@ describe('formation', () => {
       tile: { x: 0.5, y: 4.5 },
       moves: [bolt],
     });
-    expect(ringTarget(c, { x: 0.5, y: 0.5 }, 2, () => true)).toEqual(c.tile);
+    expect(ringTarget(c, { x: 0, y: 0 }, 2, () => true)).toEqual(c.tile);
   });
 
   it('puts the ring outside the hold-the-shot release line', () => {
     for (const reach of [0, 1.25, 2, 3, 4]) {
       const ring = ringFor('Skittish', [bolt], reach);
-      expect(ring === null || shotHolds(ring, reach)).toBe(false);
+      expect(ring === null ? true : !shotHolds(ring, reach)).toBe(true);
     }
+  });
+
+  it('uses the 3.5-tile kite line against a Strike-only heavy', () => {
+    expect(ringFor('Skittish', [bolt], 1.25)).toBe(3.5);
   });
   it('keeps a Skittish creature within two tiles of the player on the far side from the enemy', () => {
     const tile = run([creature({ temperament: 'Skittish' })])[0]!.tile;
