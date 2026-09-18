@@ -8,7 +8,13 @@ import {
   screenRows,
   scaleFromQuery,
 } from './canvas.js';
+import { TILE_PX } from './placement.js';
 describe('2D viewport', () => {
+  it('sizes the canvas and the picking grid from TILE_PX', () => {
+    expect(canvasPixelToTile(TILE_PX, TILE_PX * 2, 0, 0, 20, 12)).toEqual({ tx: 1, ty: 2 });
+    expect(screenCols(375, 3) * TILE_PX * 3).toBe(336);
+  });
+
   it('derives a 7 by 16 tile screen at 3x on a 375 by 812 phone', () => {
     const s = pixelScale(375, 812);
     expect([s, screenCols(375, s), screenRows(812, s)]).toEqual([3, 7, 16]);

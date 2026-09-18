@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { pickSpriteAt, spriteOrigin, TILE_PX } from './placement.js';
 
+it('pins the tile size at 16 pixels', () => {
+  expect(TILE_PX).toBe(16);
+});
+
 describe('spriteOrigin', () => {
   it.each([
     [16, 16, 80, 128],
