@@ -5,6 +5,20 @@ const ENTRY_GRACE_SECONDS = 1;
 type Point = { x: number; y: number };
 type SwapTapOutcome = { outId: string } | { reason: string };
 
+const reserveEntryNotice = (input: {
+  party: readonly { id: string; downed: boolean; benched: boolean }[];
+  reserveIds: readonly string[];
+  nameOf: (id: string) => string | null;
+}): string | null => {
+  const fallen = input.party.find(({ benched }) => !benched);
+  const reserveId = input.reserveIds[0];
+  if (!fallen || !reserveId) return null;
+  const fallenName = input.nameOf(fallen.id);
+  const reserveName = input.nameOf(reserveId);
+  if (!fallenName || !reserveName) return null;
+  return `${fallenName} is down — ${reserveName} is coming in.`;
+};
+
 const centre = (point: Point): Point => ({
   x: Math.floor(point.x) + 0.5,
   y: Math.floor(point.y) + 0.5,
@@ -69,5 +83,11 @@ const swapTapOutcome = (input: {
   return { outId: outgoing.id };
 };
 
-export { ENTRY_GRACE_SECONDS, RESERVE_AUTO_DEPLOY_SECONDS, entryTile, swapTapOutcome };
+export {
+  ENTRY_GRACE_SECONDS,
+  RESERVE_AUTO_DEPLOY_SECONDS,
+  entryTile,
+  reserveEntryNotice,
+  swapTapOutcome,
+};
 export type { Point, SwapTapOutcome };

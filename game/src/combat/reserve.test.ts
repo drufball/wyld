@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entryTile, swapTapOutcome } from './reserve.js';
+import { entryTile, reserveEntryNotice, swapTapOutcome } from './reserve.js';
 
 describe('reserve', () => {
   const open = () => true;
@@ -43,6 +43,55 @@ describe('reserve', () => {
         occupied: [],
       }),
     ).toEqual({ x: 2.5, y: 2.5 }));
+  const arenaNames: Record<string, string> = {
+    thornwren: 'Pip',
+    emberjack: 'Cinder',
+    loamox: 'Barrow',
+  };
+  const nameOf = (id: string) => arenaNames[id] ?? null;
+  it('names the creature that fell and the one coming in', () =>
+    expect(
+      reserveEntryNotice({
+        party: [
+          { id: 'thornwren', downed: true, benched: false },
+          { id: 'emberjack', downed: false, benched: true },
+          { id: 'loamox', downed: false, benched: true },
+        ],
+        reserveIds: ['emberjack', 'loamox'],
+        nameOf,
+      }),
+    ).toBe('Pip is down — Cinder is coming in.'));
+  it('finds the fallen creature wherever it sits in the party', () =>
+    expect(
+      reserveEntryNotice({
+        party: [
+          { id: 'emberjack', downed: false, benched: true },
+          { id: 'loamox', downed: false, benched: true },
+          { id: 'thornwren', downed: true, benched: false },
+        ],
+        reserveIds: ['emberjack', 'loamox'],
+        nameOf,
+      }),
+    ).toBe('Pip is down — Cinder is coming in.'));
+  it('returns no notice when there is no reserve id', () =>
+    expect(
+      reserveEntryNotice({
+        party: [{ id: 'thornwren', downed: true, benched: false }],
+        reserveIds: [],
+        nameOf,
+      }),
+    ).toBeNull());
+  it('returns no notice when a name cannot be resolved', () =>
+    expect(
+      reserveEntryNotice({
+        party: [
+          { id: 'thornwren', downed: true, benched: false },
+          { id: 'emberjack', downed: false, benched: true },
+        ],
+        reserveIds: ['emberjack'],
+        nameOf: (id) => (id === 'emberjack' ? null : nameOf(id)),
+      }),
+    ).toBeNull());
   const party = [
     { id: 'a', downed: false, benched: false },
     { id: 'r', downed: false, benched: true },
