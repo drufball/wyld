@@ -46,14 +46,5 @@ const cooldownFor = (move: Move): number => deliveries[move.delivery].cooldown *
 const rangeFor = (move: Move): number => deliveries[move.delivery].range * move.rangeMult;
 const rangeTilesFor = (move: Move): number => metresToTiles(rangeFor(move));
 
-export {
-  canAfford,
-  cooldownFor,
-  damage,
-  deliveries,
-  metresToTiles,
-  rangeFor,
-  rangeTilesFor,
-  windup,
-};
+export { canAfford, cooldownFor, damage, deliveries, metresToTiles, rangeTilesFor, windup };
 export type { DeliveryRules };

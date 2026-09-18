@@ -268,11 +268,6 @@ const formation = (input: FormationInput): FormationOutput => {
 
 export {
   formation,
-  kiteFrom,
-  kiteHolds,
-  KITE_MARGIN_TILES,
-  KITE_STEP_TILES,
-  bestMoveFor,
   ringFor,
   ringTarget,
   shotHolds,
