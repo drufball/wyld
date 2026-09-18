@@ -205,7 +205,6 @@ const createDiorama = (
           key: entry.key,
           tileX: entry.tileX,
           tileY: entry.tileY,
-          headHeight: TIER_LENGTH_TILES[speciesById(entry.speciesId)!.tier] * 0.6,
           hp: entry.hp,
           focus: entry.focus,
           windup: entry.windup,
