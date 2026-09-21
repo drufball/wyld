@@ -29,18 +29,27 @@ const tellsFromEvents = (
 
 const createTellStack = () => {
   let serial = 0;
-  let active: (ActiveTell & { remaining: number })[] = [];
+  let active: { tell: ActiveTell; remaining: number }[] = [];
+  let snapshot: readonly ActiveTell[] = Object.freeze([]);
   return {
     push(tell: CombatTell): void {
-      active.push({ ...tell, id: ++serial, remaining: 1 });
+      const activeTell = Object.freeze({ ...tell, id: ++serial });
+      active.push({ tell: activeTell, remaining: 1 });
+      snapshot = Object.freeze(active.map(({ tell: current }) => current));
     },
     update(dt: number): void {
-      active = active
-        .map((tell) => ({ ...tell, remaining: tell.remaining - dt }))
-        .filter(({ remaining }) => remaining > 0);
+      let expired = false;
+      for (const current of active) {
+        current.remaining -= dt;
+        if (current.remaining <= 0) expired = true;
+      }
+      if (!expired) return;
+
+      active = active.filter(({ remaining }) => remaining > 0);
+      snapshot = Object.freeze(active.map(({ tell: current }) => current));
     },
-    list(): ActiveTell[] {
-      return active.map(({ id, kind, text, targetId }) => ({ id, kind, text, targetId }));
+    list(): readonly ActiveTell[] {
+      return snapshot;
     },
   };
 };

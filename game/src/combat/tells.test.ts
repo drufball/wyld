@@ -45,6 +45,59 @@ describe('combat tells', () => {
     stack.update(1);
     expect(stack.list()).toEqual([]);
   });
+  it('hands out the same objects until something changes', () => {
+    const stack = createTellStack();
+    stack.push({ kind: 'glance', text: 'Glances off', targetId: 'first' });
+    stack.push({ kind: 'heavy', text: 'Heavy damage', targetId: 'second' });
+    stack.push({ kind: 'ignored', text: '…', targetId: 'third' });
+    const initial = stack.list();
+
+    stack.update(0.1);
+    stack.update(0.2);
+    const unchanged = stack.list();
+    expect(unchanged).toBe(initial);
+    unchanged.forEach((tell, index) => expect(tell).toBe(initial[index]));
+
+    stack.push({ kind: 'glance', text: 'Glances off', targetId: 'fourth' });
+    const afterPush = stack.list();
+    expect(afterPush).not.toBe(initial);
+    afterPush.slice(0, 3).forEach((tell, index) => expect(tell).toBe(initial[index]));
+
+    stack.update(0.7);
+    const afterExpiry = stack.list();
+    expect(afterExpiry).not.toBe(afterPush);
+    expect(afterExpiry).toEqual([afterPush[3]]);
+    expect(afterExpiry[0]).toBe(afterPush[3]);
+  });
+  it('keeps counting a tell down while it hands out the same object', () => {
+    const stack = createTellStack();
+    stack.push({ kind: 'glance', text: 'Glances off', targetId: 'enemy' });
+    const tell = stack.list()[0];
+
+    stack.update(0.5);
+    expect(stack.list()[0]).toBe(tell);
+    stack.update(0.5);
+    expect(stack.list()).toEqual([]);
+  });
+  it('refuses to be mutated by a renderer', () => {
+    const stack = createTellStack();
+    stack.push({ kind: 'glance', text: 'Glances off', targetId: 'enemy' });
+    const tell = stack.list()[0]!;
+
+    expect(Reflect.set(tell, 'text', 'Heavy damage')).toBe(false);
+    expect(stack.list()[0]?.text).toBe('Glances off');
+  });
+  it('drops only the tell that expired', () => {
+    const stack = createTellStack();
+    stack.push({ kind: 'glance', text: 'Glances off', targetId: 'first' });
+    stack.update(0.5);
+    stack.push({ kind: 'heavy', text: 'Heavy damage', targetId: 'second' });
+    const survivor = stack.list()[1];
+
+    stack.update(0.5);
+    expect(stack.list()).toEqual([survivor]);
+    expect(stack.list()[0]).toBe(survivor);
+  });
   it('raises a glance tell over a party creature an enemy move glanced off', () => {
     expect(tellsFromEvents([enemyHit(0.6)], { enemyId: 'enemy', ownedIds: ['mine'] })).toEqual([
       { kind: 'glance', text: 'Glances off', targetId: 'mine' },
