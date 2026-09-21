@@ -111,7 +111,7 @@ const combatState = (party = [creature('a')]): CombatState => {
     flashes: [],
   };
 };
-const arenaState = (swapRemaining: number) => {
+const arenaState = (swapRemaining: number, outDown = false) => {
   const party = [creature('out'), creature('reserve-a'), creature('reserve-b')];
   for (const member of party) {
     member.individual.repertoire.push(
@@ -120,7 +120,7 @@ const arenaState = (swapRemaining: number) => {
     );
   }
   const combat = combatState(party);
-  combat.party[0]!.downed = true;
+  combat.party[0]!.downed = outDown;
   combat.party[1]!.benched = true;
   combat.party[2]!.benched = true;
   combat.reserveIds = [party[1]!.individual.id, party[2]!.individual.id];
@@ -186,6 +186,28 @@ describe('thumb HUD', () => {
   it('a repeated combat frame makes no DOM mutations while the swap cooldown runs', () => {
     const hud = createHud(false, document.body);
     const current = arenaState(3);
+    hud.update(current);
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(hud.tray, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    hud.update(current);
+    const reserveCards = hud.tray.querySelectorAll<HTMLElement>('[data-reserve]');
+    expect(reserveCards).toHaveLength(2);
+    for (const card of reserveCards) {
+      expect(card.dataset.swapState).toBe('cooldown');
+      expect(card.style.background).toContain('linear-gradient');
+    }
+    expect(observer.takeRecords()).toHaveLength(0);
+    observer.disconnect();
+  });
+
+  it('a repeated combat frame makes no DOM mutations while a reserve is urgent', () => {
+    const hud = createHud(false, document.body);
+    const current = arenaState(0, true);
     hud.update(current);
     const observer = new MutationObserver(() => undefined);
     observer.observe(hud.tray, {
