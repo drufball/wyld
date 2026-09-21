@@ -250,6 +250,35 @@ describe('thumb HUD', () => {
     expect(card.childNodes[0]?.textContent).toBe('a\nDown');
   });
 
+  it("a downed reserve card stays quiet while another creature's reserve walks in", () => {
+    const party = [creature('a'), creature('b'), creature('reserve')];
+    const combat = combatState(party);
+    combat.party[0]!.downed = true;
+    combat.party[0]!.benched = true;
+    combat.party[1]!.downed = true;
+    combat.reserveIds = ['reserve'];
+    combat.autoDeployIn = 1.2;
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party), combat });
+    const benchedCard = document.querySelector<HTMLElement>('[data-party-id="a"]')!;
+    const activeCard = document.querySelector<HTMLElement>('[data-party-id="b"]')!;
+    expect(benchedCard.querySelector('small')).toBeNull();
+    expect(activeCard.querySelector('small')?.textContent).toBe(
+      'b is down — reserve is coming in.',
+    );
+  });
+
+  it('a downed creature with nobody coming in just says down', () => {
+    const party = [creature('a'), creature('b')];
+    const combat = combatState(party);
+    combat.party[0]!.downed = true;
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party), combat });
+    const card = document.querySelector<HTMLElement>('[data-party-id="a"]')!;
+    expect(card.querySelector('small')).toBeNull();
+    expect(card.childNodes[0]?.textContent).toBe('a\nDown');
+  });
+
   it("a downed creature's card needs no tap and stays inert", () => {
     const selected: string[] = [];
     const hud = createHud(false, document.body, {
