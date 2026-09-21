@@ -71,7 +71,7 @@ import { createPick, chooseEnemy, toggleMember, startFight, type PickState } fro
 import { arenaPlacement } from './arena/placement.js';
 import { resistance, weakness } from './combat/hides.js';
 import { createEncounter, shouldAskForReserve } from './combat/encounter.js';
-import { reserveEntryNotice } from './combat/reserve.js';
+import { reserveEntryLine, reserveEntryNotice } from './combat/reserve.js';
 import { createAutopilot } from './combat/autopilot.js';
 import { createChooser } from './combat/choice.js';
 import { autopilotHolds } from './combat/authority.js';
@@ -253,11 +253,13 @@ hudActions.selectCreature = (id) => {
   const combat = encounter?.state();
   const member = combat?.party.find((candidate) => candidate.id === id);
   if (combat && member?.downed && !member.benched) {
-    const reserve = combat.party.find((candidate) => candidate.benched && !candidate.downed);
-    const reserveName = reserve ? (rosterMember(reserve.id)?.name ?? reserve.id) : null;
     notice = {
       id,
-      text: reserveName ? `Down — ${reserveName} is coming in` : 'Down',
+      text: reserveEntryLine({
+        party: combat.party,
+        reserveIds: combat.reserveIds,
+        nameOf: (id) => rosterMember(id)?.name ?? null,
+      }),
       refused: false,
       until: combat.elapsed + NOTICE_SECONDS,
     };
@@ -1151,7 +1153,9 @@ const loop = createLoop({
             },
           });
     }
-    for (const tap of input.taps()) {
+    const queuedTaps = input.taps();
+    if (queuedTaps.length > 0) {
+      // These reads stay stable until controller.update and player.update run after this loop.
       activeFlatScreen = { sx: player.screen.x, sy: player.screen.y };
       const combatState = combat ?? encounter?.state();
       const partyBodies = partyState.party.flatMap(({ individual }) => {
@@ -1162,7 +1166,8 @@ const loop = createLoop({
         const definition = speciesById(individual.speciesId)!;
         return [{ key: individual.id, tileX: tile.x, tileY: tile.y, definition }];
       });
-      const wildBodies = registry.list().flatMap((creature) => {
+      const wildList = registry.list();
+      const wildBodies = wildList.flatMap((creature) => {
         if (!onScreen(creature.position.x, creature.position.z)) return [];
         return [
           {
@@ -1173,99 +1178,110 @@ const loop = createLoop({
           },
         ];
       });
-      const bodyHit =
+      const bodyAt =
         look === 'diorama'
-          ? dioramaView!.pickBody(tap.clientX, tap.clientY, [
-              ...partyBodies.map(({ definition, ...body }) => ({
-                ...body,
-                heightTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
-                widthTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
-              })),
-              {
-                key: 'player',
-                tileX: player.tile.x,
-                tileY: player.tile.y,
-                heightTiles: 1,
-                widthTiles: 0.6,
-              },
-              ...wildBodies.map(({ definition, ...body }) => ({
-                ...body,
-                heightTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
-                widthTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
-              })),
-            ])
-          : flatView!.pickBody(tap.clientX, tap.clientY, [
-              ...partyBodies.map(({ definition, ...body }) => ({
-                ...body,
-                tileX: body.tileX - player.screen.x * view.cols,
-                tileY: body.tileY - player.screen.y * view.rows,
-                sizePx: definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
-              })),
-              {
-                key: 'player',
-                tileX: player.tile.x - player.screen.x * view.cols,
-                tileY: player.tile.y - player.screen.y * view.rows,
-                sizePx: 24,
-              },
-              ...wildBodies.map(({ definition, ...body }) => ({
-                ...body,
-                tileX: body.tileX - player.screen.x * view.cols,
-                tileY: body.tileY - player.screen.y * view.rows,
-                sizePx: definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
-              })),
-            ]);
-      if (bodyHit) {
-        const partyHit = partyState.party.find(({ individual }) => individual.id === bodyHit);
-        const wildHit = registry.list().find(({ id }) => id === bodyHit);
-        if (partyHit) partyState = selectCreature(partyState, bodyHit);
-        else if (bodyHit === 'player') partyState = selectPlayer(partyState);
+          ? (() => {
+              const pickerCandidates = [
+                ...partyBodies.map(({ definition, ...body }) => ({
+                  ...body,
+                  heightTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
+                  widthTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
+                })),
+                {
+                  key: 'player',
+                  tileX: player.tile.x,
+                  tileY: player.tile.y,
+                  heightTiles: 1,
+                  widthTiles: 0.6,
+                },
+                ...wildBodies.map(({ definition, ...body }) => ({
+                  ...body,
+                  heightTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
+                  widthTiles: render3d!.TIER_LENGTH_TILES[definition.tier] * 0.6,
+                })),
+              ];
+              return (clientX: number, clientY: number) =>
+                dioramaView!.pickBody(clientX, clientY, pickerCandidates);
+            })()
+          : (() => {
+              const pickerCandidates = [
+                ...partyBodies.map(({ definition, ...body }) => ({
+                  ...body,
+                  tileX: body.tileX - player.screen.x * view.cols,
+                  tileY: body.tileY - player.screen.y * view.rows,
+                  sizePx: definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
+                })),
+                {
+                  key: 'player',
+                  tileX: player.tile.x - player.screen.x * view.cols,
+                  tileY: player.tile.y - player.screen.y * view.rows,
+                  sizePx: 24,
+                },
+                ...wildBodies.map(({ definition, ...body }) => ({
+                  ...body,
+                  tileX: body.tileX - player.screen.x * view.cols,
+                  tileY: body.tileY - player.screen.y * view.rows,
+                  sizePx: definition.tier === 1 ? 16 : definition.tier === 2 ? 24 : 32,
+                })),
+              ];
+              return (clientX: number, clientY: number) =>
+                flatView!.pickBody(clientX, clientY, pickerCandidates);
+            })();
+      for (const tap of queuedTaps) {
+        const bodyHit = bodyAt(tap.clientX, tap.clientY);
+        if (bodyHit) {
+          const partyHit = partyState.party.find(({ individual }) => individual.id === bodyHit);
+          const wildHit = wildList.find(({ id }) => id === bodyHit);
+          if (partyHit) partyState = selectCreature(partyState, bodyHit);
+          else if (bodyHit === 'player') partyState = selectPlayer(partyState);
+          else if (wildHit)
+            partyState = targetWildCreature(partyState, {
+              id: wildHit.id,
+              speciesId: wildHit.speciesId,
+            });
+          continue;
+        }
+        const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
+        const partyHit = partyState.party.find(({ individual }) => {
+          if (combat?.party.find((member) => member.id === individual.id)?.benched) return false;
+          const tile = partyControllers.get(individual.id)!.tile;
+          return Math.floor(tile.x) === tx && Math.floor(tile.y) === ty;
+        });
+        const wildHit = wildList.find((creature) => {
+          const tile = worldToTile(creature.position.x, creature.position.z);
+          return tile.tx === tx && tile.ty === ty;
+        });
+        if (partyHit) partyState = selectCreature(partyState, partyHit.individual.id);
+        else if (Math.floor(player.tile.x) === tx && Math.floor(player.tile.y) === ty)
+          partyState = selectPlayer(partyState);
         else if (wildHit)
           partyState = targetWildCreature(partyState, {
             id: wildHit.id,
             speciesId: wildHit.speciesId,
           });
-        continue;
-      }
-      const { tx, ty } = view.pickTile(tap.clientX, tap.clientY);
-      const partyHit = partyState.party.find(({ individual }) => {
-        if (combat?.party.find((member) => member.id === individual.id)?.benched) return false;
-        const tile = partyControllers.get(individual.id)!.tile;
-        return Math.floor(tile.x) === tx && Math.floor(tile.y) === ty;
-      });
-      const wildHit = registry.list().find((creature) => {
-        const tile = worldToTile(creature.position.x, creature.position.z);
-        return tile.tx === tx && tile.ty === ty;
-      });
-      if (partyHit) partyState = selectCreature(partyState, partyHit.individual.id);
-      else if (Math.floor(player.tile.x) === tx && Math.floor(player.tile.y) === ty)
-        partyState = selectPlayer(partyState);
-      else if (wildHit)
-        partyState = targetWildCreature(partyState, {
-          id: wildHit.id,
-          speciesId: wildHit.speciesId,
-        });
-      else {
-        partyState = groundTapped(partyState);
-        if (partyState.selection === 'player') player.tap(tap.clientX, tap.clientY);
         else {
-          if (encounter?.state().phase === 'fight') {
-            const combatState = encounter.state();
-            const result = encounter.hear(partyState.selection);
-            const entry: OrderEntry = {
-              creatureId: partyState.selection,
-              kind: 'walk',
-              moveId: null,
-              ...result,
-              at: combatState.elapsed,
-            };
-            orders.record(entry);
-            if (entry.heard) {
-              encounter.override(partyState.selection);
+          partyState = groundTapped(partyState);
+          if (partyState.selection === 'player') player.tap(tap.clientX, tap.clientY);
+          else {
+            if (encounter?.state().phase === 'fight') {
+              const combatState = encounter.state();
+              const result = encounter.hear(partyState.selection);
+              const entry: OrderEntry = {
+                creatureId: partyState.selection,
+                kind: 'walk',
+                moveId: null,
+                ...result,
+                at: combatState.elapsed,
+              };
+              orders.record(entry);
+              if (entry.heard) {
+                encounter.override(partyState.selection);
+                partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
+              } else tellStack.push(ignoredTell(entry)!);
+            } else {
+              encounter?.override(partyState.selection);
               partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
-            } else tellStack.push(ignoredTell(entry)!);
-          } else {
-            encounter?.override(partyState.selection);
-            partyControllers.get(partyState.selection)?.tap(tap.clientX, tap.clientY);
+            }
           }
         }
       }

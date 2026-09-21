@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entryTile, reserveEntryNotice, swapTapOutcome } from './reserve.js';
+import { entryTile, reserveEntryLine, reserveEntryNotice, swapTapOutcome } from './reserve.js';
 
 describe('reserve', () => {
   const open = () => true;
@@ -92,6 +92,36 @@ describe('reserve', () => {
         nameOf: (id) => (id === 'emberjack' ? null : nameOf(id)),
       }),
     ).toBeNull());
+  it('uses the same sentence for a downed creature card and its reserve toast', () => {
+    const input = {
+      party: [
+        { id: 'thornwren', downed: true, benched: false },
+        { id: 'emberjack', downed: false, benched: true },
+      ],
+      reserveIds: ['emberjack'],
+      nameOf,
+    };
+    expect(reserveEntryLine(input)).toBe(reserveEntryNotice(input));
+  });
+  it('labels a downed creature without a healthy reserve as down', () =>
+    expect(
+      reserveEntryLine({
+        party: [{ id: 'thornwren', downed: true, benched: false }],
+        reserveIds: [],
+        nameOf,
+      }),
+    ).toBe('Down'));
+  it('labels a downed creature as down when the reserve name cannot be resolved', () =>
+    expect(
+      reserveEntryLine({
+        party: [
+          { id: 'thornwren', downed: true, benched: false },
+          { id: 'emberjack', downed: false, benched: true },
+        ],
+        reserveIds: ['emberjack'],
+        nameOf: (id) => (id === 'emberjack' ? null : nameOf(id)),
+      }),
+    ).toBe('Down'));
   const party = [
     { id: 'a', downed: false, benched: false },
     { id: 'r', downed: false, benched: true },
