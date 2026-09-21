@@ -132,6 +132,13 @@ const arenaState = (swapRemaining: number, outDown = false) => {
   }
   return { ...state(party, 'out'), combat };
 };
+const reserveNoticeState = () => {
+  const party = [creature('a'), creature('b'), creature('reserve')];
+  const combat = combatState(party);
+  combat.party[0]!.downed = true;
+  combat.autoDeployIn = 1.2;
+  return { ...state(party), combat };
+};
 afterEach(() => {
   document.body.replaceChildren();
   document.head.replaceChildren();
@@ -208,6 +215,94 @@ describe('thumb HUD', () => {
   it('a repeated combat frame makes no DOM mutations while a reserve is urgent', () => {
     const hud = createHud(false, document.body);
     const current = arenaState(0, true);
+    hud.update(current);
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(hud.tray, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    hud.update(current);
+    expect(observer.takeRecords()).toHaveLength(0);
+    observer.disconnect();
+  });
+
+  it("a downed creature's card says who is coming in", () => {
+    const hud = createHud(false, document.body);
+    hud.update(reserveNoticeState());
+    const card = document.querySelector<HTMLElement>('[data-party-id="a"]')!;
+    expect(card.querySelector('small')?.textContent).toBe('a is down — reserve is coming in.');
+    expect(card.childNodes[0]?.textContent).toBe('a\nDown');
+  });
+
+  it("a downed creature's card goes back to down once the reserve is in", () => {
+    const hud = createHud(false, document.body);
+    const current = reserveNoticeState();
+    hud.update(current);
+    current.combat.party[0]!.benched = true;
+    current.combat.party[2]!.benched = false;
+    current.combat.reserveIds = [];
+    current.combat.autoDeployIn = null;
+    hud.update(current);
+    const card = document.querySelector<HTMLElement>('[data-party-id="a"]')!;
+    expect(card.querySelector('small')).toBeNull();
+    expect(card.childNodes[0]?.textContent).toBe('a\nDown');
+  });
+
+  it("a downed reserve card stays quiet while another creature's reserve walks in", () => {
+    const party = [creature('a'), creature('b'), creature('reserve')];
+    const combat = combatState(party);
+    combat.party[0]!.downed = true;
+    combat.party[0]!.benched = true;
+    combat.party[1]!.downed = true;
+    combat.reserveIds = ['reserve'];
+    combat.autoDeployIn = 1.2;
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party), combat });
+    const benchedCard = document.querySelector<HTMLElement>('[data-party-id="a"]')!;
+    const activeCard = document.querySelector<HTMLElement>('[data-party-id="b"]')!;
+    expect(benchedCard.querySelector('small')).toBeNull();
+    expect(activeCard.querySelector('small')?.textContent).toBe(
+      'b is down — reserve is coming in.',
+    );
+  });
+
+  it('a downed creature with nobody coming in just says down', () => {
+    const party = [creature('a'), creature('b')];
+    const combat = combatState(party);
+    combat.party[0]!.downed = true;
+    const hud = createHud(false, document.body);
+    hud.update({ ...state(party), combat });
+    const card = document.querySelector<HTMLElement>('[data-party-id="a"]')!;
+    expect(card.querySelector('small')).toBeNull();
+    expect(card.childNodes[0]?.textContent).toBe('a\nDown');
+  });
+
+  it("a downed creature's card needs no tap and stays inert", () => {
+    const selected: string[] = [];
+    const hud = createHud(false, document.body, {
+      selectCreature: (id) => selected.push(id),
+      swapIn: (id) => selected.push(id),
+    });
+    hud.update(reserveNoticeState());
+    const card = document.querySelector<HTMLButtonElement>('[data-party-id="a"]')!;
+    expect(card.querySelector('small')?.textContent).toBe('a is down — reserve is coming in.');
+    card.click();
+    expect(selected).toEqual([]);
+  });
+
+  it("a healthy creature's card is unchanged while a reserve is coming in", () => {
+    const hud = createHud(false, document.body);
+    hud.update(reserveNoticeState());
+    const card = document.querySelector<HTMLElement>('[data-party-id="b"]')!;
+    expect(card.querySelector('small')).toBeNull();
+    expect(card.childNodes[0]?.textContent).toBe('b\nSteady');
+  });
+
+  it('a repeated combat frame makes no DOM mutations while a downed card names the reserve', () => {
+    const hud = createHud(false, document.body);
+    const current = reserveNoticeState();
     hud.update(current);
     const observer = new MutationObserver(() => undefined);
     observer.observe(hud.tray, {
