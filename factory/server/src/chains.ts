@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
 import { ensureMechanicalBriefing } from './catchup.js';
+import { settleLookChains } from './chain-cards.js';
 import type { Config } from './config.js';
 import { formatIssues } from '@wyld/shared';
 import { compareRumbles } from './rumbles.js';
@@ -135,6 +136,8 @@ export function createChainRoutes({ database, now, storeEvent, config }: Depende
           inArray(chains.kind, ['question', 'message']),
           lt(chains.lastActivityAt, cutoff),
           or(isNull(chains.snoozedUntil), lt(chains.snoozedUntil, cutoff)),
+          sql`NOT EXISTS (SELECT 1 FROM json_each(${chains.tags}) WHERE value = 'look')`,
+          sql`(${chains.questId} IS NULL OR EXISTS (SELECT 1 FROM ${chainMessages} WHERE ${chainMessages.chainId} = ${chains.id} AND ${chainMessages.author} = 'human'))`,
         ),
       )
       .run();
@@ -290,6 +293,37 @@ export function createChainRoutes({ database, now, storeEvent, config }: Depende
     db.insert(chainMessages)
       .values({ chainId: row.id, author: parsed.data.author, text: parsed.data.text, ts })
       .run();
+    if (parsed.data.explainer !== undefined && parsed.data.questId !== undefined) {
+      const olderLooks = db
+        .select({ id: chains.id })
+        .from(chains)
+        .where(
+          and(
+            eq(chains.questId, parsed.data.questId),
+            eq(chains.status, 'open'),
+            sql`${chains.id} <> ${row.id}`,
+            sql`EXISTS (SELECT 1 FROM json_each(${chains.tags}) WHERE value = 'look')`,
+          ),
+        )
+        .all();
+      if (olderLooks.length > 0) {
+        const ids = olderLooks.map(({ id }) => id);
+        db.insert(chainMessages)
+          .values(
+            ids.map((chainId) => ({
+              chainId,
+              author: 'planner' as const,
+              text: 'Superseded by a newer look.',
+              ts,
+            })),
+          )
+          .run();
+        db.update(chains)
+          .set({ status: 'settled', lastActivityAt: ts })
+          .where(inArray(chains.id, ids))
+          .run();
+      }
+    }
     await storeEvent({
       source: parsed.data.author,
       kind: parsed.data.author === 'human' ? 'human.question' : 'planner.chain_updated',
@@ -388,6 +422,7 @@ export function createChainRoutes({ database, now, storeEvent, config }: Depende
     if (parsed.data.reason === 'done') {
       const quest = db.select().from(quests).where(eq(quests.id, current.questId!)).get()!;
       db.update(quests).set({ status: 'done' }).where(eq(quests.id, quest.id)).run();
+      settleLookChains(database, quest.id, now().toISOString());
       await storeEvent({
         source: 'planner',
         kind: 'planner.quest_updated',

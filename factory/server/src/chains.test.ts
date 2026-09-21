@@ -83,7 +83,22 @@ describe('chain routes', () => {
         createdAt: clock.toISOString(),
         updatedAt: clock.toISOString(),
       })
+      .onConflictDoNothing()
       .run();
+  };
+
+  const createLook = async (questId: string, text = 'Have a look') => {
+    createArtifact(`explainer-${questId}`);
+    return Chain.parse(
+      await (
+        await post('/api/chains', {
+          text,
+          author: 'planner',
+          questId,
+          explainer: `explainer-${questId}`,
+        })
+      ).json(),
+    );
   };
 
   const events = async () => Event.array().parse(await (await app.request('/api/events')).json());
@@ -357,6 +372,166 @@ describe('chain routes', () => {
         status: 'settled',
       },
     );
+  });
+
+  it('leaves a look chain open past the quiet window', async () => {
+    createQuest('look-quiet');
+    const chain = await createLook('look-quiet');
+    clock = new Date(clock.getTime() + 25 * 60 * 60 * 1000);
+    await app.request('/api/chains');
+    expect(database.db.select().from(chains).where(eq(chains.id, chain.id)).get()?.status).toBe(
+      'open',
+    );
+  });
+
+  it('leaves a look chain open past the quiet window after Dru replies', async () => {
+    createQuest('replied-look');
+    const chain = await createLook('replied-look');
+    await post(`/api/chains/${chain.id}/messages`, { author: 'human', text: 'I tried it' });
+    clock = new Date(clock.getTime() + 25 * 60 * 60 * 1000);
+    await app.request('/api/chains');
+    expect(database.db.select().from(chains).where(eq(chains.id, chain.id)).get()?.status).toBe(
+      'open',
+    );
+  });
+
+  it('leaves a planner chain on a quest open past the quiet window', async () => {
+    createQuest('planner-quest');
+    const chain = Chain.parse(
+      await (
+        await post('/api/chains', {
+          text: 'Quest update',
+          author: 'planner',
+          questId: 'planner-quest',
+        })
+      ).json(),
+    );
+    clock = new Date(clock.getTime() + 25 * 60 * 60 * 1000);
+    await app.request('/api/chains');
+    expect(database.db.select().from(chains).where(eq(chains.id, chain.id)).get()?.status).toBe(
+      'open',
+    );
+  });
+
+  it('settles a planner chain with no quest after 24 hours', async () => {
+    const chain = Chain.parse(
+      await (await post('/api/chains', { text: 'Update', author: 'planner' })).json(),
+    );
+    clock = new Date(clock.getTime() + 25 * 60 * 60 * 1000);
+    await app.request('/api/chains');
+    expect(database.db.select().from(chains).where(eq(chains.id, chain.id)).get()?.status).toBe(
+      'settled',
+    );
+  });
+
+  it('settles a question Dru asked on a quest after 24 hours', async () => {
+    createQuest('human-quest');
+    const chain = Chain.parse(
+      await (await post('/api/chains', { text: 'Why?', questId: 'human-quest' })).json(),
+    );
+    clock = new Date(clock.getTime() + 25 * 60 * 60 * 1000);
+    await app.request('/api/chains');
+    expect(database.db.select().from(chains).where(eq(chains.id, chain.id)).get()?.status).toBe(
+      'settled',
+    );
+  });
+
+  it("settles the quest's open looks when the quest is marked done", async () => {
+    createQuest('done-quest');
+    const look = await createLook('done-quest');
+    clock = new Date(clock.getTime() + 1000);
+    await app.request('/api/quests/done-quest', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'done', source: 'planner' }),
+    });
+    expect(database.db.select().from(chains).where(eq(chains.id, look.id)).get()).toMatchObject({
+      status: 'settled',
+      lastActivityAt: clock.toISOString(),
+    });
+  });
+
+  it("settles the quest's open looks when a demo chain is closed as done", async () => {
+    createQuest('demo-done');
+    const look = await createLook('demo-done');
+    await post('/api/demos', {
+      id: 'done-demo',
+      ref: 'main',
+      kind: 'live',
+      questId: 'demo-done',
+    });
+    const demo = database.db
+      .insert(chains)
+      .values({
+        kind: 'demo',
+        status: 'open',
+        questId: 'demo-done',
+        demoId: 'done-demo',
+        tags: ['demo'],
+        createdAt: clock.toISOString(),
+        lastActivityAt: clock.toISOString(),
+      })
+      .returning()
+      .get();
+    clock = new Date(clock.getTime() + 1000);
+    await post(`/api/chains/${demo.id}/close`, { reason: 'done' });
+    expect(database.db.select().from(chains).where(eq(chains.id, look.id)).get()).toMatchObject({
+      status: 'settled',
+      lastActivityAt: clock.toISOString(),
+    });
+  });
+
+  it('leaves looks on other quests open when a quest is marked done', async () => {
+    createQuest('done-one');
+    createQuest('still-building');
+    await createLook('done-one');
+    const other = await createLook('still-building');
+    await app.request('/api/quests/done-one', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'done' }),
+    });
+    expect(database.db.select().from(chains).where(eq(chains.id, other.id)).get()?.status).toBe(
+      'open',
+    );
+  });
+
+  it('supersedes an earlier look on the same quest', async () => {
+    createQuest('new-look');
+    const older = await createLook('new-look', 'Old look');
+    clock = new Date(clock.getTime() + 1000);
+    const newer = await createLook('new-look', 'New look');
+    const settled = Chain.array().parse(
+      await (await app.request('/api/chains?status=settled')).json(),
+    );
+    expect(settled.find(({ id }) => id === older.id)).toMatchObject({
+      status: 'settled',
+      lastActivityAt: clock.toISOString(),
+      messages: [
+        { author: 'planner', text: 'Old look' },
+        { author: 'planner', text: 'Superseded by a newer look.' },
+      ],
+    });
+    expect(newer.status).toBe('open');
+  });
+
+  it('leaves a look on another quest open when a new look is requested', async () => {
+    createQuest('look-one');
+    createQuest('look-two');
+    const first = await createLook('look-one');
+    await createLook('look-two');
+    expect(database.db.select().from(chains).where(eq(chains.id, first.id)).get()?.status).toBe(
+      'open',
+    );
+  });
+
+  it('settles a look chain when Dru settles it', async () => {
+    createQuest('settled-look');
+    const look = await createLook('settled-look');
+    expect(
+      Chain.parse(await (await post(`/api/chains/${look.id}/close`, { reason: 'settled' })).json())
+        .status,
+    ).toBe('settled');
   });
 
   it('limits the open-chain list', async () => {

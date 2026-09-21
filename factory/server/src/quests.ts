@@ -4,6 +4,7 @@ import { Quest, QuestLink, World, type NewEvent } from '@wyld/shared';
 import { z } from 'zod';
 
 import type { AppDatabase } from './database.js';
+import { settleLookChains } from './chain-cards.js';
 import { deriveProgress } from './progress.js';
 import { questLinks, questNotes, quests, worlds } from './schema.js';
 import { formatIssues } from '@wyld/shared';
@@ -58,7 +59,8 @@ type Dependencies = {
   storeEvent: (event: NewEvent) => Promise<unknown>;
 };
 
-export function createQuestRoutes({ database: { db }, now, storeEvent }: Dependencies) {
+export function createQuestRoutes({ database, now, storeEvent }: Dependencies) {
+  const { db } = database;
   const app = new Hono();
   const notFound = (c: Context) => c.json({ error: 'Not Found' }, 404);
   const readQuest = (id: string) => {
@@ -190,6 +192,8 @@ export function createQuestRoutes({ database: { db }, now, storeEvent }: Depende
     if (!parsed.success) return c.json(formatIssues(parsed.error), 400);
     const { source, ...changes } = parsed.data;
     db.update(quests).set(changes).where(eq(quests.id, current.id)).run();
+    if (changes.status === 'done' && current.status !== 'done')
+      settleLookChains(database, current.id, now().toISOString());
     const updated = readQuest(current.id)!;
     const parks =
       source === 'human' &&
