@@ -302,10 +302,12 @@ const createHud = (
         : (state.regionName ?? '');
       region.hidden = !state.regionName && !state.biome;
       updateDetectionTarget({ bar: targetBar, fill: eyeFill, outline: eyeOutline }, state.target);
-      const partyKeys = (state.party ?? []).map(({ individual }) => individual.id);
       for (const key of partyControls.keys())
-        if (!partyKeys.includes(key)) partyControls.delete(key);
+        if (!state.party?.some(({ individual }) => individual.id === key))
+          partyControls.delete(key);
+      let nextPartyOrder = '';
       for (const { individual, name } of state.party ?? []) {
+        nextPartyOrder += individual.id + '\0';
         const combatant = state.combat?.party.find((c) => c.id === individual.id);
         const standingReserve = Boolean(combatant?.benched && !combatant.downed);
         let entry = partyControls.get(individual.id);
@@ -337,8 +339,6 @@ const createHud = (
         );
         write(button.style, 'opacity', combatant?.benched && combatant.downed ? '0.45' : '');
         attribute(button, 'data-reserve', standingReserve ? '' : undefined);
-        attribute(button, 'data-swap-state');
-        write(button.style, 'background', '#f4efd9ee');
         write(entry.healthRow.style, 'flexDirection', standingReserve ? 'column' : 'row');
         write(entry.healthRow.style, 'alignItems', standingReserve ? 'stretch' : 'center');
         write(entry.healthRow.style, 'gap', standingReserve ? '1px' : '4px');
@@ -347,16 +347,17 @@ const createHud = (
         write(entry.healthText.style, 'font', standingReserve ? nameFont : font);
         write(entry.healthText.style, 'textAlign', standingReserve ? 'center' : '');
         let detail: string | undefined;
+        let swapState: 'urgent' | 'ready' | 'cooldown' | undefined;
+        let background = '#f4efd9ee';
         if (standingReserve) {
           const urgent =
             state.combat!.autoDeployIn !== null ||
             state.combat!.party.some((c) => !c.benched && c.downed);
-          const swapState = urgent
+          swapState = urgent
             ? 'urgent'
             : state.combat!.swapCooldown.remaining === 0
               ? 'ready'
               : 'cooldown';
-          attribute(button, 'data-swap-state', swapState);
           detail =
             state.combat!.autoDeployIn !== null
               ? `Coming in… ${Math.ceil(state.combat!.autoDeployIn)}`
@@ -364,13 +365,11 @@ const createHud = (
                 ? `◷${Math.ceil(state.combat!.swapCooldown.remaining)}`
                 : 'reserve · tap to swap';
           if (swapState === 'cooldown') {
-            write(
-              button.style,
-              'background',
-              `linear-gradient(to top,#aaa ${(state.combat!.swapCooldown.remaining / state.combat!.swapCooldown.total) * 100}%,#f4efd9ee 0)`,
-            );
+            background = `linear-gradient(to top,#aaa ${(state.combat!.swapCooldown.remaining / state.combat!.swapCooldown.total) * 100}%,#f4efd9ee 0)`;
           }
         }
+        attribute(button, 'data-swap-state', standingReserve ? swapState : undefined);
+        write(button.style, 'background', background);
         if (combatant) {
           write(entry.hp.style, 'width', `${(combatant.hp / combatant.maxHp) * 100}%`);
           write(entry.hp.style, 'backgroundColor', healthColour(combatant.hp, combatant.maxHp));
@@ -397,26 +396,38 @@ const createHud = (
             write(fill.style, 'backgroundColor', ready === 1 ? '' : '#f4efd9');
             attribute(fill.parentElement!, 'data-ready', ready === 1 ? '' : undefined);
           }
-          const tracks = repertoire.map(({ id }) => entry!.stripFills.get(id)!.parentElement!);
-          if (
-            tracks.some((track, index) => entry!.strips.childNodes[index] !== track) ||
-            entry.strips.childNodes.length !== tracks.length
-          )
+          let tracksMatch = entry.strips.childNodes.length === repertoire.length;
+          for (let index = 0; tracksMatch && index < repertoire.length; index++) {
+            const move = repertoire[index]!;
+            tracksMatch =
+              entry.strips.childNodes[index] === entry.stripFills.get(move.id)!.parentElement;
+          }
+          if (!tracksMatch) {
+            const tracks = repertoire.map(({ id }) => entry!.stripFills.get(id)!.parentElement!);
             entry.strips.replaceChildren(...tracks);
+          }
         }
         const notice = applyNotice(entry, individual.id, state.notice);
         text(entry.label, label);
         if (notice) detail = state.notice!.text;
         if (detail !== undefined) text(entry.detail, detail);
-        const children: Node[] = [entry.label];
-        if (detail !== undefined && !notice) children.push(entry.detail);
-        if (combatant) children.push(entry.healthRow, entry.strips);
-        if (notice) children.push(entry.detail);
-        if (
-          children.some((child, index) => button.childNodes[index] !== child) ||
-          button.childNodes.length !== children.length
-        )
+        let childIndex = 0;
+        let childrenMatch = button.childNodes[childIndex++] === entry.label;
+        if (detail !== undefined && !notice)
+          childrenMatch &&= button.childNodes[childIndex++] === entry.detail;
+        if (combatant) {
+          childrenMatch &&= button.childNodes[childIndex++] === entry.healthRow;
+          childrenMatch &&= button.childNodes[childIndex++] === entry.strips;
+        }
+        if (notice) childrenMatch &&= button.childNodes[childIndex++] === entry.detail;
+        childrenMatch &&= button.childNodes.length === childIndex;
+        if (!childrenMatch) {
+          const children: Node[] = [entry.label];
+          if (detail !== undefined && !notice) children.push(entry.detail);
+          if (combatant) children.push(entry.healthRow, entry.strips);
+          if (notice) children.push(entry.detail);
           button.replaceChildren(...children);
+        }
         write(
           button.style,
           'outline',
@@ -427,23 +438,23 @@ const createHud = (
               : '',
         );
       }
-      const nextPartyOrder = partyKeys.join('\0');
       if (partyOrder !== nextPartyOrder) {
-        partyCards.replaceChildren(
-          yoursLabel,
-          ...partyKeys.map((key) => partyControls.get(key)!.button),
+        const partyButtons = (state.party ?? []).map(
+          ({ individual }) => partyControls.get(individual.id)!.button,
         );
+        partyCards.replaceChildren(yoursLabel, ...partyButtons);
         partyOrder = nextPartyOrder;
       }
       const selected = state.party?.find(({ individual }) => individual.id === state.selection);
-      const moveKeys = (selected?.individual.repertoire ?? []).map(({ id }) => id);
       for (const key of moveControls.keys())
-        if (!moveKeys.includes(key)) {
+        if (!selected?.individual.repertoire.some(({ id }) => id === key)) {
           const entry = moveControls.get(key)!;
           if (entry.readyTimer) clearTimeout(entry.readyTimer);
           moveControls.delete(key);
         }
+      let nextMoveOrder = '';
       for (const move of selected?.individual.repertoire ?? []) {
+        nextMoveOrder += move.id + '\0';
         const combatant = state.combat?.party.find((c) => c.id === selected?.individual.id);
         const cooldown = combatant?.cooldowns[move.id];
         const cost = deliveries[move.delivery].focus;
@@ -491,18 +502,24 @@ const createHud = (
                 : '2px solid #bd7132'
               : '',
         );
-        const children: Node[] = [entry.moveFill!, entry.moveSeconds!, entry.moveName!];
-        if (notice) children.push(entry.detail);
-        if (
-          children.some((child, index) => button.childNodes[index] !== child) ||
-          button.childNodes.length !== children.length
-        )
+        let childIndex = 0;
+        let childrenMatch = button.childNodes[childIndex++] === entry.moveFill;
+        childrenMatch &&= button.childNodes[childIndex++] === entry.moveSeconds;
+        childrenMatch &&= button.childNodes[childIndex++] === entry.moveName;
+        if (notice) childrenMatch &&= button.childNodes[childIndex++] === entry.detail;
+        childrenMatch &&= button.childNodes.length === childIndex;
+        if (!childrenMatch) {
+          const children: Node[] = [entry.moveFill!, entry.moveSeconds!, entry.moveName!];
+          if (notice) children.push(entry.detail);
           button.replaceChildren(...children);
+        }
         write(button.style, 'background', cooling ? '#bab5a0' : '#f4efd9ee');
       }
-      const nextMoveOrder = moveKeys.join('\0');
       if (moveOrder !== nextMoveOrder) {
-        moves.replaceChildren(movesLabel, ...moveKeys.map((key) => moveControls.get(key)!.button));
+        const moveButtons = (selected?.individual.repertoire ?? []).map(
+          ({ id }) => moveControls.get(id)!.button,
+        );
+        moves.replaceChildren(movesLabel, ...moveButtons);
         moveOrder = nextMoveOrder;
       }
     },
