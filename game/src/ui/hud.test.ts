@@ -111,6 +111,27 @@ const combatState = (party = [creature('a')]): CombatState => {
     flashes: [],
   };
 };
+const arenaState = (swapRemaining: number) => {
+  const party = [creature('out'), creature('reserve-a'), creature('reserve-b')];
+  for (const member of party) {
+    member.individual.repertoire.push(
+      { ...member.individual.repertoire[0]!, id: `${member.individual.id}:second`, name: 'Second' },
+      { ...member.individual.repertoire[0]!, id: `${member.individual.id}:third`, name: 'Third' },
+    );
+  }
+  const combat = combatState(party);
+  combat.party[0]!.downed = true;
+  combat.party[1]!.benched = true;
+  combat.party[2]!.benched = true;
+  combat.reserveIds = [party[1]!.individual.id, party[2]!.individual.id];
+  combat.swapCooldown = { remaining: swapRemaining, total: 6 };
+  for (const [index, member] of combat.party.entries()) {
+    const repertoire = party[index]!.individual.repertoire;
+    member.cooldowns[repertoire[1]!.id] = { remaining: 0, total: 4 };
+    member.cooldowns[repertoire[2]!.id] = { remaining: 3, total: 6 };
+  }
+  return { ...state(party, 'out'), combat };
+};
 afterEach(() => {
   document.body.replaceChildren();
   document.head.replaceChildren();
@@ -144,6 +165,106 @@ describe('thumb HUD', () => {
     hud.update(current);
     expect(observer.takeRecords()).toHaveLength(0);
     observer.disconnect();
+  });
+
+  it('a repeated combat frame makes no DOM mutations in the arena shape', () => {
+    const hud = createHud(false, document.body);
+    const current = arenaState(0);
+    hud.update(current);
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(hud.tray, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    hud.update(current);
+    expect(observer.takeRecords()).toHaveLength(0);
+    observer.disconnect();
+  });
+
+  it('a repeated combat frame makes no DOM mutations while the swap cooldown runs', () => {
+    const hud = createHud(false, document.body);
+    const current = arenaState(3);
+    hud.update(current);
+    const observer = new MutationObserver(() => undefined);
+    observer.observe(hud.tray, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+    hud.update(current);
+    expect(observer.takeRecords()).toHaveLength(0);
+    observer.disconnect();
+  });
+
+  it('builds no throwaway arrays on a steady-state update', () => {
+    const hud = createHud(false, document.body);
+    const current = arenaState(3);
+    hud.update(current);
+    hud.update(current);
+    const originalMap = Array.prototype.map;
+    const originalFilter = Array.prototype.filter;
+    const originalFlatMap = Array.prototype.flatMap;
+    const originalSlice = Array.prototype.slice;
+    const originalConcat = Array.prototype.concat;
+    const arrayPrototype = Array.prototype as unknown as Record<string, unknown>;
+    let count = 0;
+    const countHudCaller = (stack = ''): void => {
+      const firstBreak = String.prototype.indexOf.call(stack, '\n');
+      const secondBreak = String.prototype.indexOf.call(stack, '\n', firstBreak + 1);
+      const thirdBreak = String.prototype.indexOf.call(stack, '\n', secondBreak + 1);
+      const caller = String.prototype.slice.call(stack, secondBreak + 1, thirdBreak);
+      if (/ui\/hud\.ts/.test(caller)) count += 1;
+    };
+    arrayPrototype.map = function (
+      this: unknown[],
+      callback: (value: unknown, index: number, array: unknown[]) => unknown,
+      thisArg?: unknown,
+    ) {
+      countHudCaller(new Error().stack);
+      return originalMap.call(this, callback, thisArg);
+    };
+    arrayPrototype.filter = function (
+      this: unknown[],
+      callback: (value: unknown, index: number, array: unknown[]) => unknown,
+      thisArg?: unknown,
+    ) {
+      countHudCaller(new Error().stack);
+      return originalFilter.call(this, callback, thisArg);
+    };
+    arrayPrototype.flatMap = function (
+      this: unknown[],
+      callback: (value: unknown, index: number, array: unknown[]) => unknown,
+      thisArg?: unknown,
+    ) {
+      countHudCaller(new Error().stack);
+      return originalFlatMap.call(this, callback, thisArg);
+    };
+    arrayPrototype.slice = function (this: unknown[], start?: number, end?: number) {
+      countHudCaller(new Error().stack);
+      return originalSlice.call(this, start, end);
+    };
+    arrayPrototype.concat = function (
+      this: unknown[],
+      ...items: (unknown | ConcatArray<unknown>)[]
+    ) {
+      countHudCaller(new Error().stack);
+      return originalConcat.call(this, ...items);
+    };
+    try {
+      hud.update(current);
+      expect(count).toBe(0);
+      hud.update({ ...current, party: current.party.slice(0, 2) });
+      expect(count).toBeGreaterThan(0);
+    } finally {
+      arrayPrototype.map = originalMap;
+      arrayPrototype.filter = originalFilter;
+      arrayPrototype.flatMap = originalFlatMap;
+      arrayPrototype.slice = originalSlice;
+      arrayPrototype.concat = originalConcat;
+    }
   });
 
   it('a running cooldown updates the move button in place', () => {
