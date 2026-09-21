@@ -1,6 +1,7 @@
 import type { TimeState } from '../world/time.js';
 import type { Individual } from '../creatures/individual.js';
 import type { CombatState } from '../combat/encounter.js';
+import { reserveEntryLine } from '../combat/reserve.js';
 import { deliveries } from '../combat/resolve.js';
 import { healthColour } from '../render2d/combat-bar.js';
 
@@ -367,6 +368,14 @@ const createHud = (
           if (swapState === 'cooldown') {
             background = `linear-gradient(to top,#aaa ${(state.combat!.swapCooldown.remaining / state.combat!.swapCooldown.total) * 100}%,#f4efd9ee 0)`;
           }
+        }
+        if (combatant?.downed && !combatant.benched && state.combat!.autoDeployIn !== null) {
+          detail = reserveEntryLine({
+            party: state.combat!.party,
+            reserveIds: state.combat!.reserveIds,
+            nameOf: (id) =>
+              state.party?.find(({ individual: member }) => member.id === id)?.name ?? null,
+          });
         }
         attribute(button, 'data-swap-state', standingReserve ? swapState : undefined);
         write(button.style, 'background', background);
