@@ -19,6 +19,9 @@ const reserveEntryNotice = (input: {
   return `${fallenName} is down — ${reserveName} is coming in.`;
 };
 
+const reserveEntryLine = (input: Parameters<typeof reserveEntryNotice>[0]): string =>
+  reserveEntryNotice(input) ?? 'Down';
+
 const centre = (point: Point): Point => ({
   x: Math.floor(point.x) + 0.5,
   y: Math.floor(point.y) + 0.5,
@@ -87,6 +90,7 @@ export {
   ENTRY_GRACE_SECONDS,
   RESERVE_AUTO_DEPLOY_SECONDS,
   entryTile,
+  reserveEntryLine,
   reserveEntryNotice,
   swapTapOutcome,
 };
