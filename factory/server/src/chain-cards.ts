@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Achievement, CatchupDigest } from '@wyld/shared';
 
 import type { AppDatabase } from './database.js';
@@ -39,6 +39,20 @@ export function replaceActionChain(
     .values({ chainId: chain.id, author: 'planner', text: action.text, ts: now })
     .run();
   return chain;
+}
+
+export function settleLookChains(database: AppDatabase, questId: string, now: string) {
+  database.db
+    .update(chains)
+    .set({ status: 'settled', lastActivityAt: now })
+    .where(
+      and(
+        eq(chains.questId, questId),
+        eq(chains.status, 'open'),
+        sql`EXISTS (SELECT 1 FROM json_each(${chains.tags}) WHERE value = 'look')`,
+      ),
+    )
+    .run();
 }
 
 export function readOpenBriefing(database: AppDatabase): typeof chains.$inferSelect | undefined {
